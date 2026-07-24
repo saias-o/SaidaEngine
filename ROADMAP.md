@@ -19,14 +19,15 @@ final validation has passed: clean native build, 70/70 CTest, three Web builds
 (player, runtime, authoring WASM), Witness E2E, `witness_editor_play`,
 `witness_editor_build`, Web staging and a real MCP TCP smoke test (45 tools).
 
-There remains **a single intervention before publication**: §1.
+The public beta cycle is open. There remains **a single intervention before a
+qualified stable publication**: §1.
 
 Reminder of the release criteria: the same WitnessGame must run in the editor,
 standalone desktop and Web; old projects must migrate or be rejected without
 corruption; memory must stay bounded; the published limitations must match the
 observed behavior; the artifacts must come from a clean commit.
 
-## 1. Before publication — installer signing
+## 1. Before stable publication — installer signing
 
 - [ ] Produce the Windows installer **Authenticode-signed** with the publishing
   key, then inventory the SHA-256 of the signed bytes.

@@ -131,8 +131,8 @@ autoloads, the audio aliases and the project files. The AssetRegistry associates
 a stable AssetID with a relative path. Local caches are not a source of truth.
 The engine's public identity is defined once in `core/EngineVersion.hpp`
 (`1.0.0`). Every V1 project records this version. Documents without the current
-envelope or produced by a pre-release are rejected: no migration or
-backward-compatibility branch exists before publication.
+envelope or produced by an incompatible pre-release are rejected: no migration
+or backward-compatibility branch is promised before stable publication.
 
 Autoloads can be scenes, native behaviours or `.js`/`.mjs` scripts. The `World`
 persists across scene changes. Nodes support hierarchy, groups, signals,
@@ -967,11 +967,12 @@ immutable and loaded by `saida_v1_format_corpus_tests`. The `fold-determinism`
 fixture proves a byte-identical Windows/Linux fold on its corpus, not the
 exhaustive equivalence of all scenes.
 
-Before the first publication, any format change directly replaces the schema, its
-producers and its corpus: no pre-release migration is kept. Once a public version
-is shipped, any new policy will have to be decided explicitly. Public stability
-also requires a cross-runtime round-trip corpus and a release manifest binding the
-hashes of the Web player, authoring WASM, headless binary and formats.
+Before stable publication, a format change directly replaces the schema, its
+producers and its corpus in the next immutable pre-release: no migration between
+betas is promised. Once a stable version is shipped, any new policy will have to
+be decided explicitly. Public stability also requires a cross-runtime round-trip
+corpus and a release manifest binding the hashes of the Web player, authoring
+WASM, headless binary and formats.
 
 `tools/engine_release_manifest.ps1` produces this release manifest
 (`build/release/engine/release-manifest.json`, schema 1): the engine commit, the
@@ -1018,7 +1019,8 @@ bump, never to mask a divergence.
 
 ## 14. Consolidated known limits
 
-- V1 not published; no local badge equals public stability.
+- V1 is available only as a public beta; no beta, local badge or CI result
+  equals stable public qualification.
 - Web player: WebGPU mandatory, HTTP mandatory, UI limited to the
   `UICanvasNode`/`UITextNode` HUD, WebCanvas absent, gamepads without the
   `standard` browser mapping ignored, advanced touch UI not proven, MSAA absent.
