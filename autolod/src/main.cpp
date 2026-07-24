@@ -1,16 +1,16 @@
-// AutoLOD - generateur de LOD hors-ligne pour meshs statiques glTF/GLB
+// AutoLOD - offline LOD generator for static glTF/GLB meshes
 //
-// Entree  : un .gltf ou .glb (rocher, batiment, prop...)
-// Sortie  : le meme asset enrichi de LOD1..N (extension MSFT_lod + nodes nommes)
+// Input  : a .gltf or .glb (rock, building, prop...)
+// Output : the same asset enriched with LOD1..N (MSFT_lod extension + named nodes)
 //
 // Pipeline : tinygltf (IO) -> weld -> meshoptimizer (simplify + sloppy fallback)
-//            -> reinjection des index buffers -> ecriture.
+//            -> reinjection of index buffers -> write.
 //
-// Licence du code : MIT. Depend de meshoptimizer (MIT) et tinygltf (MIT).
+// Code license : MIT. Depends on meshoptimizer (MIT) and tinygltf (MIT).
 
 #define TINYGLTF_IMPLEMENTATION
-// On ne decode pas les pixels : les textures sont preservees telles quelles
-// (bufferView ou URI) en pass-through. Evite stb et allege la compilation.
+// Do not decode pixels: textures are preserved as-is
+// (bufferView or URI) in pass-through. Avoids stb and lightens compilation.
 #define TINYGLTF_NO_STB_IMAGE
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #define TINYGLTF_NO_EXTERNAL_IMAGE
@@ -47,41 +47,41 @@ namespace fs = std::filesystem;
 // Configuration
 // ---------------------------------------------------------------------------
 struct LodLevel {
-    float ratio;       // fraction d'index a conserver (1.0 = LOD0)
-    float error;       // erreur relative max toleree (0.01 = 1% de la taille du mesh)
-    bool  allowSloppy; // autorise la decimation "sloppy" si le QEM n'atteint pas la cible
-    float coverage;    // seuil de couverture ecran (MSFT_screencoverage)
-    float uvWeight;    // poids QEM des UV pour CE niveau : plus eleve = moins de distorsion texture
-                       // Pour les LOD tres aggressifs, augmenter fortement (8-16) oblige l'algo
-                       // a rejeter les effondrements d'aretes qui etireraient les UV.
+    float ratio;       // index fraction to keep (1.0 = LOD0)
+    float error;       // max allowed relative error (0.01 = 1% of mesh size)
+    bool  allowSloppy; // allows "sloppy" decimation if QEM doesn't hit target
+    float coverage;    // screen coverage threshold (MSFT_screencoverage)
+    float uvWeight;    // UV QEM weight for THIS level: higher = less texture distortion
+                       // For very aggressive LODs, increasing heavily (8-16) forces the algo
+                       // to reject edge collapses that would stretch UVs.
 };
 
 struct Config {
     std::vector<LodLevel> levels = {
         // ratio  error  sloppy  coverage  uvWeight
-        { 0.60f, 0.010f, false, 0.50f,  1.0f }, // LOD1 : leger, UV quasi-intact
-        { 0.30f, 0.020f, false, 0.25f,  3.0f }, // LOD2 : modere
-        { 0.10f, 0.050f, false, 0.08f, 10.0f }, // LOD3 : agressif -> UV ultra-preserves
+        { 0.60f, 0.010f, false, 0.50f,  1.0f }, // LOD1: light, UV almost intact
+        { 0.30f, 0.020f, false, 0.25f,  3.0f }, // LOD2: moderate
+        { 0.10f, 0.050f, false, 0.08f, 10.0f }, // LOD3: aggressive -> UV ultra-preserved
     };
-    float normalWeight = 0.5f; // poids QEM des normales (global)
-    bool  lockBorder   = false; // verrouille les bords ouverts (assets modulaires emboitables)
-    // Decimation "sloppy" : ignore TOTALEMENT les UV (casse les textures). Off par
-    // defaut ; utile seulement pour des LOD tres lointains sans dependance texture.
+    float normalWeight = 0.5f; // normal QEM weight (global)
+    bool  lockBorder   = false; // locks open borders (modular tileable assets)
+    // "Sloppy" decimation: TOTALLY ignores UVs (breaks textures). Off by
+    // default; useful only for distant LODs without texture dependency.
     bool  allowSloppy  = false;
 
-    // --- Baking de normal map (re-projection du detail haute-poly) ---
-    bool  bake      = false;   // active le bake (--bake)
-    int   bakeRes   = 1024;    // resolution de la normal map (--bake-res)
-    float bakeCage  = 0.03f;   // distance de recherche en fraction de la diag bbox
-    float bakeMinRatio = 0.40f;// ne bake que les LOD dont ratio <= ce seuil (LOD2, LOD3...)
+    // --- Normal map baking (re-projection of high-poly detail) ---
+    bool  bake      = false;   // enables bake (--bake)
+    int   bakeRes   = 1024;    // normal map resolution (--bake-res)
+    float bakeCage  = 0.03f;   // search distance as a fraction of bbox diag
+    float bakeMinRatio = 0.40f;// only bakes LODs whose ratio <= this threshold (LOD2, LOD3...)
 
-    // --- Proxy LOD atlase (re-depliage xatlas + bake de TOUTES les textures) ---
-    bool  proxy        = false; // active le mode proxy (--proxy), implique le bake
-    float proxyBelow   = 0.15f; // les LOD de ratio < ce seuil deviennent des proxy
+    // --- Atlased proxy LOD (xatlas re-unwrapping + bake of ALL textures) ---
+    bool  proxy        = false; // enables proxy mode (--proxy), implies bake
+    float proxyBelow   = 0.15f; // LODs with ratio < this threshold become proxies
 };
 
 // ---------------------------------------------------------------------------
-// Lecteurs d'accessors (gerent les types/strides courants)
+// Accessor readers (handle common types/strides)
 // ---------------------------------------------------------------------------
 static std::vector<uint32_t> readIndices(const Model& m, const Primitive& prim, size_t vertexCount) {
     std::vector<uint32_t> out;
@@ -224,14 +224,14 @@ static std::vector<unsigned char> textureBytes(const Model& m, int texIdx) {
     return m.images[img].image;
 }
 
-// Re-depliage UV d'un mesh decime via xatlas. Produit un nouveau mesh (les
-// sommets peuvent etre dupliques le long des coutures) avec des UV propres [0,1].
+// UV unwrapping of a decimated mesh via xatlas. Produces a new mesh (vertices
+// can be duplicated along seams) with clean [0,1] UVs.
 struct Unwrapped {
     std::vector<float> pos, nrm, uv;        // 3*, 3*, 2*
     std::vector<unsigned int> idx;
     size_t vcount = 0;
 };
-// Normales lisses (ponderees par aire) recalculees sur un maillage decime.
+// Smooth normals (area-weighted) recomputed on a decimated mesh.
 static std::vector<float> computeSmoothNormals(const std::vector<float>& pos,
                                                const std::vector<unsigned int>& idx) {
     const size_t vc = pos.size() / 3;
@@ -292,7 +292,7 @@ static bool xatlasUnwrap(const std::vector<float>& pos, const std::vector<float>
 }
 
 // ---------------------------------------------------------------------------
-// Generation des meshs LOD pour un mesh source -> indices des nouveaux meshs
+// Generation of LOD meshes for a source mesh -> indices of the new meshes
 // ---------------------------------------------------------------------------
 static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Config& cfg) {
     const size_t numLods = cfg.levels.size();
@@ -390,13 +390,13 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
             target -= target % 3;
             if (target < 3) target = 3;
 
-            // === PROXY LOD : re-depliage atlas + bake de toutes les textures ===
-            // Pour les niveaux tres agressifs (ratio < proxyBelow). Decouple le
-            // nombre de triangles de l'integrite UV : on re-deplie proprement et
-            // on bake albedo + normal + MR + AO + emissive dans un atlas neuf.
+            // === PROXY LOD: atlas re-unwrapping + bake of all textures ===
+            // For very aggressive levels (ratio < proxyBelow). Decouples the
+            // triangle count from UV integrity: cleanly re-unwraps and
+            // bakes albedo + normal + MR + AO + emissive into a new atlas.
             if (cfg.proxy && canBake && lvl.ratio < cfg.proxyBelow) {
-                // 1. Soudure par POSITION SEULE : connecte le maillage a travers les
-                // coutures UV/normales pour permettre une decimation tres profonde.
+                // 1. Weld by POSITION ONLY: connects the mesh across
+                // UV/normal seams to allow very deep decimation.
                 std::vector<unsigned int> premap(vcount);
                 const size_t pcount = meshopt_generateVertexRemap(
                     premap.data(), idx.data(), idx.size(), pos.data(), vcount, 3*sizeof(float));
@@ -422,10 +422,10 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
                 for (size_t k = 0; k < dn; ++k) didx[k] = cr[dlod[k]];
                 std::vector<float> dnrm = computeSmoothNormals(dpos, didx);
 
-                // 3. Re-depliage UV propre
+                // 3. Clean UV re-unwrapping
                 Unwrapped um;
                 if (!xatlasUnwrap(dpos, dnrm, didx, cfg.bakeRes, um)) {
-                    std::cout << "    LOD" << (L+1) << "  [proxy] echec xatlas, niveau ignore\n";
+                    std::cout << "    LOD" << (L+1) << "  [proxy] xatlas failed, level skipped\n";
                     continue;
                 }
 
@@ -444,7 +444,7 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
                 BakeLow  low { um.pos.data(), um.nrm.data(), um.uv.data(), um.vcount, um.idx.data(), um.idx.size() };
                 BakeMapsResult br;
                 if (!bakeMaps(high, low, srcs.data(), (int)srcs.size(), cfg.bakeRes, cfg.bakeCage, br)) {
-                    std::cout << "    LOD" << (L+1) << "  [proxy] echec bake, niveau ignore\n";
+                    std::cout << "    LOD" << (L+1) << "  [proxy] bake failed, level skipped\n";
                     continue;
                 }
 
@@ -502,9 +502,9 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
                 continue;
             }
 
-            // 1. Decimation UV-aware via QEM
-            // Extraction des UV dans un buffer separe (pas interleave) pour que
-            // meshopt_simplifyWithAttributes les lise correctement avec stride=2*4.
+            // 1. UV-aware decimation via QEM
+            // Extract UVs into a separate buffer (not interleaved) so that
+            // meshopt_simplifyWithAttributes reads them correctly with stride=2*4.
             std::vector<float> uvSeparate;
             const float* finalAttrPtr = attrPtr;
             size_t finalAttrStride    = vstride;
@@ -516,21 +516,21 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
                     uvSeparate[vi * 2 + 0] = wvtx[vi * comps + uvOff + 0];
                     uvSeparate[vi * 2 + 1] = wvtx[vi * comps + uvOff + 1];
                 }
-                // Poids : uniquement les 2 composantes UV (plus les normales si presents)
+                // Weights: only the 2 UV components (plus normals if present)
                 finalAttrW.clear();
                 if (hasN) finalAttrW.insert(finalAttrW.end(), 3, cfg.normalWeight);
                 finalAttrW.insert(finalAttrW.end(), 2, lvl.uvWeight);
-                // Buffer : normales (interleaved) || UVs (separe) selon presence
-                // Cas le plus simple et garanti correct : UVs seules dans buffer non-interleave
+                // Buffer: normals (interleaved) || UVs (separate) depending on presence
+                // Simplest and guaranteed correct case: UVs alone in non-interleaved buffer
                 if (!hasN) {
                     finalAttrPtr   = uvSeparate.data();
                     finalAttrStride = 2 * sizeof(float);
                     finalAttrW = { lvl.uvWeight, lvl.uvWeight };
                 }
-                // Si normales presentes : on garde l'interleave pour les normales
-                // mais on passe les UVs separement via une concatenation
-                // -> simplification : on ignore les normales dans les attributs et
-                //    on passe uniquement les UV dans un buffer compact
+                // If normals present: keep interleaved for normals
+                // but pass UVs separately via concatenation
+                // -> simplification: ignore normals in attributes and
+                //    pass only UVs in a compact buffer
                 finalAttrPtr    = uvSeparate.data();
                 finalAttrStride = 2 * sizeof(float);
                 finalAttrW      = { lvl.uvWeight, lvl.uvWeight };
@@ -621,7 +621,7 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
             if (nrmOut >= 0) lp.attributes["NORMAL"]     = nrmOut;
             if (uvOut  >= 0) lp.attributes["TEXCOORD_0"] = uvOut;
 
-            // 6. Bake de normal map (re-projection du detail haute-poly).
+            // 6. Normal map bake (re-projection of high-poly detail).
             std::string bakeInfo;
             if (canBake && lvl.ratio <= cfg.bakeMinRatio) {
                 // Deinterleave low-poly
@@ -637,7 +637,7 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
                 BakeResult br;
                 const unsigned char* srcPtr = srcNormalPng.empty() ? nullptr : srcNormalPng.data();
                 if (bakeNormalMap(high, low, srcPtr, srcNormalPng.size(), cfg.bakeRes, cfg.bakeCage, br)) {
-                    // TANGENT (necessaire pour lire la map dans la bonne base)
+                    // TANGENT (required to sample the map in the correct basis)
                     const size_t tOff = appendData(model, br.tangents.data(),
                                                     br.tangents.size()*sizeof(float), 4);
                     const int tView = makeBufferView(model, tOff, br.tangents.size()*sizeof(float),
@@ -735,13 +735,13 @@ static int processModel(Model& model, const Config& cfg) {
         lodExt["ids"] = tinygltf::Value(ids);
         model.nodes[i].extensions["MSFT_lod"] = tinygltf::Value(lodExt);
 
-        // CRITIQUE : rend les nodes LOD accessibles depuis la scene.
-        // Spec MSFT_lod : les nodes reference dans "ids" doivent etre des freres
-        // du node LOD0 dans la hierarchie. Les importeurs (dont UnityGLTF) ignorent
-        // les nodes orphelins (non atteignables depuis la scene).
+        // CRITICAL: makes LOD nodes accessible from the scene.
+        // MSFT_lod spec: nodes referenced in "ids" must be siblings of the LOD0
+        // node in the hierarchy. Importers (including UnityGLTF) ignore orphan
+        // nodes (unreachable from the scene).
         //
-        // Cas 1 : node i a un parent -> LOD1/2/3 deviennent children du meme parent.
-        // Cas 2 : node i est racine de scene -> LOD1/2/3 vont aussi a la racine.
+        // Case 1: node i has a parent -> LOD1/2/3 become children of the same parent.
+        // Case 2: node i is scene root -> LOD1/2/3 also go to the root.
         bool addedToParent = false;
         for (size_t j = 0; j < nodeCount && !addedToParent; ++j) {
             const auto& ch = model.nodes[j].children;
@@ -847,10 +847,10 @@ static bool generateTestSphere(const std::string& outPath, int rings = 64, int s
 }
 
 // ---------------------------------------------------------------------------
-// Extrait UN seul mesh (via son node) dans un Model minimal et autonome :
-// ne conserve que les accessors / bufferViews / octets / materiaux / textures /
-// images reellement utilises, avec un buffer neuf compacte. Indispensable pour
-// que chaque fichier split ne pese que ce qu'il contient vraiment.
+// Extracts a SINGLE mesh (via its node) into a minimal standalone Model:
+// preserves only accessors / bufferViews / bytes / materials / textures /
+// images actually used, with a compact new buffer. Required so that each split
+// file weighs only what it really contains.
 // ---------------------------------------------------------------------------
 static Model extractSingleMesh(const Model& src, int nodeIdx) {
     Model out;
@@ -986,8 +986,8 @@ static Model extractSingleMesh(const Model& src, int nodeIdx) {
 }
 
 // ---------------------------------------------------------------------------
-// Mode --split : ecrit un GLB minimal et autonome par niveau de LOD.
-// Pratique pour creer un LODGroup manuel dans Unity (moteurs sans MSFT_lod).
+// Mode --split: writes a minimal standalone GLB per LOD level.
+// Useful for creating a manual LODGroup in Unity (engines without MSFT_lod).
 // ---------------------------------------------------------------------------
 static void writeSplitFiles(const Model& model, const std::string& outputBase,
                             tinygltf::TinyGLTF& ctx) {
@@ -1029,32 +1029,32 @@ static void writeSplitFiles(const Model& model, const std::string& outputBase,
 // ---------------------------------------------------------------------------
 static void usage() {
     std::cout <<
-        "AutoLOD - generateur de LOD pour meshs statiques glTF/GLB\n\n"
+        "AutoLOD - LOD generator for static glTF/GLB meshes\n\n"
         "Usage : autolod <input.gltf|.glb> [output.glb] [options]\n"
         "        autolod --gen-test <sphere.glb>\n\n"
         "Options :\n"
-        "  --ratios a,b,c     ratios d'index par LOD     (defaut 0.6,0.3,0.1)\n"
-        "  --errors a,b,c     erreurs relatives par LOD   (defaut 0.01,0.02,0.05)\n"
-        "  --lock-border      verrouille les bords (assets modulaires)\n"
-        "  --sloppy           autorise la decimation sloppy (CASSE les UV/textures,\n"
-        "                     reserve aux LOD tres lointains sans dependance texture)\n"
-        "  --uv-weight f      meme poids UV pour tous les LOD  (ex: 4.0)\n"
-        "  --uv-weights a,b,c poids UV par niveau             (defaut 1.0,3.0,10.0)\n"
-        "                     valeur haute = moins de distorsion de texture\n"
-        "                     augmente si LOD3 deforme la texture\n"
-        "  --normal-weight f  poids QEM des normales          (defaut 0.5)\n"
-        "  --bake             bake une normal map haute->basse poly par LOD\n"
-        "                     (restaure le detail de surface : LA solution qualite)\n"
-        "  --bake-res N       resolution de la normal map      (defaut 1024)\n"
-        "  --bake-cage f      distance de projection, frac. bbox (defaut 0.03)\n"
-        "  --proxy            LOD tres lointains (ratio < 0.15) : re-depliage UV\n"
-        "                     (xatlas) + bake albedo+normal+MR+AO+emissive en atlas.\n"
-        "                     Tres peu de tris mais ressemble aux LOD superieurs.\n"
-        "                     Implique --bake.\n"
-        "  --split            ecrit un GLB minimal autonome par niveau LOD\n"
-        "                     (ex: mesh_LOD0.glb, mesh_LOD1.glb, ...)\n"
-        "                     chaque fichier ne contient QUE les donnees de son LOD\n"
-        "                     -> LODGroup manuel dans Unity / moteurs sans MSFT_lod\n";
+        "  --ratios a,b,c     index ratios per LOD       (default 0.6,0.3,0.1)\n"
+        "  --errors a,b,c     relative errors per LOD    (default 0.01,0.02,0.05)\n"
+        "  --lock-border      locks borders (modular assets)\n"
+        "  --sloppy           allows sloppy decimation (BREAKS UVs/textures,\n"
+        "                     reserved for distant LODs without texture dependency)\n"
+        "  --uv-weight f      same UV weight for all LODs (e.g. 4.0)\n"
+        "  --uv-weights a,b,c UV weights per level        (default 1.0,3.0,10.0)\n"
+        "                     higher value = less texture distortion\n"
+        "                     increase if LOD3 distorts texture\n"
+        "  --normal-weight f  normal QEM weight          (default 0.5)\n"
+        "  --bake             bakes a high->low poly normal map per LOD\n"
+        "                     (restores surface detail: THE quality solution)\n"
+        "  --bake-res N       normal map resolution      (default 1024)\n"
+        "  --bake-cage f      projection distance, bbox frac (default 0.03)\n"
+        "  --proxy            distant LODs (ratio < 0.15): UV re-unwrapping\n"
+        "                     (xatlas) + bake albedo+normal+MR+AO+emissive into atlas.\n"
+        "                     Very low tris count but looks like higher LODs.\n"
+        "                     Implies --bake.\n"
+        "  --split            writes a minimal standalone GLB per LOD level\n"
+        "                     (e.g. mesh_LOD0.glb, mesh_LOD1.glb, ...)\n"
+        "                     each file contains ONLY its LOD data\n"
+        "                     -> manual LODGroup in Unity / engines without MSFT_lod\n";
 }
 
 static std::vector<float> parseFloats(const std::string& s) {
@@ -1180,20 +1180,20 @@ int main(int argc, char** argv) {
         ? ctx.LoadBinaryFromFile(&model, &err, &warn, input)
         : ctx.LoadASCIIFromFile(&model, &err, &warn, input);
     if (!warn.empty()) std::cout << "[warn] " << warn << "\n";
-    if (!ok) { std::cerr << "[err] chargement echoue : " << err << "\n"; return 1; }
+    if (!ok) { std::cerr << "[err] loading failed: " << err << "\n"; return 1; }
 
-    std::cout << "Chargement OK : " << model.meshes.size() << " mesh(s), "
+    std::cout << "Loading OK: " << model.meshes.size() << " mesh(s), "
               << model.nodes.size() << " node(s)\n";
 
     const int processed = processModel(model, cfg);
-    std::cout << "Meshs traites : " << processed << "\n";
+    std::cout << "Processed meshes: " << processed << "\n";
 
     const bool isBinaryOut = output.size() > 4 && output.substr(output.size() - 4) == ".glb";
     if (!ctx.WriteGltfSceneToFile(&model, output, true, true, true, isBinaryOut)) {
-        std::cerr << "[err] ecriture echouee : " << output << "\n";
+        std::cerr << "[err] writing failed: " << output << "\n";
         return 1;
     }
-    std::cout << "Ecrit : " << output << "\n";
+    std::cout << "Written: " << output << "\n";
 
     if (splitMode) writeSplitFiles(model, output, ctx);
 

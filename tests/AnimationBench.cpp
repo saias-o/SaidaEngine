@@ -133,11 +133,11 @@ int main(int argc, char** argv) {
         anim->setRig(&rig);
         anim->addClip("bench", clip.get());
         anim->play("bench", true, 0.0f);
-        anim->onUpdate(dt * float(i % 17));  // désynchronise la population
+        anim->onUpdate(dt * float(i % 17));  // desynchronize population
         animators.push_back(std::move(anim));
     }
 
-    // Chemin runtime : clip cuit + programme compilé + instances sans allocation.
+    // Runtime path: cooked clip + compiled program + allocation-free instances.
     saida::CookReport report;
     auto cooked = std::make_shared<saida::CookedClip>(
         saida::AnimationCooker::cook(*clip, rig, saida::CookSettings{}, &report));
@@ -170,8 +170,8 @@ int main(int argc, char** argv) {
                     ? 100.0 * double(report.cookedBytes) / double(report.sourceBytes)
                     : 0.0);
 
-    // Décomposition par phase du chemin cuit : sampling seul (curseurs) puis
-    // solve seul (blend + matrices globales), sur la même population.
+    // Phase breakdown of the cooked path: sampling only (cursors) then
+    // solve only (blend + global matrices), on the same population.
     if (breakdown) {
         std::vector<saida::CookedCursor> cursors(cooked->trackCount());
         saida::LocalPose pose;
@@ -193,8 +193,8 @@ int main(int argc, char** argv) {
         printStats("  solve only:", solve, chars, bones);
     }
 
-    // Sanity : la pose a réellement bougé sur les deux chemins (garde contre une
-    // boucle optimisée à vide ou une FSM restée sur place).
+    // Sanity: pose actually moved on both paths (guard against loop optimized away
+    // or stationary FSM).
     if (animators[0]->globalPose().globalMatrices.size() != size_t(bones) ||
         instances[0].globalPose().globalMatrices.size() != size_t(bones)) {
         std::fprintf(stderr, "unexpected pose size\n");

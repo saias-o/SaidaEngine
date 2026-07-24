@@ -1,4 +1,4 @@
-// baker.cpp - implementation du bake de normal map composite (voir baker.h)
+// baker.cpp - composite normal map bake implementation (see baker.h)
 
 #include "baker.h"
 
@@ -16,7 +16,7 @@
 namespace {
 
 // --------------------------------------------------------------------------
-// Algebre vectorielle
+// Vector algebra
 // --------------------------------------------------------------------------
 struct V3 {
     float x, y, z;
@@ -36,7 +36,7 @@ inline V3 getV3(const float* p, size_t i) { return { p[i*3+0], p[i*3+1], p[i*3+2
 inline float fract(float x) { return x - std::floor(x); }
 
 // --------------------------------------------------------------------------
-// Image source (normal map) decodee
+// Decoded source image (normal map)
 // --------------------------------------------------------------------------
 struct SrcImage {
     int w = 0, h = 0, ch = 0;
@@ -56,7 +56,7 @@ struct SrcImage {
         if (png && size) data = stbi_load_from_memory(png, (int)size, &w, &h, &ch, 0);
     }
 
-    // Echantillonne en RGB brut [0,1]. UV glTF (origine haut-gauche, REPEAT). Bilineaire.
+    // Samples in raw RGB [0,1]. glTF UVs (top-left origin, REPEAT). Bilinear.
     V3 sampleColor(float u, float v) const {
         u = fract(u); v = fract(v);
         const float fx = u * w - 0.5f, fy = v * h - 0.5f;
@@ -72,7 +72,7 @@ struct SrcImage {
         const V3 a = texel(x0,y0), b = texel(x1,y0), c = texel(x0,y1), d = texel(x1,y1);
         return (a*(1-tx)+b*tx)*(1-ty) + (c*(1-tx)+d*tx)*ty;
     }
-    // Idem mais decode en normale tangent-space [-1,1] (et renormalise).
+    // Same but decodes into tangent-space normal [-1,1] (and renormalizes).
     V3 sampleNormal(float u, float v) const {
         const V3 c = sampleColor(u, v);
         return norm(V3{ c.x*2-1, c.y*2-1, c.z*2-1 });
@@ -80,7 +80,7 @@ struct SrcImage {
 };
 
 // --------------------------------------------------------------------------
-// BVH median-split sur les triangles haute-poly
+// Median-split BVH over high-poly triangles
 // --------------------------------------------------------------------------
 struct Tri { V3 v0, v1, v2; unsigned int i0, i1, i2; };
 
@@ -192,7 +192,7 @@ int closestHit(const BVH& bvh, const V3& o, const V3& d, float tMax,
     return best;
 }
 
-// Tangentes par sommet (Lengyel) a partir de positions+UV+normales.
+// Per-vertex tangents (Lengyel) from positions+UV+normals.
 void computeTangents(const float* pos, const float* nrm, const float* uv,
                      size_t vcount, const unsigned int* idx, size_t icount,
                      std::vector<float>& out4) {
@@ -259,7 +259,7 @@ bool bakeMaps(const BakeHigh& high, const BakeLow& low,
     bvh.buildFrom(high);
     if (bvh.tris.empty()) return false;
 
-    // Decode des sources
+    // Source decoding
     std::vector<SrcImage> imgs(nSources);
     bool anyNormalImg = false;
     for (int s = 0; s < nSources; ++s) {
@@ -268,7 +268,7 @@ bool bakeMaps(const BakeHigh& high, const BakeLow& low,
             anyNormalImg = true;
     }
 
-    // Tangentes : LOW (toujours), HIGH (si une normal map detail est compositee)
+    // Tangents: LOW (always), HIGH (if a detail normal map is composited)
     computeTangents(low.pos, low.nrm, low.uv, low.vcount, low.idx, low.icount, out.tangents);
     std::vector<float> hTan;
     if (anyNormalImg)
@@ -324,7 +324,7 @@ bool bakeMaps(const BakeHigh& high, const BakeLow& low,
             ++out.texelsTotal;
             const size_t texel = (size_t)y*W + x;
 
-            // UV bas-poly interpole (fallback de sampling)
+            // Interpolated low-poly UV (sampling fallback)
             const float lu = low.uv[a*2]*l0 + low.uv[b*2]*l1 + low.uv[c*2]*l2;
             const float lv = low.uv[a*2+1]*l0 + low.uv[b*2+1]*l1 + low.uv[c*2+1]*l2;
 
@@ -375,7 +375,7 @@ bool bakeMaps(const BakeHigh& high, const BakeLow& low,
         }
     }
 
-    // Dilatation commune (meme couverture pour toutes les maps)
+    // Common dilation (same coverage for all maps)
     for (int pass = 0; pass < 8; ++pass) {
         std::vector<uint8_t> m2 = mask;
         for (int y = 0; y < H; ++y)
@@ -404,7 +404,7 @@ bool bakeMaps(const BakeHigh& high, const BakeLow& low,
 }
 
 // --------------------------------------------------------------------------
-// Wrapper : bake d'une seule normal map (chemin LOD standard, UV preservees).
+// Wrapper: single normal map bake (standard LOD path, UVs preserved).
 bool bakeNormalMap(const BakeHigh& high, const BakeLow& low,
                    const unsigned char* srcPng, size_t srcPngSize,
                    int res, float cageScale, BakeResult& out) {

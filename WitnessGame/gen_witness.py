@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Génère les scènes du jeu témoin (greybox, cube builtin uniquement).
+"""Generates the scenes for the witness game (greybox, builtin cube only).
 
-Le jeu témoin est l'instrument de mesure de la V1 :
-il traverse scènes, physique, scripts JS, particules, UI, save/load et
-changement de scène. Relancer ce script réécrit scenes/*.scene de façon
-déterministe (ids stables dérivés des noms).
+The witness game is the measurement instrument of V1:
+it exercises scenes, physics, JS scripts, particles, UI, save/load and
+scene transitions. Rerunning this script rewrites scenes/*.scene deterministically
+(stable IDs derived from names).
 """
 
 import hashlib
@@ -19,7 +19,7 @@ SHAPE_AUTO, SHAPE_BOX, SHAPE_SPHERE, SHAPE_CAPSULE = 0, 1, 2, 3
 
 
 def stable_id(path):
-    """Id de nœud 64 bits stable dérivé du chemin logique du nœud."""
+    """Stable 64-bit node ID derived from the logical node path."""
     digest = hashlib.sha256(path.encode()).digest()
     value = int.from_bytes(digest[:8], "little")
     return value or 1
@@ -73,7 +73,7 @@ def sun(path):
 
 
 def floor_and_walls(prefix, extent=14.0):
-    """Sol + 4 murs en StaticBody (extent = demi-taille du sol)."""
+    """Floor + 4 walls in StaticBody (extent = half floor size)."""
     e, wall_h, t = extent, 3.0, 0.5
     parts = [node(f"{prefix}/floor", "StaticBody", "Floor", pos=(0, -0.5, 0), children=[
         box_shape(f"{prefix}/floor/shape", (e, 0.5, e)),
@@ -95,8 +95,8 @@ def floor_and_walls(prefix, extent=14.0):
 
 
 def player(prefix, pos):
-    # Le corps est un glTF riggé (gen_character.py) rechargé via importedFrom ;
-    # l'import attache l'Animator que Character pilote (Idle/Walk).
+    # Body is a rigged glTF (gen_character.py) reloaded via importedFrom;
+    # the import attaches the Animator driven by Character (Idle/Walk).
     body = node(f"{prefix}/player/body", "Node", "Body", pos=(0, -0.9, 0))
     body["importedFrom"] = "assets/models/totem.gltf"
     return node(f"{prefix}/player", "CharacterBody", "Player", pos=pos,
@@ -109,13 +109,13 @@ def player(prefix, pos):
                              "moveSpeed": 6.0, "jumpForce": 6.0,
                              "faceMovement": True,
                              "graph": "anim/locomotion.sgraph"},
-                            # Store gameplay partagé : traversé par le driver
-                            # E2E via node.setData/getData (P0.4).
+                            # Shared gameplay store: traversed by E2E driver
+                            # via node.setData/getData (P0.4).
                             {"type": "Blackboard", "enabled": True}])
 
 
 def statue(prefix, pos):
-    """Totem de cinématique : cible de anim/intro.sseq (SequenceDirector)."""
+    """Cutscene totem: target of anim/intro.sseq (SequenceDirector)."""
     body = node(f"{prefix}/statue/body", "Node", "Body", pos=(0, -0.9, 0))
     body["importedFrom"] = "assets/models/totem.gltf"
     return node(f"{prefix}/statue", "Node", "SeqStatue", pos=pos,
@@ -151,8 +151,8 @@ def hud(prefix, label):
                          x=24.0, y=24.0, width=600.0, height=48.0,
                          anchorX=0.0, anchorY=0.0, pivotX=0.0, pivotY=0.0,
                          behaviours=[script("scripts/hud.js")]),
-                    # Prompt adaptatif (P0.6) : le label du binding de
-                    # mouvement suit input.lastActiveDevice.
+                    # Adaptive prompt (P0.6): movement binding label
+                    # tracks input.lastActiveDevice.
                     node(f"{prefix}/hud/prompt", "UITextNode", "PromptText",
                          groups=["witness_prompt"],
                          text="Move: ?", fontSize=22.0,
@@ -193,9 +193,9 @@ def crate(prefix, index, pos):
 
 
 def write_probe_obj():
-    """Écrit assets/models/probe.obj : une grille de plan (~34 Ko GPU) chargée
-    par l'AssetLoader (.obj async). Sert de matière au test E2E du budget GPU
-    mi-scène : une fois son nœud queueFree, elle devient évincable en LRU."""
+    """Writes assets/models/probe.obj: a plane grid (~34 KB GPU) loaded
+    by AssetLoader (.obj async). Serves as mesh data for the mid-scene GPU budget
+    E2E test: once its node is queueFree'd, it becomes LRU evictable."""
     n = 16
     lines = ["# grille probe E2E (budget GPU)"]
     for z in range(n + 1):
@@ -219,11 +219,11 @@ def write_probe_obj():
 
 
 def write_corrupt_assets():
-    """Contenu hostile embarqué (P0.5) : un .obj poubelle et un .glb tronqué.
+    """Embedded hostile content (P0.5): a trash .obj and a truncated .glb.
 
-    L'arène les référence volontairement — le moteur doit les refuser avec
-    diagnostic et continuer (fallbacks), sur desktop comme dans le player
-    wasm où une lecture hors limites serait fatale."""
+    The arena references them intentionally — the engine must reject them with a
+    diagnostic and continue (fallbacks), on desktop as in the WASM player
+    where an out-of-bounds read would be fatal."""
     models = os.path.join(HERE, "assets", "models")
     os.makedirs(models, exist_ok=True)
     with open(os.path.join(models, "corrupt.obj"), "wb") as f:
@@ -238,7 +238,7 @@ def write_corrupt_assets():
 
 
 def gpu_probe(prefix, pos=(-6.0, 0.05, 6.0)):
-    """Mesh .obj décoratif, cible du test budget GPU du driver E2E."""
+    """Decorative .obj mesh, target of the E2E driver GPU budget test."""
     return node(f"{prefix}/gpuprobe", "Node", "GpuProbe", pos=pos,
                 groups=["gpu_probe"], children=[
                     node(f"{prefix}/gpuprobe/mesh", "MeshNode", "GpuProbeMesh",
@@ -249,9 +249,9 @@ def gpu_probe(prefix, pos=(-6.0, 0.05, 6.0)):
 
 
 def corrupt_probes(prefix):
-    """Contenu hostile référencé par la scène : le .obj poubelle échoue en
-    async (assets.stats().failed), le .glb tronqué est refusé à l'import —
-    dans les deux cas la scène continue (le driver l'atteste)."""
+    """Hostile content referenced by the scene: trash .obj fails async
+    (assets.stats().failed), truncated .glb is rejected on import — in both cases
+    the scene continues (attested by driver)."""
     glb_node = node(f"{prefix}/corruptglb", "Node", "CorruptGlb", pos=(0, -20, 0))
     glb_node["importedFrom"] = "assets/models/corrupt.glb"
     return [
@@ -262,11 +262,11 @@ def corrupt_probes(prefix):
 
 
 def pendulum(prefix, pos=(6.0, 4.0, 6.0)):
-    """Bob dynamique suspendu à un PointJoint ancré au monde (P0.4).
+    """Dynamic bob suspended from a PointJoint anchored to the world (P0.4).
 
-    Le pivot est 1.5 m au-dessus du bob ; sans la contrainte il tomberait au
-    sol (y ~ 0.3). Le driver E2E atteste que le joint le retient en l'air, sur
-    desktop comme dans le player web."""
+    The pivot is 1.5 m above the bob; without the constraint it would fall to the
+    ground (y ~ 0.3). The E2E driver attests that the joint holds it in mid-air, on
+    desktop as in the web player."""
     name = "PendulumBob"
     return node(f"{prefix}/{name}", "RigidBody", name, pos=pos, mass=1.5,
                 groups=["pendulum"], children=[

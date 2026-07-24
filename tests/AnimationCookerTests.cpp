@@ -1,6 +1,6 @@
-// Tests du pipeline de cuisson animation : fidélité source/cuit sous
-// tolérance, canaux constants, suppression des pistes rest pose, réduction de
-// clés, pagination des longues pistes, curseurs de lecture et cache disque.
+// Tests for animation cooking pipeline: source/cooked fidelity under
+// tolerance, constant channels, rest pose track removal, key
+// reduction, long track pagination, playback cursors, and disk cache.
 
 #include "scene/GLTFLoader.hpp"
 #include "scene/animation/AnimationCache.hpp"
@@ -55,7 +55,7 @@ void testQuatQuantizationRoundtrip() {
         glm::quat restored = saida::CookedClip::dequantizeRotation(packed);
         if (glm::dot(q, restored) < 0.0f) restored = -restored;
 
-        // Pas de quantification : 1.4142/32767 ≈ 4.3e-5 par composante.
+        // No quantization: 1.4142/32767 ≈ 4.3e-5 per component.
         assert(std::abs(q.x - restored.x) < 1e-4f);
         assert(std::abs(q.y - restored.y) < 1e-4f);
         assert(std::abs(q.z - restored.z) < 1e-4f);
@@ -63,8 +63,8 @@ void testQuatQuantizationRoundtrip() {
     }
 }
 
-// La fixture glTF (LINEAR + STEP + CUBICSPLINE) cuite reproduit la source sous
-// tolérance sur un balayage dense — le golden test source/cuit du plan.
+// The cooked glTF fixture (LINEAR + STEP + CUBICSPLINE) reproduces the source
+// within tolerance over a dense sweep — the golden source/cooked plan test.
 void testCookGltfFixture() {
     saida::GltfAnimationData data;
     std::string error;
@@ -108,7 +108,7 @@ void testCookGltfFixture() {
     }
 }
 
-// Canal constant → une clé ; canal égal à la rest pose → piste supprimée.
+// Constant channel → one key; channel equal to rest pose → track removed.
 void testConstantAndRestPoseTracks() {
     saida::Rig rig = makeChainRig(2);
     saida::AnimationClip clip("synthetic", 1.0f);
@@ -138,10 +138,10 @@ void testConstantAndRestPoseTracks() {
     cooked.sample(0.7f, pose);
     assert(near(pose.localTransforms[0].position.x, 2.0f, 1e-3f));
     assert(near(pose.localTransforms[0].position.y, 3.0f, 1e-3f));
-    assert(near(pose.localTransforms[1].position.y, 1.0f));  // rest inchangée
+    assert(near(pose.localTransforms[1].position.y, 1.0f));  // rest unchanged
 }
 
-// Une rampe linéaire dense se réduit à ses extrémités sans perte.
+// A dense linear ramp reduces to its endpoints without loss.
 void testKeyReduction() {
     saida::Rig rig = makeChainRig(1);
     saida::AnimationClip clip("ramp", 1.0f);
@@ -168,7 +168,7 @@ void testKeyReduction() {
     assert(near(pose.localTransforms[0].position.x, 3.5f, 2e-3f));
 }
 
-// Les pistes STEP cuites tiennent leur valeur jusqu'à la clé suivante.
+// Cooked STEP tracks hold their value until the next key.
 void testStepTrackCooked() {
     saida::Rig rig = makeChainRig(1);
     saida::AnimationClip clip("step", 1.0f);
@@ -190,8 +190,8 @@ void testStepTrackCooked() {
     assert(near(pose.localTransforms[0].position.x, 5.0f, 1e-3f));
 }
 
-// Une piste plus longue que maxPageSeconds est paginée et reste continue à la
-// frontière (la clé frontière est dupliquée en tête de page suivante).
+// A track longer than maxPageSeconds is paginated and stays continuous at the
+// boundary (the boundary key is duplicated at the start of the next page).
 void testLongTrackPagination() {
     saida::Rig rig = makeChainRig(1);
     const float duration = 150.0f;
@@ -226,8 +226,8 @@ void testLongTrackPagination() {
     }
 }
 
-// Lecture avant avec curseurs == échantillonnage sans curseurs (mêmes poses),
-// y compris après un retour arrière (seek).
+// Forward playback with cursors == stateless sampling (same poses),
+// including after seek.
 void testCursorsMatchStatelessSampling() {
     saida::GltfAnimationData data;
     std::string error;
@@ -254,7 +254,7 @@ void testCursorsMatchStatelessSampling() {
     }
 }
 
-// Sérialisation binaire : roundtrip exact, corruption refusée proprement.
+// Binary serialization: exact roundtrip, corruption cleanly rejected.
 void testSerializationRoundtrip() {
     saida::GltfAnimationData data;
     std::string error;
@@ -278,8 +278,8 @@ void testSerializationRoundtrip() {
     assert(!saida::CookedClip::deserialize(corrupted.data(), corrupted.size(), rejected));
 }
 
-// Cache disque : cuisson au premier accès, relecture ensuite, invalidation
-// quand les réglages changent.
+// Disk cache: cook on first access, re-read afterwards, invalidation
+// when settings change.
 void testDiskCache() {
     saida::GltfAnimationData data;
     std::string error;

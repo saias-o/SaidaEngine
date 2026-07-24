@@ -11,7 +11,7 @@ endif()
 
 include(FetchContent)
 
-# --- meshoptimizer : decimation industrielle (MIT) ---
+# --- meshoptimizer: industrial decimation (MIT) ---
 FetchContent_Declare(
   meshoptimizer
   GIT_REPOSITORY https://github.com/zeux/meshoptimizer.git
@@ -19,7 +19,7 @@ FetchContent_Declare(
   GIT_SHALLOW    TRUE
 )
 
-# --- tinygltf : lecture/ecriture glTF & GLB (MIT) ---
+# --- tinygltf: glTF & GLB read/write (MIT) ---
 FetchContent_Declare(
   tinygltf
   GIT_REPOSITORY https://github.com/syoyo/tinygltf.git
@@ -27,7 +27,7 @@ FetchContent_Declare(
   GIT_SHALLOW    TRUE
 )
 
-# --- xatlas : re-depliage UV automatique pour les proxy LOD (MIT) ---
+# --- xatlas: automatic UV unwrapping for proxy LODs (MIT) ---
 FetchContent_Declare(
   xatlas
   GIT_REPOSITORY https://github.com/jpcy/xatlas.git
@@ -44,7 +44,7 @@ set(TINYGLTF_INSTALL               OFF CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(meshoptimizer tinygltf xatlas)
 
-# xatlas n'a pas de CMake : on compile son unique source nous-memes
+# xatlas has no CMake: compile its single source file directly
 add_library(xatlas STATIC ${xatlas_SOURCE_DIR}/source/xatlas/xatlas.cpp)
 target_include_directories(xatlas PUBLIC ${xatlas_SOURCE_DIR}/source/xatlas)
 find_package(Threads REQUIRED)
