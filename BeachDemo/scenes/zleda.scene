@@ -1,0 +1,364 @@
+{
+  "schema": 2,
+  "scene": {
+    "behaviours": [],
+    "children": [
+      {
+        "bakeMode": 0,
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "color": [
+          1.0,
+          0.6200000047683716,
+          0.3799999952316284
+        ],
+        "direction": [
+          -0.500877320766449,
+          -0.2404211014509201,
+          0.8314563035964966
+        ],
+        "enabled": true,
+        "id": 6037286090546128446,
+        "intensity": 3.299999952316284,
+        "lightType": 0,
+        "name": "Sun",
+        "range": 10.0,
+        "spotInnerAngle": 25.0,
+        "spotOuterAngle": 35.0,
+        "transform": {
+          "position": [
+            0.0,
+            40.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "LightNode"
+      },
+      {
+        "type": "StaticBody",
+        "id": 7100000000000000001,
+        "name": "Floor",
+        "enabled": true,
+        "behaviours": [],
+        "children": [
+          {
+            "type": "CollisionShape",
+            "id": 7100000000000000002,
+            "name": "Shape",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            "shapeType": 1,
+            "halfExtents": [
+              20.0,
+              0.5,
+              20.0
+            ],
+            "offset": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "type": "MeshNode",
+            "id": 7100000000000000003,
+            "name": "FloorMesh",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                40.0,
+                1.0,
+                40.0
+              ]
+            },
+            "mesh": 1,
+            "baseColor": [
+              0.42,
+              0.45,
+              0.5,
+              1.0
+            ],
+            "emissive": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "roughness": 0.8,
+            "metallic": 0.0
+          }
+        ],
+        "transform": {
+          "position": [
+            0.0,
+            -0.5,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        }
+      },
+      {
+        "type": "CharacterBody",
+        "id": 7100000000000000010,
+        "name": "Player",
+        "enabled": true,
+        "behaviours": [
+          {
+            "type": "Character",
+            "enabled": true,
+            "moveSpeed": 3.2,
+            "jumpForce": 6.0,
+            "faceMovement": true,
+            "idleClip": "Idle-loop",
+            "walkClip": "Walk-loop",
+            "jumpClip": "Idle-loop"
+          }
+        ],
+        "children": [
+          {
+            "type": "CollisionShape",
+            "id": 7100000000000000011,
+            "name": "Shape",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            "shapeType": 3,
+            "radius": 0.45,
+            "height": 2.4,
+            "axis": 1,
+            "offset": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "type": "Node",
+            "id": 7100000000000000012,
+            "name": "Body",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [
+                0.0,
+                -1.2,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ],
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            "importedFrom": "assets/models/Zleda.glb"
+          }
+        ],
+        "transform": {
+          "position": [
+            0.0,
+            1.25,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "groups": [
+          "player"
+        ]
+      },
+      {
+        "type": "Camera",
+        "id": 7100000000000000020,
+        "name": "MainCamera",
+        "enabled": true,
+        "behaviours": [
+          {
+            "type": "CameraFollow",
+            "enabled": true,
+            "targetGroup": "player",
+            "distance": 6.0,
+            "height": 2.4
+          }
+        ],
+        "children": [],
+        "transform": {
+          "position": [
+            0.0,
+            4.0,
+            8.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "groups": [
+          "camera"
+        ],
+        "fovDegrees": 60.0,
+        "nearZ": 0.1,
+        "farZ": 300.0,
+        "priority": 0,
+        "active": true
+      }
+    ],
+    "enabled": true,
+    "id": 6037286090546128445,
+    "name": "Scene",
+    "settings": {
+      "ambient": [
+        0.3199999928474426,
+        0.23999999463558197,
+        0.2800000011920929
+      ],
+      "aoEnabled": true,
+      "aoIntensity": 1.0,
+      "aoPower": 1.350000023841858,
+      "aoRadius": 0.75,
+      "bloomEnabled": true,
+      "bloomIntensity": 0.44999998807907104,
+      "bloomRadius": 3.5,
+      "bloomThreshold": 0.8500000238418579,
+      "changeRenderingAtLoad": true,
+      "clearColor": [
+        0.949999988079071,
+        0.550000011920929,
+        0.4000000059604645
+      ],
+      "fogColor": [
+        0.23071755468845367,
+        0.26217395067214966,
+        0.27868854999542236
+      ],
+      "fogDensity": 0.003000000026077032,
+      "fogEnabled": true,
+      "fogStart": 25.64299964904785,
+      "giEnabled": true,
+      "giIntensity": 1.0,
+      "giMode": 1,
+      "iblDiffuseIntensity": 0.15,
+      "iblEnabled": true,
+      "iblSpecularIntensity": 0.25,
+      "lightingMode": 0,
+      "postProcessing": true,
+      "skyboxExposure": 1.149999976158142,
+      "skyboxRotation": 0.0,
+      "skyboxTexture": 4242424242
+    },
+    "transform": {
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "type": "Scene"
+  },
+  "version": 2
+}
