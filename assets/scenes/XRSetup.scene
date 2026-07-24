@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "scene": {
+    "type": "Scene",
+    "name": "XRSetup",
+    "enabled": true,
+    "transform": {
+      "position": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0]
+    },
+    "behaviours": [],
+    "settings": {
+      "ambient": [0.12, 0.14, 0.18],
+      "clearColor": [0.015, 0.025, 0.05],
+      "postProcessing": true,
+      "lightingMode": 0,
+      "giEnabled": false,
+      "giIntensity": 1.0,
+      "skyboxTexture": 0,
+      "skyboxExposure": 1.0,
+      "skyboxRotation": 0.0,
+      "iblEnabled": false,
+      "aoEnabled": true,
+      "bloomEnabled": true,
+      "changeRenderingAtLoad": true
+    },
+    "children": [
+      {
+        "type": "XROrigin",
+        "name": "XR Origin",
+        "enabled": true,
+        "yawDegrees": 0.0,
+        "transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "behaviours": [],
+        "children": []
+      },
+      {
+        "type": "XRController",
+        "name": "XR Controller Left",
+        "enabled": true,
+        "hand": 0,
+        "transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "behaviours": [
+          {"type": "XRDirectInteractor", "enabled": true, "reach": 0.08},
+          {"type": "XRRayInteractor", "enabled": true, "maxDistance": 20.0, "aimThreshold": 0.55}
+        ],
+        "children": []
+      },
+      {
+        "type": "XRController",
+        "name": "XR Controller Right",
+        "enabled": true,
+        "hand": 1,
+        "transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "behaviours": [
+          {"type": "XRDirectInteractor", "enabled": true, "reach": 0.08},
+          {"type": "XRRayInteractor", "enabled": true, "maxDistance": 20.0, "aimThreshold": 0.55}
+        ],
+        "children": []
+      },
+      {
+        "type": "XRHand",
+        "name": "XR Hand Left",
+        "enabled": true,
+        "hand": 0,
+        "color": [0.2, 0.75, 1.0, 1.0],
+        "jointScale": 1.0,
+        "transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "behaviours": [],
+        "children": []
+      },
+      {
+        "type": "XRHand",
+        "name": "XR Hand Right",
+        "enabled": true,
+        "hand": 1,
+        "color": [1.0, 0.45, 0.25, 1.0],
+        "jointScale": 1.0,
+        "transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "behaviours": [],
+        "children": []
+      },
+      {
+        "type": "LightNode",
+        "name": "XR Key Light",
+        "enabled": true,
+        "lightType": 0,
+        "color": [1.0, 0.96, 0.88],
+        "intensity": 2.0,
+        "direction": [-0.35, -0.85, -0.4],
+        "range": 20.0,
+        "spotInnerAngle": 25.0,
+        "spotOuterAngle": 35.0,
+        "castShadows": true,
+        "bakeMode": 0,
+        "transform": {
+          "position": [0.0, 3.0, 1.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "behaviours": [],
+        "children": []
+      },
+      {
+        "type": "MeshNode",
+        "name": "Room Scale Floor",
+        "enabled": true,
+        "mesh": 1,
+        "texture": 0,
+        "baseColor": [0.08, 0.1, 0.14, 1.0],
+        "castShadows": false,
+        "includeInLightBaking": false,
+        "meshEnabled": true,
+        "transform": {
+          "position": [0.0, -0.05, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [6.0, 0.1, 6.0]
+        },
+        "behaviours": [],
+        "children": []
+      },
+      {
+        "type": "MeshNode",
+        "name": "Forward Marker",
+        "enabled": true,
+        "mesh": 1,
+        "texture": 0,
+        "baseColor": [0.15, 0.8, 0.4, 1.0],
+        "castShadows": true,
+        "includeInLightBaking": false,
+        "meshEnabled": true,
+        "transform": {
+          "position": [0.0, 1.0, -2.5],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.35, 2.0, 0.35]
+        },
+        "behaviours": [],
+        "children": []
+      },
+      {
+        "type": "MeshNode",
+        "name": "Left Marker",
+        "enabled": true,
+        "mesh": 1,
+        "texture": 0,
+        "baseColor": [0.2, 0.5, 1.0, 1.0],
+        "castShadows": true,
+        "includeInLightBaking": false,
+        "meshEnabled": true,
+        "transform": {
+          "position": [-2.0, 0.5, -1.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.3, 1.0, 0.3]
+        },
+        "behaviours": [],
+        "children": []
+      },
+      {
+        "type": "MeshNode",
+        "name": "Right Marker",
+        "enabled": true,
+        "mesh": 1,
+        "texture": 0,
+        "baseColor": [1.0, 0.35, 0.2, 1.0],
+        "castShadows": true,
+        "includeInLightBaking": false,
+        "meshEnabled": true,
+        "transform": {
+          "position": [2.0, 0.5, -1.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [0.3, 1.0, 0.3]
+        },
+        "behaviours": [],
+        "children": []
+      }
+    ]
+  }
+}

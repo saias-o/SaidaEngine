@@ -1,0 +1,24 @@
+{
+    "format": "SaidaFX",
+    "version": 1,
+    "name": "Explosion",
+    "emitters": [
+        {
+            "name": "Explosion",
+            "effectClass": "Explosion",
+            "maxParticles": 900,
+            "blendMode": "Additive",
+            "looping": false,
+            "modules": [
+                {"type": "Burst", "enabled": true, "params": {"count": 320}},
+                {"type": "Shape", "enabled": true, "params": {"type": "Sphere", "radius": 0.18, "boxExtents": [1.0, 1.0, 1.0], "coneAngle": 30.0, "ringThickness": 0.08}},
+                {"type": "InitialVelocity", "enabled": true, "params": {"speed": 6.0}},
+                {"type": "Gravity", "enabled": true, "params": {"acceleration": [0.0, -2.4, 0.0]}},
+                {"type": "ColorOverLife", "enabled": true, "params": {"start": [1.0, 0.62, 0.12, 1.0], "end": [0.09, 0.015, 0.0, 0.0], "emissive": 6.0}},
+                {"type": "SizeOverLife", "enabled": true, "params": {"start": 0.34, "endScale": 0.08, "stretch": 1.6}},
+                {"type": "Drag", "enabled": true, "params": {"linear": 0.55}},
+                {"type": "Noise", "enabled": true, "params": {"strength": 0.18, "frequency": 3.0}}
+            ]
+        }
+    ]
+}

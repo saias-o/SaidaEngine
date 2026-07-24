@@ -1,0 +1,26 @@
+{
+  "schema": 2,
+  "version": 2,
+  "snapshotMode": "authoring-headless",
+  "scene": {
+    "type": "Scene",
+    "id": "1",
+    "name": "Root",
+    "enabled": true,
+    "transform": {"position": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0], "scale": [1.0, 1.0, 1.0]},
+    "behaviours": [],
+    "children": [
+      {
+        "type": "LightNode",
+        "id": "2",
+        "name": "Sun",
+        "enabled": true,
+        "transform": {"position": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0], "scale": [1.0, 1.0, 1.0]},
+        "behaviours": [],
+        "intensity": 1.0,
+        "lightType": 0,
+        "children": []
+      }
+    ]
+  }
+}

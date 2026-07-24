@@ -1,0 +1,63 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#include "web_compat.glsl"
+
+layout(local_size_x = 1) in;
+
+struct Particle {
+    vec4 positionAge;
+    vec4 velocityLifetime;
+    vec4 colorA;
+    vec4 colorB;
+    vec4 sizeRotation;
+    vec4 renderParams;
+};
+
+struct Emitter {
+    vec4 positionRadius;
+    vec4 gravityLifetime;
+    vec4 colorA;
+    vec4 colorB;
+    vec4 params;
+    vec4 shape;
+    vec4 detail;
+    vec4 forces;
+    vec4 attractor;
+};
+
+layout(std430, set = 0, binding = 0) buffer ParticleBuffer { Particle particles[]; };
+layout(std430, set = 0, binding = 1) readonly buffer ReadAliveBuffer { uint readAliveIndices[]; };
+layout(std430, set = 0, binding = 2) buffer WriteAliveBuffer { uint writeAliveIndices[]; };
+layout(std430, set = 0, binding = 3) buffer DeadBuffer { uint deadIndices[]; };
+layout(std430, set = 0, binding = 4) buffer CounterBuffer {
+    uint readAliveCount;
+    uint aliveCount;
+    uint deadCount;
+    uint emitCount;
+} counters;
+layout(std430, set = 0, binding = 5) readonly buffer EmitterBuffer { Emitter emitters[]; };
+layout(std430, set = 0, binding = 6) buffer IndirectBuffer {
+    uint vertexCount;
+    uint instanceCount;
+    uint firstVertex;
+    uint firstInstance;
+} drawCmd;
+
+PUSH_QUALIFIER Push {
+    uint particleCount;
+    uint emitterCount;
+    uint emitCount;
+    float dt;
+    float time;
+} push;
+
+void main() {
+    counters.readAliveCount = min(counters.aliveCount, push.particleCount);
+    counters.aliveCount = 0u;
+    counters.emitCount = min(push.emitCount, push.particleCount);
+    drawCmd.vertexCount = 0u;
+    drawCmd.instanceCount = 1u;
+    drawCmd.firstVertex = 0u;
+    drawCmd.firstInstance = 0u;
+}

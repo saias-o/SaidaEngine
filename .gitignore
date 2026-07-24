@@ -1,0 +1,37 @@
+# Build output (CMake/Ninja: objects, exe, compiled SPIR-V shaders, etc.)
+/build/
+
+# Blender source files: large, only needed for editing the model, not the build.
+*.blend
+*.blend1
+
+# Editor / IDE
+.vscode/
+.idea/
+*.user
+
+# Local runtime files
+*.local.json
+pipeline_cache.bin
+
+# Runtime saves written by the storage API during playtests
+WitnessGame/saves/
+
+# Build logs and scratch files
+build_*.txt
+*.log
+*.ii
+
+# Downloaded SDKs and large archives (never source)
+*.7z
+*.zip
+
+# Editor play-mode backup (regenerated each Play; never source)
+.play_mode_backup.scene
+*.play_mode_backup.scene
+# Packaged game build output (artifacts, never source)
+MyGame/build/
+**/build/export/
+build-web/
+build-web-player/
+build-authoring-wasm/

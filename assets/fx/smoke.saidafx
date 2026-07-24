@@ -1,0 +1,24 @@
+{
+    "format": "SaidaFX",
+    "version": 1,
+    "name": "Smoke",
+    "emitters": [
+        {
+            "name": "Smoke",
+            "effectClass": "Smoke",
+            "maxParticles": 512,
+            "blendMode": "Alpha",
+            "looping": true,
+            "modules": [
+                {"type": "SpawnRate", "enabled": true, "params": {"rate": 54.0}},
+                {"type": "Shape", "enabled": true, "params": {"type": "Sphere", "radius": 0.34, "boxExtents": [1.0, 1.0, 1.0], "coneAngle": 30.0, "ringThickness": 0.08}},
+                {"type": "InitialVelocity", "enabled": true, "params": {"speed": 0.48}},
+                {"type": "Gravity", "enabled": true, "params": {"acceleration": [0.0, 0.28, 0.0]}},
+                {"type": "ColorOverLife", "enabled": true, "params": {"start": [0.42, 0.42, 0.42, 0.36], "end": [0.08, 0.08, 0.08, 0.0], "emissive": 0.7}},
+                {"type": "SizeOverLife", "enabled": true, "params": {"start": 0.46, "endScale": 2.25, "stretch": 1.35}},
+                {"type": "Drag", "enabled": true, "params": {"linear": 0.35}},
+                {"type": "Noise", "enabled": true, "params": {"strength": 0.22, "frequency": 1.4}}
+            ]
+        }
+    ]
+}

@@ -1,0 +1,31 @@
+{
+    "assets": {
+        "13376256074310275454": {
+            "hash": 17061616686465833309,
+            "path": "scenes/hub.scene",
+            "type": "Scene"
+        },
+        "14014783588289301966": {
+            "hash": 8527552399882033193,
+            "path": "assets/models/totem.gltf",
+            "type": "Mesh"
+        },
+        "14814604667748985043": {
+            "hash": 10984449221219681707,
+            "path": "assets/audio/pickup.ogg",
+            "type": "Audio"
+        },
+        "2091199236596790819": {
+            "hash": 12932332273338071862,
+            "path": "scenes/arena.scene",
+            "type": "Scene"
+        },
+        "5242988153271604998": {
+            "hash": 9544813464768885387,
+            "path": "assets/audio/save.ogg",
+            "type": "Audio"
+        }
+    },
+    "schema": 1,
+    "version": 1
+}

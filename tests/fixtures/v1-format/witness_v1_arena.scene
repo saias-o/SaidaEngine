@@ -1,0 +1,1788 @@
+{
+ "schema": 2,
+ "version": 2,
+ "scene": {
+  "type": "Scene",
+  "id": 6113138448033240951,
+  "name": "Arena",
+  "enabled": true,
+  "behaviours": [],
+  "children": [
+   {
+    "type": "LightNode",
+    "id": 15124112464383538143,
+    "name": "Sun",
+    "enabled": true,
+    "behaviours": [],
+    "children": [],
+    "transform": {
+     "position": [
+      0,
+      30,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "lightType": 0,
+    "color": [
+     1.0,
+     0.96,
+     0.9
+    ],
+    "intensity": 3.0,
+    "direction": [
+     -0.45,
+     -0.75,
+     0.35
+    ],
+    "castShadows": true,
+    "bakeMode": 0,
+    "range": 10.0,
+    "spotInnerAngle": 25.0,
+    "spotOuterAngle": 35.0
+   },
+   {
+    "type": "StaticBody",
+    "id": 5449959885647146207,
+    "name": "Floor",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 9255480807626005536,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       12.0,
+       0.5,
+       12.0
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 5011006185425334672,
+      "name": "FloorMesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        24.0,
+        1,
+        24.0
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.42,
+       0.45,
+       0.5,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      0,
+      -0.5,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "type": "StaticBody",
+    "id": 6880981479536215182,
+    "name": "WallN",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 15180539688856300623,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       12.0,
+       3.0,
+       0.5
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 7998880464738088662,
+      "name": "WallNMesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        24.0,
+        6.0,
+        1.0
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.32,
+       0.34,
+       0.4,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      0,
+      2.5,
+      -12.0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "type": "StaticBody",
+    "id": 902325028121901503,
+    "name": "WallS",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 8824782176190097038,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       12.0,
+       3.0,
+       0.5
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 6781280313690401831,
+      "name": "WallSMesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        24.0,
+        6.0,
+        1.0
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.32,
+       0.34,
+       0.4,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      0,
+      2.5,
+      12.0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "type": "StaticBody",
+    "id": 6386472748775988910,
+    "name": "WallE",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 2669664333964382670,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.5,
+       3.0,
+       12.0
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 2891395059869850269,
+      "name": "WallEMesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1.0,
+        6.0,
+        24.0
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.32,
+       0.34,
+       0.4,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      12.0,
+      2.5,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "type": "StaticBody",
+    "id": 16452459218857804033,
+    "name": "WallW",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 17463356543239140728,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.5,
+       3.0,
+       12.0
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 1187771745397531147,
+      "name": "WallWMesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1.0,
+        6.0,
+        24.0
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.32,
+       0.34,
+       0.4,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      -12.0,
+      2.5,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "type": "CharacterBody",
+    "id": 348455864380926814,
+    "name": "Player",
+    "enabled": true,
+    "behaviours": [
+     {
+      "type": "Character",
+      "enabled": true,
+      "moveSpeed": 6.0,
+      "jumpForce": 6.0,
+      "faceMovement": true,
+      "graph": "anim/locomotion.sgraph"
+     }
+    ],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 620620653362001595,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 3,
+      "radius": 0.4,
+      "height": 1.8,
+      "axis": 1
+     },
+     {
+      "type": "Node",
+      "id": 2719524225486534461,
+      "name": "Body",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        -0.9,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "importedFrom": "assets/models/totem.gltf"
+     }
+    ],
+    "transform": {
+     "position": [
+      0,
+      1.5,
+      9
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "groups": [
+     "player"
+    ]
+   },
+   {
+    "type": "Camera",
+    "id": 8939116734556951597,
+    "name": "MainCamera",
+    "enabled": true,
+    "behaviours": [
+     {
+      "type": "CameraFollow",
+      "enabled": true,
+      "targetGroup": "player",
+      "distance": 7.0,
+      "height": 2.5
+     }
+    ],
+    "children": [],
+    "transform": {
+     "position": [
+      0,
+      4,
+      8
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "groups": [
+     "camera"
+    ],
+    "fovDegrees": 60.0,
+    "nearZ": 0.1,
+    "farZ": 300.0,
+    "priority": 0,
+    "active": true
+   },
+   {
+    "type": "Area",
+    "id": 1054273466959823293,
+    "name": "Relic0",
+    "enabled": true,
+    "behaviours": [
+     {
+      "type": "Rotator",
+      "enabled": true,
+      "speed": 90.0,
+      "axis": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     {
+      "type": "ScriptBehaviour",
+      "enabled": true,
+      "script": "scripts/pickup.js",
+      "hotReload": true,
+      "properties": {
+       "points": 1
+      }
+     }
+    ],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 9268509963903159534,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.6,
+       0.6,
+       0.6
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 5631421081537712960,
+      "name": "Relic0Mesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        0.7,
+        0.7,
+        0.7
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.95,
+       0.8,
+       0.2,
+       1.0
+      ],
+      "emissive": [
+       1.0,
+       0.85,
+       0.2,
+       3.0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     },
+     {
+      "type": "ParticleSystem",
+      "id": 15497460425209510255,
+      "name": "Sparks",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "maxParticles": 64,
+      "spawnRate": 12.0,
+      "lifetime": 1.2,
+      "startSize": 0.06,
+      "looping": true,
+      "playing": true,
+      "startColor": [
+       1.0,
+       0.9,
+       0.3,
+       1.0
+      ],
+      "endColor": [
+       1.0,
+       0.5,
+       0.1,
+       0.0
+      ],
+      "gravity": [
+       0.0,
+       0.5,
+       0.0
+      ],
+      "radius": 0.5,
+      "shape": 1
+     }
+    ],
+    "transform": {
+     "position": [
+      -7,
+      1.0,
+      -5
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "groups": [
+     "relic"
+    ]
+   },
+   {
+    "type": "Area",
+    "id": 11042662851470429144,
+    "name": "Relic1",
+    "enabled": true,
+    "behaviours": [
+     {
+      "type": "Rotator",
+      "enabled": true,
+      "speed": 90.0,
+      "axis": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     {
+      "type": "ScriptBehaviour",
+      "enabled": true,
+      "script": "scripts/pickup.js",
+      "hotReload": true,
+      "properties": {
+       "points": 1
+      }
+     }
+    ],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 15785325287909306494,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.6,
+       0.6,
+       0.6
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 13194431390104569652,
+      "name": "Relic1Mesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        0.7,
+        0.7,
+        0.7
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.95,
+       0.8,
+       0.2,
+       1.0
+      ],
+      "emissive": [
+       1.0,
+       0.85,
+       0.2,
+       3.0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     },
+     {
+      "type": "ParticleSystem",
+      "id": 6274686323829892816,
+      "name": "Sparks",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "maxParticles": 64,
+      "spawnRate": 12.0,
+      "lifetime": 1.2,
+      "startSize": 0.06,
+      "looping": true,
+      "playing": true,
+      "startColor": [
+       1.0,
+       0.9,
+       0.3,
+       1.0
+      ],
+      "endColor": [
+       1.0,
+       0.5,
+       0.1,
+       0.0
+      ],
+      "gravity": [
+       0.0,
+       0.5,
+       0.0
+      ],
+      "radius": 0.5,
+      "shape": 1
+     }
+    ],
+    "transform": {
+     "position": [
+      7,
+      1.0,
+      -5
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "groups": [
+     "relic"
+    ]
+   },
+   {
+    "type": "Area",
+    "id": 6199685914143400148,
+    "name": "Relic2",
+    "enabled": true,
+    "behaviours": [
+     {
+      "type": "Rotator",
+      "enabled": true,
+      "speed": 90.0,
+      "axis": [
+       0.0,
+       1.0,
+       0.0
+      ]
+     },
+     {
+      "type": "ScriptBehaviour",
+      "enabled": true,
+      "script": "scripts/pickup.js",
+      "hotReload": true,
+      "properties": {
+       "points": 1
+      }
+     }
+    ],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 4194876606006981440,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.6,
+       0.6,
+       0.6
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 15667146714598765699,
+      "name": "Relic2Mesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        0.7,
+        0.7,
+        0.7
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.95,
+       0.8,
+       0.2,
+       1.0
+      ],
+      "emissive": [
+       1.0,
+       0.85,
+       0.2,
+       3.0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     },
+     {
+      "type": "ParticleSystem",
+      "id": 14359445904055998416,
+      "name": "Sparks",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "maxParticles": 64,
+      "spawnRate": 12.0,
+      "lifetime": 1.2,
+      "startSize": 0.06,
+      "looping": true,
+      "playing": true,
+      "startColor": [
+       1.0,
+       0.9,
+       0.3,
+       1.0
+      ],
+      "endColor": [
+       1.0,
+       0.5,
+       0.1,
+       0.0
+      ],
+      "gravity": [
+       0.0,
+       0.5,
+       0.0
+      ],
+      "radius": 0.5,
+      "shape": 1
+     }
+    ],
+    "transform": {
+     "position": [
+      0,
+      1.0,
+      -9
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "groups": [
+     "relic"
+    ]
+   },
+   {
+    "type": "RigidBody",
+    "id": 15983832687921461020,
+    "name": "Crate0",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 8779674164115573266,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.5,
+       0.5,
+       0.5
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 8330897647258678076,
+      "name": "Crate0Mesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.55,
+       0.4,
+       0.25,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      -3,
+      1.0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "mass": 2.0
+   },
+   {
+    "type": "RigidBody",
+    "id": 741132975685290931,
+    "name": "Crate1",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 10721793130404740122,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.5,
+       0.5,
+       0.5
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 15711265762455029919,
+      "name": "Crate1Mesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.55,
+       0.4,
+       0.25,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      -3,
+      2.2,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "mass": 2.0
+   },
+   {
+    "type": "RigidBody",
+    "id": 14298018002774506207,
+    "name": "Crate2",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 7830789539718080589,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.5,
+       0.5,
+       0.5
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 14447609379775422081,
+      "name": "Crate2Mesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       0.55,
+       0.4,
+       0.25,
+       1.0
+      ],
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      3,
+      1.0,
+      2
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "mass": 2.0
+   },
+   {
+    "type": "Area",
+    "id": 11139997871628700334,
+    "name": "DoorToHub",
+    "enabled": true,
+    "behaviours": [
+     {
+      "type": "ScriptBehaviour",
+      "enabled": true,
+      "script": "scripts/door.js",
+      "hotReload": true,
+      "properties": {
+       "targetScene": "scenes/hub.scene"
+      }
+     }
+    ],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 11501855000569387638,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       1.2,
+       1.6,
+       0.6
+      ],
+      "offset": [
+       0,
+       0,
+       0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 8764748962986627047,
+      "name": "DoorToHubMesh",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        2.4,
+        3.2,
+        0.4
+       ]
+      },
+      "mesh": 1,
+      "baseColor": [
+       1.0,
+       0.5,
+       0.2,
+       1.0
+      ],
+      "emissive": [
+       1.0,
+       0.5,
+       0.2,
+       2.0
+      ],
+      "roughness": 0.7,
+      "metallic": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      0,
+      1.1,
+      11.4
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    }
+   },
+   {
+    "type": "UICanvasNode",
+    "id": 13546871672129227500,
+    "name": "HUD",
+    "enabled": true,
+    "behaviours": [],
+    "children": [
+     {
+      "type": "UITextNode",
+      "id": 8137637219493713208,
+      "name": "ScoreText",
+      "enabled": true,
+      "behaviours": [
+       {
+        "type": "ScriptBehaviour",
+        "enabled": true,
+        "script": "scripts/hud.js",
+        "hotReload": true
+       }
+      ],
+      "children": [],
+      "transform": {
+       "position": [
+        0,
+        0,
+        0
+       ],
+       "rotation": [
+        0,
+        0,
+        0,
+        1
+       ],
+       "scale": [
+        1,
+        1,
+        1
+       ]
+      },
+      "groups": [
+       "witness_hud"
+      ],
+      "text": "Relics: ?",
+      "fontSize": 28.0,
+      "color": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "x": 24.0,
+      "y": 24.0,
+      "width": 600.0,
+      "height": 48.0,
+      "anchorX": 0.0,
+      "anchorY": 0.0,
+      "pivotX": 0.0,
+      "pivotY": 0.0
+     }
+    ],
+    "transform": {
+     "position": [
+      0,
+      0,
+      0
+     ],
+     "rotation": [
+      0,
+      0,
+      0,
+      1
+     ],
+     "scale": [
+      1,
+      1,
+      1
+     ]
+    },
+    "width": 1920.0,
+    "height": 1080.0
+   }
+  ],
+  "transform": {
+   "position": [
+    0,
+    0,
+    0
+   ],
+   "rotation": [
+    0,
+    0,
+    0,
+    1
+   ],
+   "scale": [
+    1,
+    1,
+    1
+   ]
+  }
+ }
+}

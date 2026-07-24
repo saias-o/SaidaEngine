@@ -1,0 +1,16 @@
+{
+ "schema": 2,
+ "name": "Broken",
+ "clips": {
+  "mix": "two_bone.gltf#DoesNotExist"
+ },
+ "states": [
+  { "name": "Idle", "play": "mix" },
+  { "name": "Orphan", "play": "ghost" }
+ ],
+ "initial": "Missing",
+ "transitions": [
+  { "from": "Idle", "to": "Nowhere",
+    "when": [ { "param": "undeclared", "op": ">", "value": 0 } ] }
+ ]
+}

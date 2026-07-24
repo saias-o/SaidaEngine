@@ -1,0 +1,2671 @@
+{
+  "scene": {
+    "behaviours": [],
+    "children": [
+      {
+        "bakeMode": 0,
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "color": [
+          1.0,
+          0.6200000047683716,
+          0.3799999952316284
+        ],
+        "direction": [
+          -0.500877320766449,
+          -0.2404211014509201,
+          0.8314563035964966
+        ],
+        "enabled": true,
+        "id": 6037286090546128446,
+        "intensity": 3.299999952316284,
+        "lightType": 0,
+        "name": "Sun",
+        "range": 10.0,
+        "spotInnerAngle": 25.0,
+        "spotOuterAngle": 35.0,
+        "transform": {
+          "position": [
+            0.0,
+            40.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "LightNode"
+      },
+      {
+        "amplitude": 0.3499999940395355,
+        "behaviours": [],
+        "children": [],
+        "choppiness": 0.30000001192092896,
+        "deepColor": [
+          0.014999999664723873,
+          0.07000000029802322,
+          0.10999999940395355
+        ],
+        "depthColorFalloff": 7.0,
+        "detail2Angle": 110.0,
+        "detail2Scale": 0.8999999761581421,
+        "detail2Speed": 0.11999999731779099,
+        "detail2Strength": 0.3499999940395355,
+        "detailAngle": 100.0,
+        "detailFadeDistance": 200.0,
+        "detailScale": 0.699999988079071,
+        "detailSpeed": 0.05999999865889549,
+        "detailStrength": 0.20000000298023224,
+        "edgeFade": 0.5,
+        "enabled": true,
+        "foamColor": [
+          1.0,
+          0.9300000071525574,
+          0.8500000238418579
+        ],
+        "foamIntensity": 0.05999999865889549,
+        "foamThreshold": 0.20000000298023224,
+        "foamWidth": 0.699999988079071,
+        "fresnelPower": 5.0,
+        "id": 6037286090546128447,
+        "lakeRadius": 50.0,
+        "name": "Sea",
+        "reflectivity": 0.6200000047683716,
+        "roughness": 0.05999999865889549,
+        "shallowColor": [
+          0.2199999988079071,
+          0.41999998688697815,
+          0.41999998688697815
+        ],
+        "shoreAngle": 90.0,
+        "shoreFoam": 0.949999988079071,
+        "shoreMode": 1,
+        "shoreSlope": 0.05000000074505806,
+        "shoreWaterline": 0.0,
+        "size": 400.0,
+        "specularIntensity": 1.600000023841858,
+        "specularPower": 220.0,
+        "swashAmount": 0.699999988079071,
+        "swashSpeed": 0.8999999761581421,
+        "transform": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "Water",
+        "warpAmount": 0.10000000149011612,
+        "waveFlatten": 1.2999999523162842,
+        "waveSpeed": 0.800000011920929,
+        "wavelength": 16.0
+      },
+      {
+        "active": true,
+        "behaviours": [],
+        "children": [],
+        "enabled": true,
+        "farZ": 600.0,
+        "fovDegrees": 62.0,
+        "groups": [
+          "camera"
+        ],
+        "id": 6037286090546128448,
+        "name": "Beach Camera",
+        "nearZ": 0.10000000149011612,
+        "priority": 10,
+        "transform": {
+          "position": [
+            2.0,
+            6.800000190734863,
+            46.0
+          ],
+          "rotation": [
+            -0.061048541218042374,
+            -0.0,
+            -0.0,
+            0.9981347918510437
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "Camera"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.78,
+          0.71,
+          0.52,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128449,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Sand",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            0.0,
+            -2.0,
+            0.0
+          ],
+          "rotation": [
+            -0.02497659996151924,
+            -0.0,
+            -0.0,
+            0.9996880292892456
+          ],
+          "scale": [
+            800.0,
+            4.0,
+            800.0
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.42,
+              0.3,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128451,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Trunk",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                3.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0523359552025795,
+                0.9986295104026794
+              ],
+              "scale": [
+                0.550000011920929,
+                6.0,
+                0.550000011920929
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128452,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.3499999940395355,
+                5.599999904632568,
+                0.20000000298023224
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128453,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -0.30000001192092896,
+                5.599999904632568,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128454,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                6.099999904632568,
+                -1.7000000476837158
+              ],
+              "rotation": [
+                -0.27563735842704773,
+                0.0,
+                0.0,
+                0.9612616896629333
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128455,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                -0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128456,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond2",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                -0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128457,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond3",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -2.0818995170458873e-16,
+                6.099999904632568,
+                1.7000000476837158
+              ],
+              "rotation": [
+                -1.687792060434631e-17,
+                0.9612616896629333,
+                0.27563735842704773,
+                5.886029965236663e-17
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128458,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond4",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                -0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128459,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond5",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                -0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          }
+        ],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128450,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": false,
+        "metallic": 0.0,
+        "name": "Palm_A",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            -14.0,
+            0.6000000238418579,
+            12.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0523359552025795,
+            0.9986295104026794
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.42,
+              0.3,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128461,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Trunk",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                3.0,
+                0.0
+              ],
+              "rotation": [
+                -0.0,
+                -0.0,
+                -0.04361938685178757,
+                0.9990482330322266
+              ],
+              "scale": [
+                0.550000011920929,
+                6.0,
+                0.550000011920929
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128462,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.3499999940395355,
+                5.599999904632568,
+                0.20000000298023224
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128463,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -0.30000001192092896,
+                5.599999904632568,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128464,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                6.099999904632568,
+                -1.7000000476837158
+              ],
+              "rotation": [
+                -0.27563735842704773,
+                0.0,
+                0.0,
+                0.9612616896629333
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128465,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                -0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128466,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond2",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                -0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128467,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond3",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -2.0818995170458873e-16,
+                6.099999904632568,
+                1.7000000476837158
+              ],
+              "rotation": [
+                -1.687792060434631e-17,
+                0.9612616896629333,
+                0.27563735842704773,
+                5.886029965236663e-17
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128468,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond4",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                -0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128469,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond5",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                -0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          }
+        ],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128460,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": false,
+        "metallic": 0.0,
+        "name": "Palm_B",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            13.0,
+            1.0,
+            20.0
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            -0.04361938685178757,
+            0.9990482330322266
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.42,
+              0.3,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128471,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Trunk",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                3.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.03489949554204941,
+                0.9993908405303955
+              ],
+              "scale": [
+                0.550000011920929,
+                6.0,
+                0.550000011920929
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128472,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.3499999940395355,
+                5.599999904632568,
+                0.20000000298023224
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128473,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -0.30000001192092896,
+                5.599999904632568,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128474,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                6.099999904632568,
+                -1.7000000476837158
+              ],
+              "rotation": [
+                -0.27563735842704773,
+                0.0,
+                0.0,
+                0.9612616896629333
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128475,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                -0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128476,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond2",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                -0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128477,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond3",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -2.0818995170458873e-16,
+                6.099999904632568,
+                1.7000000476837158
+              ],
+              "rotation": [
+                -1.687792060434631e-17,
+                0.9612616896629333,
+                0.27563735842704773,
+                5.886029965236663e-17
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128478,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond4",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                -0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128479,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond5",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                -0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          }
+        ],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128470,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": false,
+        "metallic": 0.0,
+        "name": "Palm_C",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            26.0,
+            0.44999998807907104,
+            9.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.03489949554204941,
+            0.9993908405303955
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.42,
+              0.3,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128481,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Trunk",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                3.0,
+                0.0
+              ],
+              "rotation": [
+                -0.0,
+                -0.0,
+                -0.061048541218042374,
+                0.9981347918510437
+              ],
+              "scale": [
+                0.550000011920929,
+                6.0,
+                0.550000011920929
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128482,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.3499999940395355,
+                5.599999904632568,
+                0.20000000298023224
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.3,
+              0.22,
+              0.14,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": false,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128483,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Coco1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -0.30000001192092896,
+                5.599999904632568,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.44999998807907104,
+                0.44999998807907104,
+                0.44999998807907104
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128484,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond0",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                6.099999904632568,
+                -1.7000000476837158
+              ],
+              "rotation": [
+                -0.27563735842704773,
+                0.0,
+                0.0,
+                0.9612616896629333
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128485,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond1",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                -0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128486,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond2",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                -0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128487,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond3",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                -2.0818995170458873e-16,
+                6.099999904632568,
+                1.7000000476837158
+              ],
+              "rotation": [
+                -1.687792060434631e-17,
+                0.9612616896629333,
+                0.27563735842704773,
+                5.886029965236663e-17
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128488,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond4",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                0.8500000238418579
+              ],
+              "rotation": [
+                0.13781867921352386,
+                0.8324770331382751,
+                0.238708958029747,
+                -0.4806308448314667
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.16,
+              0.42,
+              0.18,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128489,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Frond5",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                1.4722431898117065,
+                6.099999904632568,
+                -0.8500000238418579
+              ],
+              "rotation": [
+                0.238708958029747,
+                0.4806308448314667,
+                0.13781867921352386,
+                -0.8324770331382751
+              ],
+              "scale": [
+                0.550000011920929,
+                0.11999999731779099,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          }
+        ],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128480,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": false,
+        "metallic": 0.0,
+        "name": "Palm_D",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            -28.0,
+            1.2000000476837158,
+            24.0
+          ],
+          "rotation": [
+            -0.0,
+            -0.0,
+            -0.061048541218042374,
+            0.9981347918510437
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.42,
+          0.40319999999999995,
+          0.378,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128490,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Rock_1",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            -9.0,
+            0.25999999046325684,
+            -2.0
+          ],
+          "rotation": [
+            0.0,
+            0.04361938685178757,
+            0.0,
+            0.9990482330322266
+          ],
+          "scale": [
+            1.7999999523162842,
+            1.2599999904632568,
+            1.5299999713897705
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.38,
+          0.3648,
+          0.342,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128491,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Rock_2",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            17.0,
+            0.20999999344348907,
+            -1.0
+          ],
+          "rotation": [
+            0.0,
+            0.6293203830718994,
+            0.0,
+            0.7771459817886353
+          ],
+          "scale": [
+            1.2999999523162842,
+            0.9100000262260437,
+            1.1050000190734863
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.42,
+          0.40319999999999995,
+          0.378,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128492,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Rock_3",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            -22.0,
+            0.6800000071525574,
+            4.0
+          ],
+          "rotation": [
+            0.0,
+            0.3420201539993286,
+            0.0,
+            0.9396926164627075
+          ],
+          "scale": [
+            2.4000000953674316,
+            1.6799999475479126,
+            2.0399999618530273
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.42,
+          0.40319999999999995,
+          0.378,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128493,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Rock_4",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            31.0,
+            0.4699999988079071,
+            3.0
+          ],
+          "rotation": [
+            0.0,
+            0.08715574443340302,
+            0.0,
+            0.9961947202682495
+          ],
+          "scale": [
+            1.600000023841858,
+            1.1200000047683716,
+            1.3600000143051147
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.46,
+          0.4416,
+          0.41400000000000003,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128494,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Rock_5",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            6.0,
+            0.029999999329447746,
+            -3.0
+          ],
+          "rotation": [
+            0.0,
+            0.07845909893512726,
+            0.0,
+            0.9969173073768616
+          ],
+          "scale": [
+            0.8999999761581421,
+            0.6299999952316284,
+            0.7649999856948853
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          1.0,
+          1.0,
+          1.0,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.85,
+              0.82,
+              0.78,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128496,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Pole",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                1.600000023841858,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0,
+                1.0
+              ],
+              "scale": [
+                0.11999999731779099,
+                3.200000047683716,
+                0.11999999731779099
+              ]
+            },
+            "type": "MeshNode"
+          },
+          {
+            "ao": 1.0,
+            "baseColor": [
+              0.9,
+              0.25,
+              0.22,
+              1.0
+            ],
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "emissive": [
+              0.0,
+              0.0,
+              0.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 6037286090546128497,
+            "includeInLightBaking": false,
+            "mesh": 1,
+            "meshEnabled": true,
+            "metallic": 0.0,
+            "name": "Canopy",
+            "roughness": 0.5,
+            "shader": "lit",
+            "texture": 0,
+            "transform": {
+              "position": [
+                0.0,
+                3.299999952316284,
+                0.0
+              ],
+              "rotation": [
+                0.06869671493768692,
+                0.17322517931461334,
+                -0.012113084085285664,
+                0.9824088215827942
+              ],
+              "scale": [
+                3.4000000953674316,
+                0.18000000715255737,
+                3.4000000953674316
+              ]
+            },
+            "type": "MeshNode"
+          }
+        ],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128495,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": false,
+        "metallic": 0.0,
+        "name": "Umbrella",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            -5.0,
+            0.75,
+            15.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.85,
+          0.2,
+          0.32,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128498,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Towel",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            3.5,
+            0.7099999785423279,
+            13.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            2.4000000953674316,
+            0.07999999821186066,
+            4.0
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.95,
+          0.55,
+          0.2,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128499,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Star_1",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            7.0,
+            0.30000001192092896,
+            5.0
+          ],
+          "rotation": [
+            0.0,
+            0.09584575146436691,
+            0.0,
+            0.9953961968421936
+          ],
+          "scale": [
+            0.8999999761581421,
+            0.11999999731779099,
+            0.8999999761581421
+          ]
+        },
+        "type": "MeshNode"
+      },
+      {
+        "ao": 1.0,
+        "baseColor": [
+          0.95,
+          0.55,
+          0.2,
+          1.0
+        ],
+        "behaviours": [],
+        "castShadows": false,
+        "children": [],
+        "emissive": [
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 6037286090546128500,
+        "includeInLightBaking": false,
+        "mesh": 1,
+        "meshEnabled": true,
+        "metallic": 0.0,
+        "name": "Star_2",
+        "roughness": 0.5,
+        "shader": "lit",
+        "texture": 0,
+        "transform": {
+          "position": [
+            -11.0,
+            0.4000000059604645,
+            7.0
+          ],
+          "rotation": [
+            0.0,
+            0.39874908328056335,
+            0.0,
+            0.9170600771903992
+          ],
+          "scale": [
+            0.8999999761581421,
+            0.11999999731779099,
+            0.8999999761581421
+          ]
+        },
+        "type": "MeshNode"
+      }
+    ],
+    "enabled": true,
+    "id": 6037286090546128445,
+    "name": "Scene",
+    "settings": {
+      "ambient": [
+        0.3199999928474426,
+        0.23999999463558197,
+        0.2800000011920929
+      ],
+      "aoEnabled": true,
+      "aoIntensity": 1.0,
+      "aoPower": 1.350000023841858,
+      "aoRadius": 0.75,
+      "bloomEnabled": true,
+      "bloomIntensity": 0.44999998807907104,
+      "bloomRadius": 3.5,
+      "bloomThreshold": 0.8500000238418579,
+      "changeRenderingAtLoad": true,
+      "clearColor": [
+        0.949999988079071,
+        0.550000011920929,
+        0.4000000059604645
+      ],
+      "fogColor": [
+        0.23071755468845367,
+        0.26217395067214966,
+        0.27868854999542236
+      ],
+      "fogDensity": 0.003000000026077032,
+      "fogEnabled": true,
+      "fogStart": 25.64299964904785,
+      "giEnabled": true,
+      "giIntensity": 1.0,
+      "giMode": 1,
+      "iblDiffuseIntensity": 0.15,
+      "iblEnabled": true,
+      "iblSpecularIntensity": 0.25,
+      "lightingMode": 0,
+      "postProcessing": true,
+      "skyboxExposure": 1.149999976158142,
+      "skyboxRotation": 0.0,
+      "skyboxTexture": 4242424242
+    },
+    "transform": {
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "type": "Scene"
+  },
+  "version": 2
+}

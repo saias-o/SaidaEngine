@@ -1,0 +1,32 @@
+{
+  "schema": 2,
+  "version": 2,
+  "snapshotMode": "authoring-headless",
+  "scene": {
+    "type": "Scene",
+    "id": 1,
+    "name": "Root",
+    "enabled": true,
+    "transform": {
+      "position": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0]
+    },
+    "behaviours": [],
+    "children": [
+      {
+        "type": "UnsupportedNode",
+        "id": 2,
+        "name": "MustNotDowngrade",
+        "enabled": true,
+        "transform": {
+          "position": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0, 1.0],
+          "scale": [1.0, 1.0, 1.0]
+        },
+        "behaviours": [],
+        "children": []
+      }
+    ]
+  }
+}

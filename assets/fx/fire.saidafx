@@ -1,0 +1,24 @@
+{
+    "format": "SaidaFX",
+    "version": 1,
+    "name": "Fire",
+    "emitters": [
+        {
+            "name": "Fire",
+            "effectClass": "Fire",
+            "maxParticles": 512,
+            "blendMode": "Additive",
+            "looping": true,
+            "modules": [
+                {"type": "SpawnRate", "enabled": true, "params": {"rate": 120.0}},
+                {"type": "Shape", "enabled": true, "params": {"type": "Cone", "radius": 0.18, "boxExtents": [1.0, 1.0, 1.0], "coneAngle": 18.0, "ringThickness": 0.08}},
+                {"type": "InitialVelocity", "enabled": true, "params": {"speed": 1.05}},
+                {"type": "Gravity", "enabled": true, "params": {"acceleration": [0.0, 1.25, 0.0]}},
+                {"type": "ColorOverLife", "enabled": true, "params": {"start": [1.0, 0.48, 0.08, 1.0], "end": [0.18, 0.02, 0.0, 0.0], "emissive": 4.5}},
+                {"type": "SizeOverLife", "enabled": true, "params": {"start": 0.22, "endScale": 0.12, "stretch": 1.15}},
+                {"type": "Drag", "enabled": true, "params": {"linear": 0.28}},
+                {"type": "Noise", "enabled": true, "params": {"strength": 0.08, "frequency": 2.0}}
+            ]
+        }
+    ]
+}

@@ -1,0 +1,22 @@
+{
+    "format": "SaidaFX",
+    "version": 1,
+    "name": "Rain",
+    "emitters": [
+        {
+            "name": "Rain",
+            "effectClass": "Rain",
+            "maxParticles": 1400,
+            "blendMode": "Alpha",
+            "looping": true,
+            "modules": [
+                {"type": "SpawnRate", "enabled": true, "params": {"rate": 760.0}},
+                {"type": "Shape", "enabled": true, "params": {"type": "Disc", "radius": 8.0, "boxExtents": [1.0, 1.0, 1.0], "coneAngle": 30.0, "ringThickness": 0.08}},
+                {"type": "InitialVelocity", "enabled": true, "params": {"speed": 8.5}},
+                {"type": "Gravity", "enabled": true, "params": {"acceleration": [0.0, -14.0, 0.0]}},
+                {"type": "ColorOverLife", "enabled": true, "params": {"start": [0.55, 0.78, 1.0, 0.78], "end": [0.55, 0.78, 1.0, 0.18], "emissive": 1.25}},
+                {"type": "SizeOverLife", "enabled": true, "params": {"start": 0.055, "endScale": 1.0, "stretch": 9.0}}
+            ]
+        }
+    ]
+}

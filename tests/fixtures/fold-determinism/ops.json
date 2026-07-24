@@ -1,0 +1,9 @@
+[
+  { "type": "set_property", "payload": { "nodeId": "2", "property": "intensity", "value": 5 } },
+  { "type": "create_node", "payload": { "nodeType": "LightNode", "nodeId": "4", "name": "Lamp", "parentId": "1" } },
+  { "type": "set_transform", "payload": { "nodeId": "4", "position": [1.5, 2.25, -3.75], "rotation": [0, 0.7071067811865476, 0, 0.7071067811865476], "scale": [2, 2, 2] } },
+  { "type": "create_node", "payload": { "nodeType": "LightNode", "nodeId": "3", "name": "Group", "parentId": "1" } },
+  { "type": "reparent_node", "payload": { "nodeId": "4", "newParentId": "3" } },
+  { "type": "rename_node", "payload": { "nodeId": "3", "name": "Rig" } },
+  { "type": "set_scene_setting", "payload": { "setting": "bloomIntensity", "value": 0.125 } }
+]

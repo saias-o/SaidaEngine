@@ -1,0 +1,118 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// DDGI probe blending. Mode 0 = irradiance, mode 1 = visibility.
+// Irradiance stores cosine-weighted mean radiance.
+
+#include "lighting.glsl"   // octDecode + lights.giAtlas/giCounts
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+struct Ray { vec4 dirDist; vec4 radiance; };
+#ifdef WEB
+// Pas de readonly : le layout WebGPU du set GI déclare ce SSBO en Storage
+// (read-write, requis par ddgi_trace qui l'écrit) et WGSL exige que l'accès
+// du shader corresponde exactement à celui du layout.
+layout(std430, set = 1, binding = 0) buffer RaysBuffer { Ray rays[]; };
+#else
+layout(std430, set = 1, binding = 0) readonly buffer RaysBuffer { Ray rays[]; };
+#endif
+#ifdef WEB
+// WebGPU : rg16f n'est pas un format storage (→ rgba16f, canaux ba inutilisés)
+// et l'accès read-write y est réservé à r32* → cibles d'écriture writeonly.
+// Les texels de bordure sont absorbés ici (pas de passe ddgi_borders sur web).
+layout(set = 1, binding = 1, rgba16f) uniform writeonly image2D writeIrr;
+layout(set = 1, binding = 2, rgba16f) uniform writeonly image2D writeVis;
+layout(set = 1, binding = 3, rgba16f) uniform readonly image2D prevIrr;
+layout(set = 1, binding = 4, rgba16f) uniform readonly image2D prevVis;
+#else
+layout(set = 1, binding = 1, rgba16f) uniform image2D writeIrr;
+layout(set = 1, binding = 2, rg16f)   uniform image2D writeVis;
+layout(set = 1, binding = 3, rgba16f) uniform readonly image2D prevIrr;
+layout(set = 1, binding = 4, rg16f)   uniform readonly image2D prevVis;
+#endif
+
+PUSH_QUALIFIER Push {
+    int mode;          // 0 = irradiance, 1 = visibility
+    int raysPerProbe;
+    int probeCount;
+    float hysteresis;
+    float distExponent;
+} pc;
+
+void main() {
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    int texels = (pc.mode == 0) ? lights.giAtlas.x : lights.giAtlas.y;
+    int T   = texels + 2;
+    int ppr = lights.giCounts.w;
+
+    ivec2 tile  = px / T;
+    ivec2 local = px - tile * T;
+#ifdef WEB
+    // Gutter octaédrique fusionné (l'équivalent exact de ddgi_borders.comp) :
+    // un texel de bordure évalue le blend de son texel source intérieur et
+    // l'écrit à sa propre position — même résultat que la copie desktop.
+    ivec2 srcLocal = local;
+    bool borderX = (local.x == 0 || local.x == T - 1);
+    bool borderY = (local.y == 0 || local.y == T - 1);
+    if (borderX || borderY) {
+        int n = texels;
+        if (borderX && borderY) {
+            srcLocal.x = (local.x > 0) ? 1 : n;
+            srcLocal.y = (local.y > 0) ? 1 : n;
+        } else if (borderY) {
+            srcLocal.x = (T - 1) - local.x;
+            srcLocal.y = local.y + ((local.y > 0) ? -1 : 1);
+        } else {
+            srcLocal.x = local.x + ((local.x > 0) ? -1 : 1);
+            srcLocal.y = (T - 1) - local.y;
+        }
+    }
+    #define SRC_LOCAL srcLocal
+    #define SRC_PX (tile * T + srcLocal)
+#else
+    if (local.x == 0 || local.y == 0 || local.x == T - 1 || local.y == T - 1)
+        return;  // border texels handled by ddgi_borders.comp
+    #define SRC_LOCAL local
+    #define SRC_PX px
+#endif
+
+    int probe = tile.y * ppr + tile.x;
+    if (probe >= pc.probeCount) return;
+
+    ivec2 interior = SRC_LOCAL - 1;                          // [0, texels-1]
+    vec2  oct = (vec2(interior) + 0.5) / float(texels) * 2.0 - 1.0;
+    vec3  texelDir = octDecode(oct);
+
+    int base = probe * pc.raysPerProbe;
+
+    if (pc.mode == 0) {
+        vec3  sum = vec3(0.0);
+        float sumW = 0.0;
+        for (int r = 0; r < pc.raysPerProbe; ++r) {
+            Ray ray = rays[base + r];
+            float w = max(0.0, dot(texelDir, ray.dirDist.xyz));
+            sum  += ray.radiance.rgb * w;
+            sumW += w;
+        }
+        vec3 result  = sum / max(sumW, 1e-4);
+        vec3 prev    = imageLoad(prevIrr, SRC_PX).rgb;
+        vec3 blended = mix(result, prev, pc.hysteresis);     // old + (1-h)(new-old)
+        imageStore(writeIrr, px, vec4(blended, 1.0));
+    } else {
+        float sumD = 0.0, sumD2 = 0.0, sumW = 0.0;
+        for (int r = 0; r < pc.raysPerProbe; ++r) {
+            Ray ray = rays[base + r];
+            float w = pow(max(0.0, dot(texelDir, ray.dirDist.xyz)), pc.distExponent);
+            float d = ray.dirDist.w;
+            sumD  += d * w;
+            sumD2 += d * d * w;
+            sumW  += w;
+        }
+        float invW   = 1.0 / max(sumW, 1e-4);
+        vec2  result = vec2(sumD * invW, sumD2 * invW);
+        vec2  prev   = imageLoad(prevVis, SRC_PX).rg;
+        vec2  blended = mix(result, prev, pc.hysteresis);
+        imageStore(writeVis, px, vec4(blended, 0.0, 0.0));
+    }
+}

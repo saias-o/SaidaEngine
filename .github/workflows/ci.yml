@@ -1,0 +1,308 @@
+name: Saida Engine CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: engine-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authoring-core:
+    name: Windows native (build + full CTest)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          lfs: true
+
+      - uses: msys2/setup-msys2@v2
+        id: msys2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            diffutils
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-vulkan-headers
+            mingw-w64-ucrt-x86_64-vulkan-loader
+            mingw-w64-ucrt-x86_64-glfw
+            mingw-w64-ucrt-x86_64-glm
+            mingw-w64-ucrt-x86_64-mesa
+            mingw-w64-ucrt-x86_64-shaderc
+            mingw-w64-x86_64-nsis
+
+      # GitHub's Windows runner is elevated. The Vulkan loader deliberately
+      # ignores driver override environment variables in an elevated process,
+      # so register the software ICD on this ephemeral VM.
+      - name: Register Lavapipe ICD for the elevated runner
+        shell: pwsh
+        run: |
+          $msysRoot = '${{ steps.msys2.outputs.msys2-location }}'
+          $icd = [System.IO.Path]::GetFullPath(
+            (Join-Path $msysRoot 'ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json'))
+          if (-not (Test-Path -LiteralPath $icd -PathType Leaf)) {
+            throw "Lavapipe ICD not found: $icd"
+          }
+          $registry = 'HKLM:\SOFTWARE\Khronos\Vulkan\Drivers'
+          New-Item -Path $registry -Force | Out-Null
+          New-ItemProperty -Path $registry -Name $icd `
+            -PropertyType DWord -Value 0 -Force | Out-Null
+
+      - name: Software Vulkan preflight
+        run: |
+          test -f /ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json
+          test -f /ucrt64/bin/vulkan_lvp.dll
+          export VK_DRIVER_FILES="$(cygpath -w /ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json)"
+          export VK_ICD_FILENAMES="$VK_DRIVER_FILES"
+          export VK_LOADER_DEBUG=error,warn,driver
+          mkdir -p build
+          c++ -std=c++17 -O2 tools/vulkan_preflight.cpp \
+            -o build/vulkan_preflight.exe -lvulkan-1
+          ./build/vulkan_preflight.exe
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSAIDA_ENABLE_XR=OFF
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Assert test inventory (50+)
+        run: |
+          ctest --test-dir build -N | tee build/ctest-inventory.txt
+          test_count="$(sed -n 's/^Total Tests: //p' build/ctest-inventory.txt)"
+          if [[ ! "$test_count" =~ ^[0-9]+$ ]] || (( test_count < 50 )); then
+            echo "Expected at least 50 tests, found: ${test_count:-unknown}" >&2
+            exit 1
+          fi
+          echo "Native test inventory: $test_count"
+
+      - name: Test (ctest complet)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Compatibility corpus (explicit gate)
+        run: ctest --test-dir build --output-on-failure -R "^saida_compat_corpus_tests$"
+
+      - name: Editor Build + Witness desktop (software Vulkan, run + restart)
+        env:
+          SAIDA_WINDOW_HIDDEN: "1"
+        run: |
+          test -f /ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json
+          test -f /ucrt64/bin/vulkan_lvp.dll
+          export VK_DRIVER_FILES="$(cygpath -w /ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json)"
+          export VK_ICD_FILENAMES="$VK_DRIVER_FILES"
+          ./tools/witness_editor_build.sh build/witness-editor-build-ci
+
+      - name: Reproducible Windows installer (install + run + restart + uninstall)
+        shell: pwsh
+        env:
+          SAIDA_WINDOW_HIDDEN: "1"
+        run: |
+          $msysRoot = '${{ steps.msys2.outputs.msys2-location }}'
+          $env:VK_DRIVER_FILES = [System.IO.Path]::GetFullPath(
+            (Join-Path $msysRoot 'ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json'))
+          $env:VK_ICD_FILENAMES = $env:VK_DRIVER_FILES
+          if (-not (Test-Path -LiteralPath $env:VK_DRIVER_FILES -PathType Leaf)) {
+            throw "Lavapipe ICD not found: $env:VK_DRIVER_FILES"
+          }
+          $arguments = @{
+            SourceDir = 'build/witness-editor-build-ci'
+            OutputPath = 'build/release/witness-installer/WitnessGame-Setup.exe'
+            Makensis = (Join-Path $msysRoot 'mingw64/bin/makensis.exe')
+            SkipVerify = $true
+          }
+          ./tools/build_witness_installer.ps1 @arguments
+          $first = (Get-FileHash -Algorithm SHA256 `
+            build/release/witness-installer/WitnessGame-Setup.exe).Hash
+          ./tools/build_witness_installer.ps1 @arguments
+          $second = (Get-FileHash -Algorithm SHA256 `
+            build/release/witness-installer/WitnessGame-Setup.exe).Hash
+          if ($first -ne $second) {
+            throw "Installer builds are not byte-identical"
+          }
+          ./tools/verify_witness_installer.ps1 `
+            -ManifestPath build/release/witness-installer/WitnessGame-Setup.manifest.json `
+            -RunWitness -TimeoutSeconds 180
+
+      - name: Fold determinism (Windows reference)
+        run: |
+          ./build/bin/saida_tool.exe apply-ops tests/fixtures/fold-determinism/base.json \
+            tests/fixtures/fold-determinism/ops.json --out build/fold-windows.json
+          cmp build/fold-windows.json tests/fixtures/fold-determinism/expected.json
+          echo "Windows fold matches the checked-in reference"
+
+      - name: SPDX SBOM, notices and asset/model inventory
+        shell: pwsh
+        run: ./tools/generate_release_compliance.ps1
+
+      - name: Deterministic release ZIP contract
+        shell: pwsh
+        run: |
+          ./tools/new_deterministic_zip.ps1 `
+            -SourceDir build/release/compliance `
+            -DestinationPath build/release/zip-proof-a.zip
+          ./tools/verify_deterministic_zip.ps1 `
+            -SourceDir build/release/compliance `
+            -ArchivePath build/release/zip-proof-a.zip
+          ./tools/new_deterministic_zip.ps1 `
+            -SourceDir build/release/compliance `
+            -DestinationPath build/release/zip-proof-b.zip
+          $a = (Get-FileHash -Algorithm SHA256 build/release/zip-proof-a.zip).Hash
+          $b = (Get-FileHash -Algorithm SHA256 build/release/zip-proof-b.zip).Hash
+          if ($a -ne $b) { throw "Release ZIPs are not byte-identical" }
+
+      - name: Versioned Windows binaries and crash symbols
+        shell: pwsh
+        run: >-
+          ./tools/package_release_symbols.ps1
+          -Objcopy '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\objcopy.exe'
+          -Objdump '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\objdump.exe'
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: fold-windows-${{ github.sha }}
+          path: build/fold-windows.json
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: saida-tool-windows-${{ github.sha }}
+          path: build/bin/saida_tool.exe
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-compliance-${{ github.sha }}
+          path: build/release/compliance
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-symbols-${{ github.sha }}
+          path: build/release/windows-symbols
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: witness-windows-installer-${{ github.sha }}
+          path: build/release/witness-installer
+          if-no-files-found: error
+
+  web-artifacts:
+    name: Web build + Witness
+    uses: ./.github/workflows/web-artifacts.yml
+
+  # Full Linux build + ctest + fold-determinism proof.
+  # Debian bookworm container on purpose: same glibc (2.36) as the platform's
+  # node:24-slim images — the binary published as an artifact is the one
+  # embedded by the apps/api and apps/workers Docker images.
+  linux-tool:
+    name: Linux clean build + cross-OS fold
+    needs: authoring-core
+    runs-on: ubuntu-latest
+    container: debian:bookworm-slim
+    steps:
+      - name: Install toolchain
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git git-lfs ca-certificates \
+            libvulkan-dev libglfw3-dev libglm-dev glslc
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSAIDA_ENABLE_XR=OFF -DSAIDA_ENABLE_MCP=OFF
+
+      - name: Build
+        run: cmake --build build
+
+      - name: Assert test inventory (50+)
+        run: |
+          ctest --test-dir build -N | tee build/ctest-inventory.txt
+          test_count="$(sed -n 's/^Total Tests: //p' build/ctest-inventory.txt)"
+          if ! echo "$test_count" | grep -Eq '^[0-9]+$' || [ "$test_count" -lt 50 ]; then
+            echo "Expected at least 50 tests, found: ${test_count:-unknown}" >&2
+            exit 1
+          fi
+          echo "Native test inventory: $test_count"
+
+      - name: Test (ctest complet)
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Compatibility corpus (explicit gate)
+        run: ctest --test-dir build --output-on-failure -R "^saida_compat_corpus_tests$"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: fold-windows-${{ github.sha }}
+          path: build/ci-fold-windows
+
+      - name: Fold determinism (fixture + Windows byte identity)
+        run: |
+          ./build/bin/saida_tool apply-ops tests/fixtures/fold-determinism/base.json \
+            tests/fixtures/fold-determinism/ops.json --out build/fold-linux.json
+          cmp build/fold-linux.json tests/fixtures/fold-determinism/expected.json
+          cmp build/fold-linux.json build/ci-fold-windows/fold-windows.json
+          echo "Linux and Windows folds are byte-identical"
+
+      - name: Engine manifest (artefact)
+        run: ./build/bin/saida_tool describe-engine > /tmp/engine-manifest.json
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: saida-tool-linux-${{ github.sha }}
+          path: build/bin/saida_tool
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: engine-manifest-${{ github.sha }}
+          path: /tmp/engine-manifest.json
+          if-no-files-found: error
+
+  # Publishes the `saida-tool` image to GHCR (push to main): the platform's Docker
+  # images (apps/api, apps/workers) do COPY --from=ghcr.io/saias-o/saida-tool at
+  # build time on the host. Making the GHCR package public lets the PaaS builder
+  # pull it without credentials (see docs/deployment.md in the saida repo).
+  publish-tool-image:
+    if: github.ref == 'refs/heads/main'
+    needs: [linux-tool, web-artifacts]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      # docker-container driver: required for the GHA build cache (the default
+      # docker driver can't export cache).
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push saida-tool image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/saida-tool.Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/saida-tool:latest
+            ghcr.io/${{ github.repository_owner }}/saida-tool:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

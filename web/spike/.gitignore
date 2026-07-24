@@ -1,0 +1,6 @@
+# Generated Emscripten build artifacts (sources are the .cpp files).
+*.js
+*.wasm
+*.html
+*.data
+*.map

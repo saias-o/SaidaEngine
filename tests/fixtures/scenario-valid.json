@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "version": 1,
+  "id": "tests.valid_scenario",
+  "roles": {},
+  "blackboard": {},
+  "steps": [
+    {
+      "id": "start",
+      "enter": [
+        {
+          "blackboard.set": {
+            "key": "ready",
+            "value": true
+          }
+        }
+      ],
+      "wait": {
+        "time.elapsed": {
+          "seconds": 0.1
+        }
+      },
+      "next": "done"
+    },
+    {
+      "id": "done",
+      "end": "success"
+    }
+  ]
+}

@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Saida player</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0c0e14; color: #cfd6e4;
+                 font: 13px/1.5 system-ui, sans-serif; }
+    .wrap { display: flex; flex-direction: column; align-items: center; gap: 10px;
+            padding: 18px; }
+    canvas { background: #000; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.5); }
+    #status { opacity: .7; min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()"></canvas>
+    <div id="status">loading…</div>
+  </div>
+  <script>
+    var statusEl = document.getElementById('status');
+
+    // Errors from async callbacks (WebGPU device request) would evaporate as
+    // an unhandledrejection: capturing them keeps a diagnostic visible on the page.
+    window.__saidaErrors = [];
+    window.addEventListener('error', function(e) {
+      window.__saidaErrors.push('error: ' + e.message);
+      statusEl.textContent = 'JS error: ' + e.message;
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      var reason = e.reason && (e.reason.stack || e.reason.message) || String(e.reason);
+      window.__saidaErrors.push('rejection: ' + reason);
+      statusEl.textContent = 'JS rejection: ' + reason;
+    });
+
+    // Engine logs stay readable from the page (last line) and the console;
+    // the game boot announces itself with "saida-player: … started".
+    window.__saidaLog = [];
+    window.__saidaPlayerStatus = {
+      schema: 1, runtime: 'player-web', state: 'loading', ready: false
+    };
+    var statusPoll = 0;
+    var reportE2E = new URLSearchParams(location.search).has('report');
+    function publishE2E(text) {
+      document.documentElement.dataset.saidaE2e = text;
+      if (reportE2E) {
+        fetch('/__saida_e2e', {
+          method: 'POST',
+          headers: {'Content-Type': 'text/plain; charset=utf-8'},
+          body: text
+        }).catch(function(error) {
+          window.__saidaErrors.push('e2e report: ' + error.message);
+        });
+      }
+    }
+    function refreshPlayerStatus() {
+      try {
+        window.__saidaPlayerStatus = JSON.parse(
+          Module.ccall('saida_player_status', 'string', [], []));
+        if (window.__saidaPlayerStatus.state === 'ready' ||
+            window.__saidaPlayerStatus.state === 'error') {
+          clearInterval(statusPoll);
+          if (window.__saidaPlayerStatus.state === 'error')
+            statusEl.textContent = 'Player boot failed: ' + window.__saidaPlayerStatus.error;
+        }
+      } catch (error) {
+        window.__saidaErrors.push('player status: ' + error.message);
+      }
+    }
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      arguments: (function() {
+        var query = new URLSearchParams(location.search);
+        var args = query.getAll('test-autoload')
+          .flatMap(function(spec) { return ['--test-autoload', spec]; });
+        if (query.has('verify-runtime-contract'))
+          args.push('--verify-runtime-contract');
+        return args;
+      })(),
+      onRuntimeInitialized: function() {
+        refreshPlayerStatus();
+        statusPoll = setInterval(refreshPlayerStatus, 50);
+      },
+      preRun: [function() {
+        // Persistent saves: /project/saves lives on IDBFS (IndexedDB).
+        // Loaded before boot; storage.save triggers a syncfs on the engine side.
+        var savesDependency = 'saida-saves';
+        addRunDependency(savesDependency);
+        FS.mkdirTree('/project/saves');
+        FS.mount(IDBFS, {}, '/project/saves');
+        FS.syncfs(true, function(error) {
+          if (error) window.__saidaErrors.push('saves syncfs: ' + error);
+          removeRunDependency(savesDependency);
+        });
+
+        var dependency = 'saida-project-package';
+        addRunDependency(dependency);
+        fetch('project-files.json')
+          .then(function(response) {
+            if (!response.ok) throw new Error('project-files.json: HTTP ' + response.status);
+            return response.json();
+          })
+          .then(function(manifest) {
+            if ((manifest.schema !== 1 && manifest.schema !== 2) ||
+                !Array.isArray(manifest.files))
+              throw new Error('unsupported project file manifest');
+            // Schema 2: `streamed` is not preloaded — the engine fetches it
+            // on demand (MEMFS miss → emscripten_async_wget).
+            FS.mkdirTree('/project');
+            return Promise.all(manifest.files.map(function(relative) {
+              if (typeof relative !== 'string' || relative.startsWith('/') ||
+                  relative.split('/').indexOf('..') !== -1)
+                throw new Error('unsafe project path: ' + relative);
+              var url = 'project/' + relative.split('/').map(encodeURIComponent).join('/');
+              return fetch(url).then(function(response) {
+                if (!response.ok) throw new Error(relative + ': HTTP ' + response.status);
+                return response.arrayBuffer();
+              }).then(function(bytes) {
+                var slash = relative.lastIndexOf('/');
+                if (slash >= 0) FS.mkdirTree('/project/' + relative.slice(0, slash));
+                FS.writeFile('/project/' + relative, new Uint8Array(bytes));
+              });
+            }));
+          })
+          .then(function() { removeRunDependency(dependency); })
+          .catch(function(error) {
+            statusEl.textContent = 'Project load failed: ' + error.message;
+            window.__saidaErrors.push(error.stack || String(error));
+            removeRunDependency(dependency);
+            throw error;
+          });
+      }],
+      print: function(text) {
+        window.__saidaLog.push(text);
+        if (text.indexOf('[E2E]') >= 0)
+          publishE2E(text);
+        if (text.indexOf('[CONTRACT]') >= 0)
+          document.documentElement.dataset.saidaContract = text;
+        console.log(text);
+        statusEl.textContent = text;
+      },
+      printErr: function(text) {
+        window.__saidaLog.push(text);
+        if (text.indexOf('[E2E]') >= 0)
+          publishE2E(text);
+        if (text.indexOf('[CONTRACT]') >= 0)
+          document.documentElement.dataset.saidaContract = text;
+        console.error(text);
+        statusEl.textContent = text;
+      },
+      setStatus: function(text) { if (text) statusEl.textContent = text; }
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

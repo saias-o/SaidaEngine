@@ -1,0 +1,21 @@
+{
+ "schema": 2,
+ "name": "Locomotion",
+ "parameters": [
+  { "name": "speed", "type": "float", "default": 0 }
+ ],
+ "clips": {
+  "mix": "two_bone.gltf#Mix"
+ },
+ "states": [
+  { "name": "Idle", "play": "mix", "loop": true },
+  { "name": "Run", "play": "mix", "loop": true }
+ ],
+ "initial": "Idle",
+ "transitions": [
+  { "from": "Idle", "to": "Run", "crossfade": 0.2,
+    "when": [ { "param": "speed", "op": ">", "value": 0.1 } ] },
+  { "from": "Run", "to": "Idle", "crossfade": 0.2,
+    "when": [ { "param": "speed", "op": "<=", "value": 0.1 } ] }
+ ]
+}

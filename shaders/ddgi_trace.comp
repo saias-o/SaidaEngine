@@ -1,0 +1,102 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// DDGI ray trace: one thread per (probe, ray), DDA through the voxel grid.
+
+#include "lighting.glsl"
+
+layout(local_size_x = 64) in;
+
+struct Ray {
+    vec4 dirDist;   // xyz = ray direction, w = hit distance (or far on miss)
+    vec4 radiance;  // rgb = incoming radiance toward the probe
+};
+layout(std430, set = 1, binding = 0) buffer RaysBuffer { Ray rays[]; };
+
+PUSH_QUALIFIER Push {
+    mat4 randomRot;     // per-frame rotation of the Fibonacci ray set (temporal coverage)
+    int raysPerProbe;
+    int probeCount;
+} pc;
+
+void main() {
+    uint gid = gl_GlobalInvocationID.x;
+    if (int(gid) >= pc.probeCount * pc.raysPerProbe) return;
+
+    int probe = int(gid) / pc.raysPerProbe;
+    int ray   = int(gid) % pc.raysPerProbe;
+
+    ivec3 counts = lights.giCounts.xyz;
+    ivec3 pcoord = ivec3(probe % counts.x,
+                         (probe / counts.x) % counts.y,
+                         probe / (counts.x * counts.y));
+    vec3 origin  = lights.giOrigin.xyz;
+    vec3 spacing = lights.giSpacing.xyz;
+    vec3 probePos = origin + vec3(pcoord) * spacing;
+
+    vec3 dir = normalize(mat3(pc.randomRot) *
+                         sphericalFibonacci(float(ray), float(pc.raysPerProbe)));
+
+    // DDA march in voxel/cell space (Amanatides & Woo).
+    int   res       = lights.giAtlas.w;
+    vec3  extent    = spacing * vec3(counts - 1);
+    vec3  voxelSize = extent / float(res);
+    vec3  vp = (probePos - origin) / voxelSize;   // cell-space position
+    vec3  vd = dir / voxelSize;                    // cell-space direction (not normalized)
+
+    ivec3 cell = ivec3(floor(vp));
+    ivec3 stp  = ivec3(sign(vd));
+    vec3  tDelta = abs(1.0 / vd);
+    vec3  tMax;
+    for (int a = 0; a < 3; ++a) {
+        if (abs(vd[a]) < 1e-8) {
+            tMax[a] = 1e30;
+        } else {
+            float nextBoundary = float(cell[a]) + (stp[a] > 0 ? 1.0 : 0.0);
+            tMax[a] = (nextBoundary - vp[a]) / vd[a];
+        }
+    }
+
+    float far = length(extent);
+    bool  hit = false;
+    float hitDist = far;
+    vec3  hitAlbedo = vec3(0.0);
+    vec3  hitNormal = vec3(0.0);
+
+    for (int i = 0; i < res * 3; ++i) {
+        int axis = (tMax.x < tMax.y)
+                 ? ((tMax.x < tMax.z) ? 0 : 2)
+                 : ((tMax.y < tMax.z) ? 1 : 2);
+        float tEnter = tMax[axis];
+        cell[axis] += stp[axis];
+        tMax[axis] += tDelta[axis];
+        if (cell[axis] < 0 || cell[axis] >= res) break;
+
+        vec4 v = texelFetch(TEX3D(giVoxels), cell, 0);
+        if (v.a > 0.5) {
+            hit = true;
+            hitDist = tEnter;
+            hitAlbedo = v.rgb;
+            hitNormal = vec3(0.0);
+            hitNormal[axis] = float(-stp[axis]);
+            break;
+        }
+    }
+
+    vec3 radiance;
+    if (hit) {
+        vec3 hitPos = probePos + dir * hitDist;
+        // Single-bounce direct diffuse; V is irrelevant for the diffuse term.
+        vec3 outRadiance = vec3(0.0);
+        for (int l = 0; l < lights.counts.x; ++l)
+            outRadiance += lightContribution(l, hitNormal, hitNormal, hitPos,
+                                             hitAlbedo, 0.0, 1.0).diffuse;
+        radiance = outRadiance;
+    } else {
+        radiance = environmentMissRadiance(dir);   // sky / ambient on miss
+        hitDist  = far;
+    }
+
+    rays[gid].dirDist  = vec4(dir, hitDist);
+    rays[gid].radiance = vec4(radiance, 0.0);
+}

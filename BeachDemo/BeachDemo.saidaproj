@@ -1,0 +1,8 @@
+[SaidaEngine Project]
+name=BeachDemo
+engine_version=0.1.0
+main_scene=scenes/beach.scene
+max_fps=240
+shadow_resolution=2048
+shadow_dist=120
+shadow_soft=1

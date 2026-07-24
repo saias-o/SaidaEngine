@@ -1,0 +1,16 @@
+{
+ "schema": 1,
+ "name": "Intro",
+ "duration": 2.0,
+ "tracks": [
+  {
+   "type": "animation",
+   "target": "Hero",
+   "clips": [
+    { "start": 0.0, "duration": 1.5, "clip": "two_bone.gltf#Mix", "blendOut": 0.5 },
+    { "start": 1.0, "duration": 1.0, "clip": "two_bone.gltf#Mix", "loop": true, "blendIn": 0.5 }
+   ]
+  },
+  { "type": "event", "events": [ { "time": 1.0, "name": "handoff" } ] }
+ ]
+}

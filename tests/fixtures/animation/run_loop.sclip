@@ -1,0 +1,11 @@
+{
+ "schema": 1,
+ "source": "two_bone.gltf#Mix",
+ "name": "RunLoop",
+ "range": { "start": 0.25, "end": 1.0 },
+ "loop": true,
+ "speed": 1.0,
+ "events": [
+  { "time": 0.5, "name": "left_foot_down" }
+ ]
+}
