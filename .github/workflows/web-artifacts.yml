@@ -14,7 +14,7 @@ jobs:
       # lfs: true — the web build preloads BeachDemo/assets/skies/sunset.png
       # (.png = LFS) via --preload-file; without LFS, checkout would only provide
       # a pointer and the .data would be corrupt.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           lfs: true
@@ -32,7 +32,7 @@ jobs:
       # Version pinned to the one that produces a proven web build:
       # emdawnwebgpu (the Dawn/WebGPU port used by web/runtime) only exists on
       # recent emsdk releases — 3.x does not have it.
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: emscripten-core/setup-emsdk@v16
         with:
           version: 6.0.1
           actions-cache-folder: emsdk-cache
@@ -83,7 +83,7 @@ jobs:
             printf 'runner=%s\n' "$(uname -srvmo)"
           } > build/ci-artifacts/build-identity.txt
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: engine-web-runtime-${{ github.sha }}
           path: |
@@ -92,7 +92,7 @@ jobs:
             build-web/index.data
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: engine-web-player-${{ github.sha }}
           path: |
@@ -102,7 +102,7 @@ jobs:
             build-web-player/index.data
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: saida-authoring-wasm-${{ github.sha }}
           path: |
@@ -110,13 +110,13 @@ jobs:
             build-authoring-wasm/saida_authoring.wasm
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: witness-web-${{ github.sha }}
           path: build/witness-web
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-build-identity-${{ github.sha }}
           path: build/ci-artifacts

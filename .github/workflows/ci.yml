@@ -17,7 +17,7 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           lfs: true
@@ -167,31 +167,31 @@ jobs:
           -Objcopy '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\objcopy.exe'
           -Objdump '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\objdump.exe'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: fold-windows-${{ github.sha }}
           path: build/fold-windows.json
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: saida-tool-windows-${{ github.sha }}
           path: build/bin/saida_tool.exe
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-compliance-${{ github.sha }}
           path: build/release/compliance
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-symbols-${{ github.sha }}
           path: build/release/windows-symbols
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: witness-windows-installer-${{ github.sha }}
           path: build/release/witness-installer
@@ -217,7 +217,7 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build git git-lfs ca-certificates \
             libvulkan-dev libglfw3-dev libglm-dev glslc
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           lfs: true
@@ -244,7 +244,7 @@ jobs:
       - name: Compatibility corpus (explicit gate)
         run: ctest --test-dir build --output-on-failure -R "^saida_compat_corpus_tests$"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: fold-windows-${{ github.sha }}
           path: build/ci-fold-windows
@@ -260,13 +260,13 @@ jobs:
       - name: Engine manifest (artefact)
         run: ./build/bin/saida_tool describe-engine > /tmp/engine-manifest.json
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: saida-tool-linux-${{ github.sha }}
           path: build/bin/saida_tool
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: engine-manifest-${{ github.sha }}
           path: /tmp/engine-manifest.json
@@ -284,7 +284,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
       # docker-container driver: required for the GHA build cache (the default
