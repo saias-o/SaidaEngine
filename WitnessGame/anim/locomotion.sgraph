@@ -1,0 +1,22 @@
+{
+  "schema": 2,
+  "name": "TotemLocomotion",
+  "parameters": [
+    { "name": "speed", "type": "float", "default": 0 }
+  ],
+  "clips": {
+    "idle": "assets/models/totem.gltf#Idle",
+    "walk": "assets/models/totem.gltf#Walk"
+  },
+  "states": [
+    { "name": "Idle", "play": "idle", "loop": true },
+    { "name": "Walk", "play": "walk", "loop": true }
+  ],
+  "initial": "Idle",
+  "transitions": [
+    { "from": "Idle", "to": "Walk", "crossfade": 0.15,
+      "when": [ { "param": "speed", "op": ">", "value": 0.1 } ] },
+    { "from": "Walk", "to": "Idle", "crossfade": 0.2,
+      "when": [ { "param": "speed", "op": "<=", "value": 0.1 } ] }
+  ]
+}

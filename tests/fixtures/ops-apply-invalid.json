@@ -1,0 +1,3 @@
+[
+  {"type": "set_transform", "payload": {"nodeId": "999999", "position": [1.0, 2.0, 3.0]}}
+]

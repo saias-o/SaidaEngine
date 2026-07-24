@@ -1,0 +1,14 @@
+{
+ "schema": 1,
+ "name": "Broken",
+ "duration": 2.0,
+ "tracks": [
+  {
+   "type": "animation",
+   "target": "Hero",
+   "clips": [
+    { "start": 1.0, "duration": 5.0, "clip": "two_bone.gltf#Missing" }
+   ]
+  }
+ ]
+}

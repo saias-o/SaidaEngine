@@ -1,0 +1,10 @@
+# Contexte du build Docker de saida_tool (voir saida-tool.Dockerfile).
+# Exclut tout ce qui n'entre pas dans la compilation du binaire headless :
+# builds locaux, assets lourds LFS, artefacts web.
+build/
+build-*/
+.git/
+models/
+assets/
+web/dist/
+*.exe

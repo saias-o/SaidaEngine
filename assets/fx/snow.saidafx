@@ -1,0 +1,24 @@
+{
+    "format": "SaidaFX",
+    "version": 1,
+    "name": "Snow",
+    "emitters": [
+        {
+            "name": "Snow",
+            "effectClass": "Snow",
+            "maxParticles": 1100,
+            "blendMode": "Alpha",
+            "looping": true,
+            "modules": [
+                {"type": "SpawnRate", "enabled": true, "params": {"rate": 180.0}},
+                {"type": "Shape", "enabled": true, "params": {"type": "Disc", "radius": 8.0, "boxExtents": [1.0, 1.0, 1.0], "coneAngle": 30.0, "ringThickness": 0.08}},
+                {"type": "InitialVelocity", "enabled": true, "params": {"speed": 1.15}},
+                {"type": "Gravity", "enabled": true, "params": {"acceleration": [0.0, -0.85, 0.0]}},
+                {"type": "ColorOverLife", "enabled": true, "params": {"start": [0.96, 0.98, 1.0, 0.85], "end": [0.96, 0.98, 1.0, 0.2], "emissive": 1.0}},
+                {"type": "SizeOverLife", "enabled": true, "params": {"start": 0.08, "endScale": 0.65, "stretch": 1.0}},
+                {"type": "Drag", "enabled": true, "params": {"linear": 0.12}},
+                {"type": "Noise", "enabled": true, "params": {"strength": 0.18, "frequency": 0.7}}
+            ]
+        }
+    ]
+}

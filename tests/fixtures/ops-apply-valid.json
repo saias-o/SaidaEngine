@@ -1,0 +1,6 @@
+[
+  {"type": "set_property", "payload": {"nodeId": "2", "property": "intensity", "value": 4.5}},
+  {"type": "set_transform", "payload": {"nodeId": "2", "position": [9.0, 9.0, 9.0]}},
+  {"type": "create_node", "payload": {"nodeType": "LightNode", "name": "Lamp", "parentId": "2"}},
+  {"type": "rename_node", "payload": {"nodeId": "2", "name": "MainLight"}}
+]

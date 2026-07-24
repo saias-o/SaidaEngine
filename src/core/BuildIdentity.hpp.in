@@ -1,0 +1,3 @@
+#pragma once
+
+#define SAIDA_BUILD_COMMIT "@SAIDA_BUILD_COMMIT@"

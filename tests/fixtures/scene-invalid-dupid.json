@@ -1,0 +1,13 @@
+{
+  "version": 3,
+  "scene": {
+    "type": "Scene",
+    "id": 1,
+    "name": "Root",
+    "transform": {"position": [0.0, 0.0, 0.0], "rotation": [0.0, 0.0, 0.0, 1.0], "scale": [1.0, 1.0, 1.0]},
+    "children": [
+      {"type": "LightNode", "id": 2, "name": "A", "children": []},
+      {"type": "LightNode", "id": 2, "name": "B", "children": []}
+    ]
+  }
+}

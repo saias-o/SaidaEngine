@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "version": 1,
+  "id": "v1.scenario",
+  "roles": {},
+  "blackboard": {},
+  "steps": [
+    {
+      "id": "start",
+      "wait": {
+        "time.elapsed": {
+          "seconds": 0.1
+        }
+      },
+      "next": "done"
+    },
+    {
+      "id": "done",
+      "end": "success"
+    }
+  ]
+}

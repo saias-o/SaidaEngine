@@ -1,0 +1,202 @@
+{
+  "scene": {
+    "behaviours": [],
+    "children": [
+      {
+        "bakeMode": 0,
+        "behaviours": [],
+        "castShadows": true,
+        "children": [],
+        "color": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 2,
+        "intensity": 5.0,
+        "lightType": 0,
+        "name": "Sun",
+        "range": 10.0,
+        "spotInnerAngle": 25.0,
+        "spotOuterAngle": 35.0,
+        "transform": {
+          "position": [
+            0.0,
+            5.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "LightNode"
+      },
+      {
+        "bakeMode": 0,
+        "behaviours": [],
+        "castShadows": true,
+        "children": [
+          {
+            "bakeMode": 0,
+            "behaviours": [],
+            "castShadows": true,
+            "children": [],
+            "color": [
+              1.0,
+              1.0,
+              1.0
+            ],
+            "direction": [
+              0.0,
+              -1.0,
+              0.0
+            ],
+            "enabled": true,
+            "id": 4,
+            "intensity": 1.0,
+            "lightType": 0,
+            "name": "Lamp",
+            "range": 10.0,
+            "spotInnerAngle": 25.0,
+            "spotOuterAngle": 35.0,
+            "transform": {
+              "position": [
+                1.5,
+                2.25,
+                -3.75
+              ],
+              "rotation": [
+                0.0,
+                0.7071067690849304,
+                0.0,
+                0.7071067690849304
+              ],
+              "scale": [
+                2.0,
+                2.0,
+                2.0
+              ]
+            },
+            "type": "LightNode"
+          }
+        ],
+        "color": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "direction": [
+          0.0,
+          -1.0,
+          0.0
+        ],
+        "enabled": true,
+        "id": 3,
+        "intensity": 1.0,
+        "lightType": 0,
+        "name": "Rig",
+        "range": 10.0,
+        "spotInnerAngle": 25.0,
+        "spotOuterAngle": 35.0,
+        "transform": {
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "type": "LightNode"
+      }
+    ],
+    "enabled": true,
+    "id": 1,
+    "name": "Root",
+    "settings": {
+      "ambient": [
+        0.10000000149011612,
+        0.10000000149011612,
+        0.10000000149011612
+      ],
+      "aoEnabled": true,
+      "aoIntensity": 1.0,
+      "aoPower": 1.350000023841858,
+      "aoRadius": 0.75,
+      "bloomEnabled": true,
+      "bloomIntensity": 0.125,
+      "bloomRadius": 3.0,
+      "bloomThreshold": 1.0,
+      "changeRenderingAtLoad": true,
+      "clearColor": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "fogColor": [
+        0.550000011920929,
+        0.6200000047683716,
+        0.7200000286102295
+      ],
+      "fogDensity": 0.03500000014901161,
+      "fogEnabled": false,
+      "fogStart": 8.0,
+      "giEnabled": true,
+      "giIntensity": 1.0,
+      "giMode": 0,
+      "iblDiffuseIntensity": 0.3499999940395355,
+      "iblEnabled": true,
+      "iblSpecularIntensity": 1.0,
+      "lightingMode": 0,
+      "postProcessing": true,
+      "skyboxExposure": 1.0,
+      "skyboxRotation": 0.0,
+      "skyboxTexture": 0
+    },
+    "transform": {
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "type": "Scene"
+  },
+  "schema": 2,
+  "snapshotMode": "authoring-headless",
+  "version": 2
+}

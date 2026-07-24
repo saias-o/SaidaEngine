@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SaidaEngine — web runtime</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0c0e14; color: #cfd6e4;
+                 font: 13px/1.5 system-ui, sans-serif; }
+    .wrap { display: flex; flex-direction: column; align-items: center; gap: 10px;
+            padding: 18px; }
+    canvas { background: #000; border-radius: 6px; box-shadow: 0 8px 40px rgba(0,0,0,.5);
+             image-rendering: pixelated; }
+    #status { opacity: .7; min-height: 1.2em; }
+    /* Editing harness (spike S1) — only visible with ?edit in the URL. */
+    #editbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+               justify-content: center; }
+    #editbar .tag { font: 11px/1 ui-monospace, monospace; letter-spacing: .06em;
+                    text-transform: uppercase; opacity: .5; }
+    #editbar button { background: #1b2030; color: #cfd6e4; border: 1px solid #2c3448;
+                      border-radius: 5px; padding: 5px 10px; cursor: pointer; font: inherit; }
+    #editbar button:hover { background: #232a3d; border-color: #3a4258; }
+    #editbar code { font: 11px/1.4 ui-monospace, monospace; opacity: .6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <canvas id="canvas" width="1280" height="720" oncontextmenu="event.preventDefault()"></canvas>
+    <div id="status">loading…</div>
+    <div id="editbar" hidden></div>
+  </div>
+  <script>
+    var statusEl = document.getElementById('status');
+
+    // Capture errors swallowed by async callbacks (e.g. a WebGPU device
+    // request): without this, a throw during init evaporates as an
+    // unhandledrejection and the canvas stays black with no diagnostic.
+    window.__saidaErrors = [];
+    window.addEventListener('error', function(e) {
+      window.__saidaErrors.push('error: ' + e.message);
+      statusEl.textContent = 'JS error: ' + e.message;
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      var reason = e.reason && (e.reason.stack || e.reason.message) || String(e.reason);
+      window.__saidaErrors.push('rejection: ' + reason);
+      statusEl.textContent = 'JS rejection: ' + reason;
+    });
+
+    // Opt-in through ?edit so the game runtime stays unchanged by default.
+    function makeSaidaApi() {
+      var call = function(name, arg) {
+        return arg === undefined
+          ? Module.ccall(name, 'string', [], [])
+          : Module.ccall(name, 'string', ['string'], [arg]);
+      };
+      var api = {
+        ws: null,
+        wsState: 'closed',
+        lastWsApply: null,
+        // Applies a SaidaOp; returns {ok, applied, diff} or {ok:false, error}.
+        applyOp: function(op) {
+          var res = JSON.parse(call('saida_apply_op', JSON.stringify(op)));
+          if (!res.ok) console.warn('saida_apply_op rejeté :', res.error);
+          return res;
+        },
+        manifest: function() { return JSON.parse(call('saida_engine_manifest')); },
+        runtimeStatus: function() { return JSON.parse(call('saida_runtime_status')); },
+        snapshot: function() { return JSON.parse(call('saida_scene_snapshot')); },
+        snapshotCompare: function() { return JSON.parse(call('saida_scene_snapshot_compare')); },
+        loadSnapshot: function(doc) {
+          return JSON.parse(call('saida_load_snapshot', JSON.stringify(doc)));
+        },
+        connectWebSocket: function(url) {
+          var self = this;
+          if (self.ws && self.ws.readyState === WebSocket.OPEN)
+            self.ws.close();
+          self.wsState = 'connecting';
+          self.ws = new WebSocket(url);
+          self.ws.onopen = function() {
+            self.wsState = 'open';
+            console.log('Saida edit WS connected:', url);
+            window.dispatchEvent(new CustomEvent('saida-ws-state', { detail: self.wsState }));
+          };
+          self.ws.onclose = function() {
+            self.wsState = 'closed';
+            console.log('Saida edit WS closed');
+            window.dispatchEvent(new CustomEvent('saida-ws-state', { detail: self.wsState }));
+          };
+          self.ws.onerror = function(e) {
+            self.wsState = 'error';
+            console.warn('Saida edit WS error:', e);
+            window.dispatchEvent(new CustomEvent('saida-ws-state', { detail: self.wsState }));
+          };
+          self.ws.onmessage = function(e) {
+            var op = JSON.parse(e.data);
+            var res = self.applyOp(op);
+            self.lastWsApply = res;
+            window.dispatchEvent(new CustomEvent('saida-ws-apply', { detail: res }));
+          };
+          return self.ws;
+        },
+        sendOp: function(op) {
+          if (!this.ws || this.ws.readyState !== WebSocket.OPEN)
+            return { ok: false, error: 'WebSocket not open' };
+          this.ws.send(JSON.stringify(op));
+          return { ok: true, sent: true };
+        },
+      };
+      return api;
+    }
+
+    // Demo bar: proves that a received op mutates the live scene and re-renders,
+    // without re-exporting. BeachDemo names are resolved once from the
+    // snapshot; durable operations only carry NodeIds.
+    function buildEditBar(saida) {
+      var bar = document.getElementById('editbar');
+      var out = document.createElement('code');
+
+      var palmHome = true;   // Palm_A base x = -14
+      var sunBright = true;
+      var findNodeId = function(node, name) {
+        if (!node) return null;
+        if (node.name === name) return node.id;
+        var children = Array.isArray(node.children) ? node.children : [];
+        for (var i = 0; i < children.length; ++i) {
+          var found = findNodeId(children[i], name);
+          if (found !== null) return found;
+        }
+        return null;
+      };
+      var liveSnapshot = saida.snapshot();
+      var palmNodeId = findNodeId(liveSnapshot.scene, 'Palm_A');
+      var sunNodeId = findNodeId(liveSnapshot.scene, 'Sun');
+      var wsStatus = document.createElement('code');
+      wsStatus.textContent = 'ws: ' + saida.wsState;
+
+      var setOut = function(value) {
+        out.textContent = JSON.stringify(value);
+      };
+      window.addEventListener('saida-ws-state', function(e) {
+        wsStatus.textContent = 'ws: ' + e.detail;
+      });
+      window.addEventListener('saida-ws-apply', function(e) {
+        setOut(e.detail);
+      });
+
+      var actions = [
+        ['Slide palm', function() {
+          palmHome = !palmHome;
+          return saida.applyOp({ type: 'set_transform', payload: {
+            nodeId: palmNodeId, position: [palmHome ? -14 : 4, 0.6, 12] } });
+        }],
+        ['Sun dim/bright', function() {
+          sunBright = !sunBright;
+          return saida.applyOp({ type: 'set_property', payload: {
+            nodeId: sunNodeId, property: 'intensity', value: sunBright ? 8 : 1.5 } });
+        }],
+        ['WS palm', function() {
+          palmHome = !palmHome;
+          return saida.sendOp({ type: 'set_transform', payload: {
+            nodeId: palmNodeId, position: [palmHome ? -14 : 4, 0.6, 12] } });
+        }],
+        ['WS sun', function() {
+          sunBright = !sunBright;
+          return saida.sendOp({ type: 'set_property', payload: {
+            nodeId: sunNodeId, property: 'intensity', value: sunBright ? 8 : 1.5 } });
+        }],
+        ['S4 compare', function() {
+          if (typeof Module._saida_scene_snapshot_compare !== 'function') {
+            return {
+              ok: false,
+              error: 'missing wasm export',
+              compare: typeof Module._saida_scene_snapshot_compare,
+              snapshot: typeof Module._saida_scene_snapshot,
+              applyOp: typeof Module._saida_apply_op
+            };
+          }
+          return saida.snapshotCompare();
+        }],
+      ];
+
+      var tag = document.createElement('span');
+      tag.className = 'tag'; tag.textContent = 'edit';
+      bar.appendChild(tag);
+      bar.appendChild(wsStatus);
+      actions.forEach(function(a) {
+        var b = document.createElement('button');
+        b.textContent = a[0];
+        b.onclick = function() {
+          try {
+            setOut(a[1]());
+          } catch (e) {
+            setOut({ ok: false, error: String(e) });
+            throw e;
+          }
+        };
+        bar.appendChild(b);
+      });
+      bar.appendChild(out);
+      bar.hidden = false;
+    }
+
+    function requestedEditWsUrl() {
+      var params = new URLSearchParams(location.search);
+      if (!params.has('ws')) return null;
+      var value = params.get('ws');
+      if (!value || value === '1' || value === 'true')
+        return 'ws://127.0.0.1:8787';
+      return value;
+    }
+
+    function runContractSelfTest(saida) {
+      var transform = {
+        position: [0, 0, 0], rotation: [0, 0, 0, 1], scale: [1, 1, 1]
+      };
+      var base = {
+        schema: 2,
+        version: 2,
+        scene: {
+          type: 'Scene', id: 1, name: 'ContractTest', enabled: true,
+          transform: transform, behaviours: [], settings: {}, connections: [],
+          children: [
+            {
+              type: 'Camera', id: 2, name: 'Camera', enabled: true,
+              transform: transform, behaviours: [], children: [],
+              fovDegrees: 72, nearZ: 0.25, farZ: 900, priority: 4, active: false
+            },
+            {
+              type: 'ParticleSystem', id: 3, name: 'Particles', enabled: true,
+              transform: transform, behaviours: [], children: [], maxParticles: 32
+            }
+          ]
+        }
+      };
+      var accepted = saida.loadSnapshot(base);
+      var createdNode = saida.applyOp({
+        type: 'create_node', opVersion: 2,
+        payload: {nodeType: 'Node', name: 'CreatedNode'}
+      });
+      var createdCamera = saida.applyOp({
+        type: 'create_node', opVersion: 2,
+        payload: {nodeType: 'Camera', name: 'CreatedCamera'}
+      });
+      var mutatedCreatedNode = createdNode.ok === true ? saida.applyOp({
+        type: 'set_transform', opVersion: 2,
+        payload: {nodeId: createdNode.diff.nodeId, position: [11, 12, 13]}
+      }) : {ok: false, error: 'create_node failed'};
+      var acceptedSnapshot = saida.snapshot();
+      var reloadedStringIds = saida.loadSnapshot(acceptedSnapshot);
+      var afterStringReload = saida.snapshot();
+      var unknown = JSON.parse(JSON.stringify(base));
+      unknown.scene.children[0].type = 'DesktopOnly';
+      var rejectedUnknown = saida.loadSnapshot(unknown);
+      var afterUnknown = saida.snapshot();
+      var malformed = JSON.parse(JSON.stringify(base));
+      malformed.scene.children[0].fovDegrees = 'not-a-number';
+      var rejectedMalformed = saida.loadSnapshot(malformed);
+      var afterMalformed = saida.snapshot();
+      var future = JSON.parse(JSON.stringify(base));
+      future.schema = future.version = 999;
+      var rejectedFuture = saida.loadSnapshot(future);
+      var behaviour = JSON.parse(JSON.stringify(base));
+      behaviour.scene.children[0].behaviours = [{type: 'Rotator', enabled: true}];
+      var rejectedBehaviour = saida.loadSnapshot(behaviour);
+      var manifest = saida.manifest();
+      var types = accepted.ok && acceptedSnapshot.scene &&
+          Array.isArray(acceptedSnapshot.scene.children)
+        ? acceptedSnapshot.scene.children.map(function(node) { return node.type; })
+        : [];
+      var createdSnapshotNode = acceptedSnapshot.scene &&
+          Array.isArray(acceptedSnapshot.scene.children)
+        ? acceptedSnapshot.scene.children.find(function(node) {
+            return node.id === createdNode.diff.nodeId;
+          })
+        : null;
+      var passed = accepted.ok === true &&
+        types.indexOf('Camera') !== -1 && types.indexOf('ParticleSystem') !== -1 &&
+        createdNode.ok === true && createdCamera.ok === true &&
+        typeof createdNode.diff.nodeId === 'string' &&
+        typeof createdCamera.diff.nodeId === 'string' &&
+        createdNode.diff.nodeId !== createdCamera.diff.nodeId &&
+        mutatedCreatedNode.ok === true && createdSnapshotNode !== null &&
+        createdSnapshotNode.transform.position[0] === 11 &&
+        reloadedStringIds.ok === true &&
+        JSON.stringify(acceptedSnapshot) === JSON.stringify(afterStringReload) &&
+        rejectedUnknown.ok === false && rejectedMalformed.ok === false &&
+        rejectedFuture.ok === false &&
+        rejectedBehaviour.ok === false &&
+        JSON.stringify(acceptedSnapshot) === JSON.stringify(afterUnknown) &&
+        JSON.stringify(acceptedSnapshot) === JSON.stringify(afterMalformed) &&
+        manifest.sceneSnapshot && manifest.sceneSnapshot.schema === 2 &&
+        manifest.sceneSnapshot.atomicLoad === true &&
+        manifest.sceneSnapshot.unsupportedTypePolicy === 'reject';
+      var result = {
+        passed: passed,
+        accepted: accepted,
+        createdNode: createdNode,
+        createdCamera: createdCamera,
+        mutatedCreatedNode: mutatedCreatedNode,
+        reloadedStringIds: reloadedStringIds,
+        types: types,
+        rejectedUnknown: rejectedUnknown,
+        rejectedMalformed: rejectedMalformed,
+        rejectedFuture: rejectedFuture,
+        rejectedBehaviour: rejectedBehaviour,
+        rollbackPreservedSnapshot:
+          JSON.stringify(acceptedSnapshot) === JSON.stringify(afterUnknown) &&
+          JSON.stringify(acceptedSnapshot) === JSON.stringify(afterMalformed),
+        sceneSnapshotContract: manifest.sceneSnapshot
+      };
+      window.__saidaContractTest = result;
+      var output = document.createElement('pre');
+      output.id = 'contract-test-results';
+      output.textContent = JSON.stringify(result, null, 2);
+      document.body.appendChild(output);
+      statusEl.textContent = passed ? 'contract self-test passed' : 'contract self-test failed';
+    }
+
+    function runContractSelfTestWhenReady(saida, attemptsLeft) {
+      var runtime = saida.runtimeStatus();
+      if (runtime.ready) {
+        runContractSelfTest(saida);
+        return;
+      }
+      if (runtime.state === 'error' || attemptsLeft <= 0) {
+        var result = {passed: false, runtimeStatus: runtime};
+        window.__saidaContractTest = result;
+        var output = document.createElement('pre');
+        output.id = 'contract-test-results';
+        output.textContent = JSON.stringify(result, null, 2);
+        document.body.appendChild(output);
+        statusEl.textContent = 'contract self-test could not start';
+        return;
+      }
+      setTimeout(function() {
+        runContractSelfTestWhenReady(saida, attemptsLeft - 1);
+      }, 50);
+    }
+
+    var Module = {
+      canvas: document.getElementById('canvas'),
+      print: function(t) {
+        if (t.indexOf('[CONTRACT]') >= 0)
+          document.documentElement.dataset.saidaContract = t;
+        console.log(t);
+        statusEl.textContent = t;
+      },
+      printErr: function(t) {
+        if (t.indexOf('[CONTRACT]') >= 0)
+          document.documentElement.dataset.saidaContract = t;
+        console.error(t);
+      },
+      locateFile: function(path, prefix) { return prefix + path + '?v=s4-snapshot'; },
+      setStatus: function(t) { if (t) statusEl.textContent = t; },
+      onRuntimeInitialized: function() {
+        window.saida = makeSaidaApi();
+        console.log('SaidaEngine authoring manifest:', window.saida.manifest());
+        var wsUrl = requestedEditWsUrl();
+        if (wsUrl) window.saida.connectWebSocket(wsUrl);
+        if (/(?:^|[?&])edit(?:[=&]|$)/.test(location.search))
+          buildEditBar(window.saida);
+        if (/(?:^|[?&])contract-test(?:[=&]|$)/.test(location.search))
+          runContractSelfTestWhenReady(window.saida, 600);
+      },
+    };
+    if (!navigator.gpu) {
+      statusEl.textContent = 'WebGPU indisponible — utilisez Chrome/Edge récents.';
+    }
+    // Safety net: opened raw (template not built), no external script has
+    // been substituted for the placeholder — explain instead of showing
+    // "loading…" forever. (Do not write a literal script tag in this comment:
+    // the HTML parser would close the current element and render the rest as text.)
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!document.querySelector('script[src]'))
+        statusEl.textContent = 'Ceci est le template shell.html — buildez puis servez : ' +
+          './web/build_web.sh && python web/serve.py build-web, puis ouvrez http://localhost:8080/index.html';
+    });
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+ "schema": 1,
+ "source": "two_bone.gltf#Mix",
+ "name": "BadRange",
+ "range": { "start": 0.5, "end": 3.0 },
+ "events": [
+  { "time": 2.5, "name": "outside" }
+ ]
+}

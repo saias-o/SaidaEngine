@@ -1,0 +1,56 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// Copy the 1px octahedral gutter so bilinear sampling wraps across tile edges.
+
+#include "lighting.glsl"   // lights.giAtlas / giCounts
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+#ifdef WEB
+// WebGPU core interdit le storage read-write hors r32* : la copie du gutter est
+// fusionnée dans ddgi_blend.comp sous -DWEB. Ce shader n'est pas utilisé sur web
+// (GIVolume n'y crée pas la pipeline) — main vide pour rester transpilable.
+void main() {}
+#else
+layout(set = 1, binding = 1, rgba16f) uniform image2D writeIrr;
+layout(set = 1, binding = 2, rg16f)   uniform image2D writeVis;
+
+PUSH_QUALIFIER Push {
+    int mode;        // 0 = irradiance, 1 = visibility
+    int probeCount;
+} pc;
+
+void main() {
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    int texels = (pc.mode == 0) ? lights.giAtlas.x : lights.giAtlas.y;
+    int T   = texels + 2;
+    int ppr = lights.giCounts.w;
+
+    ivec2 tile  = px / T;
+    ivec2 local = px - tile * T;
+    int probe = tile.y * ppr + tile.x;
+    if (probe >= pc.probeCount) return;
+
+    bool borderX = (local.x == 0 || local.x == T - 1);
+    bool borderY = (local.y == 0 || local.y == T - 1);
+    if (!borderX && !borderY) return;   // interior texel — leave it
+
+    ivec2 base = tile * T;
+    ivec2 copy = base;
+    int n = texels;  // number of interior texels
+    if (borderX && borderY) {
+        copy.x += (local.x > 0) ? 1 : n;
+        copy.y += (local.y > 0) ? 1 : n;
+    } else if (borderY) {                 // top / bottom row
+        copy.x += (T - 1) - local.x;
+        copy.y += local.y + ((local.y > 0) ? -1 : 1);
+    } else {                              // left / right column
+        copy.x += local.x + ((local.x > 0) ? -1 : 1);
+        copy.y += (T - 1) - local.y;
+    }
+
+    if (pc.mode == 0) imageStore(writeIrr, px, imageLoad(writeIrr, copy));
+    else              imageStore(writeVis, px, imageLoad(writeVis, copy));
+}
+#endif

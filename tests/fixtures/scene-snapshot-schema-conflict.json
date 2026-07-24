@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "version": 1,
+  "snapshotMode": "authoring-headless",
+  "scene": {
+    "type": "Scene",
+    "id": 1,
+    "name": "Conflict",
+    "enabled": true,
+    "transform": {
+      "position": [0.0, 0.0, 0.0],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0]
+    },
+    "behaviours": [],
+    "children": []
+  }
+}

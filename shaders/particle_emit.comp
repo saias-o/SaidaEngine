@@ -1,0 +1,206 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+#include "web_compat.glsl"
+
+layout(local_size_x = 64) in;
+
+struct Particle {
+    vec4 positionAge;
+    vec4 velocityLifetime;
+    vec4 colorA;
+    vec4 colorB;
+    vec4 sizeRotation;
+    vec4 renderParams;
+};
+
+struct Emitter {
+    vec4 positionRadius;
+    vec4 gravityLifetime;
+    vec4 colorA;
+    vec4 colorB;
+    vec4 params;
+    vec4 shape;
+    vec4 detail;
+    vec4 forces;
+    vec4 attractor;
+};
+
+layout(std430, set = 0, binding = 0) buffer ParticleBuffer { Particle particles[]; };
+layout(std430, set = 0, binding = 1) readonly buffer ReadAliveBuffer { uint readAliveIndices[]; };
+layout(std430, set = 0, binding = 2) buffer WriteAliveBuffer { uint writeAliveIndices[]; };
+layout(std430, set = 0, binding = 3) buffer DeadBuffer { uint deadIndices[]; };
+layout(std430, set = 0, binding = 4) buffer CounterBuffer {
+    uint readAliveCount;
+    uint aliveCount;
+    uint deadCount;
+    uint emitCount;
+} counters;
+layout(std430, set = 0, binding = 5) readonly buffer EmitterBuffer { Emitter emitters[]; };
+layout(std430, set = 0, binding = 6) buffer IndirectBuffer {
+    uint vertexCount;
+    uint instanceCount;
+    uint firstVertex;
+    uint firstInstance;
+} drawCmd;
+
+PUSH_QUALIFIER Push {
+    uint particleCount;
+    uint emitterCount;
+    uint emitCount;
+    float dt;
+    float time;
+} push;
+
+const float PI = 3.14159265359;
+const float TWO_PI = 6.28318530718;
+
+uint hash(uint x) {
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+
+float rand01(uint seed) {
+    return float(hash(seed) & 0x00ffffffu) / 16777215.0;
+}
+
+float randSigned(uint seed) {
+    return rand01(seed) * 2.0 - 1.0;
+}
+
+vec3 randomUnit(uint seed) {
+    float z = randSigned(seed * 31u + 7u);
+    float a = rand01(seed * 17u + 3u) * TWO_PI;
+    float r = sqrt(max(0.0, 1.0 - z * z));
+    return vec3(cos(a) * r, z, sin(a) * r);
+}
+
+vec3 randomDisc(uint seed, float radius) {
+    float a = rand01(seed * 19u + 5u) * TWO_PI;
+    float r = sqrt(rand01(seed * 23u + 11u)) * radius;
+    return vec3(cos(a) * r, 0.0, sin(a) * r);
+}
+
+vec3 coneDir(uint seed, float angleRad) {
+    float u = rand01(seed * 29u + 13u);
+    float v = rand01(seed * 31u + 17u);
+    float cosTheta = mix(cos(angleRad), 1.0, u);
+    float sinTheta = sqrt(max(0.0, 1.0 - cosTheta * cosTheta));
+    float a = v * TWO_PI;
+    return normalize(vec3(cos(a) * sinTheta, cosTheta, sin(a) * sinTheta));
+}
+
+vec3 spawnOffset(Emitter e, uint seed) {
+    uint shape = uint(e.shape.x + 0.5);
+    float radius = max(e.positionRadius.w, 0.0);
+    if (shape == 1u) return randomUnit(seed) * radius * pow(rand01(seed * 37u + 19u), 0.3333333);
+    if (shape == 2u) return randomDisc(seed, radius);
+    if (shape == 3u) {
+        return vec3(randSigned(seed * 41u + 23u) * e.shape.y,
+                    randSigned(seed * 43u + 29u) * e.shape.z,
+                    randSigned(seed * 47u + 31u) * e.shape.w);
+    }
+    if (shape == 5u) {
+        float a = rand01(seed * 53u + 37u) * TWO_PI;
+        float thick = max(e.detail.y, 0.0);
+        float r = max(0.0, radius + randSigned(seed * 59u + 41u) * thick);
+        return vec3(cos(a) * r, 0.0, sin(a) * r);
+    }
+    return vec3(0.0);
+}
+
+vec3 initialDirection(Emitter e, uint seed, vec3 offset) {
+    uint shape = uint(e.shape.x + 0.5);
+    uint effect = uint(e.attractor.w + 0.5);
+    if (effect == 3u) return vec3(0.0, -1.0, 0.0);
+    if (effect == 4u) return normalize(vec3(randSigned(seed * 61u + 43u) * 0.35, -1.0,
+                                            randSigned(seed * 67u + 47u) * 0.35));
+    if (effect == 1u || effect == 6u) return normalize(vec3(offset.x, abs(offset.y) + 0.35, offset.z) + vec3(0.0, 0.7, 0.0));
+    if (shape == 4u) return coneDir(seed, max(0.001, e.detail.x));
+    if (length(offset) > 0.0001) return normalize(offset);
+    return randomUnit(seed);
+}
+
+float classSizeMultiplier(uint effect, uint seed) {
+    if (effect == 3u) return 0.35;
+    if (effect == 4u) return 0.55 + rand01(seed * 71u + 53u) * 0.5;
+    if (effect == 5u) return 0.8 + rand01(seed * 73u + 59u) * 0.8;
+    if (effect == 6u) return 0.8 + rand01(seed * 79u + 61u) * 0.9;
+    return 0.75 + rand01(seed * 83u + 67u) * 0.5;
+}
+
+bool popDead(out uint particleIndex) {
+    for (;;) {
+        uint oldDead = counters.deadCount;
+        if (oldDead == 0u) return false;
+        if (atomicCompSwap(counters.deadCount, oldDead, oldDead - 1u) == oldDead) {
+            particleIndex = deadIndices[oldDead - 1u];
+            return particleIndex < push.particleCount;
+        }
+    }
+}
+
+Emitter emitterForSpawn(uint spawnId, out uint localId) {
+    for (uint i = 0u; i < push.emitterCount; ++i) {
+        Emitter e = emitters[i];
+        uint count = uint(e.params.z + 0.5);
+        uint offset = uint(e.params.w + 0.5);
+        if (spawnId >= offset && spawnId < offset + count) {
+            localId = spawnId - offset;
+            return e;
+        }
+    }
+    localId = spawnId;
+    return emitters[0];
+}
+
+void main() {
+    uint spawnId = gl_GlobalInvocationID.x;
+    if (spawnId >= push.emitCount || push.emitterCount == 0u || push.particleCount == 0u) return;
+
+    uint localId = 0u;
+    Emitter e = emitterForSpawn(spawnId, localId);
+    if (localId >= uint(e.params.z + 0.5)) return;
+
+    uint particleIndex = 0u;
+    if (!popDead(particleIndex)) return;
+
+    uint seed = hash(spawnId + localId * 747796405u + uint(push.time * 1000.0) * 2891336453u);
+    vec3 offset = spawnOffset(e, seed);
+    vec3 dir = initialDirection(e, seed, offset);
+    uint effect = uint(e.attractor.w + 0.5);
+
+    float speedJitter = 0.75 + rand01(seed * 89u + 71u) * 0.5;
+    float lifetimeJitter = 0.75 + rand01(seed * 97u + 73u) * 0.5;
+    float speed = max(e.params.x, 0.0) * speedJitter;
+    if (effect == 6u) speed *= 1.4;
+
+    Particle p;
+    p.positionAge = vec4(e.positionRadius.xyz + offset, 0.0);
+    p.velocityLifetime = vec4(dir * speed, max(e.gravityLifetime.w * lifetimeJitter, 0.02));
+    p.colorA = e.colorA;
+    p.colorB = e.colorB;
+    p.sizeRotation = vec4(max(e.params.y * classSizeMultiplier(effect, seed), 0.001),
+                          rand01(seed * 101u + 79u) * TWO_PI,
+                          randSigned(seed * 103u + 83u) * 1.5,
+                          max(e.detail.z, 0.0));
+    float alignDown = effect == 3u ? 1.0 : 0.0;
+    p.renderParams = vec4(max(e.detail.w, 1.0), alignDown, max(e.forces.x, 0.0), 0.0);
+    if (alignDown > 0.5) {
+        p.sizeRotation.y = 0.0;
+        p.sizeRotation.z = 0.0;
+    }
+    particles[particleIndex] = p;
+
+    uint aliveSlot = atomicAdd(counters.aliveCount, 1u);
+    if (aliveSlot < push.particleCount) {
+        writeAliveIndices[aliveSlot] = particleIndex;
+    } else {
+        uint deadSlot = atomicAdd(counters.deadCount, 1u);
+        if (deadSlot < push.particleCount) deadIndices[deadSlot] = particleIndex;
+    }
+}

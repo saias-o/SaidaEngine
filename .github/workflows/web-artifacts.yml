@@ -1,0 +1,123 @@
+name: Saida Web Artifacts
+
+# Web authoring runtime, Web player, authoring WASM and exported witness game. This
+# reusable workflow is called by ci.yml: a Web failure therefore blocks the main
+# CI and the publication of this commit's artifacts.
+
+on:
+  workflow_call:
+
+jobs:
+  wasm-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      # lfs: true — the web build preloads BeachDemo/assets/skies/sunset.png
+      # (.png = LFS) via --preload-file; without LFS, checkout would only provide
+      # a pointer and the .data would be corrupt.
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Install toolchain (glslc + naga for the WGSL shaders)
+        run: |
+          sudo apt-get update
+          # The main CMake does find_package(Vulkan/glfw3/glm REQUIRED) at
+          # configure time — even when only building the WebShaders target. Without
+          # these -dev packages, `cmake -S . -B build` fails before WebShaders.
+          sudo apt-get install -y --no-install-recommends \
+            glslc cmake ninja-build libvulkan-dev libglfw3-dev libglm-dev
+          cargo install naga-cli --locked || cargo install naga-cli
+
+      # Version pinned to the one that produces a proven web build:
+      # emdawnwebgpu (the Dawn/WebGPU port used by web/runtime) only exists on
+      # recent emsdk releases — 3.x does not have it.
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 6.0.1
+          actions-cache-folder: emsdk-cache
+
+      - name: WGSL shaders
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSAIDA_ENABLE_XR=OFF -DSAIDA_ENABLE_MCP=OFF
+          cmake --build build --target WebShaders
+
+      - name: Native export tool
+        run: cmake --build build --target saida_tool
+
+      - name: Web runtime (Emscripten)
+        run: ./web/build_web.sh Release
+
+      # Game player: SceneTree + SceneSerializer + behaviours — distinct from the
+      # authoring runtime.
+      - name: Web player (Emscripten)
+        run: |
+          emcmake cmake -S web/player -B build-web-player -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-web-player
+
+      - name: Authoring WASM (validation gateway)
+        run: ./web/build_authoring_wasm.sh Release
+
+      - name: Authoring WASM smoke
+        run: node web/authoring/smoke_test.mjs
+
+      - name: Export Witness Web through BuildExporter
+        run: bash ./tools/witness_web_stage.sh
+
+      - name: Witness Web (headless Chrome, run + restart)
+        run: bash ./tools/verify_witness_web_ci.sh
+
+      - name: SHA-256 manifest
+        run: |
+          mkdir -p build/ci-artifacts
+          sha256sum \
+            build-web/index.js build-web/index.wasm build-web/index.data \
+            build-web-player/index.html build-web-player/index.js \
+            build-web-player/index.wasm build-web-player/index.data \
+            build-authoring-wasm/saida_authoring.mjs \
+            build-authoring-wasm/saida_authoring.wasm \
+            > build/ci-artifacts/web-sha256.txt
+          {
+            printf 'commit=%s\nemsdk=6.0.1\n' "${{ github.sha }}"
+            printf 'browser=%s\n' "$(google-chrome --version)"
+            printf 'runner=%s\n' "$(uname -srvmo)"
+          } > build/ci-artifacts/build-identity.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-web-runtime-${{ github.sha }}
+          path: |
+            build-web/index.js
+            build-web/index.wasm
+            build-web/index.data
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-web-player-${{ github.sha }}
+          path: |
+            build-web-player/index.html
+            build-web-player/index.js
+            build-web-player/index.wasm
+            build-web-player/index.data
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: saida-authoring-wasm-${{ github.sha }}
+          path: |
+            build-authoring-wasm/saida_authoring.mjs
+            build-authoring-wasm/saida_authoring.wasm
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: witness-web-${{ github.sha }}
+          path: build/witness-web
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build-identity-${{ github.sha }}
+          path: build/ci-artifacts
+          if-no-files-found: error

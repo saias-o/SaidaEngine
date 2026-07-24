@@ -1,0 +1,20 @@
+{
+    "assets": {
+        "11074124625600234662": {
+            "hash": 7221927846613412163,
+            "path": "scenes/beach.scene",
+            "type": "Scene"
+        },
+        "12246554237784339958": {
+            "hash": 11746319502404893978,
+            "path": "assets/skies/sunset.png",
+            "type": "Texture"
+        },
+        "4242424242": {
+            "hash": 11746319502404893978,
+            "path": "assets/skies/sunset.png",
+            "type": "Texture"
+        }
+    },
+    "version": 1
+}

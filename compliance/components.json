@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "components": [
+    {
+      "id": "cgltf",
+      "name": "cgltf",
+      "version": "1.15",
+      "vendoredRoot": "third_party/cgltf",
+      "downloadLocation": "https://github.com/jkuhlmann/cgltf",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2018-2021 Johannes Kuhlmann",
+      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "freetype",
+      "name": "FreeType",
+      "version": "git-25a08f24",
+      "vendoredRoot": "third_party/freetype",
+      "downloadLocation": "https://github.com/freetype/freetype",
+      "licenseDeclared": "FTL OR GPL-2.0-or-later",
+      "licenseConcluded": "GPL-3.0-or-later",
+      "copyrightText": "Copyright 1996-2026 The FreeType Project",
+      "licenseFiles": [
+        "third_party/freetype/LICENSE.TXT",
+        "third_party/freetype/docs/GPLv2.TXT"
+      ],
+      "noticeRequired": true
+    },
+    {
+      "id": "glm",
+      "name": "GLM",
+      "version": "1.0.3",
+      "vendoredRoot": "third_party/glm",
+      "downloadLocation": "https://github.com/g-truc/glm",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2005-2026 G-Truc Creation",
+      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "imgui",
+      "name": "Dear ImGui",
+      "version": "1.92.9-wip",
+      "vendoredRoot": "third_party/imgui",
+      "downloadLocation": "https://github.com/ocornut/imgui",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2014-2026 Omar Cornut",
+      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "jolt",
+      "name": "Jolt Physics",
+      "version": "",
+      "vendoredRoot": "third_party/jolt",
+      "downloadLocation": "https://github.com/jrouwe/JoltPhysics",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright 2021 Jorrit Rouwe",
+      "licenseFiles": ["third_party/jolt/LICENSE"],
+      "noticeRequired": true
+    },
+    {
+      "id": "nlohmann-json",
+      "name": "JSON for Modern C++",
+      "version": "3.11.3",
+      "vendoredRoot": "third_party/json",
+      "downloadLocation": "https://github.com/nlohmann/json",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2013-2022 Niels Lohmann",
+      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "meshoptimizer",
+      "name": "meshoptimizer",
+      "version": "0.22",
+      "vendoredRoot": "third_party/meshoptimizer",
+      "downloadLocation": "https://github.com/zeux/meshoptimizer",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2016-2024 Arseny Kapoulkine",
+      "licenseFiles": ["third_party/meshoptimizer/LICENSE.md"],
+      "noticeRequired": true
+    },
+    {
+      "id": "miniaudio",
+      "name": "miniaudio",
+      "version": "0.11.25",
+      "vendoredRoot": "third_party/miniaudio",
+      "downloadLocation": "https://github.com/mackron/miniaudio",
+      "licenseDeclared": "Unlicense OR MIT-0",
+      "licenseConcluded": "MIT-0",
+      "copyrightText": "Copyright David Reid",
+      "licenseFiles": ["compliance/licenses/MIT-0.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "openxr-loader",
+      "name": "OpenXR Loader",
+      "version": "1.1.60",
+      "vendoredRoot": "third_party/openxr",
+      "downloadLocation": "https://github.com/KhronosGroup/OpenXR-SDK-Source",
+      "licenseDeclared": "Apache-2.0 OR MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2017-2026 The Khronos Group Inc.",
+      "licenseFiles": [
+        "third_party/openxr/COPYING.adoc",
+        "third_party/openxr/LICENSES/MIT.txt"
+      ],
+      "noticeRequired": true
+    },
+    {
+      "id": "quickjs-ng",
+      "name": "QuickJS-NG",
+      "version": "git-ee297998",
+      "vendoredRoot": "third_party/quickjs",
+      "downloadLocation": "https://github.com/quickjs-ng/quickjs",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2017-2026 Fabrice Bellard, Charlie Gordon, Ben Noordhuis, Saúl Ibarra Corretgé",
+      "licenseFiles": ["third_party/quickjs/LICENSE"],
+      "noticeRequired": true
+    },
+    {
+      "id": "rmlui",
+      "name": "RmlUi",
+      "version": "git-2cd28864",
+      "vendoredRoot": "third_party/rmlui",
+      "downloadLocation": "https://github.com/mikke89/RmlUi",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2008-2026 The RmlUi Team and contributors",
+      "licenseFiles": ["third_party/rmlui/LICENSE.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "stb",
+      "name": "stb_image and stb_vorbis",
+      "version": "stb_image-2.30_stb_vorbis-1.22",
+      "vendoredRoot": "third_party/stb",
+      "downloadLocation": "https://github.com/nothings/stb",
+      "licenseDeclared": "MIT OR Unlicense",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2017 Sean Barrett",
+      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "tinyobjloader",
+      "name": "tinyobjloader",
+      "version": "2.x",
+      "vendoredRoot": "third_party/tinyobjloader",
+      "downloadLocation": "https://github.com/tinyobjloader/tinyobjloader",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2012-Present Syoyo Fujita and contributors",
+      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "vulkan-memory-allocator",
+      "name": "Vulkan Memory Allocator",
+      "version": "3.1.0",
+      "vendoredRoot": "third_party/vma",
+      "downloadLocation": "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2017-2024 Advanced Micro Devices, Inc.",
+      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "xatlas",
+      "name": "xatlas",
+      "version": "",
+      "vendoredRoot": "third_party/xatlas",
+      "downloadLocation": "https://github.com/jpcy/xatlas",
+      "licenseDeclared": "MIT",
+      "licenseConcluded": "MIT",
+      "copyrightText": "Copyright (c) 2018-2020 Jonathan Young",
+      "licenseFiles": ["third_party/xatlas/LICENSE"],
+      "noticeRequired": true
+    },
+    {
+      "id": "glfw",
+      "name": "GLFW",
+      "version": "system-package",
+      "vendoredRoot": "",
+      "downloadLocation": "https://github.com/glfw/glfw",
+      "licenseDeclared": "Zlib",
+      "licenseConcluded": "Zlib",
+      "copyrightText": "Copyright (c) 2002-2006 Marcus Geelnard; Copyright (c) 2006-2019 Camilla Löwy",
+      "licenseFiles": ["compliance/licenses/Zlib.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "vulkan-loader",
+      "name": "Vulkan Loader",
+      "version": "system-runtime",
+      "vendoredRoot": "",
+      "downloadLocation": "https://github.com/KhronosGroup/Vulkan-Loader",
+      "licenseDeclared": "Apache-2.0",
+      "licenseConcluded": "Apache-2.0",
+      "copyrightText": "Copyright (c) The Khronos Group Inc. and contributors",
+      "licenseFiles": ["third_party/openxr/LICENSES/Apache-2.0.txt"],
+      "noticeRequired": true
+    },
+    {
+      "id": "lato-latin",
+      "name": "Lato Latin Regular font",
+      "version": "",
+      "vendoredRoot": "",
+      "downloadLocation": "https://www.latofonts.com/",
+      "licenseDeclared": "OFL-1.1",
+      "licenseConcluded": "OFL-1.1",
+      "copyrightText": "Copyright (c) 2010-2015 Łukasz Dziedzic, with Reserved Font Name Lato",
+      "licenseFiles": ["third_party/rmlui/Samples/assets/LICENSE.txt"],
+      "noticeRequired": true
+    }
+  ]
+}

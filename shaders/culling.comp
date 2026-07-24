@@ -1,0 +1,92 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "web_compat.glsl"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct InstanceData {
+    mat4 model;
+    vec4 boundingSphere; // xyz = center, w = radius
+    uint materialIndex;
+    int boneOffset;
+    uint pad0;
+    uint pad1;
+};
+
+struct VkDrawIndexedIndirectCommand {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+};
+
+// Must match render/GpuDrivenLayout.hpp.
+layout(set = 0, binding = 0, std430) readonly buffer InstanceBuffer {
+    InstanceData instances[];
+};
+
+#ifdef WEB
+layout(set = 0, binding = 1, std430) buffer OriginalDrawCommandBuffer {
+    VkDrawIndexedIndirectCommand originalDraws[];
+};
+#else
+layout(set = 0, binding = 1, std430) readonly buffer OriginalDrawCommandBuffer {
+    VkDrawIndexedIndirectCommand originalDraws[];
+};
+#endif
+
+layout(set = 0, binding = 2) buffer CountBuffer {
+    uint drawCount;
+};
+
+#ifdef WEB
+layout(set = 0, binding = 3, std430) buffer CulledDrawCommandBuffer {
+    VkDrawIndexedIndirectCommand culledDraws[];
+};
+#else
+layout(set = 0, binding = 3, std430) writeonly buffer CulledDrawCommandBuffer {
+    VkDrawIndexedIndirectCommand culledDraws[];
+};
+#endif
+
+PUSH_QUALIFIER PushConstants {
+    vec4 frustumPlanes[6]; // xyz = normal, w = distance
+    uint instanceCount;
+} push;
+
+bool isVisible(vec4 sphere) {
+    for (int i = 0; i < 6; ++i) {
+        if (dot(push.frustumPlanes[i].xyz, sphere.xyz) + push.frustumPlanes[i].w <= -sphere.w) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= push.instanceCount) return;
+
+    InstanceData instance = instances[idx];
+    
+    vec4 sphereLocal = instance.boundingSphere;
+    vec3 centerWorld = (instance.model * vec4(sphereLocal.xyz, 1.0)).xyz;
+    
+    float scaleX = length(instance.model[0].xyz);
+    float scaleY = length(instance.model[1].xyz);
+    float scaleZ = length(instance.model[2].xyz);
+    float maxScale = max(max(scaleX, scaleY), scaleZ);
+    float radiusWorld = sphereLocal.w * maxScale;
+    
+    vec4 sphereWorld = vec4(centerWorld, radiusWorld);
+
+    if (isVisible(sphereWorld)) {
+        uint drawIdx = atomicAdd(drawCount, 1);
+        
+        VkDrawIndexedIndirectCommand cmd = originalDraws[idx];
+        cmd.firstInstance = idx;
+        culledDraws[drawIdx] = cmd;
+    }
+}

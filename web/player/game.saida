@@ -1,0 +1,4 @@
+# Boot manifest for the web player (v1: the BeachDemo reference project).
+# The editor's Build will generate this file for exported games.
+project=BeachDemo.saidaproj
+main_scene=scenes/beach.scene

@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "version": 1,
+  "id": "tests.invalid_scenario",
+  "roles": {},
+  "blackboard": {},
+  "steps": [
+    {
+      "id": "start",
+      "enter": [
+        {
+          "invented.action": {}
+        }
+      ],
+      "end": "success"
+    }
+  ]
+}
