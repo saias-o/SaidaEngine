@@ -147,6 +147,17 @@ public:
         }
         return nullptr;
     }
+
+    // Collects every T behaviour in the descendant subtree (depth-first). Used
+    // for characters whose imported model has several skinned meshes, each with
+    // its own Animator, that must all be driven together.
+    template<typename T>
+    void findBehavioursInChildren(std::vector<T*>& out) const {
+        for (const auto& c : children_) {
+            if (T* b = c->getBehaviour<T>()) out.push_back(b);
+            c->findBehavioursInChildren<T>(out);
+        }
+    }
     template<typename T>
     T* getChildNode() const {
         for (const auto& c : children_)

@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace saida {
 
@@ -44,7 +45,10 @@ private:
     void updateAnimation(bool onFloor, bool moving);
 
     bool warned_ = false;     // warn once if attached to a non-CharacterBody node
-    Animator* animator_ = nullptr;  // cached child Animator (found lazily)
+    // Every skinned mesh's Animator in the model subtree (an imported character
+    // can have several), all driven together. Found lazily on first update.
+    std::vector<Animator*> animators_;
+    bool animatorsSearched_ = false;
     uint64_t graphAssetId_ = 0;
     bool graphApplied_ = false;
     bool graphFailed_ = false;

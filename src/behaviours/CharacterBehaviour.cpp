@@ -101,8 +101,11 @@ void CharacterBehaviour::onUpdate(float dt) {
 }
 
 void CharacterBehaviour::updateAnimation(bool onFloor, bool moving) {
-    if (!animator_) animator_ = node()->findBehaviourInChildren<Animator>();
-    if (!animator_) return;  // no skinned character → nothing to drive
+    if (!animatorsSearched_) {
+        node()->findBehavioursInChildren<Animator>(animators_);
+        animatorsSearched_ = true;
+    }
+    if (animators_.empty()) return;  // no skinned character → nothing to drive
 
     if (!graph.empty() && !graphFailed_) {
         if (!graphApplied_) {
@@ -128,22 +131,31 @@ void CharacterBehaviour::updateAnimation(bool onFloor, bool moving) {
             }
 
             const AnimGraphAsset* loaded = resources.getAnimGraph(graphAssetId_);
-            std::vector<AssetDiagnostic> diags;
-            if (!loaded || !animator_->setGraph(*loaded, &diags)) {
+            if (!loaded) {
                 graphFailed_ = true;
-                Log::warn("Character: cannot apply anim graph '", graph, "'",
-                          diags.empty() ? "" : (": " + diags.front().message));
+                Log::warn("Character: cannot apply anim graph '", graph, "'");
                 return;
+            }
+            for (Animator* a : animators_) {
+                std::vector<AssetDiagnostic> diags;
+                if (!a->setGraph(*loaded, &diags)) {
+                    graphFailed_ = true;
+                    Log::warn("Character: cannot apply anim graph '", graph, "'",
+                              diags.empty() ? "" : (": " + diags.front().message));
+                    return;
+                }
             }
             graphApplied_ = true;
         }
-        animator_->setFloat("speed", moving ? 1.0f : 0.0f);
+        for (Animator* a : animators_) a->setFloat("speed", moving ? 1.0f : 0.0f);
         return;
     }
 
     const std::string& want = !onFloor ? jumpClip : (moving ? walkClip : idleClip);
-    if (!want.empty() && animator_->clips().count(want))
-        animator_->play(want);  // play() no-ops if it's already the current clip
+    if (want.empty()) return;
+    for (Animator* a : animators_)
+        if (a->clips().count(want))
+            a->play(want);  // play() no-ops if it's already the current clip
 }
 
 void CharacterBehaviour::describe(reflect::TypeBuilder<CharacterBehaviour>& t) {
