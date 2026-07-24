@@ -1,5 +1,6 @@
 #include "editor/BuildController.hpp"
 
+#include "core/EngineVersion.hpp"
 #include "editor/BuildExporter.hpp"
 #include "editor/ExeMetadata.hpp"
 #include "project/Project.hpp"
@@ -12,6 +13,10 @@
 #include <iterator>
 
 namespace saida {
+
+BuildController::BuildController() {
+    std::snprintf(version_, sizeof(version_), "%s", kProductVersionNumeric);
+}
 
 void BuildController::refreshScenes(Project* project) {
     scenes_.clear();

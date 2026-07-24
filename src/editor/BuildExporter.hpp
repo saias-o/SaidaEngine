@@ -19,7 +19,8 @@ public:
         bool launchAfterBuild = false;    // "Build & Run"
 
         // Windows executable metadata (VERSIONINFO + icon).
-        std::string productVersion = "1.0.0";  // "a.b.c[.d]", fields <= 65535
+        // "a.b.c[.d]", fields <= 65535; empty = engine default (kProductVersionNumeric).
+        std::string productVersion;
         std::string companyName;               // optional
         std::string iconPath;                  // .ico, project-relative or absolute; empty = none
     };

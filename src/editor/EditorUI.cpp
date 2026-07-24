@@ -1,6 +1,7 @@
 #include "editor/EditorUI.hpp"
 
 #include "core/Camera.hpp"
+#include "core/EngineVersion.hpp"
 #include "core/Paths.hpp"
 #include "core/Time.hpp"
 #include "editor/Command.hpp"
@@ -332,7 +333,7 @@ void EditorUI::drawAboutWindow() {
 
         ImGui::Text(" SaidaEngine C++ Game Engine");
         ImGui::Text(" Version: "); ImGui::SameLine();
-        ImGui::TextColored(ImVec4(0.30f, 0.70f, 0.35f, 1.0f), "Alpha 0.0.1"); // Sleek Green
+        ImGui::TextColored(ImVec4(0.30f, 0.70f, 0.35f, 1.0f), "%s", kProductVersion); // Sleek Green
 
         ImGui::Spacing();
         ImGui::Text(" A lightweight, Vulkan-powered 3D editor and runtime.");

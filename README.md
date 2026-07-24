@@ -24,6 +24,17 @@ Authenticode signature has been verified. GitHub beta releases may therefore
 contain source code and CI-produced artifacts without representing a signed
 production release.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate
+by [SignPath Foundation](https://signpath.org/).
+
+The signing roles, trusted-build requirements, release controls and privacy
+statement are defined in the
+[Code signing policy](CODE_SIGNING_POLICY.md). SaidaEngine does not include
+telemetry or automatically upload crash reports. Releases and CI artifacts state
+explicitly when a Windows installer is unsigned.
+
 ## Documentation
 
 The repository is governed by five documents:
@@ -50,7 +61,9 @@ is a pre-release and is identified by an immutable tag such as
 
 When a release does not provide a signed Windows installer, use the source
 archive or build the engine locally. Do not treat the mutable `latest`
-container tag as a release identity.
+container tag as a release identity. The
+[Code signing policy](CODE_SIGNING_POLICY.md) explains how official Windows
+installers are built, approved, signed and identified.
 
 ### Source checkout
 

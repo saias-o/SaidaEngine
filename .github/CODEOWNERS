@@ -1,0 +1,6 @@
+# Signing policy, release automation and packaging are security-sensitive.
+/CODE_SIGNING_POLICY.md @saias-o
+/.github/workflows/ @saias-o
+/packaging/ @saias-o
+/tools/build_witness_installer.ps1 @saias-o
+/tools/witness_release_candidate.ps1 @saias-o

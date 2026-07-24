@@ -16,6 +16,8 @@ class Project;
 // scene selection, exporter options, and result reporting cannot drift apart.
 class BuildController {
 public:
+    BuildController();
+
     void requestOpen() { openRequested_ = true; }
     void draw(Project* project);
 
@@ -40,7 +42,7 @@ private:
     BuildPlatform selectedPlatform_ = BuildPlatform::Windows;
     BuildConfig configuration_ = BuildConfig::Release;
     char outputPath_[512] = "build/export";
-    char version_[32] = "1.0.0";
+    char version_[32];  // initialized from kProductVersionNumeric in the constructor
     char company_[256] = "";
     char iconPath_[512] = "";
     bool copyAssets_ = true;

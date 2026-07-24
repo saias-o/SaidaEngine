@@ -19,15 +19,26 @@ final validation has passed: clean native build, 70/70 CTest, three Web builds
 (player, runtime, authoring WASM), Witness E2E, `witness_editor_play`,
 `witness_editor_build`, Web staging and a real MCP TCP smoke test (45 tools).
 
-The public beta cycle is open. There remains **a single intervention before a
-qualified stable publication**: §1.
+The public beta cycle is open. The remaining Windows distribution work before a
+qualified stable publication is tracked in §1.
 
 Reminder of the release criteria: the same WitnessGame must run in the editor,
 standalone desktop and Web; old projects must migrate or be rejected without
 corruption; memory must stay bounded; the published limitations must match the
 observed behavior; the artifacts must come from a clean commit.
 
-## 1. Before stable publication — installer signing
+## 1. Before stable publication — Windows distribution and signing
+
+- [ ] Produce a portable Windows editor package. The raw Beta 1 editor
+  executable still resolves compiled shaders, fonts and editor assets through
+  configure-time absolute paths, so copying `SaidaEngine.exe` and `glfw3.dll`
+  alone is only a developer artifact. A release package must resolve resources
+  relative to the executable, ship the required files and pass from a clean
+  extraction directory with no source or build tree.
+- [ ] Add and verify Windows version resources on the engine executables:
+  `ProductName` must be `SaidaEngine`, and `FileVersion`/`ProductVersion` must
+  carry the same release version. The raw Beta 1 editor executable has no
+  VERSIONINFO resource.
 
 - [ ] Produce the Windows installer **Authenticode-signed** with the publishing
   key, then inventory the SHA-256 of the signed bytes.
@@ -36,11 +47,11 @@ The rest of the release chain is closed: mandatory CI (native build, 70 tests,
 V1 corpus, deterministic fold, desktop and Web Witness); `saida_tool`, Web
 player and authoring WASM published as pinned artifacts; byte-identical
 Windows/Linux proof on the fold fixtures; byte-reproducible archives and NSIS
-installer **before signing**, recursive validation of DLL imports, inventoried
-uninstall, documented immutable rollback; crash logs and symbols tied to the
-version; SPDX SBOM + GPL/third-party notices + license/asset inventory. Signing
-is a separate publishing operation that requires a publicly trusted
-certificate.
+Witness installer **before signing**, recursive validation of DLL imports,
+inventoried uninstall, documented immutable rollback; crash logs and symbols
+tied to the version; SPDX SBOM + GPL/third-party notices + license/asset
+inventory. The portable editor package, its Windows metadata and signing remain
+separate publishing work.
 
 ## 2. Structural code debt
 

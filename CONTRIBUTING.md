@@ -153,6 +153,45 @@ powershell -ExecutionPolicy Bypass -File .\verify_witness_web.ps1 -Browser Edge 
 
 Authenticode signing is a separate publishing operation. An unsigned beta can
 be used for manual testing, but it is not a qualified Windows distribution.
+The public [Code signing policy](CODE_SIGNING_POLICY.md) defines the signing
+roles, privacy statement and trusted-build controls.
+
+After SignPath Foundation accepts the project, the release-signing integration
+must use SignPath's GitHub trusted build system and origin verification. The
+unsigned installer must first be uploaded by `actions/upload-artifact`, then
+submitted with
+`signpath/github-action-submit-signing-request@v2`. The organization ID,
+project slug, signing-policy slug and artifact-configuration slug must come from
+the provisioned SignPath project; do not invent or hard-code placeholder
+identifiers.
+
+Every GitHub release page that contains a signed Windows installer must:
+
+- link to the [Code signing policy](CODE_SIGNING_POLICY.md);
+- include the statement “Free code signing provided by SignPath.io, certificate
+  by SignPath Foundation”;
+- identify the immutable tag and full source commit;
+- publish the SHA-256 digest of the signed installer;
+- state whether manual qualification is complete.
+
+## Versioning
+
+The engine has exactly two version notions, each with a single home. Never
+hard-code a version string anywhere else.
+
+- **Product / release version** — the human-facing version shown in the About
+  box, written into exe metadata, quoted in the docs, and used for the git
+  release tag (prefixed `v`). It follows [SemVer](https://semver.org): a
+  `MAJOR.MINOR.PATCH` core plus an optional pre-release suffix such as
+  `-beta.1`. Its single source of truth is `kProductVersion` in
+  `src/core/EngineVersion.hpp`. The current value is `1.0.0-beta.1`. Bump it in
+  that one file on every release; keep `kProductVersionNumeric` (the suffix-free
+  core, used for Windows `VERSIONINFO`) in sync.
+- **Engine format / contract version** — `kEngineVersion` in the same file
+  (`1.0.0`). It is recorded in every project file and the authoring manifest and
+  governs on-disk document migration (see [SPEC.md](SPEC.md)). It is a data
+  contract, not a marketing version: change it only when the persisted format
+  changes, and never fold a pre-release suffix into it.
 
 ## Beta and release-candidate policy
 
