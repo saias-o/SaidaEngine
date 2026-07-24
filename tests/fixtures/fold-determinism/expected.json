@@ -18,7 +18,7 @@
           0.0
         ],
         "enabled": true,
-        "id": 2,
+        "id": "2",
         "intensity": 5.0,
         "lightType": 0,
         "name": "Sun",
@@ -66,7 +66,7 @@
               0.0
             ],
             "enabled": true,
-            "id": 4,
+            "id": "4",
             "intensity": 1.0,
             "lightType": 0,
             "name": "Lamp",
@@ -105,7 +105,7 @@
           0.0
         ],
         "enabled": true,
-        "id": 3,
+        "id": "3",
         "intensity": 1.0,
         "lightType": 0,
         "name": "Rig",
@@ -134,7 +134,7 @@
       }
     ],
     "enabled": true,
-    "id": 1,
+    "id": "1",
     "name": "Root",
     "settings": {
       "ambient": [
