@@ -39,6 +39,7 @@ RUN cmake -S . -B build -G Ninja \
 # `COPY --from=saida-tool /out/saida_tool /usr/local/bin/` and install the same
 # runtime packages.
 FROM debian:bookworm-slim
+LABEL org.opencontainers.image.source="https://github.com/saias-o/SaidaEngine"
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         libvulkan1 libglfw3 \
     && rm -rf /var/lib/apt/lists/*
