@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -32,6 +33,21 @@ bool intersectRayPlane(const glm::vec3& rayOrigin, const glm::vec3& rayDir, cons
         return (t >= 0.0f);
     }
     return false;
+}
+
+// Signed distance, along a world axis from axisPoint, of the point on that axis
+// line closest to the mouse ray. Used to translate so the grabbed axis point
+// tracks the cursor exactly. Returns a non-finite value when the axis is nearly
+// parallel to the ray (the drag is then ambiguous and should be skipped).
+float closestAxisParam(const glm::vec3& axisPoint, const glm::vec3& axisDir,
+                       const glm::vec3& rayOrigin, const glm::vec3& rayDir) {
+    float b = glm::dot(axisDir, rayDir);
+    float denom = 1.0f - b * b;
+    if (std::abs(denom) < 1e-5f) return std::numeric_limits<float>::quiet_NaN();
+    glm::vec3 w0 = axisPoint - rayOrigin;
+    float d = glm::dot(axisDir, w0);
+    float e = glm::dot(rayDir, w0);
+    return (b * e - d) / denom;
 }
 
 // Helper function to calculate distance from point to segment in 2D
@@ -64,8 +80,8 @@ namespace GizmoConfig {
 
     constexpr float LineThicknessDefault = 2.5f;
     constexpr float LineThicknessHover = 4.0f;
-    constexpr float RingThicknessDefault = 1.5f;
-    constexpr float RingThicknessHover = 2.5f;
+    constexpr float RingThicknessDefault = 3.0f;
+    constexpr float RingThicknessHover = 5.0f;
 }
 
 constexpr float kPi = 3.14159265358979f;
@@ -113,7 +129,7 @@ void GizmoController::draw(EditorUI& editor, Camera* camera, Scene* scene) {
         if (ImGui::IsKeyPressed(ImGuiKey_S)) editor.gizmoMode_ = GizmoMode::Scale;
     }
 
-    if ((editor.app_ && editor.app_->isPlayMode()) || !camera || !scene || !editor.selectedNode_) {
+    if ((editor.app_ && editor.app_->isPlayMode()) || !camera || !scene) {
         grabbedAxis_ = GizmoAxis::None;
         return;
     }
@@ -132,6 +148,19 @@ void GizmoController::draw(EditorUI& editor, Camera* camera, Scene* scene) {
     glm::vec4 farW = invVP * glm::vec4(ndcX, ndcY, 1.0f, 1.0f);
     glm::vec3 rayOrigin = glm::vec3(nearW) / nearW.w;
     glm::vec3 rayDir = glm::normalize((glm::vec3(farW) / farW.w) - rayOrigin);
+
+    // Picking must work even with nothing selected yet: without a selection the
+    // gizmo has no geometry to build, draw, or drag, but a left-click in the
+    // viewport should still pick the object under the cursor. The rest of the
+    // gizmo flow below requires a selected node.
+    if (!editor.selectedNode_) {
+        grabbedAxis_ = GizmoAxis::None;
+        if (!ImGui::GetIO().WantCaptureMouse &&
+            ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            performRaycastSelection(editor, scene, rayOrigin, rayDir, mousePos);
+        }
+        return;
+    }
 
     if (!buildScreenGeometry(editor, *camera, viewProj)) return;
     int hoveredAxis = -1;
@@ -194,15 +223,38 @@ void GizmoController::updateDragTransaction(
         grabbedAxis_ = static_cast<GizmoAxis>(hoveredAxis);
         dragStartNodePos_ = gizmoNodePos_;
         dragStartNodeRotEuler_ = glm::degrees(glm::eulerAngles(editor.selectedNode_->transform().rotation));
-        dragStartNodeRotQuat_ = editor.selectedNode_->transform().rotation;
+        glm::quat startRot = editor.selectedNode_->transform().rotation;
+        // Recover a previously corrupted (NaN / zero-length) rotation instead of
+        // propagating it: a grab resets such a node back to identity.
+        if (!std::isfinite(startRot.x) || !std::isfinite(startRot.y) ||
+            !std::isfinite(startRot.z) || !std::isfinite(startRot.w) ||
+            glm::length(startRot) < 1e-6f) {
+            startRot = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+            editor.selectedNode_->transform().rotation = startRot;
+        }
+        dragStartNodeRotQuat_ = glm::normalize(startRot);
         dragStartNodeScale_ = editor.selectedNode_->transform().scale;
         dragStartMousePos_ = mousePos;
 
         if (editor.gizmoMode_ == GizmoMode::Rotate) {
-            float t;
-            if (intersectRayPlane(rayOrigin, rayDir, gizmoNodePos_, gizmoLocalAxes_[hoveredAxis], t)) {
-                dragStartHitPos3D_ = rayOrigin + rayDir * t;
-            }
+            rotationAccumAngle_ = 0.0f;
+            rotationLastMouse_ = mousePos;
+            glm::vec3 axis = gizmoLocalAxes_[hoveredAxis];
+            float axisLen = glm::length(axis);
+            rotationAxis_ = (axisLen > 1e-6f) ? axis / axisLen : glm::vec3(0.0f, 1.0f, 0.0f);
+            // Map a screen-space CCW drag to a rotation the user sees in the same
+            // sense: invert when the ring's axis points toward the camera.
+            // -rayDir points from the cursor back toward the camera.
+            float facing = glm::dot(rotationAxis_, -rayDir);
+            rotationScreenSign_ = (facing >= 0.0f) ? -1.0f : 1.0f;
+        } else {
+            // Freeze the translate/scale drag basis at grab (see header note).
+            glm::vec3 axisWorld = gizmoLocalAxes_[hoveredAxis];
+            dragStartAxisParam_ = closestAxisParam(dragStartNodePos_, axisWorld, rayOrigin, rayDir);
+            glm::vec2 dir2D = gizmoEnds2D_[hoveredAxis] - gizmoCenter2D_;
+            float len2D = glm::length(dir2D);
+            dragStartAxisDir2D_ = (len2D > 1.0f) ? dir2D / len2D : glm::vec2(1.0f, 0.0f);
+            dragStartWorldPerPixel_ = (len2D > 1.0f) ? gizmoWorldLength_ / len2D : 0.0f;
         }
     }
 
@@ -228,7 +280,7 @@ void GizmoController::updateDragTransaction(
 
     if (!ImGui::GetIO().WantCaptureMouse && isMouseClicked &&
         hoveredAxis == -1 && grabbedAxis_ == GizmoAxis::None) {
-        performRaycastSelection(editor, &scene, rayOrigin, rayDir);
+        performRaycastSelection(editor, &scene, rayOrigin, rayDir, mousePos);
     }
 }
 
@@ -266,52 +318,55 @@ void GizmoController::updateHover(EditorUI& editor, const glm::vec3& rayOrigin, 
     }
 }
 
-void GizmoController::handleDrag(EditorUI& editor, const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec2& mousePos) {
+void GizmoController::handleDrag(EditorUI& editor, const glm::vec3& rayOrigin,
+                                 const glm::vec3& rayDir, const glm::vec2& mousePos) {
     int axis = static_cast<int>(grabbedAxis_);
+    const glm::vec3 axisWorld = gizmoLocalAxes_[axis];
+
     if (editor.gizmoMode_ == GizmoMode::Rotate) {
-        float t;
-        if (intersectRayPlane(rayOrigin, rayDir, dragStartNodePos_, gizmoLocalAxes_[axis], t)) {
-            glm::vec3 currentHitPos = rayOrigin + rayDir * t;
-            glm::vec3 vStart = glm::normalize(dragStartHitPos3D_ - dragStartNodePos_);
-            glm::vec3 vCurr = glm::normalize(currentHitPos - dragStartNodePos_);
-
-            float cosTheta = glm::clamp(glm::dot(vStart, vCurr), -1.0f, 1.0f);
-            float angle = glm::acos(cosTheta);
-
-            if (glm::dot(glm::cross(vStart, vCurr), gizmoLocalAxes_[axis]) < 0.0f) {
-                angle = -angle;
-            }
-            editor.selectedNode_->transform().rotation = glm::angleAxis(angle, gizmoLocalAxes_[axis]) * dragStartNodeRotQuat_;
+        // Accumulate the signed screen-space angle swept around the gizmo centre
+        // and apply it around the axis frozen (and normalized) at grab. This stays
+        // live at any viewing angle — including an edge-on ring, where a ray/plane
+        // hit test degenerates — and the fixed unit axis plus a normalized result
+        // keep the quaternion stable instead of compounding into NaN.
+        const glm::vec2 vPrev = rotationLastMouse_ - gizmoCenter2D_;
+        const glm::vec2 vCurr = mousePos - gizmoCenter2D_;
+        if (glm::length(vPrev) > 2.0f && glm::length(vCurr) > 2.0f) {
+            float cross = vPrev.x * vCurr.y - vPrev.y * vCurr.x;
+            float dot = vPrev.x * vCurr.x + vPrev.y * vCurr.y;
+            rotationAccumAngle_ += std::atan2(cross, dot) * rotationScreenSign_;
+            editor.selectedNode_->transform().rotation = glm::normalize(
+                glm::angleAxis(rotationAccumAngle_, rotationAxis_) * dragStartNodeRotQuat_);
         }
-    } else if (gizmoAxisValid_[axis]) {
-        glm::vec2 dir2D = gizmoEnds2D_[axis] - gizmoCenter2D_;
-        float len2D = glm::length(dir2D);
-        if (len2D > 1.0f) {
-            glm::vec2 u = dir2D / len2D;
-            float screenProj = glm::dot(mousePos - dragStartMousePos_, u);
-            float worldDelta = screenProj * (gizmoWorldLength_ / len2D);
-
-            if (editor.gizmoMode_ == GizmoMode::Translate) {
-                glm::vec3 newPos = dragStartNodePos_;
-                if (axis == 0) newPos.x += worldDelta;
-                else if (axis == 1) newPos.y += worldDelta;
-                else if (axis == 2) newPos.z += worldDelta;
-                editor.selectedNode_->transform().position = newPos;
-            } else if (editor.gizmoMode_ == GizmoMode::Scale) {
-                glm::vec3 newScale = dragStartNodeScale_;
-                float scaleDelta = screenProj * (gizmoWorldLength_ / len2D) * 0.5f;
-                if (axis == 0) newScale.x += scaleDelta;
-                else if (axis == 1) newScale.y += scaleDelta;
-                else if (axis == 2) newScale.z += scaleDelta;
-                editor.selectedNode_->transform().scale = newScale;
-            }
+        rotationLastMouse_ = mousePos;
+    } else if (editor.gizmoMode_ == GizmoMode::Translate) {
+        // Move the object so the grabbed axis point stays under the cursor: the
+        // delta is the change in the axis parameter of the point on the axis
+        // closest to the mouse ray, relative to grab. The basis is fixed at grab,
+        // so the mapping is linear and dragging back returns exactly to start.
+        float param = closestAxisParam(dragStartNodePos_, axisWorld, rayOrigin, rayDir);
+        if (std::isfinite(param)) {
+            editor.selectedNode_->transform().position =
+                dragStartNodePos_ + axisWorld * (param - dragStartAxisParam_);
         }
+    } else if (editor.gizmoMode_ == GizmoMode::Scale) {
+        // Screen-space drag along the axis using the direction and world-per-pixel
+        // scale frozen at grab (constant sensitivity, reversible).
+        float screenProj = glm::dot(mousePos - dragStartMousePos_, dragStartAxisDir2D_);
+        float scaleDelta = screenProj * dragStartWorldPerPixel_ * 0.5f;
+        glm::vec3 newScale = dragStartNodeScale_;
+        if (axis == 0) newScale.x += scaleDelta;
+        else if (axis == 1) newScale.y += scaleDelta;
+        else if (axis == 2) newScale.z += scaleDelta;
+        editor.selectedNode_->transform().scale = newScale;
     }
 }
 
-void GizmoController::performRaycastSelection(EditorUI& editor, Scene* scene, const glm::vec3& rayOrigin, const glm::vec3& rayDir) {
-    Node* closestNode = nullptr;
-    float closestT = 99999.0f;
+void GizmoController::performRaycastSelection(EditorUI& editor, Scene* scene, const glm::vec3& rayOrigin, const glm::vec3& rayDir, const glm::vec2& mousePos) {
+    // Collect every node the ray passes through, nearest first, so repeated
+    // clicks at the same spot can walk through overlapping candidates.
+    struct Hit { float t; Node* node; };
+    std::vector<Hit> hits;
     scene->traverse([&](Node& n, const glm::mat4& worldMatrix) {
         if (!n.parent()) return;
         glm::vec3 objWorldPos = glm::vec3(worldMatrix[3]);
@@ -331,62 +386,91 @@ void GizmoController::performRaycastSelection(EditorUI& editor, Scene* scene, co
 
         if (discriminant >= 0.0f) {
             float t = -b - glm::sqrt(discriminant);
-            if (t > 0.0f && t < closestT) {
-                closestT = t;
-                closestNode = &n;
-            }
+            if (t > 0.0f) hits.push_back({t, &n});
         }
     });
-    editor.selectedNode_ = closestNode;
+
+    if (hits.empty()) {
+        editor.selectedNode_ = nullptr;
+        lastPickScreenPos_ = mousePos;
+        return;
+    }
+
+    std::sort(hits.begin(), hits.end(),
+              [](const Hit& a, const Hit& b) { return a.t < b.t; });
+
+    // Same spot as the previous click and the current selection is one of the
+    // candidates → advance to the next one behind it (wrapping). Otherwise start
+    // from the nearest. This is Unity's "click again to select the object/child
+    // underneath" behaviour.
+    Node* pick = hits.front().node;
+    if (glm::length(mousePos - lastPickScreenPos_) < 4.0f && editor.selectedNode_) {
+        for (size_t i = 0; i < hits.size(); ++i) {
+            if (hits[i].node == editor.selectedNode_) {
+                pick = hits[(i + 1) % hits.size()].node;
+                break;
+            }
+        }
+    }
+    editor.selectedNode_ = pick;
+    lastPickScreenPos_ = mousePos;
 }
 
 void GizmoController::renderRotationRings(EditorUI& editor, ImDrawList* drawList, Camera* camera, const glm::mat4& viewProj, int hoveredAxis) {
     ImU32 colors[3] = { GizmoConfig::ColorX, GizmoConfig::ColorY, GizmoConfig::ColorZ };
     ImU32 hoverColors[3] = { GizmoConfig::HoverColorX, GizmoConfig::HoverColorY, GizmoConfig::HoverColorZ };
 
-    glm::vec3 renderAxes[3] = { gizmoLocalAxes_[0], gizmoLocalAxes_[1], gizmoLocalAxes_[2] };
-    if (grabbedAxis_ != GizmoAxis::None) {
-        renderAxes[0] = dragStartNodeRotQuat_ * glm::vec3(1,0,0);
-        renderAxes[1] = dragStartNodeRotQuat_ * glm::vec3(0,1,0);
-        renderAxes[2] = dragStartNodeRotQuat_ * glm::vec3(0,0,1);
+    const glm::vec2 vpPos = editor.viewportPos_;
+    const glm::vec2 vpSize = editor.viewportSize_;
+
+    // Outer camera-facing "trackball" circle (Unity/Godot look). Its screen
+    // radius is the projected world radius of the rings, nudged out slightly.
+    ImVec2 centerScreen, edgeScreen;
+    if (projectPoint(viewProj, vpPos, vpSize, gizmoNodePos_, centerScreen) &&
+        projectPoint(viewProj, vpPos, vpSize,
+                     gizmoNodePos_ + camera->right() * gizmoWorldLength_, edgeScreen)) {
+        float screenRadius = glm::length(glm::vec2(edgeScreen.x - centerScreen.x,
+                                                   edgeScreen.y - centerScreen.y));
+        drawList->AddCircle(centerScreen, screenRadius * 1.18f,
+                            IM_COL32(210, 210, 210, 90), GizmoConfig::RingSegments, 1.5f);
     }
 
+    // Rings follow the node's live orientation (gizmoLocalAxes_ is rebuilt from
+    // the current rotation each frame), so the gizmo visibly turns while
+    // dragging instead of freezing at the grab pose.
     for (int i = 0; i < 3; ++i) {
-        bool isHovered = (hoveredAxis == i || static_cast<int>(grabbedAxis_) == i);
-        ImU32 col = isHovered ? hoverColors[i] : colors[i];
+        bool isActive = (hoveredAxis == i || static_cast<int>(grabbedAxis_) == i);
+        ImU32 col = isActive ? hoverColors[i] : colors[i];
         ImVec4 colV = ImGui::ColorConvertU32ToFloat4(col);
+        ImU32 backCol = ImGui::ColorConvertFloat4ToU32(ImVec4(colV.x, colV.y, colV.z, colV.w * 0.18f));
+        float frontThickness = isActive ? GizmoConfig::RingThicknessHover
+                                        : GizmoConfig::RingThicknessDefault;
 
-        glm::vec3 normal = renderAxes[i];
+        glm::vec3 normal = gizmoLocalAxes_[i];
         glm::vec3 u = glm::normalize(glm::cross(normal, std::abs(normal.x) > 0.9f ? glm::vec3(0,1,0) : glm::vec3(1,0,0)));
         glm::vec3 v = glm::cross(normal, u);
 
-        std::vector<ImVec2> pointsFront;
-        std::vector<ImVec2> pointsBack;
-
+        // Walk the ring segment by segment so a front arc is never joined to a
+        // far arc by a stray chord across the circle. Front half (facing the
+        // camera) draws bold; the back half stays faint for depth reading.
+        ImVec2 prev{};
+        bool prevOk = false;
+        bool prevFront = false;
         for (int s = 0; s <= GizmoConfig::RingSegments; ++s) {
             float theta = (static_cast<float>(s) / GizmoConfig::RingSegments) * glm::two_pi<float>();
             glm::vec3 pos3D = gizmoNodePos_ + (u * std::cos(theta) + v * std::sin(theta)) * gizmoWorldLength_;
-
-            glm::vec4 clipPos = viewProj * glm::vec4(pos3D, 1.0f);
-            if (clipPos.w > 0.0f) {
-                glm::vec3 ndcPos = glm::vec3(clipPos) / clipPos.w;
-                ImVec2 p2d(editor.viewportPos_.x + (ndcPos.x + 1.0f) * 0.5f * editor.viewportSize_.x, editor.viewportPos_.y + (ndcPos.y + 1.0f) * 0.5f * editor.viewportSize_.y);
-
-                if (glm::dot(glm::normalize(pos3D - camera->position), glm::normalize(pos3D - gizmoNodePos_)) > 0.0f) {
-                    pointsBack.push_back(p2d);
-                } else {
-                    pointsFront.push_back(p2d);
-                }
+            ImVec2 p2d;
+            bool ok = projectPoint(viewProj, vpPos, vpSize, pos3D, p2d);
+            bool front = glm::dot(glm::normalize(pos3D - camera->position),
+                                  glm::normalize(pos3D - gizmoNodePos_)) <= 0.0f;
+            if (ok && prevOk) {
+                bool solid = front && prevFront;
+                drawList->AddLine(prev, p2d, solid ? col : backCol,
+                                  solid ? frontThickness : 1.25f);
             }
-        }
-
-        float thickness = isHovered ? GizmoConfig::RingThicknessHover : GizmoConfig::RingThicknessDefault;
-        if (!pointsBack.empty()) {
-            ImU32 backCol = ImGui::ColorConvertFloat4ToU32(ImVec4(colV.x, colV.y, colV.z, colV.w * 0.2f));
-            for (size_t p = 1; p < pointsBack.size(); ++p) drawList->AddLine(pointsBack[p-1], pointsBack[p], backCol, thickness);
-        }
-        if (!pointsFront.empty()) {
-            for (size_t p = 1; p < pointsFront.size(); ++p) drawList->AddLine(pointsFront[p-1], pointsFront[p], col, thickness);
+            prev = p2d;
+            prevOk = ok;
+            prevFront = front;
         }
     }
 }

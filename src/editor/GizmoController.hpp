@@ -43,10 +43,11 @@ private:
                                bool mouseClicked);
     void updateHover(EditorUI& editor, const glm::vec3& rayOrigin, const glm::vec3& rayDir,
                      const glm::vec2& mousePos, int& outHoveredAxis);
-    void handleDrag(EditorUI& editor, const glm::vec3& rayOrigin, const glm::vec3& rayDir,
-                    const glm::vec2& mousePos);
+    void handleDrag(EditorUI& editor, const glm::vec3& rayOrigin,
+                    const glm::vec3& rayDir, const glm::vec2& mousePos);
     void performRaycastSelection(EditorUI& editor, Scene* scene,
-                                 const glm::vec3& rayOrigin, const glm::vec3& rayDir);
+                                 const glm::vec3& rayOrigin, const glm::vec3& rayDir,
+                                 const glm::vec2& mousePos);
     void renderRotationRings(EditorUI& editor, ImDrawList* drawList, Camera* camera,
                              const glm::mat4& viewProj, int hoveredAxis);
     void renderTranslateScale(EditorUI& editor, ImDrawList* drawList, int hoveredAxis);
@@ -63,7 +64,28 @@ private:
     glm::quat dragStartNodeRotQuat_{1.0f, 0.0f, 0.0f, 0.0f};
     glm::vec3 dragStartNodeScale_{1.0f};
     glm::vec2 dragStartMousePos_{0.0f};
-    glm::vec3 dragStartHitPos3D_{0.0f};
+
+    // Rotation drag (screen-space tangential): angle accumulated since grab, the
+    // previous mouse position for the per-frame delta, and the screen->axis sign
+    // fixed at grab time from the ring's facing toward the camera. Screen-space
+    // tangential motion stays responsive even when the ring is edge-on, where a
+    // ray/plane hit test degenerates.
+    float rotationAccumAngle_{0.0f};
+    glm::vec2 rotationLastMouse_{0.0f};
+    float rotationScreenSign_{1.0f};
+    // Normalized world rotation axis, frozen at grab. Reusing the live
+    // gizmoLocalAxes_ (rebuilt from the rotation we just wrote) feeds a
+    // non-unit axis back into angleAxis and compounds into NaN.
+    glm::vec3 rotationAxis_{0.0f, 1.0f, 0.0f};
+
+    // Translate/scale drag basis, frozen at grab time so the mapping stays linear
+    // and reversible. Recomputing it from the moving gizmo each frame feeds the
+    // object's motion back into its own sensitivity and runs away. Translate uses
+    // the axis parameter of the point on the axis closest to the mouse ray;
+    // scale uses a fixed screen-space direction and world-units-per-pixel scale.
+    float dragStartAxisParam_{0.0f};
+    glm::vec2 dragStartAxisDir2D_{0.0f};
+    float dragStartWorldPerPixel_{0.0f};
 
     // Per-frame screen-space geometry cache (rebuilt at the top of draw()).
     glm::vec3 gizmoNodePos_{0.0f};
@@ -72,6 +94,10 @@ private:
     glm::vec2 gizmoEnds2D_[3];
     glm::vec3 gizmoLocalAxes_[3];
     bool gizmoAxisValid_[3]{false, false, false};
+
+    // Screen position of the last pick, so repeated clicks at the same spot cycle
+    // through the overlapping candidates under the ray (Unity-style drill-down).
+    glm::vec2 lastPickScreenPos_{-1.0e6f, -1.0e6f};
 };
 
 } // namespace saida
