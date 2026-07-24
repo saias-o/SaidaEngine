@@ -121,7 +121,10 @@ bool AssetRegistry::load(const std::string& projectRoot) {
 
 bool AssetRegistry::save(const std::string& projectRoot) const {
     std::filesystem::path path = std::filesystem::path(projectRoot) / kRegistryFilename;
-    std::ofstream file(path);
+    // Keep the checked-in registry byte-identical on every platform. Text mode
+    // expands '\n' to CRLF on Windows, which makes an otherwise unchanged
+    // registry dirty after an editor build.
+    std::ofstream file(path, std::ios::binary | std::ios::trunc);
     if (!file.is_open()) {
         Log::error("AssetRegistry: Failed to write to ", path.string());
         return false;

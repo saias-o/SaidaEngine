@@ -100,6 +100,20 @@ void testWrongAssetRegistrySchemaIsRejected() {
     require(!registry.load(root.string()));
 }
 
+void testAssetRegistryUsesPortableLineEndings() {
+    const auto root = testRoot() / "PortableRegistry";
+    std::filesystem::create_directories(root);
+
+    saida::AssetRegistry registry;
+    require(registry.save(root.string()));
+
+    std::ifstream file(root / "asset_registry.json", std::ios::binary);
+    const std::string contents(
+        (std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>());
+    require(contents.find('\r') == std::string::npos);
+}
+
 void testScenarioRequiresCurrentEnvelope() {
     saida::ScenarioAsset asset;
     std::vector<saida::ScenarioIssue> issues;
@@ -139,6 +153,7 @@ int main() {
     testWrongProjectSchemaIsRejected();
     testCurrentAssetRegistryLoads();
     testWrongAssetRegistrySchemaIsRejected();
+    testAssetRegistryUsesPortableLineEndings();
     testScenarioRequiresCurrentEnvelope();
     testSchemaEnvelopeHelperIsStrict();
     return 0;
