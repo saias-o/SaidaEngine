@@ -1013,7 +1013,16 @@ rewrite.
 
 Every durable document must contain `schema` and `version`, integers, equal and
 strictly identical to the current version of its surface. Any other form is
-rejected without rewriting. The fixtures under `tests/fixtures/v1-format` are
+rejected without rewriting — **except `asset_registry.json`, which is rewritten
+today**. `Project::load` ignores the result of `AssetRegistry::load` and runs
+`sync()` then `save()` regardless (`src/project/Project.cpp`), so a registry the
+guard refused is replaced by a fresh scan: every asset is re-registered with a
+new random id, and the old file is overwritten. Opening a project whose registry
+predates the current schema therefore loses every stored AssetID, and the
+documents that reference them — a scene's `skyboxTexture`, a mesh reference —
+keep pointing at ids that no longer exist. The rejection is logged; the damage
+downstream is not. This is a known divergence from the policy above, tracked in
+[ROADMAP](ROADMAP.md). The fixtures under `tests/fixtures/v1-format` are
 immutable and loaded by `saida_v1_format_corpus_tests`. The `fold-determinism`
 fixture proves a byte-identical Windows/Linux fold on its corpus, not the
 exhaustive equivalence of all scenes.

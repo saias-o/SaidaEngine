@@ -209,6 +209,21 @@ environmental, never a code fault.
   the project FOLDER, which `Project::load` resolves to its single `.saidaproj`.
   `--project <folder>` works the same way and bypasses both.
 
+### A rejected asset registry is rewritten, losing every AssetID
+
+- `Project::load` calls `AssetRegistry::load` **without checking its result**,
+  then `sync()` and `save()` unconditionally. A registry rejected by the schema
+  guard (an older `schema`, a hand-edit that broke the envelope) is therefore
+  replaced by a fresh scan: same paths, brand new random ids, old file gone.
+- Nothing downstream is told. A scene's `skyboxTexture`, or any AssetID written
+  into a durable document, now points at an id that no longer exists — the
+  skybox simply stops drawing. The only clue is one line early in the log:
+  `AssetRegistry: unsupported asset registry schema vN`.
+- So: after any change to the registry's schema, expect every project's ids to
+  be regenerated on first open. Resolve assets **by path** through the registry
+  when generating scenes, never by pasting an id — ids come from
+  `generateID()`, which is random, and only persist while the file survives.
+
 ### One physics body collides with ONE mesh
 
 - `CollisionShapeNode.cpp`'s `findMesh` returns the **first** drawable mesh in the

@@ -204,6 +204,15 @@ Post-V1 unless the scope changes explicitly.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and
   diagnostics.
+- [ ] Formats: stop rewriting a rejected `asset_registry.json`. `Project::load`
+  ignores the loader's verdict and runs `sync()` + `save()` anyway, so a registry
+  the schema guard refused is replaced by a fresh scan with brand new random
+  ids — every AssetID stored in a scene (`skyboxTexture`, mesh references) is
+  left dangling, silently. Fix by design: honour the failure, refuse to
+  overwrite a document the engine could not read, and either migrate the entry
+  ids or stop the load with a diagnostic naming the documents that reference
+  them. SPEC section 13 documents the divergence meanwhile.
+
 - [ ] Physics: make a body collide with **every** mesh under it, not just the
   first. `CollisionShapeNode`'s `findMesh` picks a single mesh, so an imported
   level — one node, dozens of meshes — silently collides on one piece and the
