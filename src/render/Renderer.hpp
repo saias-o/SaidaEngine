@@ -239,6 +239,7 @@ private:
     struct ShadowDraw {
         Mesh* mesh = nullptr;
         glm::mat4 world{1.0f};
+        int32_t boneOffset = -1;   // -1 = not skinned
     };
     std::vector<ShadowDraw> shadowDraws_;
 

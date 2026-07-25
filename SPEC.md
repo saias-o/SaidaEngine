@@ -225,7 +225,10 @@ produced `saida_tool` artifact.
 The renderer supports Vulkan 1.3, Dynamic Rendering, VMA, depth, desktop MSAA,
 PBR metallic-roughness, lit/unlit materials, IBL, ACES, directional, point and
 spot lights, PCF shadow mapping, SSAO, bloom, fog, xatlas lightmap baking and
-DDGI. Point lights do not yet have a shadow cubemap. Lightmaps are regenerated
+DDGI. The depth pass skins its casters from the same bone palette as the scene
+pass, so an animated character casts the shadow of the pose it is actually in;
+the shadow pipeline therefore binds set 0, where that palette lives. Point lights
+do not yet have a shadow cubemap. Lightmaps are regenerated
 and are not yet part of the durable package.
 
 The RHI compiles to Vulkan or WebGPU. GLSL shaders are compiled to SPIR-V, then

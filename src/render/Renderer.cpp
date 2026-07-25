@@ -210,7 +210,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, Window& window,
     buildFeatures(0, rhi::vulkan::fromVk(swapchain_->depthFormat()), swapchain_->samples());
 #endif
     createUniformBuffers();
-    shadowMap_ = std::make_unique<ShadowMap>(device_);
+    shadowMap_ = std::make_unique<ShadowMap>(device_, globalSetLayout_.get());
     gi_ = std::make_unique<GIVolume>(device_, giDescForTier(device_.capabilities().tier),
                                      resources_.materialSetLayout(), *globalSetLayout_);
     createGlobalDescriptorSets();
@@ -228,7 +228,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, ResourceManager
     createTonemapPipeline();
     buildFeatures(0, swapchain_->depthFormat(), swapchain_->samples());
     createUniformBuffers();
-    shadowMap_ = std::make_unique<ShadowMap>(device_);
+    shadowMap_ = std::make_unique<ShadowMap>(device_, globalSetLayout_.get());
     gi_ = std::make_unique<GIVolume>(device_, giDescForTier(device_.capabilities().tier),
                                      resources_.materialSetLayout(), *globalSetLayout_);
     createGlobalDescriptorSets();
@@ -244,7 +244,7 @@ Renderer::Renderer(VulkanDevice& device, Window& window, ResourceManager& resour
       xrViewCount_(xrViewCount) {
     createGlobalSetLayout();
     createUniformBuffers();
-    shadowMap_ = std::make_unique<ShadowMap>(device_);
+    shadowMap_ = std::make_unique<ShadowMap>(device_, globalSetLayout_.get());
     gi_ = std::make_unique<GIVolume>(device_, giDescForTier(device_.capabilities().tier),
                                      resources_.materialSetLayout(), *globalSetLayout_);
     createGlobalDescriptorSets();
@@ -835,7 +835,8 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
                 const float coverage = computeScreenCoverage(world, mesh->bounds(), lodView_, lodProj_);
                 mesh = node->meshForLod(node->selectLodIndex(coverage));
             }
-            if (mesh) shadowDraws_.push_back(ShadowDraw{mesh, world});
+            // Same palette the scene pass uses; boneOffsetFor caches per animator.
+            if (mesh) shadowDraws_.push_back(ShadowDraw{mesh, world, boneOffsetFor(node)});
         }
     }
 
@@ -1315,9 +1316,16 @@ void Renderer::recordWorldWebCanvases(rhi::RenderPassEncoder& rp, Scene& scene, 
 void Renderer::recordShadowPasses(rhi::CommandEncoder& encoder) {
     shadowMap_->record(encoder, shadowCount_,
         [this](rhi::RenderPassEncoder& rp, int layer) {
+            // Set 0 holds the bone palette the skinned casters index into.
+            rp.setBindGroup(0, *globalGroups_[currentFrame_]);
+            struct ShadowPush {
+                glm::mat4 mvp;
+                glm::vec4 params;
+            } push;
             for (const ShadowDraw& draw : shadowDraws_) {
-                glm::mat4 mvp = shadowMatrices_[layer] * draw.world;
-                rp.setPushConstants(&mvp, sizeof(mvp));
+                push.mvp = shadowMatrices_[layer] * draw.world;
+                push.params = glm::vec4(0.0f, static_cast<float>(draw.boneOffset), 0.0f, 0.0f);
+                rp.setPushConstants(&push, sizeof(push));
                 draw.mesh->bind(rp);
                 draw.mesh->draw(rp);
             }

@@ -14,7 +14,8 @@
 
 namespace saida {
 
-ShadowMap::ShadowMap(rhi::Device& device, uint32_t initialResolution) : device_(device), resolution_(initialResolution) {
+ShadowMap::ShadowMap(rhi::Device& device, const rhi::BindGroupLayout* globalLayout,
+                     uint32_t initialResolution) : device_(device), globalLayout_(globalLayout), resolution_(initialResolution) {
 #ifdef SAIDA_RHI_WEBGPU
     format_ = rhi::Format::Depth32Float;
 #else
@@ -60,7 +61,8 @@ void ShadowMap::createSampler() {
 
 void ShadowMap::createPipeline() {
     // Depth-only: a single vertex stage, no fragment shader, no color attachment.
-    // Push constant: mat4 mvp = lightViewProj * model (vertex stage only).
+    // Push constants: mat4 mvp = lightViewProj * model, then a vec4 whose y is
+    // the caster's bone offset (vertex stage only).
     rhi::Pipeline::Desc desc;
 #ifdef SAIDA_RHI_WEBGPU
     desc.vertPath = "/shaders/shadow.vert.wgsl";
@@ -68,10 +70,20 @@ void ShadowMap::createPipeline() {
     desc.vertPath = shaderPath("shadow.vert.spv");
 #endif
     desc.depthFormat = format_;
-    desc.pushConstantSize = sizeof(glm::mat4);
+    // Set 0 carries the bone palette; a skinned caster is otherwise stuck in its
+    // bind pose, which is a shadow of a character standing somewhere else.
+    if (globalLayout_) desc.bindGroupLayouts.push_back(globalLayout_);
+    // mat4 mvp + vec4 params (params.y = boneOffset, -1 when not skinned), the
+    // same convention as the scene pass.
+    desc.pushConstantSize = sizeof(glm::mat4) + sizeof(glm::vec4);
     desc.pushConstantStages = rhi::ShaderStages::Vertex;
     desc.depthBias = true;  // combat shadow acne
-    desc.depthBiasConstant = 1.25f;
+    // The constant term is what detaches a shadow from the feet that cast it
+    // (peter-panning), and it buys little: it offsets every caster by the same
+    // amount whatever its angle. The slope-scaled term is the one that actually
+    // pays for itself, since acne appears at grazing angles. So: small constant,
+    // slope unchanged.
+    desc.depthBiasConstant = 0.45f;
     desc.depthBiasSlope = 1.75f;
     pipeline_ = std::make_unique<rhi::Pipeline>(device_, desc);
 }

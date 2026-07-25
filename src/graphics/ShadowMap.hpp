@@ -11,7 +11,11 @@ class ShadowMap {
 public:
     static constexpr uint32_t kMaxShadows = 4;
 
-    explicit ShadowMap(rhi::Device& device, uint32_t initialResolution = 2048);
+    // `globalLayout` is the renderer's set 0. The depth pass needs it because a
+    // skinned caster reads its bone palette from that set: without it the shadow
+    // could only ever be cast from the bind pose.
+    ShadowMap(rhi::Device& device, const rhi::BindGroupLayout* globalLayout,
+              uint32_t initialResolution = 2048);
     ~ShadowMap();
     ShadowMap(const ShadowMap&) = delete;
     ShadowMap& operator=(const ShadowMap&) = delete;
@@ -32,6 +36,7 @@ private:
     void createPipeline();
 
     rhi::Device& device_;
+    const rhi::BindGroupLayout* globalLayout_ = nullptr;
     rhi::Format format_ = rhi::Format::Undefined;
     uint32_t resolution_;
 
