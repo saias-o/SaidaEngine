@@ -202,6 +202,13 @@ Post-V1 unless the scope changes explicitly.
 
 - [ ] XR: validate targeted headsets/runtimes, controllers and hand tracking.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
+- [ ] Physics: make `ignoreSelf` cover a `CharacterBody`. The option resolves
+  the caller's `CollisionObject` body, but a character is backed by an inner body
+  as well, so a controller's own forward ray hits its capsule at distance 0 with
+  a horizontal normal — every frame looks like a wall. Fix by design: resolve the
+  inner body too, and make the option's contract testable (a query from a
+  character must never return the character).
+
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and
   diagnostics.
 - [ ] Formats: stop rewriting a rejected `asset_registry.json`. `Project::load`

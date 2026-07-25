@@ -587,9 +587,16 @@ globals the engine explicitly installs — `console` and the
   `{point, normal, distance, node: NodeRef|null}`;
   `overlapSphere(center, radius, opts?)` → `[NodeRef...]`.
   `opts = {hitSensors?: bool, ignoreSelf?: bool}` — sensors excluded by default,
-  the caller's own body (node or ancestor) ignored by default. Without a physics
-  world (no Play, no body), the queries answer "nothing" (`null`/empty list),
-  never an error. Same surface on desktop and Web player.
+  the caller's own body (node or ancestor) ignored by default. **Known defect:
+  `ignoreSelf` misses a `CharacterBody`.** The character's inner body — the one
+  that exists so the controller is visible to broadphase, sensors and raycasts
+  (5.1) — is not the `CollisionObject` body the option resolves, so a ray cast
+  from a character controller hits its own capsule at distance 0 with a
+  horizontal normal. It fails in exactly the case that matters, a controller
+  probing ahead of itself, and the result is well-formed enough to be believed;
+  tracked in [ROADMAP](ROADMAP.md). Without a physics world (no Play, no body),
+  the queries answer "nothing" (`null`/empty list), never an error. Same surface
+  on desktop and Web player.
 
 Cross-node references become explicitly invalid when their NodeId disappears; no
 JS pointer survives the destruction of a scene.

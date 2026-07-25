@@ -209,6 +209,20 @@ environmental, never a code fault.
   the project FOLDER, which `Project::load` resolves to its single `.saidaproj`.
   `--project <folder>` works the same way and bypasses both.
 
+### `ignoreSelf` does not protect a raycast from a CharacterBody
+
+- `physics.raycast(..., {ignoreSelf: true})` still hits the character it is cast
+  from: the option resolves the node's `CollisionObject`, while a `CharacterBody`
+  is also backed by an inner body that answers queries (SPEC 5.1).
+- The symptom is silent and convincing: `distance = 0`, a perfectly horizontal
+  normal, and the character's own node in `hit.node`. A controller probing for a
+  wall therefore believes it is against one on every frame, and a wall kick
+  fires anywhere in the open.
+- Until the option covers the inner body, start the ray OUTSIDE the capsule
+  (`origin + direction * (radius + margin)`) and drop hits at distance ~0. Print
+  `hit.node.getName()` when a query behaves oddly — it names the culprit in one
+  line.
+
 ### A rejected asset registry is rewritten, losing every AssetID
 
 - `Project::load` calls `AssetRegistry::load` **without checking its result**,
