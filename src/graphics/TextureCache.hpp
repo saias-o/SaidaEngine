@@ -40,11 +40,18 @@ public:
 
     Texture* get(AssetID id, bool srgb, AssetRegistry* registry,
                  AssetLoader& loader, uint64_t frameClock);
+
+    // Records the wrap mode an asset was declared with (glTF sampler). The
+    // texture is created much later -- asynchronously, once the decode lands --
+    // and get() has no way to know what the importer saw, so the mode is kept
+    // per identity instead of travelling with each request.
+    void setAddressMode(AssetID id, rhi::AddressMode address);
     // Appends every completed ID (ready or failed) so the owner can rebind
     // materials without the cache depending on Material or ResourceManager.
     void finalizePending(std::vector<AssetID>& completed);
 
-    AssetID registerMemory(const uint8_t* data, size_t size, bool srgb);
+    AssetID registerMemory(const uint8_t* data, size_t size, bool srgb,
+                           rhi::AddressMode address = rhi::AddressMode::Repeat);
     AssetID registerGenerated(const uint8_t* pixels, uint32_t width,
                               uint32_t height, rhi::Format format,
                               bool generateMipmaps);
@@ -67,8 +74,13 @@ public:
 private:
     struct PendingTexture {
         bool srgb = true;
+        rhi::AddressMode address = rhi::AddressMode::Repeat;
         AssetHandle handle;
     };
+
+    rhi::AddressMode addressModeFor(AssetID id) const;
+
+    std::unordered_map<AssetID, rhi::AddressMode> addressModes_;
 
     void ensureDefaultTextures();
     void registerBindless(Texture* texture);

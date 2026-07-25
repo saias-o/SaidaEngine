@@ -500,6 +500,7 @@ add_library(saida_engine STATIC
     src/cli/AutoLODBridge.cpp
     src/audio/AudioUsage.cpp
     src/audio/AudioSourceBehaviour.cpp
+    src/behaviours/AnimGraphBehaviour.cpp
     src/behaviours/CharacterBehaviour.cpp
     src/behaviours/HealthBehaviour.cpp
     src/nodes/WaterNode.cpp

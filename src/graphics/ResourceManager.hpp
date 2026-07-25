@@ -81,9 +81,11 @@ public:
     Mesh* loadMesh(AssetID id);
 
     // Register a path dynamically (e.g. for hardcoded demo scenes without pre-sync)
-    AssetID getOrRegister(const std::string& path, AssetType type = AssetType::Unknown, bool srgb = true);
+    AssetID getOrRegister(const std::string& path, AssetType type = AssetType::Unknown, bool srgb = true,
+                          rhi::AddressMode address = rhi::AddressMode::Repeat);
 
-    AssetID registerMemoryTexture(const uint8_t* data, size_t size, bool srgb = true);
+    AssetID registerMemoryTexture(const uint8_t* data, size_t size, bool srgb = true,
+                                  rhi::AddressMode address = rhi::AddressMode::Repeat);
     AssetID registerGeneratedTexture(const uint8_t* pixels, uint32_t width, uint32_t height,
                                      rhi::Format format = rhi::Format::RGBA8Srgb,
                                      bool generateMipmaps = true);
@@ -194,7 +196,7 @@ public:
     void updateMaterialData(uint32_t index, const glm::vec4& baseColor, const glm::vec4& emissive,
                             float metallic, float roughness, float ao,
                             uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx, uint32_t emissiveIdx,
-                            MaterialType type);
+                            MaterialType type, float alphaCutoff);
 
     // Register a texture in the bindless array if needed, returns its index.
     uint32_t ensureBindlessTextureIndex(Texture* texture);
@@ -203,7 +205,7 @@ public:
     uint32_t registerMaterialData(const glm::vec4& baseColor, const glm::vec4& emissive,
                                   float metallic, float roughness, float ao,
                                   uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx, uint32_t emissiveIdx,
-                                  MaterialType type);
+                                  MaterialType type, float alphaCutoff);
 
 private:
     void finalizePendingAnimationAssets();

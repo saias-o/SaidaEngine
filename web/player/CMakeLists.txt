@@ -97,6 +97,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/scene/Blackboard.cpp
     ${SAIDA_ROOT}/src/behaviours/CameraFollowBehaviour.cpp
     ${SAIDA_ROOT}/src/nodes/CameraNode.cpp
+    ${SAIDA_ROOT}/src/behaviours/AnimGraphBehaviour.cpp
     ${SAIDA_ROOT}/src/behaviours/CharacterBehaviour.cpp
     ${SAIDA_ROOT}/src/scene/GLTFLoader.cpp
     ${SAIDA_ROOT}/src/scene/GltfMeshopt.cpp

@@ -89,7 +89,7 @@ Texture* TextureCache::get(AssetID id, bool srgb, AssetRegistry* registry,
         AssetHandle handle = loader.request(id, AssetLoadPriority::High,
                                             AssetPayloadKind::Image, makeImageDecoder());
         if (!handle) return nullptr;
-        pending_.emplace(id, PendingTexture{srgb, std::move(handle)});
+        pending_.emplace(id, PendingTexture{srgb, addressModeFor(id), std::move(handle)});
     }
     return nullptr;
 }
@@ -116,7 +116,7 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
 #endif
                 auto texture = std::make_unique<Texture>(
                     device_, static_cast<const uint8_t*>(image->pixels),
-                    image->width, image->height, format);
+                    image->width, image->height, format, true, it->second.address);
                 registerBindless(texture.get());
                 residentBytes_ += texture->gpuBytes();
                 textures_.emplace(id, std::move(texture));
@@ -129,7 +129,20 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
     }
 }
 
-AssetID TextureCache::registerMemory(const uint8_t* data, size_t size, bool srgb) {
+void TextureCache::setAddressMode(AssetID id, rhi::AddressMode address) {
+    if (id == kAssetInvalid) return;
+    // Repeat is the default: recording it would grow the map for nothing.
+    if (address == rhi::AddressMode::Repeat) addressModes_.erase(id);
+    else addressModes_[id] = address;
+}
+
+rhi::AddressMode TextureCache::addressModeFor(AssetID id) const {
+    auto it = addressModes_.find(id);
+    return it == addressModes_.end() ? rhi::AddressMode::Repeat : it->second;
+}
+
+AssetID TextureCache::registerMemory(const uint8_t* data, size_t size, bool srgb,
+                                     rhi::AddressMode address) {
     int width = 0;
     int height = 0;
     int channels = 0;
@@ -144,7 +157,7 @@ AssetID TextureCache::registerMemory(const uint8_t* data, size_t size, bool srgb
         srgb ? rhi::Format::RGBA8Srgb : rhi::Format::RGBA8Unorm;
     auto texture = std::make_unique<Texture>(
         device_, pixels, static_cast<uint32_t>(width),
-        static_cast<uint32_t>(height), format);
+        static_cast<uint32_t>(height), format, true, address);
     registerBindless(texture.get());
     stbi_image_free(pixels);
     residentBytes_ += texture->gpuBytes();

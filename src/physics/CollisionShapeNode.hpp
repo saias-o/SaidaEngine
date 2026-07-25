@@ -17,8 +17,8 @@ enum class CollisionShapeType {
     Box,
     Sphere,
     Capsule,
-    ConvexHull,  // reserved (falls back to Box in v1)
-    Mesh,        // reserved (falls back to Box in v1)
+    ConvexHull,  // hull of the body's mesh; falls back to Box without CPU mesh data
+    Mesh,        // triangle mesh, static only; falls back to Box without CPU mesh data
 };
 
 const char* toString(CollisionShapeType type);

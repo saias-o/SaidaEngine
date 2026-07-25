@@ -1,0 +1,20 @@
+{
+  "schema": 2,
+  "version": 2,
+  "assets": {
+    "2001": {
+      "path": "scenes/main.scene",
+      "hash": 42,
+      "type": "Scene"
+    },
+    "2002": {
+      "path": "assets/textures/checker.png",
+      "hash": 7,
+      "type": "Texture",
+      "import": {
+        "wrap": "clamp",
+        "srgb": true
+      }
+    }
+  }
+}

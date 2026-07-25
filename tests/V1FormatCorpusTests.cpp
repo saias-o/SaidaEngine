@@ -84,7 +84,7 @@ void testAssetRegistries() {
     // AssetRegistry::load expects a file named asset_registry.json at the
     // root of a project, so we copy the fixture into a temporary directory.
     const fs::path tmp = fs::temp_directory_path() / "SaidaV1FormatCorpusTests";
-    for (const char* name : {"asset_registry_v1.json"}) {
+    for (const char* name : {"asset_registry_v2.json"}) {
         FrozenFile frozen(corpusDir() / name);
         const fs::path root = tmp / fs::path(name).stem();
         fs::remove_all(root);
@@ -97,6 +97,18 @@ void testAssetRegistries() {
                 "registry asset ids must load");
         require(registry.getID("assets/textures/checker.png") != saida::kAssetInvalid,
                 "registry paths must load");
+
+        // Schema 2: import overrides are durable. An override silently dropped
+        // on load would send an author back to their exporter for a setting the
+        // project had already corrected.
+        const saida::AssetID textureId = registry.getID("assets/textures/checker.png");
+        const saida::AssetImportSettings import = registry.getImportSettings(textureId);
+        require(import.wrap.has_value() &&
+                    *import.wrap == saida::rhi::AddressMode::ClampToEdge,
+                "import wrap must survive");
+        require(import.srgb.has_value() && *import.srgb, "import srgb must survive");
+        require(registry.getImportSettings(registry.getID("scenes/main.scene")).empty(),
+                "an asset without overrides must stay empty");
     }
     fs::remove_all(tmp);
 }
@@ -162,14 +174,14 @@ void testWitnessGame() {
 
     // Asset registry: copied as asset_registry.json into a temporary directory.
     {
-        FrozenFile frozen(corpusDir() / "witness_v1_asset_registry.json");
+        FrozenFile frozen(corpusDir() / "witness_v2_asset_registry.json");
         const fs::path root = tmp / "witness_registry";
         fs::remove_all(root);
         fs::create_directories(root);
         fs::copy_file(frozen.path(), root / "asset_registry.json");
 
         saida::AssetRegistry registry;
-        require(registry.load(root.string()), "witness_v1_asset_registry.json");
+        require(registry.load(root.string()), "witness_v2_asset_registry.json");
         require(registry.getID("scenes/hub.scene") != saida::kAssetInvalid,
                 "witness hub scene id must survive");
         require(registry.getID("assets/models/totem.gltf") != saida::kAssetInvalid,

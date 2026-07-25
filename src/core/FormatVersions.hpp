@@ -8,7 +8,7 @@ namespace saida::format {
 
 constexpr int kBootManifestVersion = 1;
 constexpr int kProjectVersion = 1;
-constexpr int kAssetRegistryVersion = 1;
+constexpr int kAssetRegistryVersion = 2;
 constexpr int kScenarioVersion = 1;
 constexpr int kSceneVersion = 2;
 

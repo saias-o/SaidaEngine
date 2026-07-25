@@ -58,7 +58,8 @@ std::vector<uint8_t> downsample(const std::vector<uint8_t>& src, uint32_t w, uin
 
 } // namespace
 
-Texture::Texture(Device& device, const std::string& path, bool srgb)
+Texture::Texture(Device& device, const std::string& path, bool srgb,
+                 rhi::AddressMode address)
     : device_(device) {
     int texWidth = 0, texHeight = 0, channels = 0;
     stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &channels, STBI_rgb_alpha);
@@ -92,8 +93,8 @@ Texture::Texture(Device& device, const std::string& path, bool srgb)
 }
 
 Texture::Texture(Device& device, const uint8_t* pixels, uint32_t width, uint32_t height,
-                 rhi::Format format, bool generateMipmaps)
-    : device_(device), width_(width), height_(height) {
+                 rhi::Format format, bool generateMipmaps, rhi::AddressMode address)
+    : device_(device), width_(width), height_(height), address_(address) {
     mipLevels_ = 1;
     if (generateMipmaps && (width > 1 || height > 1))
         mipLevels_ = uint32_t(std::floor(std::log2(std::max(width, height)))) + 1;
@@ -119,9 +120,12 @@ Texture::Texture(Device& device, const uint8_t* pixels, uint32_t width, uint32_t
     view_ = wgpuTextureCreateView(texture_, &vd);
 
     WGPUSamplerDescriptor sd = {};
-    sd.addressModeU = WGPUAddressMode_Repeat;
-    sd.addressModeV = WGPUAddressMode_Repeat;
-    sd.addressModeW = WGPUAddressMode_Repeat;
+    const WGPUAddressMode wgpuAddress =
+        address_ == rhi::AddressMode::Repeat ? WGPUAddressMode_Repeat
+                                             : WGPUAddressMode_ClampToEdge;
+    sd.addressModeU = wgpuAddress;
+    sd.addressModeV = wgpuAddress;
+    sd.addressModeW = wgpuAddress;
     sd.magFilter = WGPUFilterMode_Linear;
     sd.minFilter = WGPUFilterMode_Linear;
     sd.mipmapFilter = WGPUMipmapFilterMode_Linear;

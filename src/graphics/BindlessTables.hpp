@@ -61,13 +61,13 @@ public:
     uint32_t allocMaterialSlot(const glm::vec4& baseColor, const glm::vec4& emissive,
                                float metallic, float roughness, float ao,
                                uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                               uint32_t emissiveIdx, MaterialType type);
+                               uint32_t emissiveIdx, MaterialType type, float alphaCutoff);
     // Rewrites an already-allocated slot (material rebind after an async load).
     void writeMaterialSlot(uint32_t index, const glm::vec4& baseColor,
                            const glm::vec4& emissive,
                            float metallic, float roughness, float ao,
                            uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                           uint32_t emissiveIdx, MaterialType type);
+                           uint32_t emissiveIdx, MaterialType type, float alphaCutoff);
     void recycleMaterialSlot(uint32_t index) { freeMaterialIndices_.push_back(index); }
 
     // --- accessors ----------------------------------------------------------

@@ -11,6 +11,7 @@
 #include "core/Reflection.hpp"
 #include "core/Time.hpp"
 #include "graphics/ResourceManager.hpp"
+#include "physics/CharacterBodyNode.hpp"
 #include "physics/CollisionObjectNode.hpp"
 #include "physics/PhysicsWorld.hpp"
 #include "project/AssetLoader.hpp"
@@ -535,6 +536,57 @@ JSValue makeVec3(JSContext* ctx, const glm::vec3& v) {
     return obj;
 }
 
+JSValue makeQuat(JSContext* ctx, const glm::quat& q) {
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "x", JS_NewFloat64(ctx, q.x));
+    JS_SetPropertyStr(ctx, obj, "y", JS_NewFloat64(ctx, q.y));
+    JS_SetPropertyStr(ctx, obj, "z", JS_NewFloat64(ctx, q.z));
+    JS_SetPropertyStr(ctx, obj, "w", JS_NewFloat64(ctx, q.w));
+    return obj;
+}
+
+// Accepts ({x,y,z,w}) or (x,y,z,w). A non-finite or zero-length quaternion is
+// rejected rather than normalized: silently repairing it would hide the caller's
+// bug and leave the node with an orientation it never asked for.
+bool readQuatArgs(JSContext* ctx, int argc, JSValueConst* argv, glm::quat& out) {
+    double v[4] = {0.0, 0.0, 0.0, 0.0};
+    if (argc >= 1 && JS_IsObject(argv[0])) {
+        static const char* kKeys[4] = {"x", "y", "z", "w"};
+        for (int i = 0; i < 4; ++i) {
+            JSValue prop = JS_GetPropertyStr(ctx, argv[0], kKeys[i]);
+            const bool ok = toNumber(ctx, prop, v[i]);
+            JS_FreeValue(ctx, prop);
+            if (!ok) return false;
+        }
+    } else if (argc >= 4) {
+        for (int i = 0; i < 4; ++i)
+            if (!toNumber(ctx, argv[i], v[i])) return false;
+    } else {
+        return false;
+    }
+
+    const glm::quat q(static_cast<float>(v[3]), static_cast<float>(v[0]),
+                      static_cast<float>(v[1]), static_cast<float>(v[2]));
+    if (!std::isfinite(q.x) || !std::isfinite(q.y) || !std::isfinite(q.z) ||
+        !std::isfinite(q.w) || glm::length(q) < 1e-6f) {
+        return false;
+    }
+    out = glm::normalize(q);
+    return true;
+}
+
+// Character control resolves like the other gameplay bindings: the node itself,
+// else the first CharacterBody below it. That keeps a controller script working
+// whether it sits on the body or on a wrapper node above it.
+CharacterBodyNode* characterFor(Node* node) {
+    if (!node) return nullptr;
+    if (CharacterBodyNode* self = node->asCharacterBody()) return self;
+    for (const std::unique_ptr<Node>& child : node->children()) {
+        if (CharacterBodyNode* found = characterFor(child.get())) return found;
+    }
+    return nullptr;
+}
+
 JSValue makeVec2(JSContext* ctx, const glm::vec2& v) {
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "x", JS_NewFloat64(ctx, v.x));
@@ -592,6 +644,56 @@ JSValue jsNodeTranslate(JSContext* ctx, JSValueConst, int argc, JSValueConst* ar
 
     node->transform().position += value;
     return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeGetRotation(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    Node* node = nodeFromJs(ctx);
+    return makeQuat(ctx, node ? node->transform().rotation : glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
+}
+
+JSValue jsNodeSetRotation(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    Node* node = nodeFromJs(ctx);
+    if (!node) return JS_NewBool(ctx, false);
+
+    glm::quat value(1.0f, 0.0f, 0.0f, 0.0f);
+    if (!readQuatArgs(ctx, argc, argv, value)) return JS_NewBool(ctx, false);
+
+    node->transform().rotation = value;
+    return JS_NewBool(ctx, true);
+}
+
+// Gameplay writes the character's velocity; the engine integrates it during the
+// physics step. Without a CharacterBody the setter reports false and the getters
+// answer zero/false, matching the physics queries: no world, no error.
+JSValue jsNodeSetVelocity(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    CharacterBodyNode* body = characterFor(nodeFromJs(ctx));
+    if (!body) return JS_NewBool(ctx, false);
+
+    glm::vec3 value(0.0f);
+    if (!readVec3Args(ctx, argc, argv, value)) return JS_NewBool(ctx, false);
+
+    body->velocity = value;
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeGetVelocity(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    CharacterBodyNode* body = characterFor(nodeFromJs(ctx));
+    return makeVec3(ctx, body ? body->velocity : glm::vec3(0.0f));
+}
+
+JSValue jsNodeIsOnFloor(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    CharacterBodyNode* body = characterFor(nodeFromJs(ctx));
+    return JS_NewBool(ctx, body && body->isOnFloor());
+}
+
+JSValue jsNodeIsOnSteepSlope(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    CharacterBodyNode* body = characterFor(nodeFromJs(ctx));
+    return JS_NewBool(ctx, body && body->isOnSteepSlope());
+}
+
+JSValue jsNodeGroundNormal(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    CharacterBodyNode* body = characterFor(nodeFromJs(ctx));
+    return makeVec3(ctx, body ? body->groundNormal() : glm::vec3(0.0f, 1.0f, 0.0f));
 }
 
 JSValue jsNodeSetEnabled(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
@@ -1190,11 +1292,26 @@ B* behaviourOnOrUnder(Node* node) {
     return node->findBehaviourInChildren<B>();
 }
 
+// Every Animator on or under the node, not just the first.
+//
+// The glTF import attaches one Animator per skinned mesh, so a character split
+// into body + cap + hands carries several. Driving only the first leaves the
+// rest of the body on whatever state it started in -- the character's head
+// animates while his legs stand still. CharacterBehaviour already drives them
+// all; the script API has to do the same.
+std::vector<Animator*> animatorsOnOrUnder(Node* node) {
+    std::vector<Animator*> out;
+    if (!node) return out;
+    if (Animator* self = node->getBehaviour<Animator>()) out.push_back(self);
+    node->findBehavioursInChildren<Animator>(out);
+    return out;
+}
+
 // node.playClip(name, loop=true, crossfade=0.2) — clip by name on the Animator.
 // true = Animator found (an unknown clip name is logged by the engine).
 JSValue gameplayPlayClip(JSContext* ctx, Node* target, int argc, JSValueConst* argv) {
-    Animator* animator = behaviourOnOrUnder<Animator>(target);
-    if (!animator || argc < 1) return JS_NewBool(ctx, false);
+    std::vector<Animator*> animators = animatorsOnOrUnder(target);
+    if (animators.empty() || argc < 1) return JS_NewBool(ctx, false);
     const char* raw = JS_ToCString(ctx, argv[0]);
     if (!raw) return JS_EXCEPTION;
     std::string name = raw;
@@ -1209,7 +1326,7 @@ JSValue gameplayPlayClip(JSContext* ctx, Node* target, int argc, JSValueConst* a
     }
     if (argc >= 3 && !toNumber(ctx, argv[2], crossfade)) return JS_NewBool(ctx, false);
 
-    animator->play(name, loop, static_cast<float>(crossfade));
+    for (Animator* a : animators) a->play(name, loop, static_cast<float>(crossfade));
     return JS_NewBool(ctx, true);
 }
 
@@ -1225,8 +1342,8 @@ enum class AnimParamKind { Float, Bool, Trigger };
 // (drive the transitions of a .sgraph).
 JSValue gameplaySetAnimParam(JSContext* ctx, Node* target, AnimParamKind kind,
                              int argc, JSValueConst* argv) {
-    Animator* animator = behaviourOnOrUnder<Animator>(target);
-    if (!animator || argc < 1) return JS_NewBool(ctx, false);
+    std::vector<Animator*> animators = animatorsOnOrUnder(target);
+    if (animators.empty() || argc < 1) return JS_NewBool(ctx, false);
     const char* raw = JS_ToCString(ctx, argv[0]);
     if (!raw) return JS_EXCEPTION;
     std::string name = raw;
@@ -1236,18 +1353,18 @@ JSValue gameplaySetAnimParam(JSContext* ctx, Node* target, AnimParamKind kind,
     case AnimParamKind::Float: {
         double value = 0.0;
         if (argc < 2 || !toNumber(ctx, argv[1], value)) return JS_NewBool(ctx, false);
-        animator->setFloat(name, static_cast<float>(value));
+        for (Animator* a : animators) a->setFloat(name, static_cast<float>(value));
         break;
     }
     case AnimParamKind::Bool: {
         if (argc < 2) return JS_NewBool(ctx, false);
         const int b = JS_ToBool(ctx, argv[1]);
         if (b < 0) return JS_EXCEPTION;
-        animator->setBool(name, b != 0);
+        for (Animator* a : animators) a->setBool(name, b != 0);
         break;
     }
     case AnimParamKind::Trigger:
-        animator->setTrigger(name);
+        for (Animator* a : animators) a->setTrigger(name);
         break;
     }
     return JS_NewBool(ctx, true);
@@ -1387,6 +1504,13 @@ enum NodeRefMethod {
     NodeRefSetData,
     NodeRefGetData,
     NodeRefHasData,
+    NodeRefGetRotation,
+    NodeRefSetRotation,
+    NodeRefSetVelocity,
+    NodeRefGetVelocity,
+    NodeRefIsOnFloor,
+    NodeRefIsOnSteepSlope,
+    NodeRefGroundNormal,
 };
 
 JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
@@ -1408,6 +1532,40 @@ JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
     }
     case NodeRefGetPosition:
         return makeVec3(ctx, target->transform().position);
+    case NodeRefGetRotation:
+        return makeQuat(ctx, target->transform().rotation);
+    case NodeRefSetRotation: {
+        glm::quat value(1.0f, 0.0f, 0.0f, 0.0f);
+        if (!readQuatArgs(ctx, argc, argv, value))
+            return JS_ThrowTypeError(ctx, "expected ({x,y,z,w}) or (x,y,z,w)");
+        target->transform().rotation = value;
+        return JS_NewBool(ctx, true);
+    }
+    case NodeRefSetVelocity: {
+        CharacterBodyNode* body = characterFor(target);
+        if (!body) return JS_NewBool(ctx, false);
+        glm::vec3 value(0.0f);
+        if (!readVec3Args(ctx, argc, argv, value))
+            return JS_ThrowTypeError(ctx, "expected ({x,y,z}) or (x,y,z)");
+        body->velocity = value;
+        return JS_NewBool(ctx, true);
+    }
+    case NodeRefGetVelocity: {
+        CharacterBodyNode* body = characterFor(target);
+        return makeVec3(ctx, body ? body->velocity : glm::vec3(0.0f));
+    }
+    case NodeRefIsOnFloor: {
+        CharacterBodyNode* body = characterFor(target);
+        return JS_NewBool(ctx, body && body->isOnFloor());
+    }
+    case NodeRefIsOnSteepSlope: {
+        CharacterBodyNode* body = characterFor(target);
+        return JS_NewBool(ctx, body && body->isOnSteepSlope());
+    }
+    case NodeRefGroundNormal: {
+        CharacterBodyNode* body = characterFor(target);
+        return makeVec3(ctx, body ? body->groundNormal() : glm::vec3(0.0f, 1.0f, 0.0f));
+    }
     case NodeRefSetPosition:
     case NodeRefTranslate: {
         glm::vec3 value(0.0f);
@@ -1662,6 +1820,13 @@ JSValue makeNodeRef(JSContext* ctx, Node* target) {
     setNodeRefMethod(ctx, object, target->id(), "getPosition", jsNodeRefMethod, 0, NodeRefGetPosition);
     setNodeRefMethod(ctx, object, target->id(), "setPosition", jsNodeRefMethod, 3, NodeRefSetPosition);
     setNodeRefMethod(ctx, object, target->id(), "translate", jsNodeRefMethod, 3, NodeRefTranslate);
+    setNodeRefMethod(ctx, object, target->id(), "getRotation", jsNodeRefMethod, 0, NodeRefGetRotation);
+    setNodeRefMethod(ctx, object, target->id(), "setRotation", jsNodeRefMethod, 4, NodeRefSetRotation);
+    setNodeRefMethod(ctx, object, target->id(), "setVelocity", jsNodeRefMethod, 3, NodeRefSetVelocity);
+    setNodeRefMethod(ctx, object, target->id(), "getVelocity", jsNodeRefMethod, 0, NodeRefGetVelocity);
+    setNodeRefMethod(ctx, object, target->id(), "isOnFloor", jsNodeRefMethod, 0, NodeRefIsOnFloor);
+    setNodeRefMethod(ctx, object, target->id(), "isOnSteepSlope", jsNodeRefMethod, 0, NodeRefIsOnSteepSlope);
+    setNodeRefMethod(ctx, object, target->id(), "groundNormal", jsNodeRefMethod, 0, NodeRefGroundNormal);
     setNodeRefMethod(ctx, object, target->id(), "setEnabled", jsNodeRefMethod, 1, NodeRefSetEnabled);
     setNodeRefMethod(ctx, object, target->id(), "queueFree", jsNodeRefMethod, 0, NodeRefQueueFree);
     setNodeRefMethod(ctx, object, target->id(), "setText", jsNodeRefMethod, 1, NodeRefSetText);
@@ -1700,6 +1865,13 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JS_SetPropertyStr(ctx, node, "getPosition", JS_NewCFunction(ctx, jsNodeGetPosition, "getPosition", 0));
     JS_SetPropertyStr(ctx, node, "setPosition", JS_NewCFunction(ctx, jsNodeSetPosition, "setPosition", 3));
     JS_SetPropertyStr(ctx, node, "translate", JS_NewCFunction(ctx, jsNodeTranslate, "translate", 3));
+    JS_SetPropertyStr(ctx, node, "getRotation", JS_NewCFunction(ctx, jsNodeGetRotation, "getRotation", 0));
+    JS_SetPropertyStr(ctx, node, "setRotation", JS_NewCFunction(ctx, jsNodeSetRotation, "setRotation", 4));
+    JS_SetPropertyStr(ctx, node, "setVelocity", JS_NewCFunction(ctx, jsNodeSetVelocity, "setVelocity", 3));
+    JS_SetPropertyStr(ctx, node, "getVelocity", JS_NewCFunction(ctx, jsNodeGetVelocity, "getVelocity", 0));
+    JS_SetPropertyStr(ctx, node, "isOnFloor", JS_NewCFunction(ctx, jsNodeIsOnFloor, "isOnFloor", 0));
+    JS_SetPropertyStr(ctx, node, "isOnSteepSlope", JS_NewCFunction(ctx, jsNodeIsOnSteepSlope, "isOnSteepSlope", 0));
+    JS_SetPropertyStr(ctx, node, "groundNormal", JS_NewCFunction(ctx, jsNodeGroundNormal, "groundNormal", 0));
     JS_SetPropertyStr(ctx, node, "setEnabled", JS_NewCFunction(ctx, jsNodeSetEnabled, "setEnabled", 1));
     JS_SetPropertyStr(ctx, node, "queueFree", JS_NewCFunction(ctx, jsNodeQueueFree, "queueFree", 0));
     JS_SetPropertyStr(ctx, node, "setText", JS_NewCFunction(ctx, jsNodeSetText, "setText", 1));

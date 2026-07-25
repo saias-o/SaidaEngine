@@ -44,7 +44,7 @@ constexpr RuntimeTypeAvailability O = RuntimeTypeAvailability::Optional;
 
 // Rows are sorted by category then public serialized name. XR factories are
 // optional in the native target because they depend on SAIDA_ENABLE_XR.
-inline constexpr std::array<RuntimeTypeRow, 48> kRuntimeTypeMatrix{{
+inline constexpr std::array<RuntimeTypeRow, 49> kRuntimeTypeMatrix{{
     {"Area", RuntimeTypeCategory::Node, {R, R, A, R}},
     {"Camera", RuntimeTypeCategory::Node, {R, R, R, R}},
     {"CharacterBody", RuntimeTypeCategory::Node, {R, R, A, R}},
@@ -75,6 +75,7 @@ inline constexpr std::array<RuntimeTypeRow, 48> kRuntimeTypeMatrix{{
     {"XRHand", RuntimeTypeCategory::Node, {O, A, A, A}},
     {"XROrigin", RuntimeTypeCategory::Node, {O, A, A, A}},
 
+    {"AnimGraph", RuntimeTypeCategory::Behaviour, {R, R, A, R}},
     {"Animator", RuntimeTypeCategory::Behaviour, {R, R, A, R}},
     {"AudioSource", RuntimeTypeCategory::Behaviour, {R, R, A, R}},
     {"Blackboard", RuntimeTypeCategory::Behaviour, {R, R, A, R}},

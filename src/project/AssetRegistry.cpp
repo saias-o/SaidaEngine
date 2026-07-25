@@ -12,6 +12,42 @@
 namespace saida {
 
 namespace {
+
+const char* wrapToString(rhi::AddressMode mode) {
+    return mode == rhi::AddressMode::Repeat ? "repeat" : "clamp";
+}
+
+// An unreadable import block is reported and dropped, never guessed at: a
+// silently ignored override would send the author hunting through Blender for a
+// setting the project had already tried to fix.
+AssetImportSettings readImportSettings(const nlohmann::json& entry,
+                                       const std::string& path) {
+    AssetImportSettings out;
+    const auto it = entry.find("import");
+    if (it == entry.end()) return out;
+    if (!it->is_object()) {
+        Log::warn("AssetRegistry: 'import' must be an object for '", path, "'");
+        return out;
+    }
+
+    if (const auto wrap = it->find("wrap"); wrap != it->end()) {
+        const std::string value = wrap->is_string() ? wrap->get<std::string>() : "";
+        if (value == "repeat") out.wrap = rhi::AddressMode::Repeat;
+        else if (value == "clamp") out.wrap = rhi::AddressMode::ClampToEdge;
+        else Log::warn("AssetRegistry: unknown import wrap '", value, "' for '", path,
+                       "' (expected \"repeat\" or \"clamp\")");
+    }
+    if (const auto srgb = it->find("srgb"); srgb != it->end()) {
+        if (srgb->is_boolean()) out.srgb = srgb->get<bool>();
+        else Log::warn("AssetRegistry: import srgb must be a boolean for '", path, "'");
+    }
+    return out;
+}
+
+} // namespace
+
+
+namespace {
 using json = nlohmann::json;
 const char* kRegistryFilename = "asset_registry.json";
 const char* kLocalCacheFilename = "asset_registry.local.json";
@@ -103,6 +139,7 @@ bool AssetRegistry::load(const std::string& projectRoot) {
             meta.relativePath = entryJson.value("path", "");
             meta.contentHash = entryJson.value("hash", 0ULL);
             meta.type = stringToAssetType(entryJson.value("type", "Unknown"));
+            meta.import = readImportSettings(entryJson, meta.relativePath);
 
             tempAssetsByID[meta.id] = meta;
             tempAssetsByPath[meta.relativePath] = meta.id;
@@ -140,11 +177,20 @@ bool AssetRegistry::save(const std::string& projectRoot) const {
     });
 
     for (const auto& meta : sortedAssets) {
-        assets[std::to_string(meta.id)] = {
+        json entry = {
             {"path", meta.relativePath},
             {"hash", meta.contentHash},
             {"type", assetTypeToString(meta.type)}
         };
+        // Only written when the project actually overrides something: an empty
+        // block on every asset would bury the few real overrides in noise.
+        if (!meta.import.empty()) {
+            json imp = json::object();
+            if (meta.import.wrap) imp["wrap"] = wrapToString(*meta.import.wrap);
+            if (meta.import.srgb) imp["srgb"] = *meta.import.srgb;
+            entry["import"] = std::move(imp);
+        }
+        assets[std::to_string(meta.id)] = std::move(entry);
     }
 
     json j = {{"assets", std::move(assets)}};
@@ -265,6 +311,11 @@ std::string AssetRegistry::getAbsolutePath(AssetID id) const {
 AssetType AssetRegistry::getType(AssetID id) const {
     auto it = assetsByID_.find(id);
     return it != assetsByID_.end() ? it->second.type : AssetType::Unknown;
+}
+
+AssetImportSettings AssetRegistry::getImportSettings(AssetID id) const {
+    auto it = assetsByID_.find(id);
+    return it != assetsByID_.end() ? it->second.import : AssetImportSettings{};
 }
 
 AssetID AssetRegistry::registerAsset(const std::string& relativePath, AssetType type) {

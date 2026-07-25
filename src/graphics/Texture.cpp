@@ -49,7 +49,9 @@ uint64_t mipChainBytes(uint32_t width, uint32_t height, uint32_t bytesPerPixel, 
 
 } // namespace
 
-Texture::Texture(VulkanDevice& device, const std::string& path, bool srgb) : device_(device) {
+Texture::Texture(VulkanDevice& device, const std::string& path, bool srgb,
+                 rhi::AddressMode address)
+    : device_(device), address_(address) {
     SAIDA_PROFILE_SCOPE("Resource/LoadTextureFile");
     int texWidth, texHeight, texChannels;
     bool isHdr = stbi_is_hdr(path.c_str());
@@ -120,8 +122,9 @@ Texture::Texture(VulkanDevice& device, const std::string& path, bool srgb) : dev
     createSampler();
 }
 
-Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format fmt, bool genMipmaps)
-    : device_(device), width_(width), height_(height) {
+Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format fmt, bool genMipmaps,
+                 rhi::AddressMode address)
+    : device_(device), width_(width), height_(height), address_(address) {
     SAIDA_PROFILE_SCOPE("Resource/CreateMemoryTexture");
     const VkFormat format = rhi::vulkan::toVk(fmt);
     const uint32_t texelBytes = rhi::bytesPerTexel(fmt);
@@ -185,9 +188,12 @@ void Texture::createSampler() {
     ci.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     ci.magFilter = VK_FILTER_LINEAR;
     ci.minFilter = VK_FILTER_LINEAR;
-    ci.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    ci.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    ci.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    const VkSamplerAddressMode address =
+        address_ == rhi::AddressMode::Repeat ? VK_SAMPLER_ADDRESS_MODE_REPEAT
+                                             : VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    ci.addressModeU = address;
+    ci.addressModeV = address;
+    ci.addressModeW = address;
     float maxAnisotropy = device_.maxAnisotropy();
     ci.anisotropyEnable = maxAnisotropy > 0.0f ? VK_TRUE : VK_FALSE;
     ci.maxAnisotropy = std::min(maxAnisotropy, 8.0f);

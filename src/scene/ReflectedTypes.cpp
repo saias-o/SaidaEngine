@@ -8,6 +8,7 @@
 // Reflected types (each declares a static describe() and the SAIDA_REFLECT_* macro).
 #include "scene/Blackboard.hpp"
 #include "behaviours/CameraFollowBehaviour.hpp"
+#include "behaviours/AnimGraphBehaviour.hpp"
 #include "behaviours/CharacterBehaviour.hpp"
 #include "behaviours/HealthBehaviour.hpp"
 #include "behaviours/LODGroupBehaviour.hpp"
@@ -66,6 +67,7 @@ void registerReflectedTypes() {
     registerBehaviour<LODGroupBehaviour>();
     registerBehaviour<AudioSourceBehaviour>();
     registerBehaviour<CameraFollowBehaviour>();
+    registerBehaviour<AnimGraphBehaviour>();
     registerBehaviour<CharacterBehaviour>();
     registerBehaviour<HealthBehaviour>();
     registerBehaviour<SpawnerBehaviour>();

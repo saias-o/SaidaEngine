@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/Format.hpp"
+#include "rhi/Sampler.hpp"
 #include "rhi/webgpu/WebGpu.hpp"
 
 #include <cstdint>
@@ -14,9 +15,13 @@ class Device;
 
 class Texture {
 public:
-    Texture(Device& device, const std::string& path, bool srgb = true);
+    // `address` mirrors the Vulkan texture: the glTF sampler's wrap mode, kept
+    // identical on both backends so a sprite reads the same on desktop and Web.
+    Texture(Device& device, const std::string& path, bool srgb = true,
+            rhi::AddressMode address = rhi::AddressMode::Repeat);
     Texture(Device& device, const uint8_t* pixels, uint32_t width, uint32_t height,
-            rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true);
+            rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true,
+            rhi::AddressMode address = rhi::AddressMode::Repeat);
     ~Texture();
     Texture(const Texture&) = delete;
     Texture& operator=(const Texture&) = delete;
@@ -52,6 +57,7 @@ private:
     uint32_t width_ = 0;
     uint32_t height_ = 0;
     uint32_t mipLevels_ = 1;
+    rhi::AddressMode address_ = rhi::AddressMode::Repeat;
     bool srgb_ = false;  // mip downsample averages RGB in linear space when true
     uint32_t bindlessIndex_ = ~0u;
 };

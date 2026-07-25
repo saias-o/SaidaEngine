@@ -12,6 +12,7 @@ using Texture = rhi::webgpu::Texture;
 
 #include "graphics/VmaFwd.hpp"
 #include "rhi/Format.hpp"
+#include "rhi/Sampler.hpp"
 
 #include <cstdint>
 #include <string>
@@ -29,8 +30,13 @@ class Buffer;
 // owns the VkImage, its view and a sampler. RAII.
 class Texture {
 public:
-    Texture(VulkanDevice& device, const std::string& path, bool srgb = true);
-    Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true);
+    // `address` is the glTF sampler's wrap mode. Sprites whose UVs run outside
+    // [0, 1] (the castle grounds' trees) need ClampToEdge: repeating tiles a
+    // second copy of the art next to the first.
+    Texture(VulkanDevice& device, const std::string& path, bool srgb = true,
+            rhi::AddressMode address = rhi::AddressMode::Repeat);
+    Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true,
+            rhi::AddressMode address = rhi::AddressMode::Repeat);
     ~Texture();
     Texture(const Texture&) = delete;
     Texture& operator=(const Texture&) = delete;
@@ -55,6 +61,7 @@ public:
 
 private:
     void createSampler();
+    rhi::AddressMode address_ = rhi::AddressMode::Repeat;
     void generateMipmaps();
     VkImageView createImageView(VkFormat format, VkImageAspectFlags aspect);
 

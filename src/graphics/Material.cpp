@@ -19,7 +19,7 @@ struct MaterialParams {
     float metallic;
     float roughness;
     float ao;
-    float _pad;
+    float alphaCutoff;   // 0 = opaque; was padding, now carries the alpha test
     glm::vec4 emissive;
 };
 }
@@ -27,7 +27,8 @@ struct MaterialParams {
 Material::Material(rhi::Device& device, ResourceManager& manager, const MaterialDesc& desc)
     : device_(device), desc_(desc) {
 
-    MaterialParams params{desc.baseColor, desc.metallic, desc.roughness, desc.ao, 0.0f, desc.emissiveColor};
+    MaterialParams params{desc.baseColor, desc.metallic, desc.roughness, desc.ao,
+                          desc.alphaCutoff, desc.emissiveColor};
     paramsBuffer_ = std::make_unique<Buffer>(device_, sizeof(MaterialParams),
         rhi::BufferUsage::Uniform, MemoryUsage::HostVisible);
     paramsBuffer_->write(&params, sizeof(params));
@@ -42,7 +43,7 @@ Material::Material(rhi::Device& device, ResourceManager& manager, const Material
             manager.ensureBindlessTextureIndex(normalMap_),
             manager.ensureBindlessTextureIndex(metallicRoughnessMap_),
             manager.ensureBindlessTextureIndex(emissiveMap_),
-            desc.type
+            desc.type, desc.alphaCutoff
         );
     }
 }
@@ -59,7 +60,7 @@ void Material::rebindTextures(ResourceManager& manager) {
             manager.ensureBindlessTextureIndex(normalMap_),
             manager.ensureBindlessTextureIndex(metallicRoughnessMap_),
             manager.ensureBindlessTextureIndex(emissiveMap_),
-            desc_.type);
+            desc_.type, desc_.alphaCutoff);
     }
 }
 

@@ -26,9 +26,13 @@ struct MaterialData {
     uint32_t mrTexIdx;
     uint32_t emissiveTexIdx;
     uint32_t materialType;
+    float alphaCutoff;   // 0 = opaque (no sample is below it, so the test is free)
+    float _pad0;
+    float _pad1;
+    float _pad2;
     glm::vec4 emissive;
 };
-static_assert(sizeof(MaterialData) == 64, "MaterialData must match shader.frag std430 layout");
+static_assert(sizeof(MaterialData) == 80, "MaterialData must match shader.frag std430 layout");
 } // namespace
 
 BindlessTables::BindlessTables(rhi::Device& device, uint32_t maxTextures,
@@ -226,7 +230,8 @@ void BindlessTables::recycleTextureIndex(uint32_t index, Texture* defaultWhite) 
 uint32_t BindlessTables::allocMaterialSlot(const glm::vec4& baseColor, const glm::vec4& emissive,
                                            float metallic, float roughness, float ao,
                                            uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                           uint32_t emissiveIdx, MaterialType type) {
+                                           uint32_t emissiveIdx, MaterialType type,
+                                           float alphaCutoff) {
 #ifdef SAIDA_RHI_WEBGPU
     (void)baseColor;
     (void)emissive;
@@ -238,6 +243,7 @@ uint32_t BindlessTables::allocMaterialSlot(const glm::vec4& baseColor, const glm
     (void)mrIdx;
     (void)emissiveIdx;
     (void)type;
+    (void)alphaCutoff;
     return 0;
 #else
     if (!materialBuffer_) return 0;
@@ -256,7 +262,7 @@ uint32_t BindlessTables::allocMaterialSlot(const glm::vec4& baseColor, const glm
     }
 
     writeMaterialSlot(index, baseColor, emissive, metallic, roughness, ao,
-                      albedoIdx, normalIdx, mrIdx, emissiveIdx, type);
+                      albedoIdx, normalIdx, mrIdx, emissiveIdx, type, alphaCutoff);
     return index;
 #endif
 }
@@ -265,7 +271,8 @@ void BindlessTables::writeMaterialSlot(uint32_t index, const glm::vec4& baseColo
                                        const glm::vec4& emissive,
                                        float metallic, float roughness, float ao,
                                        uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                       uint32_t emissiveIdx, MaterialType type) {
+                                       uint32_t emissiveIdx, MaterialType type,
+                                       float alphaCutoff) {
 #ifdef SAIDA_RHI_WEBGPU
     (void)index;
     (void)baseColor;
@@ -278,6 +285,7 @@ void BindlessTables::writeMaterialSlot(uint32_t index, const glm::vec4& baseColo
     (void)mrIdx;
     (void)emissiveIdx;
     (void)type;
+    (void)alphaCutoff;
 #else
     if (!materialBuffer_) return;
 
@@ -292,6 +300,7 @@ void BindlessTables::writeMaterialSlot(uint32_t index, const glm::vec4& baseColo
     data.mrTexIdx = mrIdx;
     data.emissiveTexIdx = emissiveIdx;
     data.materialType = static_cast<uint32_t>(type);
+    data.alphaCutoff = alphaCutoff;
 
     void* mapped = materialBuffer_->mapped();
     if (mapped) {

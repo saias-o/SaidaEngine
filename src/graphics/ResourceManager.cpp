@@ -147,18 +147,22 @@ uint32_t ResourceManager::ensureBindlessTextureIndex(Texture* texture) {
 uint32_t ResourceManager::registerMaterialData(const glm::vec4& baseColor, const glm::vec4& emissive,
                                                float metallic, float roughness, float ao,
                                                uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                               uint32_t emissiveIdx, MaterialType type) {
+                                               uint32_t emissiveIdx, MaterialType type,
+                                               float alphaCutoff) {
     return bindlessTables_.allocMaterialSlot(baseColor, emissive, metallic, roughness, ao,
-                                             albedoIdx, normalIdx, mrIdx, emissiveIdx, type);
+                                             albedoIdx, normalIdx, mrIdx, emissiveIdx, type,
+                                             alphaCutoff);
 }
 
 void ResourceManager::updateMaterialData(uint32_t index, const glm::vec4& baseColor,
                                          const glm::vec4& emissive,
                                          float metallic, float roughness, float ao,
                                          uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                         uint32_t emissiveIdx, MaterialType type) {
+                                         uint32_t emissiveIdx, MaterialType type,
+                                         float alphaCutoff) {
     bindlessTables_.writeMaterialSlot(index, baseColor, emissive, metallic, roughness, ao,
-                                      albedoIdx, normalIdx, mrIdx, emissiveIdx, type);
+                                      albedoIdx, normalIdx, mrIdx, emissiveIdx, type,
+                                      alphaCutoff);
 }
 
 Mesh* ResourceManager::loadMesh(AssetID id) {
@@ -292,14 +296,24 @@ Material* ResourceManager::getMaterial(const MaterialDesc& desc) {
     return ptr;
 }
 
-AssetID ResourceManager::getOrRegister(const std::string& path, AssetType type, bool srgb) {
+AssetID ResourceManager::getOrRegister(const std::string& path, AssetType type, bool srgb,
+                                       rhi::AddressMode address) {
     (void)srgb; // AssetRegistry tracks identity/type today, not texture import settings.
     if (!registry_) return kAssetInvalid;
-    return registry_->registerAsset(path, type);
+    const AssetID id = registry_->registerAsset(path, type);
+    if (type == AssetType::Texture) {
+        // The project's import settings win over what the source asset declared:
+        // that is the whole point of having them, since a third-party glTF with
+        // a wrong wrap mode cannot otherwise be corrected without re-exporting it.
+        const AssetImportSettings settings = registry_->getImportSettings(id);
+        textureCache_->setAddressMode(id, settings.wrap.value_or(address));
+    }
+    return id;
 }
 
-AssetID ResourceManager::registerMemoryTexture(const uint8_t* data, size_t size, bool srgb) {
-    return textureCache_->registerMemory(data, size, srgb);
+AssetID ResourceManager::registerMemoryTexture(const uint8_t* data, size_t size, bool srgb,
+                                               rhi::AddressMode address) {
+    return textureCache_->registerMemory(data, size, srgb, address);
 }
 
 AssetID ResourceManager::registerGeneratedTexture(const uint8_t* pixels, uint32_t width,

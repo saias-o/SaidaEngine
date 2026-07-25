@@ -128,7 +128,16 @@ touch. The Web player announces only the backends actually linked.
 
 A `.saidaproj` describes, among other things, the name, the main scene, the
 autoloads, the audio aliases and the project files. The AssetRegistry associates
-a stable AssetID with a relative path. Local caches are not a source of truth.
+a stable AssetID with a relative path. Since schema 2 an entry may carry an
+`import` block (`wrap`, `srgb`) holding the project's import overrides. Every
+field is optional and absence is meaningful: it keeps whatever the source asset
+declares. A value is an explicit override and wins over the asset, so a
+third-party glTF exported with the wrong wrap mode is corrected in the project
+rather than re-exported — and without rebuilding the engine. The block is
+written only when it holds something, an unreadable one is reported and dropped
+rather than guessed at, and a value silently ignored would be the worst outcome
+of all: it would send an author hunting through their exporter for a setting the
+project had already fixed. Local caches are not a source of truth.
 The engine's public identity is defined once in `core/EngineVersion.hpp`
 (`1.0.0`). Every V1 project records this version. Documents without the current
 envelope or produced by an incompatible pre-release are rejected: no migration
@@ -188,18 +197,18 @@ the runtime with a diagnostic. The registries are not yet equivalent: the matrix
 makes each divergence explicit, it does not grant permission to lose content.
 
 The `saida_runtime_type_matrix_tests` test builds the headless corpus from the
-matrix: 17 node types (physics joints included), 15 behaviours and the 137
+matrix: 17 node types (physics joints included), 16 behaviours and the 138
 reflected properties receive non-trivial values, then a serialize/load/serialize
 cycle must stay semantically identical. It also covers the hand-written data of
 the HUD, the bodies/colliders, the `Blackboard`, the FSM and `ScriptBehaviour`.
 Web authoring runs its contractual snapshot before publishing `ready`.
 
 `RuntimeRoundTripContract` builds an in-memory corpus the same way. The full
-serializer covers native (29 nodes, 19 behaviours, 137 properties in the current
+serializer covers native (29 nodes, 20 behaviours, 138 properties in the current
 XR build) via `SaidaEngine --verify-runtime-contract`, and the Web player
 (18/10/130) via the `verify-runtime-contract` parameter. The snapshot codec, now
 without `ResourceManager`, covers Web authoring (9/0/90) before its transition to
-`ready` and the headless one (17/15/137). All require a semantic JSON identity
+`ready` and the headless one (17/16/138). All require a semantic JSON identity
 after reconstruction and expose the `[CONTRACT] PASS` verdict.
 
 `saida_tool verify-manifest` closes the loop from the binary actually shipped: it
@@ -288,6 +297,13 @@ as long as their consumers are not asynchronous.
   import UI ("Export meshopt GLB", quantized + EXT_meshopt_compression).
 - Textures: PNG/JPG (stbi) on all platforms — V1 decision: no KTX2/Basis (no
   heavy textured content that justifies the transcoder; P2).
+- Texture wrapping follows the glTF sampler: `CLAMP_TO_EDGE` on either axis
+  clamps the texture, anything else repeats it, on Vulkan and WebGPU alike. It
+  matters for cut-out sprites, whose UVs often overshoot `[0, 1]`: repeating
+  tiles a second copy of the art beside the first, while a tiling surface
+  (walls, ground) clamped by mistake smears one edge texel across itself.
+  Neither is a rule the engine can guess — it is per asset, so the asset
+  declares it and `asset_registry.json` can override it (3.1).
 - Tangents: without author tangents in a glTF, the material's normal mapping is
   explicitly disabled (warning logged) — never lighting silently approximated;
   MikkTSpace is P1.
@@ -336,6 +352,15 @@ remain extensions. Aggressive settings must be validated visually.
 Jolt provides rigid bodies, collision shapes, character body, areas/triggers,
 layers and scene integration. The Web player uses a single-thread job system. The
 character has an inner body to be visible in broadphase, sensors and raycasts.
+
+**Collision shapes.** `Auto`, `Box`, `Sphere`, `Capsule`, `ConvexHull` (dynamic
+capable) and `Mesh` (exact triangle mesh, static bodies only) are all
+implemented; the hull and triangle-mesh builders fall back to a box, with a
+logged warning, when the body carries no CPU mesh data. Current limit: a shape
+resolves against the **first** mesh found under its body, so a body holding
+several meshes — an imported level in particular — collides with one of them and
+ignores the others without any diagnostic. Levels must therefore be split into
+one body per mesh until the builder covers a whole subtree ([ROADMAP](ROADMAP.md)).
 
 **Scene queries.** `PhysicsWorld::raycast` and `overlapSphere` take a
 `QueryFilter`: sensors (Area) are excluded by default — a camera occlusion ray or
@@ -516,8 +541,19 @@ globals the engine explicitly installs — `console` and the
 
 ### 6.3 V1 candidate API
 
-- `node`: name, position, translation, activation, deferred removal, groups,
-  `on`, `emit`; on `UITextNode`, `setText/getText`. Gameplay (the behaviour is
+- `node`: name, position, translation, rotation, activation, deferred removal,
+  groups, `on`, `emit`; on `UITextNode`, `setText/getText`.
+  `getRotation()`/`setRotation(x, y, z, w | {x,y,z,w})` carry the transform's
+  quaternion; a non-finite or zero-length value is rejected (`false`) rather than
+  repaired, so a node never receives an orientation its caller did not ask for.
+  Character control resolves like the gameplay bindings — the node itself, else
+  the first `CharacterBody` below it: `setVelocity`/`getVelocity` write and read
+  the velocity the engine integrates during the physics step, and
+  `isOnFloor()`/`isOnSteepSlope()`/`groundNormal()` publish the floor state
+  computed by that step. Without a `CharacterBody` the setter returns `false` and
+  the getters answer zero/false/up, never an exception — the same fail-soft rule
+  as the `physics` queries. A game therefore drives a full character controller
+  from JavaScript alone, without a native behaviour. Gameplay (the behaviour is
   resolved on the node, else the first descendant):
   `playClip(name, loop?, crossfade?)`/`currentClip()` (Animator),
   `setAnimFloat/setAnimBool/setAnimTrigger` (animation blackboard → drives a
@@ -531,9 +567,10 @@ globals the engine explicitly installs — `console` and the
 - `audio`: `play(alias)`.
 - `tree`: scene change/reload, quit, pause, `autoload`, `firstInGroup`,
   `nodesInGroup` and `nodeById`.
-- `NodeRef`: weak reference resolved by NodeId, usual node operations, `on/emit`
-  cross-node signals and `call(exportName, ...args)` JSON-compatible to a
-  `ScriptBehaviour` in another QuickJS context.
+- `NodeRef`: weak reference resolved by NodeId, usual node operations — rotation
+  and character control included, at parity with `node` — `on/emit` cross-node
+  signals and `call(exportName, ...args)` JSON-compatible to a `ScriptBehaviour`
+  in another QuickJS context.
 - `assets`: `load(path, priority)` and `stats()`; never a blocking load promise.
 - `storage`: opaque progression slots (`save/load/has/remove/info/list`, `save`
   accepts an optional `dataVersion`), `storage.prefs` sub-object for preferences
@@ -578,6 +615,20 @@ still absent after the resolution delay disables playback with logged
 diagnostics, without emitting any signal. WitnessGame traverses a rigged
 character with Idle/Walk, a locomotion graph and the `anim/intro.sseq` sequence
 (totem clips, `intro_beat` event, Sun intensity) on desktop and Web.
+
+The reflected behaviour `AnimGraph` applies a `.sgraph` to every `Animator`
+below its node, and does nothing else. An `Animator` is built by the glTF import
+rather than authored in a scene, so a scene cannot address one directly:
+something authored has to reach down to it. `CharacterBehaviour` already did,
+bundled with its own movement logic, which forced a game driving movement itself
+— from scripts or another controller — to take that movement too. `AnimGraph` is
+that half alone, with a single `graph` property. It is fail-closed and applies
+once: the graph is requested through the AssetLoader, and the first `Animator`
+that rejects it aborts the whole attempt with a logged diagnostic, because a
+half-applied graph would leave some limbs on the graph and others on the
+play()-by-name FSM. Parameters are then driven through the animation blackboard
+(`setAnimFloat`/`setAnimBool`/`setAnimTrigger`), so a game animates a character
+from JavaScript with no native behaviour of its own.
 
 The `.srig/.sclip/.sgraph` assets are loaded by the AssetLoader without blocking
 the frame. The runtime continues with its current state during `queued/loading`;
@@ -948,7 +999,7 @@ rewrite.
 |---|---:|---|
 | `game.saida` | 1 | exact schema required |
 | `.saidaproj` | 1 | exact schema required |
-| `asset_registry.json` | 1 | exact schema required, stable AssetID |
+| `asset_registry.json` | 2 | exact schema required, stable AssetID |
 | `.scene` | 2 | exact schema required |
 | `.saidascenario` | 1 | exact schema required |
 | `.sclip` | 1 | exact schema required |
@@ -1003,6 +1054,7 @@ done by manifest, commit SHA and immutable digests; `latest` is never a release
 identity.
 
 Current immutable inventory: `project_v1.saidaproj`, `asset_registry_v1.json`,
+`asset_registry_v2.json`, `witness_v2_asset_registry.json`,
 `scene_v2.scene`, `scenario_v1.saidascenario`, `game_v1.saida` and the frozen
 witness game `witness_v1.saidaproj`, `witness_v1_asset_registry.json`,
 `witness_v1_hub.scene`, `witness_v1_arena.scene` — exact copies of WitnessGame's
@@ -1121,9 +1173,13 @@ until they are, Windows installers remain explicitly unsigned and unqualified.
 The raw `v1.0.0-beta.1` `SaidaEngine.exe` is a developer artifact rather than a
 portable distribution: the editor build resolves shaders, fonts and branding
 through absolute configure-time source/build paths, and the executable has no
-Windows VERSIONINFO resource. A qualified editor package must resolve resources
-relative to its executable, ship its dependency closure and carry consistent
-product/version metadata before it is submitted for signing.
+Windows VERSIONINFO resource. The Open Project dialog inherits the same flaw: it
+scans `SAIDA_PROJECT_ROOT` (the engine checkout) instead of the Hub registry, so
+on a machine without the source tree it lists nothing and says nothing. A
+qualified editor package must resolve resources relative to its executable,
+discover projects through a path that exists on the user's machine, ship its
+dependency closure and carry consistent product/version metadata before it is
+submitted for signing.
 
 ### 17.1 V1 support matrix
 

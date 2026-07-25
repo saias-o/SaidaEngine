@@ -24,6 +24,7 @@
 #include "physics/StaticBodyNode.hpp"
 #include "scene/Blackboard.hpp"
 #include "behaviours/CameraFollowBehaviour.hpp"
+#include "behaviours/AnimGraphBehaviour.hpp"
 #include "behaviours/CharacterBehaviour.hpp"
 #include "nodes/LightNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
@@ -68,6 +69,7 @@ void registerReflectedTypes() {
     registerBehaviour<Blackboard>();
     registerBehaviour<StateMachineBehaviour>();
     registerBehaviour<SequenceDirectorBehaviour>();
+    registerBehaviour<AnimGraphBehaviour>();
     registerBehaviour<CharacterBehaviour>();
     registerBehaviour<CameraFollowBehaviour>();
     registerBehaviour<AudioSourceBehaviour>();

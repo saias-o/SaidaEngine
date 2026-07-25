@@ -15,6 +15,10 @@ struct MaterialData {
     uint metallicRoughnessTexIdx;
     uint emissiveTexIdx;
     uint materialType;  // mirrors MaterialType (0 = Lit, 1 = Unlit)
+    float alphaCutoff;  // 0 = opaque: no sample is below it, so the test is free
+    float _pad0;
+    float _pad1;
+    float _pad2;
     vec4 emissive;
 };
 
@@ -36,7 +40,7 @@ layout(set = 1, binding = 3) uniform MaterialUBO {
     float metallic;
     float roughness;
     float ao;
-    float _pad;
+    float alphaCutoff;
     vec4 emissive;
 } material;
 DECL_TEX2D(1, 4, 8, texEmissive);
@@ -70,6 +74,7 @@ void main() {
     float matAO = mat.ao;
     vec4 matEmissive = mat.emissive;
     vec4 albedoSample = texture(globalTextures[nonuniformEXT(mat.albedoTexIdx)], fragTexCoord);
+    float matAlphaCutoff = mat.alphaCutoff;
 #else
     vec4 baseColor = material.baseColor;
     float matMetallic = material.metallic;
@@ -77,7 +82,13 @@ void main() {
     float matAO = material.ao;
     vec4 matEmissive = material.emissive;
     vec4 albedoSample = texture(TEX2D(texAlbedo), fragTexCoord);
+    float matAlphaCutoff = material.alphaCutoff;
 #endif
+
+    // Alpha test. Cut-out art (Mario's moustache, castle windows, foliage) would
+    // otherwise show the texture's black backing, since the renderer has no
+    // blended pass. A cutoff of 0 disables the test entirely.
+    if (albedoSample.a * baseColor.a < matAlphaCutoff) discard;
 
     vec3 albedo = albedoSample.rgb * fragColor * baseColor.rgb;
 

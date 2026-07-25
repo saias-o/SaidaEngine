@@ -1,9 +1,12 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <filesystem>
+
+#include "rhi/Sampler.hpp"
 
 namespace saida {
 
@@ -25,11 +28,26 @@ enum class AssetType {
     Effect
 };
 
+// Project-side import settings for an asset (schema 2).
+//
+// Every field is optional, and absence is meaningful: it means "keep whatever
+// the source asset declares" (a glTF sampler's wrap mode, for instance). A
+// value here is an explicit project override, which is the point -- a texture
+// exported with the wrong wrap mode can be corrected without re-exporting it,
+// and without rebuilding the engine.
+struct AssetImportSettings {
+    std::optional<rhi::AddressMode> wrap;
+    std::optional<bool> srgb;
+
+    bool empty() const { return !wrap.has_value() && !srgb.has_value(); }
+};
+
 struct AssetMetadata {
     AssetID id = kAssetInvalid;
     std::string relativePath;
     uint64_t contentHash = 0; // Renamed from fileHash, now a true content hash
     AssetType type = AssetType::Unknown;
+    AssetImportSettings import;
 };
 
 // Used internally to avoid re-hashing files that haven't been modified locally
@@ -55,6 +73,10 @@ public:
     std::string getPath(AssetID id) const;
     std::string getAbsolutePath(AssetID id) const;
     AssetType getType(AssetID id) const;
+
+    // Project-side import overrides for an asset, empty when the project has
+    // nothing to say and the source asset's own declaration should stand.
+    AssetImportSettings getImportSettings(AssetID id) const;
 
     // Canonical form of an asset key: path made project-relative when it's
     // absolute under the root, '/' separators, sub-asset suffix ("#clip")

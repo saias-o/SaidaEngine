@@ -35,6 +35,14 @@ observed behavior; the artifacts must come from a clean commit.
   alone is only a developer artifact. A release package must resolve resources
   relative to the executable, ship the required files and pass from a clean
   extraction directory with no source or build tree.
+- [ ] Give the editor a project-discovery root that survives distribution. The
+  Open Project dialog scans `SAIDA_PROJECT_ROOT` (`CMAKE_SOURCE_DIR`), so a
+  shipped editor looks for projects inside an engine checkout the user does not
+  have, and silently lists nothing. It also ignores the Hub registry that already
+  knows where projects live. Fix by design: default to the last opened project's
+  folder, persisted between sessions, falling back to the OS documents folder,
+  and share the Hub's registry instead of scanning a build-time path.
+
 - [ ] Add and verify Windows version resources on the engine executables:
   `ProductName` must be `SaidaEngine`, and `FileVersion`/`ProductVersion` must
   carry the same release version. The raw Beta 1 editor executable has no
@@ -196,6 +204,14 @@ Post-V1 unless the scope changes explicitly.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and
   diagnostics.
+- [ ] Physics: make a body collide with **every** mesh under it, not just the
+  first. `CollisionShapeNode`'s `findMesh` picks a single mesh, so an imported
+  level — one node, dozens of meshes — silently collides on one piece and the
+  player falls through everything else. The workaround (one glTF and one body per
+  piece) pushes level authoring into the asset pipeline and multiplies bodies for
+  what is one static level. Fix by design: build a Jolt compound (or a merged
+  `MeshShape`) from the whole subtree, and log when a body's geometry is only
+  partially covered instead of succeeding quietly.
 - [ ] Animation: extended API (scrub, JS root motion) and BVH retargeting.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.

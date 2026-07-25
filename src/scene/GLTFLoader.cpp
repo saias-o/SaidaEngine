@@ -59,17 +59,31 @@ static Transform nodeTransform(const cgltf_node* node) {
     return result;
 }
 
+// glTF wrap modes (KHR values). MIRRORED_REPEAT has no sampler of its own here
+// and falls back to REPEAT, which is what it degrades to most gracefully.
+static rhi::AddressMode gltfWrap(cgltf_texture* tex) {
+    if (!tex || !tex->sampler) return rhi::AddressMode::Repeat;
+    constexpr int kClampToEdge = 33071;
+    const bool clampS = tex->sampler->wrap_s == kClampToEdge;
+    const bool clampT = tex->sampler->wrap_t == kClampToEdge;
+    // The sampler applies one mode to every axis, so a mixed declaration takes
+    // the clamped one: repeating an axis the author clamped tiles the art, which
+    // is the visible failure; clamping one they repeated only stretches an edge.
+    return (clampS || clampT) ? rhi::AddressMode::ClampToEdge : rhi::AddressMode::Repeat;
+}
+
 static AssetID loadGLTFTexture(cgltf_texture* tex, ResourceManager& resources, const std::filesystem::path& basePath, bool srgb = true) {
     if (!tex || !tex->image) return kAssetInvalid;
-    
+
+    const rhi::AddressMode address = gltfWrap(tex);
     if (tex->image->buffer_view) {
         // Embedded texture
         const uint8_t* data = static_cast<const uint8_t*>(tex->image->buffer_view->buffer->data) + tex->image->buffer_view->offset;
-        return resources.registerMemoryTexture(data, tex->image->buffer_view->size, srgb);
+        return resources.registerMemoryTexture(data, tex->image->buffer_view->size, srgb, address);
     } else if (tex->image->uri) {
         std::filesystem::path uriPath = tex->image->uri;
-        if (uriPath.is_absolute()) return resources.getOrRegister(uriPath.string(), AssetType::Texture, srgb);
-        else return resources.getOrRegister((basePath / uriPath).string(), AssetType::Texture, srgb);
+        if (uriPath.is_absolute()) return resources.getOrRegister(uriPath.string(), AssetType::Texture, srgb, address);
+        else return resources.getOrRegister((basePath / uriPath).string(), AssetType::Texture, srgb, address);
     }
     return kAssetInvalid;
 }
@@ -457,6 +471,24 @@ bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& 
         desc.emissiveId = loadGLTFTexture(mat.emissive_texture.texture, resources, basePath, true);
         desc.emissiveColor = glm::vec4(toVec3(mat.emissive_factor), 1.0f);
         desc.doubleSided = mat.double_sided;
+
+        // MASK becomes the author's cutoff. BLEND has no sorted pass in the
+        // renderer, so it is alpha-tested at the glTF default cutoff rather than
+        // drawn opaque -- cut-out art (foliage, windows, decals) would otherwise
+        // show the black backing of its texture. OPAQUE keeps a cutoff of 0,
+        // which disables the test.
+        switch (mat.alpha_mode) {
+            case cgltf_alpha_mode_mask:
+                desc.alphaCutoff = mat.alpha_cutoff > 0.0f ? mat.alpha_cutoff : 0.5f;
+                break;
+            case cgltf_alpha_mode_blend:
+                desc.alphaCutoff = 0.5f;
+                break;
+            case cgltf_alpha_mode_opaque:
+            default:
+                desc.alphaCutoff = 0.0f;
+                break;
+        }
     }
 
     // 2. Load Meshes (Primitives)

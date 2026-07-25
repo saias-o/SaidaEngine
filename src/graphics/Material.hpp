@@ -40,6 +40,11 @@ struct MaterialDesc {
     float metallic = 0.0f;
     float roughness = 0.5f;
     float ao = 1.0f;
+    // Alpha test threshold. 0 means opaque: no sample can be below it, so the
+    // discard never fires and the opaque path costs nothing. glTF's MASK mode
+    // maps to its alphaCutoff; BLEND has no sorted pass yet and also arrives
+    // here as a cutout rather than rendering as an opaque black rectangle.
+    float alphaCutoff = 0.0f;
     bool doubleSided = false;
     MaterialType type = MaterialType::Lit;
 
@@ -48,6 +53,7 @@ struct MaterialDesc {
                metallicRoughnessId == o.metallicRoughnessId && emissiveId == o.emissiveId &&
                baseColor == o.baseColor && emissiveColor == o.emissiveColor &&
                metallic == o.metallic && roughness == o.roughness && ao == o.ao &&
+               alphaCutoff == o.alphaCutoff &&
                doubleSided == o.doubleSided && type == o.type;
     }
 };
@@ -64,6 +70,7 @@ struct hash<saida::MaterialDesc> {
         combine(std::hash<float>()(d.baseColor.r)); combine(std::hash<float>()(d.baseColor.g));
         combine(std::hash<float>()(d.baseColor.b)); combine(std::hash<float>()(d.baseColor.a));
         combine(std::hash<float>()(d.metallic)); combine(std::hash<float>()(d.roughness));
+        combine(std::hash<float>()(d.alphaCutoff));
         combine(std::hash<bool>()(d.doubleSided));
         combine(std::hash<uint32_t>()(static_cast<uint32_t>(d.type)));
         return h;

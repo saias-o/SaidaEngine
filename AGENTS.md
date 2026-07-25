@@ -193,6 +193,38 @@ environmental, never a code fault.
   id the engine assigns, or expect the registry to be regenerated. Treat registry
   changes produced merely by running the engine as churn, not as edits to commit.
 
+### "Open Project" does not list every project (and ignores the Hub)
+
+- The editor's Open Project dialog does NOT read the Hub's registry. It scans one
+  root recursively for `*.saidaproj`, and that root defaults to
+  `SAIDA_PROJECT_ROOT`, which CMake sets to `CMAKE_SOURCE_DIR` — the engine
+  checkout. A project kept anywhere else is simply absent from the list, with no
+  error to explain it.
+- Fix it in the dialog itself: the "Search root:" field at the top takes any path;
+  type the project's folder and press Enter (or Scan). Point it at the project
+  folder rather than a whole home directory — the scan is recursive and only
+  prunes `build`, `third_party`, `.git`, `node_modules` and dot-directories.
+- The Hub (`SaidaEngineHub.exe`) is the one that reads the registry,
+  `%APPDATA%/SaidaEngine/hub.json` (`{"projects":[{"name","path"}]}`); `path` is
+  the project FOLDER, which `Project::load` resolves to its single `.saidaproj`.
+  `--project <folder>` works the same way and bypasses both.
+
+### One physics body collides with ONE mesh
+
+- `CollisionShapeNode.cpp`'s `findMesh` returns the **first** drawable mesh in the
+  body's subtree, and `Auto`, `ConvexHull` and `Mesh` all build from that single
+  mesh. A body whose subtree holds several meshes therefore collides with one of
+  them and ignores the rest.
+- This bites hardest on imported levels: a glTF scene is one node carrying dozens
+  of meshes, so `StaticBody` + `CollisionShape(Mesh)` + `importedFrom` gives
+  collision on a single piece. Nothing warns — the shape built correctly, just
+  not around the geometry you meant — and the player falls through the level.
+- Until the engine builds a compound from every mesh under a body, split the
+  level into one glTF per piece and emit one body per piece.
+- Related: the `Mesh` and `ConvexHull` shape types ARE implemented (triangle mesh
+  is static-only, hull is dynamic-capable). Only their fallback to `Box` is
+  logged, so a silent result means the real shape was built.
+
 ### Binary assets use Git LFS (not gitignore)
 
 - `.gitattributes` routes `*.glb`, `*.gltf`, `*.png`, `*.fbx`, `*.tga`, etc.
