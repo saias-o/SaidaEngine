@@ -1,6 +1,6 @@
 # SaidaEngine
 
-SaidaEngine is Saida's experimental, local-first 3D engine. It is written in
+SaidaEngine is Saida's local-first 3D engine. It is written in
 C++17 and targets:
 
 - Windows desktop through Vulkan;

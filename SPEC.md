@@ -1060,8 +1060,9 @@ bump, never to mask a divergence.
 
 ## 15. Public positioning
 
-Honest positioning: an experimental, local-first C++17/Vulkan/WebGPU engine, an
-editor drivable by structured MCP, a Web player and a witness game in Alpha. The
+Honest positioning: a local-first C++17/Vulkan/WebGPU engine, an
+editor drivable by structured MCP, a Web player and a witness game in public
+beta. The
 in-process MCP server and its stdio bridge exist; QuickJS/UI hot reload is partial;
 there is neither a Lua promise nor a general C++ hot reload.
 
