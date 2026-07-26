@@ -881,6 +881,36 @@ them into `saida_engine` and their registration goes through
 `scene/ReflectedTypes.cpp`. This path is a privileged C++ write: it must stay
 behind permissions, diff, validation, build and rollback.
 
+### 11.1 Optional Python authoring plugin
+
+`plugins/python-tools` is a standalone Python package for explicit, offline
+authoring tasks such as generators, converters, audits and asset reports. It is
+not linked to the engine, is absent from CMake, is never loaded by the editor or
+runtime, and is never copied by game export. Removing the package or not
+installing Python has no effect on a project, engine build or shipped player.
+
+Opt-in state lives in `saida.tools.toml`, separate from `.saidaproj`. Manifest
+schema 1 is exact and declares named tools, typed parameters, input patterns,
+output patterns, cache policy, and exactly one Python `module:function` entry or
+argument-vector command. Commands run without a shell. Tools run only after an
+explicit CLI invocation; project recipes are trusted host code, not sandboxed
+gameplay code.
+
+Declared outputs are written to `.saida/python-tools/staging/` and committed
+with backup/rollback. Content-addressed receipts under
+`.saida/python-tools/cache/` cover the tool contract, typed parameters, inputs
+and Python entry source. These directories are authoring cache only and are not
+project or runtime formats.
+
+The package has no mandatory third-party dependency. Its optional subprocess
+adapter can discover `saida_tool` and consume native JSON contracts for engine
+description, validation and inspection. The adapter does not embed or import
+engine code, and recipes that do not request it work without any engine binary.
+Project recipes remain ordinary trusted Python and may use dependencies or
+external programs from their own authoring environment; this does not add those
+dependencies to the plugin core or engine. Machine consumers use the CLI's
+JSON/JSONL diagnostics and result events.
+
 ## 12. Export and packaging
 
 `BuildExporter` and `saida_tool export-game` produce a desktop package with an

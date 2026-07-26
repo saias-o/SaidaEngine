@@ -263,6 +263,12 @@ These items delay no release unless the promise changes explicitly:
   duplication is more readable than a cross-cutting header with no invariant.
 - **MCP (`SAIDA_ENABLE_MCP`)** is an assumed V1 capability of the Saida
   workshop, ON by default, covered by a catalog test and a real TCP smoke test.
+- **Python authoring remains an optional standalone plugin.**
+  `plugins/python-tools` is not embedded in the engine, editor or exported
+  runtime, does not participate in CMake and stores opt-in configuration outside
+  `.saidaproj`. Its only native integration is an optional `saida_tool`
+  subprocess adapter. An embedded interpreter, automatic editor execution or a
+  mandatory Python asset pipeline would require a new architecture decision.
 - **`EditorShell`** is not created: `EditorUI` is the final shell. A mirror
   class would have added neither state nor invariant.
 - **`src/rhi/`** (383 lines) stays as is: it is the repository's cleanliness

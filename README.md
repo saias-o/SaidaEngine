@@ -108,6 +108,7 @@ web/
 WitnessGame/   vertical test game
 tests/         native tests and frozen format corpus
 tools/         export, packaging and verification tools
+plugins/       optional packages that are not built or loaded by the engine
 ```
 
 The principal targets are:
@@ -117,6 +118,15 @@ The principal targets are:
 - `SaidaEngineHub`: project manager;
 - `SaidaEngineRuntime`: editor-less desktop player;
 - `saida_tool`: headless CLI used by CI and the Saida platform.
+
+The repository also contains
+[`saida-python-tools`](plugins/python-tools/README.md), an optional standalone
+Python authoring SDK for project generators, converters and audits. It is not a
+CMake target, is never loaded by the editor or runtime, and is not included in
+game exports. Projects opt in with a separate `saida.tools.toml`; installing
+Python is not required to build, run or ship SaidaEngine. Coding agents should
+start with its
+[Python scripting guide](plugins/python-tools/LLM_SCRIPT_GUIDE.md).
 
 ## Windows prerequisites
 

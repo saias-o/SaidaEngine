@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "saida-python-tools"
+version = "0.1.0"
+description = "Optional, standalone Python authoring tools for SaidaEngine projects"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+authors = [{ name = "SaidaEngine contributors" }]
+dependencies = []
+
+[project.scripts]
+saida-python-tools = "saida_tools.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,19 @@
+schema = 1
+
+[tools.project-audit]
+description = "Read-only audit using the optional native validator when available"
+entry = "saida_tools.builtins.project_audit:run"
+inputs = ["*.saidaproj", "asset_registry.json", "scenes/**/*.scene", "scripts/**/*.mjs"]
+outputs = []
+cache = false
+
+[tools.generate-summary]
+description = "Generate a project summary with a project-local recipe"
+entry = "tools.generate_summary:run"
+inputs = ["assets/**/*", "tools/generate_summary.py"]
+outputs = ["reports/project-summary.json"]
+cache = true
+
+[tools.generate-summary.params.title]
+type = "string"
+default = "Project assets"

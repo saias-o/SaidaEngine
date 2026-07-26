@@ -29,6 +29,15 @@ build_*.txt
 # Editor play-mode backup (regenerated each Play; never source)
 .play_mode_backup.scene
 *.play_mode_backup.scene
+
+# Optional Python authoring plugin (never part of an exported game).
+**/.saida/python-tools/
+**/__pycache__/
+*.py[cod]
+plugins/python-tools/.venv/
+plugins/python-tools/build/
+plugins/python-tools/dist/
+plugins/python-tools/src/*.egg-info/
 # Packaged game build output (artifacts, never source)
 MyGame/build/
 **/build/export/
