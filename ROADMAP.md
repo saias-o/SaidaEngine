@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-07-24. This file is the engine's **single backlog**: everything
+Updated: 2026-07-27. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -238,7 +238,192 @@ Post-V1 unless the scope changes explicitly.
 - [ ] Visual adaptation of prompts to physical Xbox/PlayStation controllers.
 - [ ] Measure and optimize LTO only after stability.
 
-## 6. P2 — Out of scope, kept as a decision
+## 6. P1 — Game authoring surface
+
+The sections above track the engine's own subsystems. This one tracks the
+surface a **game** touches — scene documents, scripts, HUD, input — which no
+section owned so far. Most items were found by authoring a complete small game
+against Beta 1 under the constraint of not modifying the engine: each one is
+something that blocked, silently misled, or forced a workaround. §6.1 comes from
+reviewing the scene-instancing path against the Godot model the engine follows.
+None of them blocks a release; together they decide how much of a game can be
+built without patching the engine.
+
+### 6.1 Scene instancing — a scene instantiated inside another scene
+
+**Vocabulary, decided: the reusable unit is a *scene*, not a "prefab".** A
+`.scene` is the single composable unit, whether it is loaded as the main scene,
+instantiated inside another scene, or spawned at runtime — the Godot model. The
+engine must not grow a second asset type, a second file extension or a second
+concept beside it, and the documentation, the editor labels and any new API say
+"scene" and "scene instance". The existing `prefabAssetId` field and `[P]`
+hierarchy icon predate this decision; the rename item below closes the gap.
+
+The mechanism largely exists and is worth stating precisely, because the
+remaining work is small and specific rather than a feature to build:
+
+- **Authoring** — dragging a `.scene` from the content browser onto the
+  hierarchy, either on the root area or onto a chosen node, creates the instance
+  (`CreateNodeType::SceneInstance`): the file is loaded, the node is named
+  `<stem> (Scene)` and the source is registered **by relative path** through
+  `getOrRegister(path, AssetType::Scene)`. The instance shows as a collapsed
+  leaf and double-clicking it opens the source scene.
+- **Format** — `Scene::serialize` writes the source reference and *erases*
+  `children`, so an instance stores no copy of its source. On load, the source
+  file is re-read with `NodeIdPolicy::Regenerate` (no id collision between two
+  instances) and the instance's own JSON is applied on top as root overrides.
+- **Runtime** — `SceneTree::instantiate(path, parent)` instantiates by path with
+  a JSON cache, ids regenerated; `SpawnerBehaviour` drives it on a timer, and an
+  autoload whose value ends in `.scene` is instantiated at boot.
+
+What is missing:
+
+- [ ] Scripting: instantiate a scene from JS. `SceneTree::instantiate` exists and
+  is used natively, but no binding reaches it, so `node.queueFree()` has no
+  counterpart: a script can remove nodes and never create one. A game can place
+  instances at authoring time and spawn them on a fixed timer through
+  `SpawnerBehaviour`, but cannot instantiate on demand from gameplay logic — no
+  projectile on fire, no wave on trigger, no pooled effect. Fix by design: bind
+  `tree.instantiate(scenePath, parent?) → NodeRef|null`, **and** confine the path
+  first: `SceneTree::resolvePath` returns absolute paths unchanged and performs
+  no traversal check, so binding it as-is would hand scripts arbitrary `.scene`
+  reads outside the project and break the SPEC section 6.2 confinement the module
+  loader already enforces. Bound it (per-frame or per-scene cap) so a runaway
+  script cannot exhaust memory.
+
+- [ ] Scenes: per-node overrides inside an instance. `Scene::serialize` erases
+  `children`, and the instance's JSON is applied to the **root** only, so an
+  instantiated scene is all-or-nothing: no child's transform, material, behaviour
+  property or enabled flag can differ between two instances of the same scene.
+  Every variation therefore requires a separate `.scene` file. This is the
+  largest gap against the Godot model the engine is following. Fix by design: a
+  sparse override list on the instance keyed by a stable path or id **inside the
+  source scene**, applied after the source is loaded; overrides for a node that
+  no longer exists in the source must be reported, not dropped in silence.
+
+- [ ] Scenes: reference the source by path, not by `AssetID`. An instance stores
+  `prefabAssetId`, an `AssetID`, in a durable document — while the two other
+  instancing paths (autoloads, `SceneTree::instantiate`) both use a
+  project-relative path. `AssetID`s come from `generateID()` and the registry is
+  regenerated whenever it is rejected or re-keyed (§5, formats item), so the
+  reference can dangle; when it does, `getAbsolutePath` returns empty, the
+  special case is skipped and the load produces an **empty `Scene` node** with no
+  children and no diagnostic. The instance silently becomes nothing. Fix by
+  design: store the project-relative path as the durable reference, resolve the
+  `AssetID` from it, and fail loudly when the source scene cannot be resolved.
+
+- [ ] Scenes: specify instancing in SPEC. Scene instancing appears nowhere in
+  SPEC — not in section 3 (project, scene and authoring) nor in the
+  format contracts — yet it is a durable document feature with an editor
+  workflow, a serialization rule (children erased) and an id policy
+  (`Regenerate`). Nothing states what an instance may override, what happens to a
+  missing source, or whether instances may nest. Fix: specify it in SPEC section
+  3 with the override and failure contracts above, and add a frozen corpus
+  fixture covering an instance, an overridden instance and a dangling source.
+
+- [ ] Scenes: rename the vocabulary to match the decision above.
+  `Scene::prefabAssetId`/`setPrefabAssetId`, the `"prefabAssetId"` JSON key and
+  the `[P]` hierarchy icon are the last places calling a scene a prefab;
+  `CreateNodeType::SceneInstance` already uses the right word. The JSON key is
+  durable content, so the rename is a format change and follows the repository's
+  rule — producers, loaders, fixtures and tests move together, with a migration
+  for existing documents rather than a silent reinterpretation.
+
+- [ ] Scenes: remove the duplicated instance-loading block.
+  `deserializeNode` handles an instance at creation time and returns early
+  (`SceneSerializer.cpp:129`), then a second block near the end of the same
+  function re-checks the reference and moves the source's children in
+  (`:180`). The second copy can only run once the first has failed, and it
+  repeats the very `getAbsolutePath` call that failed — so it never recovers
+  anything and only duplicates the rule in two places. Fix: keep one path.
+
+### 6.2 Remaining authoring friction
+
+- [ ] Graphics: built-in primitives beyond the cube. `builtin:cube`
+  (`kAssetBuiltinCube = 1`, `src/graphics/Primitives.hpp`) is the only geometry
+  that exists without a file, while `CollisionShape` already offers `Sphere` and
+  `Capsule` — a scene can collide with a sphere it cannot draw. Any round or flat
+  object in a test scene therefore requires an imported glTF, pulling Git LFS and
+  the asset pipeline into a five-node scene. Fix: sphere, plane, capsule and
+  cylinder generated alongside the cube with reserved builtin ids, offered by the
+  Inspector's mesh picker.
+
+- [ ] UI: give `UITextNode` a text alignment. `HudRasterizer` emits one
+  absolutely positioned `<div>` per node with no `text-align`, and `UINode`'s
+  pivot offsets only the node's own rect (`getGlobalRect`), not the glyphs inside
+  it. A centred score — the most common HUD element there is — cannot be authored
+  without knowing the rendered width of the string. Fix: an alignment property
+  mapped to `text-align` in the emitted markup, so pivot keeps meaning "where the
+  box sits" and alignment means "where the text sits inside it".
+
+- [ ] Scene loading: stop dropping a subtree on an unknown node type.
+  `SceneSerializer::deserializeNode` logs an error and returns `nullptr` for an
+  unregistered type; the children loop simply does not add it, and the load still
+  reports success. One typo in a `"type"` therefore deletes the node **and every
+  descendant** while the game boots normally. Same family: `ensureUniqueIds`
+  regenerates a duplicate or invalid id in silence rather than refusing the
+  document. Both contradict the rule the repository imposes on itself — *no
+  silent fallbacks for invalid durable content* — which the schema envelope
+  already honours a few lines away. Fix by design: fail the load with a
+  diagnostic naming the offending type and path, as `acceptSceneDocumentVersion`
+  does.
+
+- [ ] Tooling: make a runtime `.scene` checkable headlessly.
+  `saida_tool validate-scene` validates the **authoring snapshot** (string ids);
+  handed a runtime scene (numeric ids, `schema`/`version` = `kSceneVersion`) it
+  returns a complete and entirely credible list of errors. There is consequently
+  no headless way to verify a scene at all: the only method is launching the GUI
+  editor with `--play` and grepping the log for `loaded scene from`. Fix: detect
+  the envelope and refuse the wrong document explicitly instead of validating it
+  against the wrong schema, then add a real headless load verb for runtime
+  scenes so CI and authors share one check.
+
+- [ ] Input: allow a binding to be added, and validate the context.
+  `Input::applyBindingProfile` assigns over `g_bindings` — it replaces the entire
+  table — and `rebindKey` calls `unmapAction` before `bindKey`. A script can
+  therefore only overwrite everything or destroy an action's existing bindings;
+  there is no "add a key". A game profile ends up restating the engine defaults it
+  does not use, purely to avoid losing them. Separately, a binding whose
+  `context` is not exactly `"Global"` parses, registers and never matches, with
+  no diagnostic: `parseInputBindingProfile` validates control names against a
+  table but accepts any string as a context. Fix: an additive bind/unbind pair
+  alongside `applyProfile`, and context validation at parse time.
+
+- [ ] Scene authoring: let a camera be aimed instead of hand-rotated. `Camera`
+  carries only a quaternion, so a fixed game camera is authored by computing
+  `sin`/`cos` by hand into JSON, and a framing error is only discoverable by
+  launching the editor and looking. Fix: an authoring-level look-at target
+  (node or point) resolved into the transform at load, plus an editor action that
+  writes the current viewport orientation into the selected camera.
+
+- [ ] Formats: document the runtime `.scene` field reference. SPEC covers the
+  scene model and the authoring snapshot, but the runtime document's per-node
+  fields — which keys are optional, what the integers of `shapeType`,
+  `lightType` and the particle `shape` mean, which mesh ids are built in — exist
+  only in the hand-written `serialize`/`deserialize` pairs and in the example
+  scenes. Authoring or reviewing a scene by hand means reading engine source.
+  Fix: generate the reference from the reflection that already feeds
+  `saida_tool describe-engine`, and extend `describe-engine` to cover the core
+  nodes that are serialized by hand.
+
+- [ ] Scripting: settle the `NodeId` convention on the JS side. `node.id` and
+  `NodeRef.id` return a **BigInt** (`JS_NewBigUint64`), so an id throws under
+  `JSON.stringify` and under arithmetic: it can be passed back to
+  `tree.nodeById` and little else. SaidaOps already solved the same problem in
+  the opposite direction — SPEC section 3 encodes `NodeId` as a 64-bit decimal
+  string "so as to lose no bit in JavaScript". Fix: align the script surface on
+  that same convention, or state the BigInt contract and its limits in SPEC
+  section 6.3.
+
+- [ ] Audio: decide whether a game can make a sound without shipping a file.
+  `audio.play(alias)` is the whole API and aliases resolve to files declared in
+  the `.saidaproj`, so a prototype cannot emit a single cue without authoring and
+  committing an audio asset through Git LFS. This may well be the right
+  constraint; it is recorded here so the answer is a decision rather than an
+  omission. Either provide a minimal built-in cue or a procedural tone, or move
+  this to §7 as an accepted constraint.
+
+## 7. P2 — Out of scope, kept as a decision
 
 These items delay no release unless the promise changes explicitly:
 
@@ -252,7 +437,7 @@ These items delay no release unless the promise changes explicitly:
 - asset store and online services, carried by the Saida platform;
 - Linux and macOS editor/player, Firefox/Safari and mobile browsers.
 
-## 7. Closed decisions — do not reopen without a new reason
+## 8. Closed decisions — do not reopen without a new reason
 
 - **Three `ReflectedTypes*` lists** (`.cpp`, `Player`, `Web`) kept distinct. The
   targets neither compile nor link the same subsystems (physics/Jolt, audio,
@@ -278,7 +463,7 @@ These items delay no release unless the promise changes explicitly:
   at the top. These goals were not "solved" by artificial compression or by
   extraction without an invariant — they remain open in §2.
 
-## 8. Saida platform
+## 9. Saida platform
 
 The web platform, backend and operations live in
 [`saias-o/saida`](https://github.com/saias-o/saida) and carry their own roadmap
