@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <filesystem>
 #include <string>
 
 // Centralized asset path resolution.
@@ -72,6 +73,21 @@ inline std::string assetPath(const std::string& relative) {
     if (!root.empty()) return root + "/" + relative;
     return std::string(SAIDA_PROJECT_ROOT) + "/" + relative;
 #endif
+}
+
+// Resolve project *content* that lives outside the asset registry: UI documents
+// (.html/.rml), their stylesheets and scripts. Unlike assetPath(), which points
+// at the engine root in editor/dev mode, this prefers the loaded .saidaproj, so
+// "ui/main_menu.html" in a game project resolves under that project. Falls back
+// to assetPath() (engine root / shipped runtime root) for built-in content.
+inline std::string projectContentPath(const std::string& relative) {
+    const std::string& project = activeProjectRoot();
+    if (!project.empty()) {
+        std::filesystem::path candidate = std::filesystem::path(project) / relative;
+        std::error_code ec;
+        if (std::filesystem::exists(candidate, ec)) return candidate.generic_string();
+    }
+    return assetPath(relative);
 }
 
 inline std::string shaderPath(const std::string& name) {

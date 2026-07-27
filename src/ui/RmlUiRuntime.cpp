@@ -206,9 +206,11 @@ private:
             return std::filesystem::absolute(candidate);
         }
 
-        std::filesystem::path assetCandidate(assetPath(normalized));
-        if (std::filesystem::exists(assetCandidate)) {
-            return assetCandidate;
+        // UI documents, their stylesheets and images belong to the loaded
+        // project, not to the engine root assetPath() points at in the editor.
+        std::filesystem::path contentCandidate(projectContentPath(normalized));
+        if (std::filesystem::exists(contentCandidate)) {
+            return contentCandidate;
         }
 
         return candidate;

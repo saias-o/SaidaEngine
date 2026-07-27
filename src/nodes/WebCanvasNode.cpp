@@ -75,8 +75,8 @@ std::filesystem::path resolveDocumentRelative(const std::string& source, const s
     if (!documentUrl.empty()) {
         std::filesystem::path docPath(pathFromFileUrl(documentUrl));
         if (!docPath.is_absolute()) {
-            std::filesystem::path assetDocPath(assetPath(docPath.generic_string()));
-            if (std::filesystem::exists(assetDocPath)) docPath = assetDocPath;
+            std::filesystem::path contentDocPath(projectContentPath(docPath.generic_string()));
+            if (std::filesystem::exists(contentDocPath)) docPath = contentDocPath;
         }
         if (!docPath.is_absolute()) {
             std::filesystem::path candidate = std::filesystem::absolute(docPath);
@@ -88,8 +88,8 @@ std::filesystem::path resolveDocumentRelative(const std::string& source, const s
 
     if (std::filesystem::exists(sourcePath)) return std::filesystem::absolute(sourcePath);
 
-    std::filesystem::path assetCandidate(assetPath(sourcePath.generic_string()));
-    if (std::filesystem::exists(assetCandidate)) return assetCandidate;
+    std::filesystem::path contentCandidate(projectContentPath(sourcePath.generic_string()));
+    if (std::filesystem::exists(contentCandidate)) return contentCandidate;
     return sourcePath;
 }
 
@@ -1078,7 +1078,7 @@ std::string WebCanvasNode::resolveUrlPath() const {
     if (candidate.is_absolute() && std::filesystem::exists(candidate)) return candidate.string();
     if (std::filesystem::exists(candidate)) return std::filesystem::absolute(candidate).string();
 
-    std::filesystem::path rootRelative(assetPath(candidate.string()));
+    std::filesystem::path rootRelative(projectContentPath(candidate.string()));
     if (std::filesystem::exists(rootRelative)) return rootRelative.string();
 
     return {};

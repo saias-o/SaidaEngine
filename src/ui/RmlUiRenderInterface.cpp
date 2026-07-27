@@ -33,8 +33,10 @@ std::string resolveTexturePath(const std::string& source) {
     if (candidate.is_absolute() && std::filesystem::exists(candidate)) return candidate.string();
     if (std::filesystem::exists(candidate)) return std::filesystem::absolute(candidate).string();
 
-    std::filesystem::path assetCandidate(assetPath(normalized));
-    if (std::filesystem::exists(assetCandidate)) return assetCandidate.string();
+    // Images referenced by a UI document belong to the loaded project, not to
+    // the engine root assetPath() points at in the editor.
+    std::filesystem::path contentCandidate(projectContentPath(normalized));
+    if (std::filesystem::exists(contentCandidate)) return contentCandidate.string();
 
     return normalized;
 }
