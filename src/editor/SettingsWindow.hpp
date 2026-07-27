@@ -4,8 +4,13 @@ namespace saida {
 
 class Project;
 
+// Density of the editor chrome. Big is the roomy Saida rhythm; Small drops to
+// Dear ImGui's own font size and spacing so the editor fits a small screen.
+enum class EditorUiDensity { Big, Small };
+
 // Owns persistent editor preferences and renders each settings tab through a
-// bounded section. Theme state is applied and persisted atomically on change.
+// bounded section. Theme and density are applied and persisted atomically on
+// change.
 class SettingsWindow {
 public:
     SettingsWindow();
@@ -13,6 +18,7 @@ public:
     void requestOpen() { open_ = true; }
     void draw(Project* project);
     bool lightTheme() const { return lightTheme_; }
+    EditorUiDensity uiDensity() const { return density_; }
 
 private:
     void applyStyle() const;
@@ -28,6 +34,7 @@ private:
 
     bool open_ = false;
     bool lightTheme_ = false;
+    EditorUiDensity density_ = EditorUiDensity::Big;
     int msaa_ = 0;
     bool autoSave_ = true;
     float gizmoSize_ = 1.0f;

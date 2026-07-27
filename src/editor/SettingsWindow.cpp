@@ -16,31 +16,42 @@
 namespace saida {
 
 namespace {
-std::filesystem::path editorThemePreferencePath() {
+// Editor preferences are per-user, not per-project, so they live beside the Hub
+// registry rather than in the .saidaproj: one single-line file per preference.
+constexpr const char* kThemeFile   = "editor_theme.txt";
+constexpr const char* kDensityFile = "editor_ui_density.txt";
+
+std::filesystem::path editorPreferencePath(const char* fileName) {
     if (const char* appData = std::getenv("APPDATA")) {
         if (*appData != '\0')
-            return std::filesystem::path(appData) / "SaidaEngine" / "editor_theme.txt";
+            return std::filesystem::path(appData) / "SaidaEngine" / fileName;
     }
-    return std::filesystem::path(SAIDA_PROJECT_ROOT) / "build" / "editor_theme.txt";
+    return std::filesystem::path(SAIDA_PROJECT_ROOT) / "build" / fileName;
 }
 
-bool loadLightThemePreference() {
-    std::ifstream input(editorThemePreferencePath());
+// Empty when the preference was never written or cannot be read: every caller
+// resolves that to its own default rather than to a shared sentinel.
+std::string loadEditorPreference(const char* fileName) {
+    std::ifstream input(editorPreferencePath(fileName));
     std::string value;
-    return input && std::getline(input, value) && value == "light";
+    if (input && std::getline(input, value)) return value;
+    return {};
 }
 
-void saveLightThemePreference(bool useLightTheme) {
-    const std::filesystem::path path = editorThemePreferencePath();
+void saveEditorPreference(const char* fileName, const char* value) {
+    const std::filesystem::path path = editorPreferencePath(fileName);
     std::error_code error;
     std::filesystem::create_directories(path.parent_path(), error);
     std::ofstream output(path);
-    if (output) output << (useLightTheme ? "light" : "dark");
+    if (output) output << value;
 }
 } // namespace
 
 SettingsWindow::SettingsWindow()
-    : lightTheme_(loadLightThemePreference()) {
+    : lightTheme_(loadEditorPreference(kThemeFile) == "light"),
+      density_(loadEditorPreference(kDensityFile) == "small"
+                   ? EditorUiDensity::Small
+                   : EditorUiDensity::Big) {
     applyStyle();
 }
 
@@ -53,6 +64,8 @@ void SettingsWindow::applyLayout() const {
     ImGuiStyle& style = ImGui::GetStyle();
 
     // The web platform uses soft 8 px cards and a deliberately relaxed rhythm.
+    // Rounding is brand, not density: it costs no screen space and stays
+    // identical in both sizes. Only the metrics that consume pixels differ.
     style.WindowRounding    = 8.0f;
     style.ChildRounding     = 8.0f;
     style.FrameRounding     = 6.0f;
@@ -61,15 +74,39 @@ void SettingsWindow::applyLayout() const {
     style.GrabRounding      = 6.0f;
     style.TabRounding       = 6.0f;
 
-    // This spacing also makes context menus and the top menu less cramped.
-    style.WindowPadding    = ImVec2(13, 13);
-    style.FramePadding     = ImVec2(10, 7);
-    style.CellPadding      = ImVec2(10, 7);
-    style.ItemSpacing      = ImVec2(10, 8);
-    style.ItemInnerSpacing = ImVec2(8, 6);
-    style.IndentSpacing    = 22.0f;
-    style.ScrollbarSize    = 13.0f;
-    style.GrabMinSize      = 11.0f;
+    if (density_ == EditorUiDensity::Small) {
+        // Dear ImGui's own metrics (ImGuiStyle::ImGuiStyle), for small screens.
+        style.WindowPadding    = ImVec2(8, 8);
+        style.FramePadding     = ImVec2(4, 3);
+        style.CellPadding      = ImVec2(4, 2);
+        style.ItemSpacing      = ImVec2(8, 4);
+        style.ItemInnerSpacing = ImVec2(4, 4);
+        style.IndentSpacing    = 21.0f;
+        style.ScrollbarSize    = 14.0f;
+        style.GrabMinSize      = 12.0f;
+    } else {
+        // This spacing also makes context menus and the top menu less cramped.
+        style.WindowPadding    = ImVec2(13, 13);
+        style.FramePadding     = ImVec2(10, 7);
+        style.CellPadding      = ImVec2(10, 7);
+        style.ItemSpacing      = ImVec2(10, 8);
+        style.ItemInnerSpacing = ImVec2(8, 6);
+        style.IndentSpacing    = 22.0f;
+        style.ScrollbarSize    = 13.0f;
+        style.GrabMinSize      = 11.0f;
+    }
+
+    // Text scales through FontScaleMain, never through FontSizeBase: ImGui
+    // rewrites FontSizeBase from the context every time it updates the current
+    // font size, so a mid-frame write there would not survive, and the base size
+    // must stay >= 15 px anyway for AddFontDefault() to have picked the vector
+    // face (ImGuiLayer). Scaling that face down stays crisp; the 13 px result is
+    // ImGui's own default text size.
+    constexpr float kSmallFontPx = 13.0f;
+    constexpr float kBigFontPx   = 16.0f;  // ImGuiLayer's FontSizeBase
+    style.FontScaleMain = density_ == EditorUiDensity::Small
+                              ? kSmallFontPx / kBigFontPx
+                              : 1.0f;
 
     style.WindowBorderSize = 1.0f;
     style.ChildBorderSize  = 1.0f;
@@ -207,10 +244,24 @@ void SettingsWindow::drawAppearance() {
     if (ImGui::Combo("Editor Theme", &themeIndex, themeNames, 2)) {
         lightTheme_ = themeIndex == 1;
         applyStyle();
-        saveLightThemePreference(lightTheme_);
+        saveEditorPreference(kThemeFile, lightTheme_ ? "light" : "dark");
     }
     ImGui::TextDisabled(
         "Saida Dark is the default. The 3D viewport stays dark in both themes.");
+
+    int densityIndex = density_ == EditorUiDensity::Small ? 1 : 0;
+    const char* densityNames[] = {"Big", "Small"};
+    ImGui::SetNextItemWidth(220.0f);
+    if (ImGui::Combo("Interface Size", &densityIndex, densityNames, 2)) {
+        density_ = densityIndex == 1 ? EditorUiDensity::Small
+                                     : EditorUiDensity::Big;
+        applyStyle();
+        saveEditorPreference(kDensityFile,
+                             density_ == EditorUiDensity::Small ? "small" : "big");
+    }
+    ImGui::TextDisabled(
+        "Big is the default. Small uses Dear ImGui's own font size and spacing, "
+        "for small screens.");
     ImGui::Spacing();
 }
 
