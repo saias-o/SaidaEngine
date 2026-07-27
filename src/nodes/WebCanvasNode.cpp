@@ -1044,11 +1044,21 @@ bool WebCanvasNode::loadDocumentFromState(bool keepExistingOnFailure) {
     if (previousDocument) previousDocument->Hide();
     rmlContext_->Update();
 
+    // A replacement document gets a clean JS context. Document scripts run as
+    // global code, so re-evaluating them in the context of the document they
+    // replace redeclares their top-level let/const and throws — that alone
+    // broke hot reload for any script declaring one. The outgoing context stays
+    // alive until the new scripts have proven themselves: the rollback below
+    // restores listeners that still hold its JSValues.
+    std::unique_ptr<JsContext> previousJsContext;
+    if (previousDocument) previousJsContext = std::move(jsContext_);
     ensureJsContext();
     bool scriptsOk = runDocumentScripts(&dependencies);
     if (!scriptsOk && keepExistingOnFailure && previousDocument) {
         rmlContext_->UnloadDocument(nextDocument);
+        // Drop the failed document's listeners while their context still lives.
         while (jsEventListeners_.size() > previousListenerCount) jsEventListeners_.pop_back();
+        jsContext_ = std::move(previousJsContext);
         document_ = previousDocument;
         previousDocument->Show();
         ++documentGeneration_;
@@ -1063,6 +1073,8 @@ bool WebCanvasNode::loadDocumentFromState(bool keepExistingOnFailure) {
         rmlContext_->UnloadDocument(previousDocument);
         jsEventListeners_.erase(jsEventListeners_.begin(), jsEventListeners_.begin() + previousListenerCount);
     }
+    // Retired listeners are gone: the outgoing context can now be torn down.
+    previousJsContext.reset();
     rmlContext_->Update();
     updateDocumentWatchers(dependencies);
     markUiDirty();
