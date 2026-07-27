@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "version": 1,
+  "name": "Pong 3D",
+  "engineVersion": "0.1.0",
+  "mainScene": "scenes/pong.scene",
+  "runtime": {
+    "maxFps": 144,
+    "vsync": true
+  }
+}

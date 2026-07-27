@@ -1,0 +1,11 @@
+{
+    "assets": {
+        "11959717035038121503": {
+            "hash": 7299281352725053921,
+            "path": "scenes/pong.scene",
+            "type": "Scene"
+        }
+    },
+    "schema": 2,
+    "version": 2
+}

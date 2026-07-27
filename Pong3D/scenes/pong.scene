@@ -1,0 +1,426 @@
+{
+  "schema": 2,
+  "version": 2,
+  "scene": {
+    "type": "Scene",
+    "id": 7101000000000000001,
+    "name": "Pong3D",
+    "enabled": true,
+    "behaviours": [],
+    "transform": {
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0, 1],
+      "scale": [1, 1, 1]
+    },
+    "children": [
+      {
+        "type": "LightNode",
+        "id": 7101000000000000002,
+        "name": "Sun",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "transform": {
+          "position": [0, 30, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [1, 1, 1]
+        },
+        "lightType": 0,
+        "color": [0.85, 0.92, 1.0],
+        "intensity": 3.2,
+        "direction": [-0.35, -0.86, -0.37],
+        "castShadows": true,
+        "bakeMode": 0,
+        "range": 10.0,
+        "spotInnerAngle": 25.0,
+        "spotOuterAngle": 35.0
+      },
+      {
+        "type": "MeshNode",
+        "id": 7101000000000000003,
+        "name": "TableTop",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "transform": {
+          "position": [0, -0.25, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [19.5, 0.5, 28.0]
+        },
+        "mesh": 1,
+        "baseColor": [0.06, 0.08, 0.13, 1.0],
+        "emissive": [0, 0, 0, 0],
+        "roughness": 0.55,
+        "metallic": 0.1
+      },
+      {
+        "type": "MeshNode",
+        "id": 7101000000000000004,
+        "name": "CenterLine",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "transform": {
+          "position": [0, 0.01, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [18.0, 0.02, 0.18]
+        },
+        "mesh": 1,
+        "baseColor": [0.5, 0.6, 0.8, 1.0],
+        "emissive": [0.3, 0.45, 0.8, 1.2],
+        "roughness": 0.9,
+        "metallic": 0.0
+      },
+      {
+        "type": "MeshNode",
+        "id": 7101000000000000005,
+        "name": "WallLeft",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "transform": {
+          "position": [-9.25, 0.6, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [0.5, 1.2, 28.0]
+        },
+        "mesh": 1,
+        "baseColor": [0.16, 0.2, 0.3, 1.0],
+        "emissive": [0.05, 0.1, 0.2, 0.6],
+        "roughness": 0.4,
+        "metallic": 0.2
+      },
+      {
+        "type": "MeshNode",
+        "id": 7101000000000000006,
+        "name": "WallRight",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "transform": {
+          "position": [9.25, 0.6, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [0.5, 1.2, 28.0]
+        },
+        "mesh": 1,
+        "baseColor": [0.16, 0.2, 0.3, 1.0],
+        "emissive": [0.05, 0.1, 0.2, 0.6],
+        "roughness": 0.4,
+        "metallic": 0.2
+      },
+      {
+        "type": "MeshNode",
+        "id": 7101000000000000007,
+        "name": "GoalLinePlayer",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "transform": {
+          "position": [0, 0.01, 13.0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [18.0, 0.02, 0.3]
+        },
+        "mesh": 1,
+        "baseColor": [0.3, 0.6, 1.0, 1.0],
+        "emissive": [0.2, 0.6, 1.0, 2.5],
+        "roughness": 0.9,
+        "metallic": 0.0
+      },
+      {
+        "type": "MeshNode",
+        "id": 7101000000000000008,
+        "name": "GoalLineAI",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "transform": {
+          "position": [0, 0.01, -13.0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [18.0, 0.02, 0.3]
+        },
+        "mesh": 1,
+        "baseColor": [1.0, 0.4, 0.35, 1.0],
+        "emissive": [1.0, 0.3, 0.2, 2.5],
+        "roughness": 0.9,
+        "metallic": 0.0
+      },
+      {
+        "type": "Node",
+        "id": 7101000000000000009,
+        "name": "PaddlePlayer",
+        "enabled": true,
+        "behaviours": [],
+        "groups": ["paddle_player"],
+        "transform": {
+          "position": [0, 0.35, 11.0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [1, 1, 1]
+        },
+        "children": [
+          {
+            "type": "MeshNode",
+            "id": 7101000000000000010,
+            "name": "PaddlePlayerMesh",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [0, 0, 0],
+              "rotation": [0, 0, 0, 1],
+              "scale": [3.2, 0.7, 0.6]
+            },
+            "mesh": 1,
+            "baseColor": [0.25, 0.6, 1.0, 1.0],
+            "emissive": [0.15, 0.45, 1.0, 1.8],
+            "roughness": 0.35,
+            "metallic": 0.1
+          }
+        ]
+      },
+      {
+        "type": "Node",
+        "id": 7101000000000000011,
+        "name": "PaddleAI",
+        "enabled": true,
+        "behaviours": [],
+        "groups": ["paddle_ai"],
+        "transform": {
+          "position": [0, 0.35, -11.0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [1, 1, 1]
+        },
+        "children": [
+          {
+            "type": "MeshNode",
+            "id": 7101000000000000012,
+            "name": "PaddleAIMesh",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [0, 0, 0],
+              "rotation": [0, 0, 0, 1],
+              "scale": [3.2, 0.7, 0.6]
+            },
+            "mesh": 1,
+            "baseColor": [1.0, 0.45, 0.35, 1.0],
+            "emissive": [1.0, 0.3, 0.2, 1.8],
+            "roughness": 0.35,
+            "metallic": 0.1
+          }
+        ]
+      },
+      {
+        "type": "Node",
+        "id": 7101000000000000013,
+        "name": "Ball",
+        "enabled": true,
+        "groups": ["ball"],
+        "behaviours": [
+          {
+            "type": "Rotator",
+            "enabled": true,
+            "speed": 220.0,
+            "axis": [0.35, 1.0, 0.2]
+          }
+        ],
+        "transform": {
+          "position": [0, 0.45, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [1, 1, 1]
+        },
+        "children": [
+          {
+            "type": "MeshNode",
+            "id": 7101000000000000014,
+            "name": "BallMesh",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [0, 0, 0],
+              "rotation": [0, 0, 0, 1],
+              "scale": [0.7, 0.7, 0.7]
+            },
+            "mesh": 1,
+            "baseColor": [1.0, 0.95, 0.8, 1.0],
+            "emissive": [1.0, 0.9, 0.55, 3.0],
+            "roughness": 0.3,
+            "metallic": 0.0
+          },
+          {
+            "type": "ParticleSystem",
+            "id": 7101000000000000015,
+            "name": "BallTrail",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [0, 0, 0],
+              "rotation": [0, 0, 0, 1],
+              "scale": [1, 1, 1]
+            },
+            "maxParticles": 96,
+            "spawnRate": 45.0,
+            "lifetime": 0.5,
+            "startSize": 0.16,
+            "looping": true,
+            "playing": true,
+            "startColor": [1.0, 0.85, 0.4, 0.9],
+            "endColor": [1.0, 0.4, 0.1, 0.0],
+            "gravity": [0.0, 0.4, 0.0],
+            "radius": 0.15,
+            "shape": 1
+          }
+        ]
+      },
+      {
+        "type": "Camera",
+        "id": 7101000000000000016,
+        "name": "MainCamera",
+        "enabled": true,
+        "behaviours": [],
+        "children": [],
+        "groups": ["camera"],
+        "transform": {
+          "position": [0, 12.5, 23.0],
+          "rotation": [-0.2462, 0, 0, 0.9692],
+          "scale": [1, 1, 1]
+        },
+        "fovDegrees": 55.0,
+        "nearZ": 0.1,
+        "farZ": 300.0,
+        "priority": 10,
+        "active": true
+      },
+      {
+        "type": "Node",
+        "id": 7101000000000000017,
+        "name": "GameController",
+        "enabled": true,
+        "children": [],
+        "groups": ["pong_controller"],
+        "transform": {
+          "position": [0, 0, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [1, 1, 1]
+        },
+        "behaviours": [
+          {
+            "type": "ScriptBehaviour",
+            "enabled": true,
+            "script": "scripts/pong.js",
+            "hotReload": true,
+            "properties": {
+              "halfWidth": 9.0,
+              "halfLength": 13.0,
+              "paddleZ": 11.0,
+              "paddleHalfLength": 1.6,
+              "paddleHalfThickness": 0.3,
+              "ballRadius": 0.35,
+              "ballHeight": 0.45,
+              "playerSpeed": 16.0,
+              "aiSpeed": 10.5,
+              "aiSlack": 0.55,
+              "serveSpeed": 12.0,
+              "maxSpeed": 28.0,
+              "speedUp": 1.05,
+              "spin": 9.0,
+              "winScore": 7
+            }
+          }
+        ]
+      },
+      {
+        "type": "UICanvasNode",
+        "id": 7101000000000000018,
+        "name": "HUD",
+        "enabled": true,
+        "behaviours": [],
+        "transform": {
+          "position": [0, 0, 0],
+          "rotation": [0, 0, 0, 1],
+          "scale": [1, 1, 1]
+        },
+        "width": 1920.0,
+        "height": 1080.0,
+        "children": [
+          {
+            "type": "UITextNode",
+            "id": 7101000000000000019,
+            "name": "ScoreText",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [0, 0, 0],
+              "rotation": [0, 0, 0, 1],
+              "scale": [1, 1, 1]
+            },
+            "groups": ["pong_score"],
+            "text": "YOU 0   -   AI 0",
+            "fontSize": 36.0,
+            "color": [1.0, 1.0, 1.0, 1.0],
+            "x": 36.0,
+            "y": 28.0,
+            "width": 700.0,
+            "height": 48.0,
+            "anchorX": 0.0,
+            "anchorY": 0.0,
+            "pivotX": 0.0,
+            "pivotY": 0.0
+          },
+          {
+            "type": "UITextNode",
+            "id": 7101000000000000020,
+            "name": "MessageText",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [0, 0, 0],
+              "rotation": [0, 0, 0, 1],
+              "scale": [1, 1, 1]
+            },
+            "groups": ["pong_message"],
+            "text": "",
+            "fontSize": 26.0,
+            "color": [1.0, 0.9, 0.55, 1.0],
+            "x": 36.0,
+            "y": 84.0,
+            "width": 900.0,
+            "height": 40.0,
+            "anchorX": 0.0,
+            "anchorY": 0.0,
+            "pivotX": 0.0,
+            "pivotY": 0.0
+          },
+          {
+            "type": "UITextNode",
+            "id": 7101000000000000021,
+            "name": "HintText",
+            "enabled": true,
+            "behaviours": [],
+            "children": [],
+            "transform": {
+              "position": [0, 0, 0],
+              "rotation": [0, 0, 0, 1],
+              "scale": [1, 1, 1]
+            },
+            "groups": ["pong_hint"],
+            "text": "A / D or Left / Right to move  -  Space to serve  -  R to restart",
+            "fontSize": 20.0,
+            "color": [0.7, 0.78, 0.9, 1.0],
+            "x": 36.0,
+            "y": -56.0,
+            "width": 1000.0,
+            "height": 32.0,
+            "anchorX": 0.0,
+            "anchorY": 1.0,
+            "pivotX": 0.0,
+            "pivotY": 0.0
+          }
+        ]
+      }
+    ]
+  }
+}
