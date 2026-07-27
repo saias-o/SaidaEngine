@@ -163,7 +163,8 @@ taken out of the V1 refactor because it is not safe to do mechanically.
    pixel-by-pixel (bounded tolerance), run on Lavapipe in CI **and** on a real
    GPU. The HUD already has computed-pixel assertions
    (`saida_ui_corpus_tests`) — extend that idea to a full scene frame
-   (mesh + light + shadow + tonemap).
+   (mesh + light + shadow + tonemap). The engine-side capture this needs is the
+   same one §6.3.1 asks for (`SaidaEngine --screenshot`); build it once.
 2. **Extract one unit at a time, leaf-first order**, one commit + one visual
    check per unit: `TonemapPass` (clean boundary: input = HDR target,
    output = swapchain) → `GpuDrivenCuller` (behind its flag) → `XrRenderer`
@@ -422,6 +423,143 @@ What is missing:
   constraint; it is recorded here so the answer is a decision rather than an
   omission. Either provide a minimal built-in cue or a procedural tone, or move
   this to §7 as an accepted constraint.
+
+### 6.3 UI authoring — parity, traps and the feedback loop
+
+Written after building a full main menu (3D logo, file-select panel, keyboard
+and pointer input) in a real project against the engine as it stands. The menu
+shipped, but almost every hour went into *seeing* and *diagnosing* rather than
+authoring, and every defect met was silent: no error, no warning, only a wrong
+picture. That asymmetry is the subject of this section. It matters beyond one
+menu — an agent authoring UI has no eyes, so anything the engine does not
+report simply does not exist to it.
+
+Ordering: **6.3.1 before everything else** (nothing below can be verified
+without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
+
+#### 6.3.1 The feedback loop — an agent cannot see what it builds
+
+- [ ] Tooling: render a UI document headlessly. There is no way to look at a
+  UI without a GPU, a window and a human. The CPU RmlUi backend already
+  produces a full RGBA frame (`RmlUiRenderInterface::pixels()`, exercised by
+  `saida_ui_corpus_tests`), so the capability exists and is simply not exposed.
+  Proving this: a throwaway 60-line program linked against `libsaida_engine.a`
+  rendered the menu at three resolutions in seconds — that program should be a
+  supported command, not a scratch file. Fix: `saida_tool render-ui <document>
+  --project <dir> --size WxH --out <png>`, the same code path the corpus tests
+  use, so a golden UI image becomes as cheap to produce as a scene validation.
+
+- [ ] Tooling: dump the computed layout, not just pixels. An image says
+  *something is wrong*; it does not say *why*. Every layout defect met while
+  building the menu was diagnosable from computed values alone — an element
+  whose computed `display` is `inline`, a box outside the context rect, a
+  declaration that failed to parse and left the default in place. Fix:
+  `--layout-json` on the command above, emitting per element the tag, id,
+  classes, computed `display`, border box, and the declarations that did not
+  parse. For an agent this is strictly more useful than the image: it is
+  assertable, diffable and small.
+
+- [ ] Tooling: capture a real frame from the engine. `SaidaEngine` can run
+  headless (`SAIDA_WINDOW_HIDDEN=1`) but cannot write what it drew, so the
+  composite of 3D and UI — the thing the player actually sees — is verifiable
+  by nobody except a human looking at a screen. Fix:
+  `--screenshot <png> [--after-frames N]`, writing the presented frame after a
+  deterministic number of frames. **This is the same capability §3 declares an
+  absolute prerequisite to touching `Renderer.cpp`**: build it once, and both
+  the UI loop and the golden-image net become possible.
+
+- [ ] MCP: no UI tools at all. The catalog is 45 tools over animation, assets,
+  nodes, scenes and scenarios; an agent driving a live editor can move a node
+  but cannot see or inspect a document, while `hotReload` on `WebCanvasNode`
+  already re-reads a document from disk. The iteration loop that should exist —
+  edit, reload, look, assert — is missing only its observation half. Fix:
+  `ui_screenshot`, `ui_layout` (the JSON above, live) and `ui_reload` against
+  the running editor.
+
+#### 6.3.2 Silent traps — each one produced a wrong menu with no diagnostic
+
+- [ ] UI: ship an engine user-agent stylesheet. RmlUi provides no default
+  stylesheet, and RCSS defaults `display` to `inline`
+  (`StyleSheetSpecification.cpp`), so a `<div>` that does not declare its
+  display is an inline box that silently discards `width`, `height`, `padding`
+  and `text-align`. Any markup written the way HTML is normally written — which
+  is what every author and every model produces first — collapses into a
+  left-aligned run of text, with nothing logged. This single default cost more
+  debugging than the rest of the menu combined. Fix: a small `engine.rcss`
+  applied to every document created by the engine (`div`, `p`, `section`,
+  `h1`-`h6`, `body` → block; `img`, `button` → inline-block), documented in
+  SPEC as the authoring baseline. Keep it minimal: it is a contract, not a
+  theme.
+
+- [ ] UI: give a screen-space canvas a reference resolution. A screen-space
+  `WebCanvasNode` that fills the viewport is resized to the real window
+  (`UIRenderer::gatherUI`), while the scene keeps declaring 1920x1080. Absolute
+  pixel geometry — the natural way to lay out a fixed-size canvas, and what the
+  declared size invites — therefore lands off-centre on every other window
+  size, and anything past the window height is clipped by the context scissor
+  with no warning. Fix: `referenceWidth`/`referenceHeight` plus a `scaleMode`
+  (`stretch` = today's behaviour, `fit` = letterboxed reference, `expand`),
+  which is what Unity's CanvasScaler and Godot's stretch mode exist for. It
+  makes pixel layout *correct* instead of merely tempting, and `fit` gives an
+  author one resolution to reason about.
+
+- [ ] UI: wrap texture coordinates in the CPU RmlUi backend.
+  `decorator: image(x.png repeat)` does not tile: the backend clamps instead of
+  wrapping, so a tiled surface draws one copy and then smears its edge texels
+  across the rest of the element. `tiled-box` and `ninepatch` — the decorators
+  a framed panel actually wants — rest on the same mechanism. Fix: implement
+  wrapping in the sampler; if it is declined, reject the `repeat` keyword with
+  a diagnostic instead of drawing something plausible and wrong.
+
+- [ ] Tooling: lint a UI document. RCSS reports a failed declaration as one
+  warning in a log nobody reads at authoring time, and the two mistakes met
+  here are both mechanically detectable: `rgba()` written with a 0-1 alpha
+  (RCSS alpha is 0-255) parses as nothing and the property silently vanishes;
+  an element carrying `width`/`height`/`text-align` while computing to
+  `display: inline` is always a bug. Fix: `saida_tool validate-ui <document>`
+  reporting unparsed declarations, unresolved asset references and that
+  inline-with-box-properties pattern, on the model of `validate-scene`.
+
+#### 6.3.3 Content pipeline and authoring surface
+
+- [ ] UI: decide the Web parity of `WebCanvasNode`. The Web player compiles
+  `UICanvasNode`, `UITextNode`, `UIRenderer`, `HudRasterizer` and the RmlUi CPU
+  backend, but **not** `WebCanvasNode` (absent from `web/player` and
+  `web/runtime` source lists). A project whose menu is a document therefore
+  builds for desktop and silently loses its menu on Web — which contradicts the
+  release criterion in §0 that the same game runs in the editor, on desktop and
+  on Web. The port itself is bounded: the Web player already links QuickJS, and
+  the HUD precedent shows the platform difference is confined to the texture
+  upload (Vulkan bindless quad vs WebGPU texture + bind group). Fix: either
+  port it — upload branch, source lists, input plumbing, one Witness scene
+  proving the same document on both — or state in SPEC that documents are a
+  desktop-only surface and that the portable UI is the node path. Do not leave
+  it implicit.
+
+- [ ] UI: templates for the surfaces every game needs. Authoring the menu meant
+  rediscovering, by reading engine and RmlUi sources, how a panel, a button, a
+  focus state and a keyboard-driven selection are expressed here. None of it is
+  hard once known and none of it is written down. Fix: `templates/ui/` with a
+  panel, a button, a list and a menu, each a document that runs as-is against
+  the current engine, referenced from CONTRIBUTING. A working example is worth
+  more than a description, to a person and to a model alike.
+
+- [ ] UI: demonstrate keyboard and gamepad navigation. RmlUi's `nav-*`
+  properties exist and key events already reach the context
+  (`WebCanvasNode::onKey` → `ProcessKeyDown`), so directional navigation is one
+  stylesheet declaration away — but nothing in the engine, its tests or its
+  samples shows it, so every project reimplements menu movement as a glue
+  script binding keys by hand. Fix: `nav: auto` demonstrated in the templates
+  above and covered by `saida_ui_interaction_tests`, so a menu gets D-pad
+  movement without a script.
+
+- [ ] Tooling: expose the model importer as a command. The editor has a 3D
+  Importer; there is no headless equivalent, so preparing one mesh for a
+  project means writing a conversion script against a third-party Python stack
+  outside the engine. Fix: `saida_tool import-model <file> --out <glb>` over
+  the same importer the editor uses, and a `import-sprite` sibling (crop,
+  nearest-neighbour scale) for 2D UI art, which today means calling `ffmpeg` by
+  hand.
 
 ## 7. P2 — Out of scope, kept as a decision
 
