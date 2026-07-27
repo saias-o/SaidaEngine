@@ -422,6 +422,12 @@ void installDefaultBindings() {
     Input::bindGamepadAxis("MoveBackward", GamepadAxis::LeftY, 1.0f);
     Input::bindGamepadAxis("MoveLeft", GamepadAxis::LeftX, -1.0f);
     Input::bindGamepadAxis("MoveRight", GamepadAxis::LeftX, 1.0f);
+    // Right stick = look. Nothing consumed these before CameraFollow did, so
+    // they are new names rather than a change to an existing binding.
+    Input::bindGamepadAxis("LookLeft", GamepadAxis::RightX, -1.0f);
+    Input::bindGamepadAxis("LookRight", GamepadAxis::RightX, 1.0f);
+    Input::bindGamepadAxis("LookUp", GamepadAxis::RightY, -1.0f);
+    Input::bindGamepadAxis("LookDown", GamepadAxis::RightY, 1.0f);
     Input::bindGamepadButton("Jump", GamepadButton::A);
     Input::bindGamepadButton("Sprint", GamepadButton::LeftThumb);
     Input::bindGamepadAxis("Fire", GamepadAxis::RightTrigger);

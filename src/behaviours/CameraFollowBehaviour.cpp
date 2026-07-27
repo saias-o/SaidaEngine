@@ -58,10 +58,19 @@ void CameraFollowBehaviour::onReady() {
     if (auto* cam = dynamic_cast<CameraNode*>(node())) fov_ = cam->fovDegrees;
 }
 
-glm::vec2 CameraFollowBehaviour::readOrbitInput() {
+glm::vec2 CameraFollowBehaviour::readOrbitInput(float dt) {
     const glm::vec2 m = Input::mouseDelta();
-    return {m.x * yawSensitivity,
-            m.y * pitchSensitivity * (invertPitch ? 1.0f : -1.0f)};
+    glm::vec2 degrees{m.x * yawSensitivity, m.y * pitchSensitivity};
+    // The stick holds a deflection rather than reporting a movement, so it
+    // contributes a rate: degrees per second, scaled by the frame.
+    if (stickYawSpeed > 0.0f || stickPitchSpeed > 0.0f) {
+        const glm::vec2 look =
+            Input::getVector("LookLeft", "LookRight", "LookDown", "LookUp");
+        degrees.x += look.x * stickYawSpeed * dt;
+        degrees.y -= look.y * stickPitchSpeed * dt;  // stick up matches mouse up
+    }
+    degrees.y *= (invertPitch ? 1.0f : -1.0f);
+    return degrees;
 }
 
 void CameraFollowBehaviour::orbit(float yawDegrees, float pitchDegrees) {
@@ -94,7 +103,7 @@ void CameraFollowBehaviour::onUpdate(float dt) {
     if (dt <= 0.0f) return;
 
     // --- orbit ---------------------------------------------------------------
-    const glm::vec2 orbitInput = readOrbitInput();
+    const glm::vec2 orbitInput = readOrbitInput(dt);
     if (std::abs(orbitInput.x) > 1e-4f || std::abs(orbitInput.y) > 1e-4f) {
         yaw_ += orbitInput.x;
         pitch_ = std::clamp(pitch_ + orbitInput.y, minPitch, maxPitch);
@@ -239,6 +248,10 @@ void CameraFollowBehaviour::describe(reflect::TypeBuilder<CameraFollowBehaviour>
     t.property("minPitch", &CameraFollowBehaviour::minPitch).range(-89.0, 0.0).group("Orbit");
     t.property("maxPitch", &CameraFollowBehaviour::maxPitch).range(0.0, 89.0).group("Orbit");
     t.property("invertPitch", &CameraFollowBehaviour::invertPitch).group("Orbit");
+    t.property("stickYawSpeed", &CameraFollowBehaviour::stickYawSpeed).range(0.0, 720.0)
+        .group("Orbit").tooltip("right-stick look, degrees per second at full deflection; 0 = mouse only");
+    t.property("stickPitchSpeed", &CameraFollowBehaviour::stickPitchSpeed).range(0.0, 720.0)
+        .group("Orbit").tooltip("right-stick pitch, degrees per second; 0 = mouse only");
     t.property("initialPitch", &CameraFollowBehaviour::initialPitch).range(-89.0, 89.0)
         .group("Orbit").tooltip("pitch the rig starts at; NEGATIVE raises the camera above the target. 0 = keep the camera node's own orientation");
 

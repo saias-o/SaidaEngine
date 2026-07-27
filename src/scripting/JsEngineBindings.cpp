@@ -1025,6 +1025,67 @@ JSValue jsInputRebindGamepadAxis(JSContext* ctx, JSValueConst, int argc,
     return JS_NewBool(ctx, true);
 }
 
+// Additive counterparts of the rebind* calls above. `rebind` unmaps the action
+// first, which is right when replacing a control but wrong when adding one: an
+// action wanting both a key and a pad control could not be expressed at all
+// from a script, the second call always erasing the first.
+JSValue jsInputBindKey(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    std::string action;
+    std::string control;
+    std::string context = kGlobalContext;
+    if (!readActionName(ctx, argc, argv, 0, action) ||
+        !readActionName(ctx, argc, argv, 1, control) ||
+        (argc >= 3 && !readActionName(ctx, argc, argv, 2, context)))
+        return JS_ThrowTypeError(ctx, "input.bindKey(action, control, context?)");
+    KeyCode key = KeyCode::A;
+    if (!parseInputControl(control, key))
+        return JS_ThrowTypeError(ctx, "input.bindKey: unknown control '%s'", control.c_str());
+    Input::bindKey(action, key, context);
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsInputBindGamepadButton(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    std::string action;
+    std::string control;
+    std::string context = kGlobalContext;
+    if (!readActionName(ctx, argc, argv, 0, action) ||
+        !readActionName(ctx, argc, argv, 1, control) ||
+        (argc >= 3 && !readActionName(ctx, argc, argv, 2, context)))
+        return JS_ThrowTypeError(ctx, "input.bindGamepadButton(action, control, context?)");
+    GamepadButton button = GamepadButton::A;
+    if (!parseInputControl(control, button))
+        return JS_ThrowTypeError(ctx, "input.bindGamepadButton: unknown control '%s'",
+                                 control.c_str());
+    Input::bindGamepadButton(action, button, context);
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsInputBindGamepadAxis(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    std::string action;
+    std::string control;
+    if (!readActionName(ctx, argc, argv, 0, action) ||
+        !readActionName(ctx, argc, argv, 1, control))
+        return JS_ThrowTypeError(
+            ctx, "input.bindGamepadAxis(action, control, scale?, deadzone?, context?)");
+    GamepadAxis axis = GamepadAxis::LeftX;
+    if (!parseInputControl(control, axis))
+        return JS_ThrowTypeError(ctx, "input.bindGamepadAxis: unknown control '%s'",
+                                 control.c_str());
+    double scale = 1.0;
+    double deadzone = 0.1;
+    std::string context = kGlobalContext;
+    if ((argc >= 3 && JS_ToFloat64(ctx, &scale, argv[2]) != 0) ||
+        (argc >= 4 && JS_ToFloat64(ctx, &deadzone, argv[3]) != 0) ||
+        (argc >= 5 && !readActionName(ctx, argc, argv, 4, context)))
+        return JS_EXCEPTION;
+    if (!std::isfinite(scale) || std::abs(scale) > 10.0 ||
+        !std::isfinite(deadzone) || deadzone < 0.0 || deadzone > 0.99)
+        return JS_ThrowRangeError(ctx, "input.bindGamepadAxis: scale/deadzone out of range");
+    Input::bindGamepadAxis(action, axis, static_cast<float>(scale),
+                           static_cast<float>(deadzone), context);
+    return JS_NewBool(ctx, true);
+}
+
 JSValue jsInputRebindTouch(JSContext* ctx, JSValueConst, int argc,
                            JSValueConst* argv) {
     std::string action;
@@ -2015,6 +2076,11 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
                       JS_NewCFunction(ctx, jsInputInjectDevice, "injectDevice", 1));
     JS_SetPropertyStr(ctx, input, "mousePosition", JS_NewCFunction(ctx, jsInputMousePosition, "mousePosition", 0));
     JS_SetPropertyStr(ctx, input, "mouseDelta", JS_NewCFunction(ctx, jsInputMouseDelta, "mouseDelta", 0));
+    JS_SetPropertyStr(ctx, input, "bindKey", JS_NewCFunction(ctx, jsInputBindKey, "bindKey", 3));
+    JS_SetPropertyStr(ctx, input, "bindGamepadButton",
+                      JS_NewCFunction(ctx, jsInputBindGamepadButton, "bindGamepadButton", 3));
+    JS_SetPropertyStr(ctx, input, "bindGamepadAxis",
+                      JS_NewCFunction(ctx, jsInputBindGamepadAxis, "bindGamepadAxis", 5));
     JS_SetPropertyStr(ctx, input, "rebindKey", JS_NewCFunction(ctx, jsInputRebindKey, "rebindKey", 3));
     JS_SetPropertyStr(ctx, input, "rebindMouse", JS_NewCFunction(ctx, jsInputRebindMouse, "rebindMouse", 3));
     JS_SetPropertyStr(ctx, input, "rebindGamepadButton",

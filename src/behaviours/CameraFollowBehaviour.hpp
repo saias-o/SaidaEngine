@@ -38,8 +38,13 @@ public:
     // Orbit (mouse look). Pitch sign is easy to get backwards: the rig sits at
     // `pivot - forward * distance`, so a POSITIVE pitch puts the camera BELOW
     // its target and a negative one raises it.
-    float yawSensitivity = 0.20f;   // degrees per pixel
+    float yawSensitivity = 0.20f;   // degrees per pixel of mouse movement
     float pitchSensitivity = 0.18f;
+    // Stick look, in degrees per second at full deflection — a rate, where the
+    // mouse gives a displacement. Reads the Look* actions, which the default
+    // bindings put on the right stick. 0 disables that source.
+    float stickYawSpeed = 200.0f;
+    float stickPitchSpeed = 140.0f;
     float minPitch = -35.0f;        // degrees; the lower bound, i.e. how HIGH the camera may go
     float maxPitch = 70.0f;         // how far BELOW the target it may drop
     bool invertPitch = false;
@@ -99,9 +104,9 @@ public:
     void snap();
 
 protected:
-    // Orbit input for this frame, in degrees. The default reads the mouse;
-    // override to drive the camera from a gamepad stick or a cutscene.
-    virtual glm::vec2 readOrbitInput();
+    // Orbit input for this frame, in degrees. The default sums the mouse and
+    // the right stick; override to drive the camera from a cutscene.
+    virtual glm::vec2 readOrbitInput(float dt);
 
 private:
     glm::vec3 computeDesired(const glm::vec3& pivot) const;

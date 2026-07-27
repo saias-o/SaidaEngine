@@ -419,6 +419,14 @@ walking target now bleeds off at the braking rate instead of snapping down, so
 a `launch` — the thing every special move is built from — is spent rather than
 erased on the next frame. With no braking rate configured it still snaps.
 
+The right stick is bound by default to `LookLeft`/`LookRight`/`LookUp`/
+`LookDown`, which `CameraFollow` reads as a rate in degrees per second on top of
+the mouse's degrees per pixel. Scripts gain `input.bindKey`,
+`input.bindGamepadButton` and `input.bindGamepadAxis` beside the existing
+`rebind*` calls: rebinding unmaps the action first, which is right when
+replacing a control and wrong when adding one, so an action wanting both a key
+and a pad control could not be expressed from a script at all.
+
 `CameraFollow` follows the same three-entry-point rule. Past the original rig
 (distance, height, orbit, wall avoidance) it gained a vertical damping and dead
 zone separate from the horizontal one — a platformer camera that rides every
