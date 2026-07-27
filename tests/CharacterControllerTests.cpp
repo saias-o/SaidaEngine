@@ -479,6 +479,28 @@ void testInputIsOptional() {
               "a controller that reads no input stays put");
 }
 
+void testPartialInputGivesPartialSpeed() {
+    // A stick half tilted must walk at half speed. The magnitude of the intent
+    // is carried all the way through: only an input longer than 1 is clamped,
+    // and normalising a short one — as a caller reading digital actions would —
+    // is what turns an analog stick into eight directions.
+    Rig rig;
+    rig.controller->moveSpeed = 8.0f;
+
+    rig.step(5, {0.0f, 0.25f});
+    checkNear(rig.controller->planarSpeed(), 2.0f, 0.05f, "a quarter tilt walks at a quarter speed");
+
+    rig.step(5, {0.0f, 0.5f});
+    checkNear(rig.controller->planarSpeed(), 4.0f, 0.05f, "half a tilt walks at half speed");
+
+    rig.step(5, {0.0f, 1.0f});
+    checkNear(rig.controller->planarSpeed(), 8.0f, 0.05f, "a full tilt walks at full speed");
+
+    // Two keys at once must not outrun one: a diagonal is clamped, not scaled.
+    rig.step(5, {1.0f, 1.0f});
+    checkNear(rig.controller->planarSpeed(), 8.0f, 0.05f, "a diagonal is clamped to full speed");
+}
+
 void testSprintIsAnIntent() {
     // Reported from play: with readsInput off, sprinting was unreachable — the
     // only source was the key the controller no longer reads.
@@ -530,6 +552,7 @@ int main() {
     testImperativeApi();
     testLaunchMomentumSurvivesSteering();
     testInputIsOptional();
+    testPartialInputGivesPartialSpeed();
     testSprintIsAnIntent();
     std::printf("PASS: character controller (%d checks)\n", gChecks);
     return 0;
