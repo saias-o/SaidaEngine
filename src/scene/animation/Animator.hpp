@@ -70,6 +70,11 @@ public:
     bool setGraph(const AnimGraphAsset& graph,
                   std::vector<AssetDiagnostic>* diagnostics = nullptr);
 
+    // True once an authored graph owns playback, as opposed to the FSM
+    // play()-by-name builds for itself. A controller that also drives animation
+    // must ask first: a clip name tears the graph's own transitions apart.
+    bool hasAuthoredGraph() const { return authoredGraph_; }
+
     void setRootNode(std::unique_ptr<AnimNode> rootNode);
     void setStateMachine(std::unique_ptr<AnimStateMachine> sm);  // wires the blackboard
 
@@ -124,6 +129,7 @@ private:
     // Clip library + the lazily-built FSM that backs play()-by-name.
     std::unordered_map<std::string, const AnimationClip*> clips_;
     AnimStateMachine* playbackFsm_ = nullptr;  // non-owning; == rootNode_ when in use
+    bool authoredGraph_ = false;               // set by setGraph/setStateMachine
     std::unordered_set<std::string> playStates_;
     std::string currentClip_;
 

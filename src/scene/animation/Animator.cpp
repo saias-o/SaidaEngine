@@ -51,6 +51,7 @@ void Animator::setRig(Rig* rig) {
 void Animator::setRootNode(std::unique_ptr<AnimNode> rootNode) {
     rootNode_ = std::move(rootNode);
     playbackFsm_ = nullptr;  // a custom root replaces the by-name playback FSM
+    authoredGraph_ = rootNode_ != nullptr;
     playStates_.clear();
     currentClip_.clear();
 }
@@ -59,6 +60,7 @@ void Animator::setStateMachine(std::unique_ptr<AnimStateMachine> sm) {
     if (sm) sm->setBlackboard(&blackboard_);
     rootNode_ = std::move(sm);
     playbackFsm_ = nullptr;
+    authoredGraph_ = rootNode_ != nullptr;
     playStates_.clear();
     currentClip_.clear();
 }

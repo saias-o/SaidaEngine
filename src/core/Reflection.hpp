@@ -96,6 +96,9 @@ struct PropertyDesc {
     std::string name;
     std::string kind;
     std::string tooltip;
+    // Optional inspector section: same group = one collapsible header. Empty
+    // means "before the first section", so an ungrouped type is laid out as before.
+    std::string group;
     bool hasRange = false;
     double min = 0.0;
     double max = 0.0;
@@ -121,6 +124,7 @@ struct PropertyRef {
     PropertyDesc* d = nullptr;
     PropertyRef& range(double lo, double hi) { d->hasRange = true; d->min = lo; d->max = hi; return *this; }
     PropertyRef& tooltip(std::string s) { d->tooltip = std::move(s); return *this; }
+    PropertyRef& group(std::string s) { d->group = std::move(s); return *this; }
     PropertyRef& asset() { d->kind = "asset"; return *this; }
     PropertyRef& enumValues(std::vector<std::string> labels) { d->enumLabels = std::move(labels); return *this; }
 };

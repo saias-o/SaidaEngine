@@ -60,6 +60,9 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/authoring/SaidaOpApplier.cpp
     ${SAIDA_ROOT}/src/core/Reflection.cpp
     ${SAIDA_ROOT}/src/core/Profiler.cpp
+    # Needed since UI documents resolve their assets against the loaded project
+    # (Paths::projectContentPath), which RmlUiRenderInterface below calls.
+    ${SAIDA_ROOT}/src/core/Paths.cpp
     ${SAIDA_ROOT}/src/core/Camera.cpp
     ${SAIDA_ROOT}/src/graphics/GeometryRegistry.cpp
     ${SAIDA_ROOT}/src/graphics/Material.cpp

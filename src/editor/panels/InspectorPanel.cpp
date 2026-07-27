@@ -55,12 +55,55 @@ namespace {
         return "Assigned";
     }
 
+    // Opens the collapsible header a property's group asks for and closes the
+    // previous one; returns false while a group is collapsed. Properties are
+    // drawn in declaration order, so alternating groups gets one header per run.
+    class GroupSections {
+    public:
+        // The id keeps two behaviours of one type from sharing an open state.
+        explicit GroupSections(std::string id) : id_(std::move(id)) {}
+
+        ~GroupSections() { close(); }
+
+        bool enter(const std::string& group) {
+            if (group != current_) {
+                close();
+                current_ = group;
+                if (!group.empty()) {
+                    ImGui::PushID(id_.c_str());
+                    open_ = ImGui::CollapsingHeader(group.c_str(),
+                                                    ImGuiTreeNodeFlags_DefaultOpen);
+                    ImGui::PopID();
+                    inSection_ = true;
+                    if (open_) ImGui::Indent();
+                } else {
+                    open_ = true;
+                }
+            }
+            return open_;
+        }
+
+    private:
+        void close() {
+            if (inSection_ && open_) ImGui::Unindent();
+            inSection_ = false;
+            open_ = true;
+        }
+
+        std::string id_;
+        std::string current_;
+        bool inSection_ = false;
+        bool open_ = true;
+    };
+
     // Generic inspector for reflected properties. PropertyDesc lives in the
     // global TypeRegistry, so capturing it by pointer is safe.
     void drawReflectedProperties(const reflect::TypeDesc& td, Node* node, EditorUI* editor) {
         if (td.properties.empty()) return;
         PropertyEditor pe(*editor, node);
+        GroupSections sections(td.name);
         for (const reflect::PropertyDesc& p : td.properties) {
+            if (!sections.enter(p.group)) continue;
             const reflect::PropertyDesc* pd = &p;
             const char* label = p.name.c_str();
             const bool hasRange = p.hasRange;
@@ -236,7 +279,9 @@ namespace {
         static ImGuiID editId = 0;
         static nlohmann::json editOld;
 
+        GroupSections sections(type + "#" + std::to_string(index));
         for (const reflect::PropertyDesc& p : td.properties) {
+            if (!sections.enter(p.group)) continue;
             nlohmann::json value = readProperty(p, behaviour);
             const nlohmann::json before = value;
             const bool changed = editReflectedJson(p, value);

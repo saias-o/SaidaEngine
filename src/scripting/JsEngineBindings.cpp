@@ -11,6 +11,7 @@
 #include "core/Reflection.hpp"
 #include "core/Time.hpp"
 #include "graphics/ResourceManager.hpp"
+#include "behaviours/CharacterBehaviour.hpp"
 #include "physics/CharacterBodyNode.hpp"
 #include "physics/CollisionObjectNode.hpp"
 #include "physics/PhysicsWorld.hpp"
@@ -694,6 +695,100 @@ JSValue jsNodeIsOnSteepSlope(JSContext* ctx, JSValueConst, int, JSValueConst*) {
 JSValue jsNodeGroundNormal(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     CharacterBodyNode* body = characterFor(nodeFromJs(ctx));
     return makeVec3(ctx, body ? body->groundNormal() : glm::vec3(0.0f, 1.0f, 0.0f));
+}
+
+// The tuned controller, reachable from a script so it can drive the native
+// solver rather than reimplement it. A node without one answers false/zero,
+// like the physics queries above.
+CharacterBehaviour* controllerFor(Node* node) {
+    if (!node) return nullptr;
+    if (CharacterBehaviour* self = node->getBehaviour<CharacterBehaviour>()) return self;
+    for (const std::unique_ptr<Node>& child : node->children())
+        if (CharacterBehaviour* found = controllerFor(child.get())) return found;
+    return nullptr;
+}
+
+JSValue jsNodeCharacterMove(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    if (!c || argc < 2) return JS_NewBool(ctx, false);
+    double x = 0.0, y = 0.0;
+    if (JS_ToFloat64(ctx, &x, argv[0]) || JS_ToFloat64(ctx, &y, argv[1]))
+        return JS_NewBool(ctx, false);
+    c->setMoveInput({static_cast<float>(x), static_cast<float>(y)});
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeCharacterSprint(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    if (!c || argc < 1) return JS_NewBool(ctx, false);
+    c->setSprinting(JS_ToBool(ctx, argv[0]) > 0);
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeCharacterJump(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    return JS_NewBool(ctx, c && c->requestJump());
+}
+
+JSValue jsNodeCharacterReleaseJump(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    if (c) c->releaseJump();
+    return JS_NewBool(ctx, c != nullptr);
+}
+
+JSValue jsNodeCharacterLaunch(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    glm::vec3 value(0.0f);
+    if (!c || !readVec3Args(ctx, argc, argv, value)) return JS_NewBool(ctx, false);
+    c->launch(value);
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeCharacterImpulse(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    glm::vec3 value(0.0f);
+    if (!c || !readVec3Args(ctx, argc, argv, value)) return JS_NewBool(ctx, false);
+    c->addImpulse(value);
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeCharacterFace(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    if (!c || argc < 2) return JS_NewBool(ctx, false);
+    double x = 0.0, z = 0.0;
+    if (JS_ToFloat64(ctx, &x, argv[0]) || JS_ToFloat64(ctx, &z, argv[1]))
+        return JS_NewBool(ctx, false);
+    const bool instant = argc >= 3 && JS_ToBool(ctx, argv[2]) > 0;
+    c->faceDirection(glm::vec3(static_cast<float>(x), 0.0f, static_cast<float>(z)), instant);
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeCharacterSolver(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    if (!c || argc < 1) return JS_NewBool(ctx, false);
+    c->setSolverEnabled(JS_ToBool(ctx, argv[0]) > 0);
+    return JS_NewBool(ctx, true);
+}
+
+// One object rather than nine calls, read once per frame.
+JSValue jsNodeCharacterState(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    CharacterBehaviour* c = controllerFor(nodeFromJs(ctx));
+    if (!c) return JS_NULL;
+    JSValue out = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, out, "grounded", JS_NewBool(ctx, c->isGrounded()));
+    JS_SetPropertyStr(ctx, out, "jumping", JS_NewBool(ctx, c->isJumping()));
+    JS_SetPropertyStr(ctx, out, "skidding", JS_NewBool(ctx, c->isSkidding()));
+    JS_SetPropertyStr(ctx, out, "sprinting", JS_NewBool(ctx, c->isSprinting()));
+    JS_SetPropertyStr(ctx, out, "speed", JS_NewFloat64(ctx, c->planarSpeed()));
+    JS_SetPropertyStr(ctx, out, "airTime", JS_NewFloat64(ctx, c->airTime()));
+    JS_SetPropertyStr(ctx, out, "jumpsUsed", JS_NewInt32(ctx, c->jumpsUsed()));
+    JS_SetPropertyStr(ctx, out, "jumpChainIndex", JS_NewInt32(ctx, c->jumpChainIndex()));
+    JS_SetPropertyStr(ctx, out, "facingYaw", JS_NewFloat64(ctx, c->facingYawDegrees()));
+    // The stick resolved against the camera, in world space.
+    const glm::vec3 wanted = c->wantedDirection();
+    JS_SetPropertyStr(ctx, out, "wantedX", JS_NewFloat64(ctx, wanted.x));
+    JS_SetPropertyStr(ctx, out, "wantedZ", JS_NewFloat64(ctx, wanted.z));
+    return out;
 }
 
 JSValue jsNodeSetEnabled(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
@@ -1872,6 +1967,15 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JS_SetPropertyStr(ctx, node, "isOnFloor", JS_NewCFunction(ctx, jsNodeIsOnFloor, "isOnFloor", 0));
     JS_SetPropertyStr(ctx, node, "isOnSteepSlope", JS_NewCFunction(ctx, jsNodeIsOnSteepSlope, "isOnSteepSlope", 0));
     JS_SetPropertyStr(ctx, node, "groundNormal", JS_NewCFunction(ctx, jsNodeGroundNormal, "groundNormal", 0));
+    JS_SetPropertyStr(ctx, node, "characterMove", JS_NewCFunction(ctx, jsNodeCharacterMove, "characterMove", 2));
+    JS_SetPropertyStr(ctx, node, "characterSprint", JS_NewCFunction(ctx, jsNodeCharacterSprint, "characterSprint", 1));
+    JS_SetPropertyStr(ctx, node, "characterJump", JS_NewCFunction(ctx, jsNodeCharacterJump, "characterJump", 0));
+    JS_SetPropertyStr(ctx, node, "characterReleaseJump", JS_NewCFunction(ctx, jsNodeCharacterReleaseJump, "characterReleaseJump", 0));
+    JS_SetPropertyStr(ctx, node, "characterLaunch", JS_NewCFunction(ctx, jsNodeCharacterLaunch, "characterLaunch", 3));
+    JS_SetPropertyStr(ctx, node, "characterImpulse", JS_NewCFunction(ctx, jsNodeCharacterImpulse, "characterImpulse", 3));
+    JS_SetPropertyStr(ctx, node, "characterFace", JS_NewCFunction(ctx, jsNodeCharacterFace, "characterFace", 3));
+    JS_SetPropertyStr(ctx, node, "characterSolver", JS_NewCFunction(ctx, jsNodeCharacterSolver, "characterSolver", 1));
+    JS_SetPropertyStr(ctx, node, "characterState", JS_NewCFunction(ctx, jsNodeCharacterState, "characterState", 0));
     JS_SetPropertyStr(ctx, node, "setEnabled", JS_NewCFunction(ctx, jsNodeSetEnabled, "setEnabled", 1));
     JS_SetPropertyStr(ctx, node, "queueFree", JS_NewCFunction(ctx, jsNodeQueueFree, "queueFree", 0));
     JS_SetPropertyStr(ctx, node, "setText", JS_NewCFunction(ctx, jsNodeSetText, "setText", 1));

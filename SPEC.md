@@ -388,6 +388,46 @@ nodes.
 Advanced constraints (slider, cone, motors, breakables) and the rest of the
 C++/JS parity (animation/graph/sequence/blackboard) are not yet closed.
 
+**Character controller.** The `Character` behaviour on a `CharacterBody` is the
+engine's tunable movement solver, and it is meant to be reached three ways
+rather than replaced:
+
+- **Parameters.** Roughly forty reflected properties, grouped for the Inspector
+  (`Movement`, `Air`, `Jump`, `Turning`, `Ground`, `Animation`): ground and air
+  acceleration and braking, air control, a gravity that can differ on the way
+  down and near the apex, terminal velocity, a jump expressed as a height or an
+  impulse, release cut-off, coyote time, input buffering, multi-jump, a growing
+  jump chain, three turn modes with a turn-around brake, and slope sliding.
+- **Functions.** `setMoveInput`, `requestJump`, `releaseJump`, `launch`,
+  `addImpulse`, `faceDirection`, `setSolverEnabled` and the state accessors.
+  With `readsInput` off the controller reads no device at all and becomes a
+  solver its caller feeds — the mode the headless tests and a script driver use.
+- **Inheritance.** `readMoveInput`/`readJumpPressed`/`readJumpHeld`/
+  `readSprintHeld` decide what the character is asked to do; `onJumped`,
+  `onLanded`, `onStartedFalling`, `onTurnAround` and `updateAnimation` report
+  what happened. A subclass replaces an input source or reacts to a landing
+  without reimplementing the solver.
+
+The governing rule: **every parameter added to this controller defaults to the
+behaviour that existed before it**. Acceleration zero means the historic
+snap-to-speed, coyote and buffer times zero mean no grace, the cut-off
+multiplier one means a fixed-height jump. An existing scene therefore keeps its
+exact feel and opts into what it names — which is what lets WitnessGame's E2E
+remain a regression test across the change. One deliberate exception, because
+its old behaviour was a bug rather than a feel: horizontal speed above the
+walking target now bleeds off at the braking rate instead of snapping down, so
+a `launch` — the thing every special move is built from — is spent rather than
+erased on the next frame. With no braking rate configured it still snaps.
+
+`CameraFollow` follows the same three-entry-point rule. Past the original rig
+(distance, height, orbit, wall avoidance) it gained a vertical damping and dead
+zone separate from the horizontal one — a platformer camera that rides every
+jump shakes the whole screen —, look-ahead along the target's measured
+velocity, auto-recentring behind its heading gated on delay and speed, and a
+field of view that opens with speed. Occlusion is applied **after** smoothing,
+not to the point it eases toward: pulling in has to be immediate or the camera
+spends the easing frames inside the wall.
+
 ### 5.2 Input
 
 The system aggregates analog/binary actions from bindings and stackable contexts.
@@ -556,7 +596,17 @@ globals the engine explicitly installs — `console` and the
   computed by that step. Without a `CharacterBody` the setter returns `false` and
   the getters answer zero/false/up, never an exception — the same fail-soft rule
   as the `physics` queries. A game therefore drives a full character controller
-  from JavaScript alone, without a native behaviour. Gameplay (the behaviour is
+  from JavaScript alone, without a native behaviour. It can also drive the
+  native one instead of replacing it: `characterMove(x, y)`, `characterJump()`,
+  `characterReleaseJump()`, `characterLaunch(x, y, z)`,
+  `characterImpulse(x, y, z)`, `characterFace(x, z, instant?)`,
+  `characterSolver(enabled)` and `characterState()` reach the `Character`
+  behaviour resolved the same way. `characterState()` returns one object —
+  `grounded`, `jumping`, `skidding`, `speed`, `airTime`, `jumpsUsed`,
+  `jumpChainIndex`, `facingYaw`, and `wantedX`/`wantedZ`, the stick already
+  resolved against the camera — or `null` when the node carries no controller.
+  This is what lets a game keep a tuned solver and add only the moves that are
+  its own. Gameplay (the behaviour is
   resolved on the node, else the first descendant):
   `playClip(name, loop?, crossfade?)`/`currentClip()` (Animator),
   `setAnimFloat/setAnimBool/setAnimTrigger` (animation blackboard → drives a

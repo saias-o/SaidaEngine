@@ -970,6 +970,11 @@ if (BUILD_TESTING)
     target_link_libraries(saida_physics_character_tests PRIVATE saida_engine)
     add_test(NAME saida_physics_character_tests COMMAND $<TARGET_FILE:saida_physics_character_tests>)
 
+    add_executable(saida_character_controller_tests tests/CharacterControllerTests.cpp)
+    saida_test_target(saida_character_controller_tests)
+    target_link_libraries(saida_character_controller_tests PRIVATE saida_engine)
+    add_test(NAME saida_character_controller_tests COMMAND $<TARGET_FILE:saida_character_controller_tests>)
+
     add_executable(saida_hostile_asset_tests tests/HostileAssetTests.cpp)
     saida_test_target(saida_hostile_asset_tests)
     target_link_libraries(saida_hostile_asset_tests PRIVATE saida_engine)

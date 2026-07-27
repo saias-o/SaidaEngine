@@ -32,6 +32,7 @@ json TypeDesc::manifest() const {
             pj["name"] = p.name;
             pj["kind"] = p.kind;
             if (!p.tooltip.empty()) pj["doc"] = p.tooltip;
+            if (!p.group.empty()) pj["group"] = p.group;
             if (p.hasRange) { pj["min"] = p.min; pj["max"] = p.max; }
             if (!p.enumLabels.empty()) pj["values"] = p.enumLabels;
             props.push_back(std::move(pj));
