@@ -147,6 +147,24 @@ Autoloads can be scenes, native behaviours or `.js`/`.mjs` scripts. The `World`
 persists across scene changes. Nodes support hierarchy, groups, signals,
 transforms, activation and deferred removal.
 
+A scene's rendering settings (the `settings` block: ambient, clear colour, GI,
+skybox, IBL, AO, fog, bloom) have exactly one reader and one writer,
+`applySceneSettings`/`writeSceneSettings` in
+`src/scene/SceneSettingsSerialization.hpp`. Both entry points go through them —
+`Scene::serialize`/`deserialize` for the block embedded in a scene node, and
+`SceneSerializer::loadIntoScene` for a scene file. The writer emits every field,
+so an engine-written document is always complete. The reader *patches*: a field
+the document omits keeps the value already in place, which is what a scene
+instance overriding a single setting needs; a scene file therefore resets to
+`SceneSettings{}` first, so what it omits is the engine default and never the
+previous scene's. An asset reference inside that block is durable as a
+project-relative **path** (`"skyboxTexture": "assets/skies/sky.hdr"`), resolved
+through the registry at load; the numeric `AssetID` form is still read, but ids
+are regenerated whenever the registry is re-keyed (§13), so a pasted id is not a
+durable reference. An explicitly empty path clears the reference rather than
+keeping the previous one. `saida_scene_settings_tests` locks the round trip, the
+patch semantics and both reference forms.
+
 ### 3.2 SaidaOps
 
 The authoring contract covers the validated operations of creation/deletion,

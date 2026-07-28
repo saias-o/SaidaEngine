@@ -262,3 +262,89 @@ environmental, never a code fault.
   them out of the repo, leave them untracked and say so — do not silently add
   them and do not rewrite `.gitignore`/`.gitattributes` policy without being
   asked.
+
+### A character that is only a shadow (skinned mesh, colour pass, alpha)
+
+- Symptom: the skinned mesh casts a correct, animated shadow and is otherwise
+  invisible; props next to it render fine. The cause is the material, not the
+  skinning: `alphaMode: "MASK"` with `baseColorFactor` alpha `0` cuts the mesh
+  out of the colour pass while the shadow pass, which ignores alpha, still draws
+  it. Blender's FBX importer leaves Principled **Alpha at 0** on some rigs, and
+  the glTF exporter faithfully writes that out.
+- Diagnose in one step: dump the GLB's `materials` and read `alphaMode` and the
+  fourth component of `baseColorFactor`. Do not go looking at culling, bone
+  palettes or bounds first — a mesh that is culled has no shadow either.
+
+### Kenney kits: two defects that stop the loader cold
+
+- **Scene roots with a parent.** The nature kit is exported by UniGLTF, which
+  wraps the model in a `tmpParent` node and then lists the CHILD as the scene
+  root. That is invalid glTF and `cgltf_parse_file` rejects the whole file with
+  `cgltf_result_invalid_gltf` before any mesh is read. Repair the asset (point
+  each scene at its parentless nodes), never the loader.
+- **sRGB in a linear field.** `baseColorFactor` is linear by spec, but the kits
+  store the artist's sRGB hex there — `colorRed` is literally `#E04A4F` read as
+  bytes. Rendered correctly that comes out pastel, and the whole kit looks
+  washed. Convert once in the asset. Both repairs live in
+  `VerticalSlice/tools/`; they are idempotent and marked in `asset.extras`.
+
+### Aiming a third-person shooter: two sign traps
+
+- `CameraFollowBehaviour::initialPitch` is inverted from the intuition (its
+  header says so): a POSITIVE pitch drops the rig BELOW its target and aims it
+  upward, so every shot sails over. `0` is the level, neutral start.
+- `shoulderOffset` displaces the rig sideways while it keeps looking at the
+  pivot, so the camera axis no longer points where the character faces. With a
+  centre-screen crosshair the shot then lands beside whatever the player is
+  pointing at. Either keep the offset and resolve the crosshair with a ray from
+  the camera before firing from the muzzle (both — the ray gives convergence),
+  or set the offset to 0.
+
+### A NodeRef outlives what it points at
+
+- Every `NodeRef` method except `valid()` throws
+  `ReferenceError: NodeRef target no longer exists` once the node is freed. A
+  reference captured in a closure — a projectile remembering what it will hit, a
+  timer touching a child of a node it is about to free — will fire that error
+  every frame it retries. Guard with `ref.valid()`; it is the one method that
+  answers `false` instead of throwing. `queueFree()` takes the whole subtree, so
+  a child captured earlier dies with its parent.
+
+### A follow camera that flickers between two distances
+
+- Symptom: every frame the view alternates between very close to the character
+  and a little further out, and the scene reads as two images at once. It is not
+  tearing and it is not a frame-pacing problem — it is the de-occlusion probe
+  feeding back into itself, and it shows up wherever the occluder is close to the
+  pivot, i.e. as soon as the rig is pitched down into the ground.
+- Two rules keep a deoccluder stable, and `CameraFollowBehaviour` used to break
+  both: **probe the segment the rig WANTS to occupy** (pivot → desired), never
+  the one it currently occupies — a pulled-in camera otherwise casts a ray too
+  short to reach the wall that pulled it in — and **never write the correction
+  into the smoothing state**, or it becomes its own input on the next frame.
+  Carry the easing on the free *length* instead: snap it down, damp it back up.
+- Measure rather than eyeball it: a screenshot cannot show an alternation, and
+  the swing can be as small as 0.3 m while still reversing 99% of frames. Sample
+  the pivot-to-camera distance per frame and count sign changes in its delta —
+  `VerticalSlice/scripts/e2e_camera.js` does exactly that (118/119 reversals
+  before the fix, 0 after).
+
+### A follow camera that shakes while the character runs
+
+- Different cause from the flicker above, same family: the rig AMPLIFIES an
+  uneven frame clock instead of absorbing it. `CameraFollowBehaviour` measures
+  the target's speed as a one-frame finite difference, `(pos - lastPos) / dt`,
+  and a position delta divided by a jittery frame time is a noise amplifier —
+  between a 7 ms and a 24 ms frame a perfectly steady run reads as a 3x speed
+  swing. Everything downstream of it (look-ahead, the speed-driven fov, velocity
+  recentring) then shakes the whole image while the character itself is moving
+  evenly. The estimate is now low-passed before anything visible consumes it.
+- The measurement that localises this in one run: sample per frame the target's
+  step, the camera's step and `time.delta`, and compare their *unevenness* (mean
+  absolute change between consecutive steps, over the mean step). The target's
+  should equal the frame clock's; a camera above it is amplifying.
+  `VerticalSlice/scripts/e2e_run_jitter.js` gates exactly that — 1.59 against an
+  input of 0.61 before, 0.53 after.
+- Note what this does NOT fix: the frame clock itself. `dt` still ranges 7–24 ms
+  around a 10 ms mean here, and that residual unevenness is frame pacing, not the
+  camera. Do not chase it inside gameplay code.
