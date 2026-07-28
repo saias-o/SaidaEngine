@@ -57,7 +57,7 @@ The Web platform, backend and operations live in
 Download the latest beta from
 [GitHub Releases](https://github.com/saias-o/SaidaEngine/releases). Every beta
 is a pre-release and is identified by an immutable tag such as
-`v1.0.0-beta.1`.
+`v1.0.0-beta.2`.
 
 When a release does not provide a signed Windows installer, use the source
 archive or build the engine locally. Do not treat the mutable `latest`
@@ -81,7 +81,7 @@ git lfs pull
 To check out a specific beta:
 
 ```sh
-git checkout v1.0.0-beta.1
+git checkout v1.0.0-beta.2
 git submodule update --init --recursive
 git lfs pull
 ```

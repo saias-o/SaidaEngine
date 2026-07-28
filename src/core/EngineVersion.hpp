@@ -18,7 +18,7 @@
 namespace saida {
 
 // -- Product / release version (single source of truth) -----------------------
-inline constexpr const char* kProductVersion = "1.0.0-beta.1";
+inline constexpr const char* kProductVersion = "1.0.0-beta.2";
 
 // MAJOR.MINOR.PATCH core of kProductVersion, without any pre-release suffix.
 // Windows VERSIONINFO cannot carry a suffix, so exe metadata uses this. Keep the

@@ -184,7 +184,7 @@ hard-code a version string anywhere else.
   release tag (prefixed `v`). It follows [SemVer](https://semver.org): a
   `MAJOR.MINOR.PATCH` core plus an optional pre-release suffix such as
   `-beta.1`. Its single source of truth is `kProductVersion` in
-  `src/core/EngineVersion.hpp`. The current value is `1.0.0-beta.1`. Bump it in
+  `src/core/EngineVersion.hpp`. The current value is `1.0.0-beta.2`. Bump it in
   that one file on every release; keep `kProductVersionNumeric` (the suffix-free
   core, used for Windows `VERSIONINFO`) in sync.
 - **Engine format / contract version** — `kEngineVersion` in the same file
