@@ -619,6 +619,27 @@ void Renderer::updateGIDescriptors() {
     rebuildGlobalSet(currentFrame_);
 }
 
+// Diffuse IBL needs the environment's irradiance per normal, which is a property
+// of the image rather than of the frame: it is projected once, from the source
+// file, and reused until the skybox itself changes.
+void Renderer::refreshEnvironmentSH(const SceneSettings& settings) {
+    const AssetID source = settings.iblEnabled ? settings.skyboxTexture : kAssetInvalid;
+    if (source == environmentShSource_) return;
+
+    environmentShSource_ = source;
+    environmentShValid_ = false;
+    environmentSH_ = EnvironmentSH{};
+
+    if (source == kAssetInvalid) return;
+    AssetRegistry* registry = resources_.registry();
+    if (!registry) return;
+
+    const std::string path = registry->getAbsolutePath(source);
+    if (path.empty()) return;
+    environmentShValid_ = projectEquirectangularSH(path, environmentSH_);
+    if (!environmentShValid_) environmentSH_ = EnvironmentSH{};
+}
+
 void Renderer::updateEnvironmentDescriptor(Scene& scene) {
     Texture* environment = resources_.defaultWhiteTexture();
     if (scene.settings().skyboxTexture != kAssetInvalid) {
@@ -782,6 +803,8 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
         std::max(settings.iblDiffuseIntensity, 0.0f) * environmentExposure,
         std::max(settings.iblSpecularIntensity, 0.0f) * environmentExposure,
         settings.skyboxRotation);
+    refreshEnvironmentSH(settings);
+    for (int i = 0; i < 9; ++i) ubo.environmentSH[i] = environmentSH_.coefficients[i];
 
     auto getAnimatorInParent = [](Node* n) -> Animator* {
         while (n) {

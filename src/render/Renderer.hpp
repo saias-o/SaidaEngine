@@ -9,6 +9,7 @@
 #include "core/Camera.hpp"
 #include "project/AssetRegistry.hpp"
 #include "graphics/Material.hpp"     // MaterialType
+#include "render/EnvironmentSH.hpp"
 #include "render/GpuDrivenLayout.hpp"
 #include "render/RenderFeature.hpp"  // EyeRenderInfo, RenderContext, FrameContext, ScenePassFeature
 #include "rhi/Rhi.hpp"
@@ -69,6 +70,9 @@ struct LightingUBO {
     glm::ivec4 giCounts{0};     // xyz = probe counts, w = probesPerRow in atlas
     glm::ivec4 giAtlas{0};      // x = irradiance texels/probe, y = visibility texels/probe
     glm::vec4 environmentParams{0.0f}; // x enabled, y diffuse, z specular, w rotation
+    // Order-2 SH of the environment's Lambertian irradiance. Nine coefficients
+    // are what give diffuse IBL a direction — see render/EnvironmentSH.hpp.
+    glm::vec4 environmentSH[9]{};
 };
 
 class Renderer {
@@ -264,6 +268,13 @@ private:
     std::array<rhi::SamplerHandle, 2> cachedGiSampler_{};
     std::array<rhi::TextureView, 2> cachedEnvironmentView_{};
     std::array<rhi::SamplerHandle, 2> cachedEnvironmentSampler_{};
+
+    // The environment's irradiance is projected from the source image on the
+    // CPU, which is only worth doing when the skybox actually changes.
+    EnvironmentSH environmentSH_{};
+    AssetID environmentShSource_ = kAssetInvalid;
+    bool environmentShValid_ = false;
+    void refreshEnvironmentSH(const SceneSettings& settings);
 
 #ifdef SAIDA_ENABLE_XR
     bool xrMode_ = false;

@@ -28,6 +28,9 @@ layout(set = 0, binding = 1) uniform LightingUBO {
     ivec4 giCounts;     // xyz = probe counts per axis, w = probesPerRow in atlas
     ivec4 giAtlas;      // x = irradiance texels/probe, y = visibility texels/probe
     vec4 environmentParams; // x enabled, y diffuse intensity, z specular intensity, w rotation
+    // Order-2 SH of the environment's Lambertian irradiance, already folded with
+    // the basis constants and the cosine convolution (see render/EnvironmentSH).
+    vec4 environmentSH[9];
 } lights;
 
 DECL_SHADOW2DARRAY(0, 2, 8, shadowMap);
@@ -47,7 +50,6 @@ DECL_TEX2D(0, 7, 12, iblEnvironment);
 
 const float INV_TWO_PI = 0.15915494309;
 const float INV_PI = 0.31830988618;
-const float IBL_DIFFUSE_LOD_BIAS = 2.0;
 const float IBL_SPECULAR_MIP_CURVE = 1.5;
 
 // World position -> [0,1] coordinate inside the voxel/probe volume box.
@@ -224,6 +226,29 @@ vec3 environmentMissRadiance(vec3 dir) {
     return sampleEnvironmentLod(dir, 0.0) * lights.environmentParams.y;
 }
 
+// Lambertian irradiance from the environment, reconstructed from its order-2 SH.
+//
+// The alternative — one sample of a coarse mip of the equirectangular map — is
+// close to the environment's average for EVERY normal, so it adds a flat wash
+// with no horizon: a floor and a ceiling receive the same light. Nine
+// coefficients restore the direction for a few multiply-adds, which is the whole
+// reason diffuse IBL is worth having.
+vec3 environmentIrradiance(vec3 N) {
+    vec3 n = normalize(rotateEnvironmentDir(N));
+    vec3 e = lights.environmentSH[0].rgb
+           + lights.environmentSH[1].rgb * n.y
+           + lights.environmentSH[2].rgb * n.z
+           + lights.environmentSH[3].rgb * n.x
+           + lights.environmentSH[4].rgb * (n.x * n.y)
+           + lights.environmentSH[5].rgb * (n.y * n.z)
+           + lights.environmentSH[6].rgb * (3.0 * n.z * n.z - 1.0)
+           + lights.environmentSH[7].rgb * (n.x * n.z)
+           + lights.environmentSH[8].rgb * (n.x * n.x - n.y * n.y);
+    // A truncated SH series can ring below zero on high-contrast skies; negative
+    // light is not a thing.
+    return max(e, vec3(0.0));
+}
+
 // Split-sum BRDF approximation for environment specular.
 vec3 environmentBRDF(vec3 F0, float roughness, float NdotV) {
     const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
@@ -249,8 +274,7 @@ LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, floa
     vec3 F = fresnelSchlickRoughness(NdotV, F0, roughness);
     vec3 kd = (vec3(1.0) - F) * (1.0 - metallic);
 
-    float diffuseLod = max(maxLod - IBL_DIFFUSE_LOD_BIAS, 0.0);
-    vec3 irradiance = sampleEnvironmentLod(N, diffuseLod) * lights.environmentParams.y;
+    vec3 irradiance = environmentIrradiance(N) * lights.environmentParams.y;
     env.diffuse = kd * albedo * irradiance;
 
     vec3 R = reflect(-V, N);
