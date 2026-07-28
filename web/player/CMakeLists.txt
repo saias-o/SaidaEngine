@@ -111,6 +111,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/scene/ReflectedTypesPlayer.cpp
     ${SAIDA_ROOT}/src/behaviours/RotatorBehaviour.cpp
     ${SAIDA_ROOT}/src/scene/Scene.cpp
+    ${SAIDA_ROOT}/src/scene/SceneSettingsSerialization.cpp
     ${SAIDA_ROOT}/src/scene/SceneSerializer.cpp
     ${SAIDA_ROOT}/src/scene/SceneTree.cpp
     ${SAIDA_ROOT}/src/scene/SceneTimerQueue.cpp
@@ -181,6 +182,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/render/PostProcessor.cpp
     ${SAIDA_ROOT}/src/render/RenderFeatureRegistry.cpp
     ${SAIDA_ROOT}/src/render/Renderer.cpp
+    ${SAIDA_ROOT}/src/render/EnvironmentSH.cpp
     ${SAIDA_ROOT}/src/render/features/ParticleFeature.cpp
     ${SAIDA_ROOT}/src/render/features/SkyboxFeature.cpp
     ${SAIDA_ROOT}/src/render/features/WaterFeature.cpp

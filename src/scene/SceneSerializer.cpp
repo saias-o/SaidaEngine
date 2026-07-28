@@ -13,6 +13,7 @@
 #include "scene/Node.hpp"
 #include "scene/NodeRegistry.hpp"
 #include "scene/Scene.hpp"
+#include "scene/SceneSettingsSerialization.hpp"
 #include "scene/SerializationHelpers.hpp"
 
 #include "nlohmann/json.hpp"
@@ -346,38 +347,12 @@ bool SceneSerializer::loadIntoScene(Scene& scene, ResourceManager& resources,
         if (root.contains("id")) scene.assignSerializedId(root["id"].get<NodeId>());
         else scene.regenerateId();
         
-        // Load native scene settings (if new format)
-        if (auto it = root.find("settings"); it != root.end()) {
-            scene.settings().ambientLight = glm::vec4(jsonToVec3(it->value("ambient", json())), 0.0f);
-            scene.settings().clearColor = glm::vec4(jsonToVec3(it->value("clearColor", json())), 1.0f);
-            scene.settings().enablePostProcessing = it->value("postProcessing", true);
-            scene.settings().lightingMode = static_cast<LightingMode>(it->value("lightingMode", 0));
-            scene.settings().giEnabled = it->value("giEnabled", true);
-            scene.settings().giMode = static_cast<GIMode>(it->value("giMode", 0));
-            scene.settings().giIntensity = it->value("giIntensity", 1.0f);
-            scene.settings().skyboxTexture = it->value("skyboxTexture", kAssetInvalid);
-            scene.settings().skyboxExposure = it->value("skyboxExposure", 1.0f);
-            scene.settings().skyboxRotation = it->value("skyboxRotation", 0.0f);
-            scene.settings().iblEnabled = it->value("iblEnabled", true);
-            scene.settings().iblDiffuseIntensity = it->value("iblDiffuseIntensity", 0.35f);
-            scene.settings().iblSpecularIntensity = it->value("iblSpecularIntensity", 1.0f);
-            scene.settings().aoEnabled = it->value("aoEnabled", true);
-            scene.settings().aoRadius = it->value("aoRadius", 0.75f);
-            scene.settings().aoIntensity = it->value("aoIntensity", 1.0f);
-            scene.settings().aoPower = it->value("aoPower", 1.35f);
-            scene.settings().fogEnabled = it->value("fogEnabled", false);
-            if (it->contains("fogColor"))
-                scene.settings().fogColor = glm::vec4(jsonToVec3(it->value("fogColor", json())), 1.0f);
-            scene.settings().fogStart = it->value("fogStart", 8.0f);
-            scene.settings().fogDensity = it->value("fogDensity", 0.035f);
-            scene.settings().bloomEnabled = it->value("bloomEnabled", true);
-            scene.settings().bloomThreshold = it->value("bloomThreshold", 1.0f);
-            scene.settings().bloomIntensity = it->value("bloomIntensity", 0.25f);
-            scene.settings().bloomRadius = it->value("bloomRadius", 3.0f);
-            scene.settings().changeRenderingAtLoad = it->value("changeRenderingAtLoad", true);
-        } else {
-            scene.settings() = SceneSettings{}; // Reset to defaults if missing
-        }
+        // A scene file states its rendering settings in full: whatever it omits
+        // takes the engine default, never what the previous scene happened to
+        // leave behind.
+        scene.settings() = SceneSettings{};
+        if (auto it = root.find("settings"); it != root.end())
+            applySceneSettings(*it, scene.settings(), resources);
 
         if (auto it = root.find("children"); it != root.end() && it->is_array()) {
             for (const json& cj : *it) {

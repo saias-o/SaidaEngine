@@ -10,6 +10,7 @@
 #endif
 #include "nodes/ParticleSystemNode.hpp"
 #include "scene/SerializationHelpers.hpp"
+#include "scene/SceneSettingsSerialization.hpp"
 #include "graphics/ResourceManager.hpp"
 #ifndef SAIDA_NO_PHYSICS
 #include "physics/PhysicsWorld.hpp"
@@ -188,34 +189,7 @@ void Scene::serialize(nlohmann::json& j, ResourceManager& resources) const {
         j["prefabAssetId"] = prefabAssetId_;
         j.erase("children"); // Do not serialize children for prefabs
     }
-    j["settings"] = {
-        {"ambient", vec3ToJson(settings_.ambientLight)},
-        {"clearColor", vec3ToJson(settings_.clearColor)},
-        {"postProcessing", settings_.enablePostProcessing},
-        {"lightingMode", static_cast<int>(settings_.lightingMode)},
-        {"giEnabled", settings_.giEnabled},
-        {"giMode", static_cast<int>(settings_.giMode)},
-        {"giIntensity", settings_.giIntensity},
-        {"skyboxTexture", settings_.skyboxTexture},
-        {"skyboxExposure", settings_.skyboxExposure},
-        {"skyboxRotation", settings_.skyboxRotation},
-        {"iblEnabled", settings_.iblEnabled},
-        {"iblDiffuseIntensity", settings_.iblDiffuseIntensity},
-        {"iblSpecularIntensity", settings_.iblSpecularIntensity},
-        {"aoEnabled", settings_.aoEnabled},
-        {"aoRadius", settings_.aoRadius},
-        {"aoIntensity", settings_.aoIntensity},
-        {"aoPower", settings_.aoPower},
-        {"fogEnabled", settings_.fogEnabled},
-        {"fogColor", vec3ToJson(glm::vec3(settings_.fogColor))},
-        {"fogStart", settings_.fogStart},
-        {"fogDensity", settings_.fogDensity},
-        {"bloomEnabled", settings_.bloomEnabled},
-        {"bloomThreshold", settings_.bloomThreshold},
-        {"bloomIntensity", settings_.bloomIntensity},
-        {"bloomRadius", settings_.bloomRadius},
-        {"changeRenderingAtLoad", settings_.changeRenderingAtLoad}
-    };
+    writeSceneSettings(settings_, j["settings"]);
 
     if (!connectionDefs_.empty()) {
         nlohmann::json conns = nlohmann::json::array();
@@ -248,41 +222,9 @@ void Scene::deserialize(const nlohmann::json& j, ResourceManager& resources) {
     if (j.contains("prefabAssetId")) {
         prefabAssetId_ = j["prefabAssetId"].get<AssetID>();
     }
-    if (j.contains("settings")) {
-        auto js = j["settings"];
-        settings_.ambientLight = glm::vec4(jsonToVec3(js["ambient"], glm::vec3(0.1f)), 1.0f);
-        settings_.clearColor = glm::vec4(jsonToVec3(js["clearColor"], glm::vec3(0.0f)), 1.0f);
-        if (js.contains("postProcessing")) settings_.enablePostProcessing = js["postProcessing"].get<bool>();
-        if (js.contains("lightingMode")) settings_.lightingMode = static_cast<LightingMode>(js["lightingMode"].get<int>());
-        if (js.contains("giEnabled")) settings_.giEnabled = js["giEnabled"].get<bool>();
-        if (js.contains("giMode")) settings_.giMode = static_cast<GIMode>(js["giMode"].get<int>());
-        if (js.contains("giIntensity")) settings_.giIntensity = js["giIntensity"].get<float>();
-        if (js.contains("skyboxTexture")) {
-            if (js["skyboxTexture"].is_number_integer()) {
-                settings_.skyboxTexture = js["skyboxTexture"].get<AssetID>();
-            } else if (js["skyboxTexture"].is_string()) {
-                settings_.skyboxTexture = resources.getOrRegister(js["skyboxTexture"].get<std::string>(), AssetType::Texture);
-            }
-        }
-        if (js.contains("skyboxExposure")) settings_.skyboxExposure = js["skyboxExposure"].get<float>();
-        if (js.contains("skyboxRotation")) settings_.skyboxRotation = js["skyboxRotation"].get<float>();
-        if (js.contains("iblEnabled")) settings_.iblEnabled = js["iblEnabled"].get<bool>();
-        if (js.contains("iblDiffuseIntensity")) settings_.iblDiffuseIntensity = js["iblDiffuseIntensity"].get<float>();
-        if (js.contains("iblSpecularIntensity")) settings_.iblSpecularIntensity = js["iblSpecularIntensity"].get<float>();
-        if (js.contains("aoEnabled")) settings_.aoEnabled = js["aoEnabled"].get<bool>();
-        if (js.contains("aoRadius")) settings_.aoRadius = js["aoRadius"].get<float>();
-        if (js.contains("aoIntensity")) settings_.aoIntensity = js["aoIntensity"].get<float>();
-        if (js.contains("aoPower")) settings_.aoPower = js["aoPower"].get<float>();
-        if (js.contains("fogEnabled")) settings_.fogEnabled = js["fogEnabled"].get<bool>();
-        if (js.contains("fogColor")) settings_.fogColor = glm::vec4(jsonToVec3(js["fogColor"], glm::vec3(settings_.fogColor)), 1.0f);
-        if (js.contains("fogStart")) settings_.fogStart = js["fogStart"].get<float>();
-        if (js.contains("fogDensity")) settings_.fogDensity = js["fogDensity"].get<float>();
-        if (js.contains("bloomEnabled")) settings_.bloomEnabled = js["bloomEnabled"].get<bool>();
-        if (js.contains("bloomThreshold")) settings_.bloomThreshold = js["bloomThreshold"].get<float>();
-        if (js.contains("bloomIntensity")) settings_.bloomIntensity = js["bloomIntensity"].get<float>();
-        if (js.contains("bloomRadius")) settings_.bloomRadius = js["bloomRadius"].get<float>();
-        if (js.contains("changeRenderingAtLoad")) settings_.changeRenderingAtLoad = js["changeRenderingAtLoad"].get<bool>();
-    }
+    // Patch semantics: a prefab instance overrides only the settings it names.
+    if (auto it = j.find("settings"); it != j.end())
+        applySceneSettings(*it, settings_, resources);
 }
 
 } // namespace saida

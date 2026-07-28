@@ -407,6 +407,7 @@ add_library(saida_engine STATIC
     src/render/CameraDirector.cpp
     src/behaviours/CameraFollowBehaviour.cpp
     src/scene/Scene.cpp
+    src/scene/SceneSettingsSerialization.cpp
     src/scene/SceneTree.cpp
     src/scene/SceneTimerQueue.cpp
     src/scene/SceneSerializer.cpp
@@ -478,6 +479,7 @@ add_library(saida_engine STATIC
     src/graphics/TextureCache.cpp
     src/graphics/ResourceManager.cpp
     src/render/Renderer.cpp
+    src/render/EnvironmentSH.cpp
     src/render/PostProcessor.cpp
     src/render/RenderFeatureRegistry.cpp
     src/fx/ParticleRuntime.cpp
@@ -790,6 +792,12 @@ if (BUILD_TESTING)
     target_link_libraries(saida_scene_lifecycle_tests PRIVATE saida_engine)
     target_compile_options(saida_scene_lifecycle_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_scene_lifecycle_tests COMMAND $<TARGET_FILE:saida_scene_lifecycle_tests>)
+
+    add_executable(saida_scene_settings_tests tests/SceneSettingsSerializationTests.cpp)
+    saida_test_target(saida_scene_settings_tests)
+    target_link_libraries(saida_scene_settings_tests PRIVATE saida_engine)
+    target_compile_options(saida_scene_settings_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_scene_settings_tests COMMAND $<TARGET_FILE:saida_scene_settings_tests>)
 
     add_executable(saida_scene_timer_tests tests/SceneTimerQueueTests.cpp)
     saida_test_target(saida_scene_timer_tests)
