@@ -50,21 +50,6 @@ function bindBack(id) {
     required(id).addEventListener("click", showMain);
 }
 
-function bindPointerState(element) {
-    element.addEventListener("mouseover", function () {
-        element.classList.add("is-hovered");
-    });
-    element.addEventListener("mouseout", function () {
-        element.classList.remove("is-hovered");
-    });
-    element.addEventListener("focus", function () {
-        element.classList.add("is-focused");
-    });
-    element.addEventListener("blur", function () {
-        element.classList.remove("is-focused");
-    });
-}
-
 function beginJourney() {
     if (launchRequested) return;
     launchRequested = true;
@@ -114,10 +99,5 @@ contrastToggle.addEventListener("click", function () {
 bindBack("how-back");
 bindBack("options-back");
 bindBack("credits-back");
-
-const interactiveControls = document.querySelectorAll(".ui-hit");
-for (let i = 0; i < interactiveControls.length; i += 1) {
-    bindPointerState(interactiveControls[i]);
-}
 
 playButton.focus();

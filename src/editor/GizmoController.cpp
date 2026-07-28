@@ -134,10 +134,6 @@ void GizmoController::draw(EditorUI& editor, Camera* camera, Scene* scene) {
         return;
     }
 
-    ImGuiViewport* vp = ImGui::GetMainViewport();
-    editor.viewportPos_ = glm::vec2(vp->WorkPos.x, vp->WorkPos.y);
-    editor.viewportSize_ = glm::vec2(vp->WorkSize.x, vp->WorkSize.y);
-
     const ImVec2 imMousePos = ImGui::GetMousePos();
     const glm::vec2 mousePos(imMousePos.x, imMousePos.y);
     glm::mat4 viewProj = camera->projection() * camera->view();

@@ -124,6 +124,15 @@ public:
         return document;
     }
 
+    Rml::ElementDocument* showFile(const fs::path& path) {
+        Rml::ElementDocument* document = context_->LoadDocument(path.generic_string());
+        if (document) {
+            document->Show();
+            context_->Update();
+        }
+        return document;
+    }
+
 private:
     Rml::Context* context_ = nullptr;
     std::string name_;
@@ -390,6 +399,30 @@ void testHudRasterizerEmptyCanvasHasNoContent() {
     require(!frame.hasContent, "text-less HUD reports no content (no wasted draw)");
 }
 
+void testVerticalSliceMenuButtonHoverMatchesVisualBox() {
+    ContextFixture ctx("corpus-vertical-slice-menu", 1021, 654);
+    const fs::path menuPath =
+        fs::path(__FILE__).parent_path().parent_path() / "VerticalSlice/ui/main_menu.html";
+    Rml::ElementDocument* document = ctx.showFile(menuPath);
+    require(document != nullptr, "VerticalSlice main menu loads in the RmlUi corpus");
+
+    const char* ids[] = {
+        "play-button", "how-button", "options-button", "credits-button", "quit-button"
+    };
+    for (const char* id : ids) {
+        Rml::Element* button = document->GetElementById(id);
+        require(button != nullptr, "VerticalSlice menu button exists");
+        const Rml::Vector2f position = button->GetAbsoluteOffset(Rml::BoxArea::Border);
+        const Rml::Vector2f size = button->GetBox().GetSize(Rml::BoxArea::Border);
+        const Rml::Vector2f center = position + size * 0.5f;
+
+        ctx->ProcessMouseMove(static_cast<int>(center.x), static_cast<int>(center.y), 0);
+        ctx->Update();
+        require(button->IsPseudoClassSet("hover"),
+                "pointer at a VerticalSlice button's visual center hovers that button");
+    }
+}
+
 // -- CPU backend measurement -> GPU backend decision --------------------------
 //
 // The choice of "no RmlUi GPU backend in V1" (SPEC section 8.3) must rest on a
@@ -452,6 +485,7 @@ int main() {
     testDpRatioScalesDpUnits();
     testHudRasterizerRendersCanvasText();
     testHudRasterizerEmptyCanvasHasNoContent();
+    testVerticalSliceMenuButtonHoverMatchesVisualBox();
     testCpuRasterizationCostIsBudgeted();
 
     RmlUiRuntime::shutdown();

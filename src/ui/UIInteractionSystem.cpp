@@ -134,14 +134,15 @@ std::vector<WebCanvasNode*> activeWebCanvases(Scene& scene) {
     return canvases;
 }
 
-WebHit findWebCanvas(Scene& scene, const Camera& camera, glm::vec2 point, glm::vec2 viewportSize) {
+WebHit findWebCanvas(Scene& scene, const Camera& camera, glm::vec2 point,
+                     glm::vec2 viewportSize, bool interactiveOnly = true) {
     WebHit hit;
     std::vector<WebCanvasNode*> canvases = activeWebCanvases(scene);
     for (auto it = canvases.rbegin(); it != canvases.rend(); ++it) {
         WebCanvasNode* wcn = *it;
         if (wcn->mode() == WebCanvasNode::Mode::ScreenSpace && wcn->screenContains(point)) {
             glm::vec2 local = wcn->screenToLocal(point);
-            if (!wcn->hitTest(local)) continue;
+            if (interactiveOnly && !wcn->hitTest(local)) continue;
             hit.canvas = wcn;
             hit.local = local;
             hit.distance = -1.0f;
@@ -156,7 +157,7 @@ WebHit findWebCanvas(Scene& scene, const Camera& camera, glm::vec2 point, glm::v
         glm::vec2 local{0.0f};
         float distance = 0.0f;
         if (wcn->raycast(origin, direction, local, distance) &&
-            wcn->hitTest(local) && distance < hit.distance) {
+            (!interactiveOnly || wcn->hitTest(local)) && distance < hit.distance) {
             hit.canvas = wcn;
             hit.local = local;
             hit.distance = distance;
@@ -172,10 +173,40 @@ glm::vec2 clampCanvasLocal(WebCanvasNode& canvas, glm::vec2 local) {
     };
 }
 
+bool containsNode(const Node& root, const Node* target) {
+    if (!target) return false;
+    if (&root == target) return true;
+    for (const auto& child : root.children()) {
+        if (containsNode(*child, target)) return true;
+    }
+    return false;
+}
+
 } // namespace
 
 bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::vec2& mousePos, const glm::vec2& viewportSize,
                                  bool isLeftDown, bool isLeftJustPressed, bool isLeftJustReleased) {
+    if (hierarchyVersion_ != Node::g_hierarchyVersion) {
+        hierarchyVersion_ = Node::g_hierarchyVersion;
+        auto isLive = [&scene](const Node* node) {
+            return node && containsNode(scene, node);
+        };
+
+        if (!isLive(hoveredNode_)) hoveredNode_ = nullptr;
+        if (!isLive(pressedNode_)) pressedNode_ = nullptr;
+        if (!isLive(hoveredWebCanvas_)) hoveredWebCanvas_ = nullptr;
+        if (!isLive(focusedWebCanvas_)) focusedWebCanvas_ = nullptr;
+
+        for (auto it = touchTargets_.begin(); it != touchTargets_.end();) {
+            if (isLive(it->second)) {
+                ++it;
+            } else {
+                touchLocalPositions_.erase(it->first);
+                it = touchTargets_.erase(it);
+            }
+        }
+    }
+
     UICanvasNode* canvas = scene.uiCanvas();
     if (!canvas || !canvas->isActiveInHierarchy()) {
         if (hoveredNode_) {
@@ -229,10 +260,15 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
         pressedNode_ = nullptr;
     }
 
-    WebHit mouseHit = findWebCanvas(scene, camera, mousePos, viewportSize);
+    // RmlUi must see every move while the pointer is inside the canvas. Using
+    // hitTest() as a prerequisite creates a circular hover dependency: the
+    // hovered element cannot change until ProcessMouseMove() runs, so pointer
+    // direction changes where a button appears to become active.
+    WebHit mouseHit = findWebCanvas(scene, camera, mousePos, viewportSize, false);
     WebCanvasNode* webTarget = mouseHit.canvas;
 
     bool webHandled = false;
+    bool webInteractive = false;
     const int modifiers = rmlModifiers();
     if (hoveredWebCanvas_ && hoveredWebCanvas_ != webTarget) {
         webHandled = hoveredWebCanvas_->fireMouseLeave() || webHandled;
@@ -242,22 +278,32 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
         glm::vec2 local = clampCanvasLocal(*webTarget, mouseHit.local);
         int mx = static_cast<int>(local.x);
         int my = static_cast<int>(local.y);
-        webHandled = webTarget->fireMouseEvent(WebCanvasNode::MouseEvent::Move, mx, my,
-            isLeftDown ? WebCanvasNode::MouseButton::Left : WebCanvasNode::MouseButton::None, modifiers) || webHandled;
+        webInteractive = webTarget->hitTest(local);
+        webTarget->fireMouseEvent(
+            WebCanvasNode::MouseEvent::Move, mx, my,
+            isLeftDown ? WebCanvasNode::MouseButton::Left : WebCanvasNode::MouseButton::None,
+            modifiers);
+        if (webInteractive) webHandled = true;
 
         const std::array<MouseButton, 3> buttons{MouseButton::Left, MouseButton::Right, MouseButton::Middle};
         for (MouseButton button : buttons) {
             if (Input::isMouseButtonPressed(button)) {
-                focusedWebCanvas_ = webTarget;
-                webHandled = webTarget->fireMouseEvent(WebCanvasNode::MouseEvent::Down, mx, my, webButton(button), modifiers) || true;
+                if (webInteractive) {
+                    focusedWebCanvas_ = webTarget;
+                    webHandled = webTarget->fireMouseEvent(
+                        WebCanvasNode::MouseEvent::Down, mx, my, webButton(button),
+                        modifiers) || true;
+                } else {
+                    focusedWebCanvas_ = nullptr;
+                }
             }
-            if (Input::isMouseButtonReleased(button)) {
+            if (webInteractive && Input::isMouseButtonReleased(button)) {
                 webHandled = webTarget->fireMouseEvent(WebCanvasNode::MouseEvent::Up, mx, my, webButton(button), modifiers) || webHandled;
             }
         }
 
         glm::vec2 scroll = Input::scrollDelta();
-        if (scroll.x != 0.0f || scroll.y != 0.0f) {
+        if (webInteractive && (scroll.x != 0.0f || scroll.y != 0.0f)) {
             webHandled = webTarget->fireScrollEvent(scroll.x, scroll.y, modifiers) || true;
         }
     } else {
@@ -316,7 +362,7 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
 
     bool nativeUiActive = targetNode || hoveredNode_ || pressedNode_;
     Input::setUiCapture(focusedWebCanvas_ != nullptr || nativeUiActive,
-                        webTarget != nullptr || !touchTargets_.empty() || nativeUiActive);
+                        webInteractive || !touchTargets_.empty() || nativeUiActive);
     return webHandled || nativeUiActive;
 }
 

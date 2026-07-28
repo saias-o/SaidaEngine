@@ -30,6 +30,7 @@ private:
     WebCanvasNode* focusedWebCanvas_ = nullptr;
     std::unordered_map<uint64_t, WebCanvasNode*> touchTargets_;
     std::unordered_map<uint64_t, glm::vec2> touchLocalPositions_;
+    uint32_t hierarchyVersion_ = 0;
 };
 
 } // namespace saida

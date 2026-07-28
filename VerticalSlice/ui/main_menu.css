@@ -189,23 +189,21 @@ h1 {
     border: 1px #9cb28d58;
     border-left: 3px #a7d96b89;
     text-align: left;
-    transition: padding-left 0.18s quadratic-out, background-color 0.18s quadratic-out, border-color 0.18s quadratic-out, color 0.18s quadratic-out;
     nav: auto;
     cursor: pointer;
 }
 
-.menu-button:hover,
-.menu-button:focus,
-.menu-button.is-hovered,
-.menu-button.is-focused {
+.menu-button:hover {
     color: #ffffff;
     background-color: #29452eea;
     border-color: #c9f38e;
-    padding-left: 32px;
+}
+
+.menu-button:focus {
+    border-color: #c9f38e;
 }
 
 .menu-button:active {
-    padding-left: 36px;
     background-color: #416238f2;
 }
 
@@ -215,10 +213,7 @@ h1 {
     color: #ffffff;
 }
 
-.menu-button.primary:hover,
-.menu-button.primary:focus,
-.menu-button.primary.is-hovered,
-.menu-button.primary.is-focused {
+.menu-button.primary:hover {
     background-color: #79a74ff2;
 }
 
@@ -233,7 +228,6 @@ h1 {
     color: #9fc475;
     font-size: 12px;
     letter-spacing: 2px;
-    transition: color 0.18s quadratic-out;
 }
 
 .button-copy {
@@ -246,7 +240,6 @@ h1 {
     font-weight: 700;
     letter-spacing: 2px;
     line-height: 1.1;
-    transition: color 0.18s quadratic-out;
 }
 
 .button-note {
@@ -254,7 +247,6 @@ h1 {
     color: #9ead9e;
     font-size: 12px;
     letter-spacing: 1px;
-    transition: color 0.18s quadratic-out;
 }
 
 .button-arrow {
@@ -262,40 +254,22 @@ h1 {
     color: #c9f38e;
     font-size: 23px;
     text-align: center;
-    transition: color 0.18s quadratic-out;
 }
 
-.menu-button:hover .button-arrow,
-.menu-button:focus .button-arrow,
-.menu-button.is-hovered .button-arrow,
-.menu-button.is-focused .button-arrow {
+.menu-button:hover .button-arrow {
     color: #ffffff;
 }
 
-.menu-button:hover .button-index,
-.menu-button:focus .button-index,
-.menu-button.is-hovered .button-index,
-.menu-button.is-focused .button-index {
+.menu-button:hover .button-index {
     color: #d8ff9e;
 }
 
-.menu-button:hover .button-label,
-.menu-button:focus .button-label,
-.menu-button.is-hovered .button-label,
-.menu-button.is-focused .button-label {
+.menu-button:hover .button-label {
     color: #ffffff;
 }
 
-.menu-button:hover .button-note,
-.menu-button:focus .button-note,
-.menu-button.is-hovered .button-note,
-.menu-button.is-focused .button-note {
+.menu-button:hover .button-note {
     color: #d0ddce;
-}
-
-.menu-button span,
-.preference-button span {
-    pointer-events: none;
 }
 
 .expedition-card {
@@ -451,17 +425,17 @@ h1 {
     background-color: #14251dc4;
     border: 1px #8da68155;
     text-align: left;
-    transition: padding-left 0.18s quadratic-out, background-color 0.18s quadratic-out, border-color 0.18s quadratic-out;
+    transition: background-color 0.18s quadratic-out, border-color 0.18s quadratic-out;
     nav: auto;
 }
 
-.preference-button:hover,
-.preference-button:focus,
-.preference-button.is-hovered,
-.preference-button.is-focused {
+.preference-button:hover {
     background-color: #29452eea;
     border-color: #c9f38e;
-    padding-left: 28px;
+}
+
+.preference-button:focus {
+    border-color: #c9f38e;
 }
 
 .preference-copy {
@@ -486,10 +460,7 @@ h1 {
     transition: background-color 0.18s quadratic-out, color 0.18s quadratic-out;
 }
 
-.preference-button:hover .preference-value,
-.preference-button:focus .preference-value,
-.preference-button.is-hovered .preference-value,
-.preference-button.is-focused .preference-value {
+.preference-button:hover .preference-value {
     color: #ffffff;
     background-color: #5d843f;
 }
@@ -503,17 +474,17 @@ h1 {
     border: 1px #8fa67e80;
     font-size: 12px;
     letter-spacing: 2px;
-    transition: padding-left 0.18s quadratic-out, background-color 0.18s quadratic-out, color 0.18s quadratic-out;
+    transition: background-color 0.18s quadratic-out, color 0.18s quadratic-out;
     nav: auto;
 }
 
-.back-button:hover,
-.back-button:focus,
-.back-button.is-hovered,
-.back-button.is-focused {
+.back-button:hover {
     color: #ffffff;
     background-color: #35552d;
-    padding-left: 26px;
+}
+
+.back-button:focus {
+    border-color: #c9f38e;
 }
 
 .credit-line {

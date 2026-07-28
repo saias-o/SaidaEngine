@@ -176,6 +176,20 @@ void testInactiveCanvasIgnored() {
     require(!Input::uiCapturesMouse(), "an inactive canvas releases mouse capture");
 }
 
+void testRemovedCanvasClearsInteractionState() {
+    Fixture fx;
+    fx.addButton(0.0f, 0.0f, 200.0f, 200.0f);
+    fx.frame({100.0f, 100.0f}, true, true, false);
+    require(Input::uiCapturesMouse(), "pressed UI captures input before removal");
+
+    fx.scene.removeChild(fx.canvas);
+    fx.canvas = nullptr;
+    bool handled = fx.frame({100.0f, 100.0f}, false, false, true);
+
+    require(!handled, "a removed UI subtree leaves no stale interaction target");
+    require(!Input::uiCapturesMouse(), "removing the active UI subtree releases input capture");
+}
+
 } // namespace
 
 int main() {
@@ -186,6 +200,7 @@ int main() {
     testDisabledButtonIsTransparent();
     testTopmostWins();
     testInactiveCanvasIgnored();
+    testRemovedCanvasClearsInteractionState();
 
     std::cout << "[ui-interaction] PASS (" << gChecks << " checks)\n";
     return 0;

@@ -348,3 +348,62 @@ environmental, never a code fault.
 - Note what this does NOT fix: the frame clock itself. `dt` still ranges 7–24 ms
   around a 10 ms mean here, and that residual unevenness is frame pacing, not the
   camera. Do not chase it inside gameplay code.
+
+### WebCanvas callbacks and scene changes have two re-entrancy traps
+
+- A JavaScript DOM mutation made from an RmlUi listener must not call
+  `Rml::Context::Update()` synchronously. Focus and pointer listeners are
+  themselves dispatched from an update; re-entering it repeats the listener
+  until QuickJS reports `Maximum call stack size exceeded`, then can overflow
+  the native stack. Mark the canvas dirty and let the renderer's normal UI
+  update make the mutation visible later in the same frame.
+- `UIInteractionSystem` keeps hovered, pressed, focused and touch targets across
+  frames. A deferred `changeScene` destroys the old `WebCanvasNode` after input
+  handling, so those raw pointers must be discarded when the hierarchy version
+  changes before calling `fireMouseLeave()` or forwarding the next key. The
+  characteristic crash resolves to `Rml::Context::ProcessMouseLeave()` on the
+  context owned by the already-destroyed menu.
+- Do not gate `ProcessMouseMove()` on `WebCanvasNode::hitTest()`. RmlUi needs
+  every move inside the canvas to update its own hovered element; pre-filtering
+  moves creates direction-dependent hover hysteresis. Route movement by canvas
+  geometry, then use `hitTest()` only for click, scroll and input-capture policy.
+
+### The editor viewport is the dockspace central node
+
+- `EditorUI::drawDockspace` records the drawable scene rectangle from ImGui's
+  dockspace central node. That rectangle is shared by rendering, picking,
+  gizmos and screen-space UI input.
+- Do not replace it with `ImGui::GetMainViewport()->WorkPos/WorkSize` in a
+  panel or gizmo pass. The main viewport includes docked panels, so the scene
+  and WebCanvas render behind those panels while input appears offset from the
+  visible center area.
+- Diagnose this mismatch by checking whether a full-screen WebCanvas is clipped
+  under the Scene Tree or Inspector. The correct fix is to preserve the central
+  dock rectangle, not to compensate individual mouse or CSS coordinates.
+
+### A colour transition can look exactly like a displaced hover hitbox
+
+- If hover appears only at the far edge of every control, and that edge reverses
+  when pointer travel reverses, first inspect the transition duration. A
+  180 ms transition on every hover colour made a correctly targeted button
+  become visibly highlighted only after the pointer had crossed most of it.
+- Verify the distinction by checking the RmlUi `hover` pseudo-class at the
+  element's border-box centre. If it changes immediately while pixels fade,
+  input geometry is correct and coordinate compensation will make the system
+  worse.
+- Keep the primary pointer affordance immediate. Animate secondary decoration
+  or hover exit when desired; do not add JavaScript hover classes to compensate
+  for a visual transition.
+
+### `tree.changeScene()` confirms queuing, not loading
+
+- The QuickJS binding returns `true` once its argument converts to a string and
+  the deferred request is queued. It does not resolve or load the scene before
+  returning.
+- A missing or rejected scene therefore fails later while gameplay has already
+  received a truthy result. Do not consume an irreplaceable portal, key or
+  objective solely on that return value. Keep a retry path until the engine
+  exposes transition completion/failure.
+- Verify a transition by observing a marker in the destination scene after at
+  least one deferred-operation frame. `VerticalSlice/scripts/e2e_level2.js`
+  follows this pattern.

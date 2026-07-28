@@ -1169,7 +1169,10 @@ void WebCanvasNode::removeJsEventListener(Rml::Element* element, const std::stri
 }
 
 void WebCanvasNode::notifyJsMutation() {
-    if (rmlContext_) rmlContext_->Update();
+    // RmlUi dispatches focus and pointer listeners from Context::Update().
+    // Updating again from a JS listener re-enters the same event dispatch and
+    // eventually overflows the QuickJS stack. The renderer updates the context
+    // before the next UI upload, so mutations remain visible in the same frame.
     markUiDirty();
 }
 
