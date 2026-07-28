@@ -205,7 +205,7 @@ function respawn() {
     node.setPosition(props.respawnX, props.respawnY, props.respawnZ);
     if (gameState !== null) {
         gameState.call("damagePlayer", 20.0);
-        gameState.call("announce", "AIE — retour au depart", 2.0);
+        gameState.call("announce", "OUCH — back to the start", 2.0);
     }
     audio.play("hurt");
 }

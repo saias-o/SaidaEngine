@@ -16,6 +16,7 @@ pipeline_cache.bin
 
 # Runtime saves written by the storage API during playtests
 WitnessGame/saves/
+VerticalSlice/saves/
 
 # Build logs and scratch files
 build_*.txt

@@ -1,12 +1,12 @@
 {
     "assets": {
         "10016409779636306990": {
-            "hash": 14512720548387139663,
+            "hash": 4845448023558560220,
             "path": "assets/models/platformer/block-snow-low-narrow.obj",
             "type": "Mesh"
         },
         "10035965066617140884": {
-            "hash": 15482998937456222664,
+            "hash": 10244870053516390255,
             "path": "assets/models/survival/grass-large.obj",
             "type": "Mesh"
         },
@@ -51,7 +51,7 @@
             "type": "Mesh"
         },
         "10347992036145366939": {
-            "hash": 14107283289887812351,
+            "hash": 11521986798872111260,
             "path": "assets/models/platformer/block-snow-long.obj",
             "type": "Mesh"
         },
@@ -66,12 +66,12 @@
             "type": "Mesh"
         },
         "1044622678644374808": {
-            "hash": 2166054834982508439,
+            "hash": 15976158302477822405,
             "path": "assets/models/survival/bedroll-packed.obj",
             "type": "Mesh"
         },
         "10469879444198296165": {
-            "hash": 13528151322239946089,
+            "hash": 15490241974632138910,
             "path": "assets/models/forest/target.obj",
             "type": "Mesh"
         },
@@ -81,12 +81,12 @@
             "type": "Mesh"
         },
         "10524364603200876604": {
-            "hash": 12891841106992880036,
+            "hash": 958001567359581611,
             "path": "assets/models/blaster/blaster-h.obj",
             "type": "Mesh"
         },
         "10543243472175683808": {
-            "hash": 14759931343789646356,
+            "hash": 15614368196909079036,
             "path": "assets/models/platformer/block-snow-overhang-long.obj",
             "type": "Mesh"
         },
@@ -101,7 +101,7 @@
             "type": "Mesh"
         },
         "10589564537738081250": {
-            "hash": 16406901340679037783,
+            "hash": 17592776010828849373,
             "path": "assets/models/survival/tent-canvas-half.obj",
             "type": "Mesh"
         },
@@ -131,12 +131,12 @@
             "type": "Mesh"
         },
         "10853672296390783330": {
-            "hash": 11300619101989850576,
+            "hash": 4993833607934967454,
             "path": "assets/models/platformer/bomb.obj",
             "type": "Mesh"
         },
         "10870453823934927941": {
-            "hash": 14998581164982357209,
+            "hash": 2935810601067963655,
             "path": "assets/models/platformer/flowers.obj",
             "type": "Mesh"
         },
@@ -146,7 +146,7 @@
             "type": "Mesh"
         },
         "10886886291654136321": {
-            "hash": 7315191381772572454,
+            "hash": 6907136499660580832,
             "path": "assets/models/survival/tool-axe-upgraded.obj",
             "type": "Mesh"
         },
@@ -156,7 +156,7 @@
             "type": "Mesh"
         },
         "10889384376191009160": {
-            "hash": 13052099306947361901,
+            "hash": 17100969595407994939,
             "path": "assets/models/forest/character-archer.obj",
             "type": "Mesh"
         },
@@ -181,7 +181,7 @@
             "type": "Mesh"
         },
         "11033105800741365791": {
-            "hash": 575795280999613211,
+            "hash": 2818936375068414142,
             "path": "assets/models/platformer/jewel.obj",
             "type": "Mesh"
         },
@@ -191,7 +191,7 @@
             "type": "Mesh"
         },
         "11041010313306200789": {
-            "hash": 16115620938987273482,
+            "hash": 6704630152082649927,
             "path": "assets/models/platformer/block-grass-large-slope-narrow.obj",
             "type": "Mesh"
         },
@@ -211,7 +211,7 @@
             "type": "Mesh"
         },
         "11159610506347574612": {
-            "hash": 3190740165530081959,
+            "hash": 1044288901546498953,
             "path": "assets/models/platformer/stones.obj",
             "type": "Mesh"
         },
@@ -231,7 +231,7 @@
             "type": "Mesh"
         },
         "11271173809507769692": {
-            "hash": 8388195710021600534,
+            "hash": 536311952510985449,
             "path": "assets/models/blaster/crate-wide.obj",
             "type": "Mesh"
         },
@@ -251,7 +251,7 @@
             "type": "Audio"
         },
         "11418461644791338550": {
-            "hash": 17362055370070412013,
+            "hash": 12820341997213885390,
             "path": "assets/models/platformer/arrows.obj",
             "type": "Mesh"
         },
@@ -266,12 +266,12 @@
             "type": "Mesh"
         },
         "11503278172437940597": {
-            "hash": 8580698250586572864,
+            "hash": 8005508703558296906,
             "path": "assets/models/platformer/block-snow-large-slope.obj",
             "type": "Mesh"
         },
         "11505646315096591685": {
-            "hash": 13078243090989792566,
+            "hash": 11770921483642525833,
             "path": "assets/models/platformer/block-snow-large-tall.obj",
             "type": "Mesh"
         },
@@ -281,22 +281,22 @@
             "type": "Mesh"
         },
         "11518330287450515037": {
-            "hash": 10382131679838256158,
+            "hash": 11082972052771959904,
             "path": "assets/models/blaster/blaster-i.obj",
             "type": "Mesh"
         },
         "11521034439339801833": {
-            "hash": 15100522341777741299,
+            "hash": 10987938249637079783,
             "path": "assets/models/blaster/scope-large-b.obj",
             "type": "Mesh"
         },
         "11522576564742211243": {
-            "hash": 1797814932294364055,
+            "hash": 14168623187835567672,
             "path": "assets/models/platformer/block-snow-edge.obj",
             "type": "Mesh"
         },
         "11537031706667447025": {
-            "hash": 3294055099132386169,
+            "hash": 5356718058076571623,
             "path": "assets/models/platformer/block-grass-overhang-low-large.obj",
             "type": "Mesh"
         },
@@ -306,7 +306,7 @@
             "type": "Mesh"
         },
         "11615533381660922587": {
-            "hash": 10062880891457023453,
+            "hash": 7494200587105328831,
             "path": "assets/models/survival/structure-floor.obj",
             "type": "Mesh"
         },
@@ -316,7 +316,7 @@
             "type": "Mesh"
         },
         "11754156086627348974": {
-            "hash": 14678778297695077955,
+            "hash": 9772959220821356521,
             "path": "assets/models/platformer/block-grass-narrow.obj",
             "type": "Mesh"
         },
@@ -351,7 +351,7 @@
             "type": "Mesh"
         },
         "11984345429103051454": {
-            "hash": 9563133966521877345,
+            "hash": 6883405491621066733,
             "path": "assets/models/pets/animal-bee.obj",
             "type": "Mesh"
         },
@@ -361,7 +361,7 @@
             "type": "Mesh"
         },
         "12016273351755237231": {
-            "hash": 5684619996137681126,
+            "hash": 17876677820275221219,
             "path": "assets/models/platformer/block-snow-low.obj",
             "type": "Mesh"
         },
@@ -371,7 +371,7 @@
             "type": "Mesh"
         },
         "12034436230322773710": {
-            "hash": 18281815997545378502,
+            "hash": 2657300596590838669,
             "path": "assets/models/platformer/block-grass-corner.obj",
             "type": "Mesh"
         },
@@ -386,7 +386,7 @@
             "type": "Mesh"
         },
         "12214636830819417019": {
-            "hash": 2092324748396898958,
+            "hash": 675125081190082763,
             "path": "assets/models/pets/animal-monkey.obj",
             "type": "Mesh"
         },
@@ -396,7 +396,7 @@
             "type": "Mesh"
         },
         "12224288661449055735": {
-            "hash": 1776765583568539610,
+            "hash": 11631667659146962246,
             "path": "assets/models/platformer/block-snow-overhang-low-narrow.obj",
             "type": "Mesh"
         },
@@ -411,7 +411,7 @@
             "type": "Mesh"
         },
         "12261168731485126821": {
-            "hash": 13285204376384146603,
+            "hash": 899626498118966072,
             "path": "assets/models/survival/resource-stone.obj",
             "type": "Mesh"
         },
@@ -421,7 +421,7 @@
             "type": "Mesh"
         },
         "12339022940819688574": {
-            "hash": 16032653464560543805,
+            "hash": 8619097824970353566,
             "path": "assets/models/platformer/block-moving.obj",
             "type": "Mesh"
         },
@@ -436,7 +436,7 @@
             "type": "Texture"
         },
         "12422426504456155745": {
-            "hash": 6469011950118960538,
+            "hash": 11066225072505079194,
             "path": "assets/models/pets/animal-giraffe.obj",
             "type": "Mesh"
         },
@@ -451,7 +451,7 @@
             "type": "Mesh"
         },
         "12484420191436200472": {
-            "hash": 5582065928903106076,
+            "hash": 10947265165670417938,
             "path": "assets/models/platformer/block-snow-overhang-large-slope-steep.obj",
             "type": "Mesh"
         },
@@ -461,7 +461,7 @@
             "type": "Mesh"
         },
         "12585164712642715486": {
-            "hash": 12118766099729627326,
+            "hash": 4351452001046405668,
             "path": "assets/models/forest/rocks-high.obj",
             "type": "Mesh"
         },
@@ -471,12 +471,12 @@
             "type": "Mesh"
         },
         "12599588898400581964": {
-            "hash": 9602184469158594340,
+            "hash": 10536876753338392965,
             "path": "assets/models/survival/tree-autumn.obj",
             "type": "Mesh"
         },
         "12626578651579966477": {
-            "hash": 3691294396648104824,
+            "hash": 17661314266214859312,
             "path": "assets/models/forest/weapon-arrow.obj",
             "type": "Mesh"
         },
@@ -486,7 +486,7 @@
             "type": "Mesh"
         },
         "12672741704806391712": {
-            "hash": 961105186500195603,
+            "hash": 331760397925044030,
             "path": "assets/models/platformer/block-grass-overhang-large-slope-steep.obj",
             "type": "Mesh"
         },
@@ -496,7 +496,7 @@
             "type": "Mesh"
         },
         "12720557325756819498": {
-            "hash": 3651548200916885692,
+            "hash": 10700163099825981154,
             "path": "assets/models/platformer/rocks.obj",
             "type": "Mesh"
         },
@@ -506,22 +506,22 @@
             "type": "Mesh"
         },
         "12730300209064881089": {
-            "hash": 2091800309901689340,
+            "hash": 2158069327303661135,
             "path": "assets/models/survival/patch-grass-large.obj",
             "type": "Mesh"
         },
         "12743443911468582978": {
-            "hash": 9606103287659735475,
+            "hash": 14078661195845528695,
             "path": "assets/models/pets/animal-pig.obj",
             "type": "Mesh"
         },
         "12819888324171777158": {
-            "hash": 3546712278758941968,
+            "hash": 7453338865544883350,
             "path": "assets/models/blaster/blaster-b.obj",
             "type": "Mesh"
         },
         "1282193183987072546": {
-            "hash": 11033631707056705835,
+            "hash": 9273218654899352877,
             "path": "scenes/main_menu.scene",
             "type": "Scene"
         },
@@ -531,7 +531,7 @@
             "type": "Mesh"
         },
         "12880961522921209324": {
-            "hash": 3203941590509619194,
+            "hash": 14034413618895062583,
             "path": "assets/models/forest/stones.obj",
             "type": "Mesh"
         },
@@ -566,12 +566,12 @@
             "type": "Mesh"
         },
         "13127724104551617135": {
-            "hash": 9923602158367288681,
+            "hash": 792085092785387554,
             "path": "assets/models/platformer/block-grass-overhang-large-slope.obj",
             "type": "Mesh"
         },
         "13133203001865125540": {
-            "hash": 1684528363502308682,
+            "hash": 13907838917545178953,
             "path": "assets/models/survival/tool-hoe-upgraded.obj",
             "type": "Mesh"
         },
@@ -581,42 +581,42 @@
             "type": "Mesh"
         },
         "13230013638072718904": {
-            "hash": 2829678960580985684,
+            "hash": 18352883417639259498,
             "path": "assets/models/pets/animal-cow.obj",
             "type": "Mesh"
         },
         "13233194433575530045": {
-            "hash": 9501903389995770224,
+            "hash": 4666117734950275052,
             "path": "assets/models/platformer/block-grass-low-long.obj",
             "type": "Mesh"
         },
         "13247397793281446815": {
-            "hash": 16471084098911848168,
+            "hash": 5268015963478687018,
             "path": "assets/models/blaster/blaster-d.obj",
             "type": "Mesh"
         },
         "13251047705185047463": {
-            "hash": 1699444330827578677,
+            "hash": 4480068921281706841,
             "path": "assets/models/platformer/block-grass-curve.obj",
             "type": "Mesh"
         },
         "13252022848138126479": {
-            "hash": 12817594350028271531,
+            "hash": 6273031882463224920,
             "path": "assets/models/survival/structure-metal-wall.obj",
             "type": "Mesh"
         },
         "13331368693163253917": {
-            "hash": 11900598666341716334,
+            "hash": 9766609527232081109,
             "path": "assets/models/survival/tree-log-small.obj",
             "type": "Mesh"
         },
         "13348466648980225293": {
-            "hash": 2018243262472968276,
+            "hash": 3292374220775115911,
             "path": "assets/models/survival/tool-hammer.obj",
             "type": "Mesh"
         },
         "1339528315264625481": {
-            "hash": 2062478651940753360,
+            "hash": 18222651559875815361,
             "path": "assets/models/platformer/hedge-corner.obj",
             "type": "Mesh"
         },
@@ -631,7 +631,7 @@
             "type": "Mesh"
         },
         "13421471559644661203": {
-            "hash": 14423514010953379618,
+            "hash": 14150976550317073551,
             "path": "assets/models/survival/campfire-pit.obj",
             "type": "Mesh"
         },
@@ -651,7 +651,7 @@
             "type": "Mesh"
         },
         "13483445854214329546": {
-            "hash": 10309242479769861073,
+            "hash": 1539280934039791029,
             "path": "assets/models/blaster/blaster-e.obj",
             "type": "Mesh"
         },
@@ -661,7 +661,7 @@
             "type": "Mesh"
         },
         "1354212180042624231": {
-            "hash": 6343554154263250881,
+            "hash": 1725437094474203193,
             "path": "assets/models/platformer/block-snow-overhang-large-tall.obj",
             "type": "Mesh"
         },
@@ -671,7 +671,7 @@
             "type": "Mesh"
         },
         "13558232838245963611": {
-            "hash": 13347584743850990152,
+            "hash": 4561271490011539073,
             "path": "assets/models/platformer/block-grass-hexagon.obj",
             "type": "Mesh"
         },
@@ -681,17 +681,17 @@
             "type": "Mesh"
         },
         "13583223999092235460": {
-            "hash": 9766092285226251372,
+            "hash": 12966629363322699318,
             "path": "assets/models/pets/animal-fox.obj",
             "type": "Mesh"
         },
         "13588410763395644415": {
-            "hash": 5416799589135126039,
+            "hash": 16448886127350766313,
             "path": "assets/models/pets/animal-crab.obj",
             "type": "Mesh"
         },
         "1363251919329441147": {
-            "hash": 11378559086748037090,
+            "hash": 3512879495237641773,
             "path": "assets/models/survival/tool-axe.obj",
             "type": "Mesh"
         },
@@ -701,7 +701,7 @@
             "type": "Mesh"
         },
         "13687686090318916126": {
-            "hash": 8582916094158226319,
+            "hash": 6899025276539333561,
             "path": "assets/models/platformer/block-snow-corner-overhang-low.obj",
             "type": "Mesh"
         },
@@ -711,7 +711,7 @@
             "type": "Mesh"
         },
         "13701474364084890592": {
-            "hash": 14897923612461537792,
+            "hash": 8059416938964824548,
             "path": "assets/models/platformer/crate.obj",
             "type": "Mesh"
         },
@@ -721,17 +721,17 @@
             "type": "Audio"
         },
         "1383444677787291669": {
-            "hash": 10065338192485912906,
+            "hash": 11076092985799729448,
             "path": "assets/models/blaster/blaster-n.obj",
             "type": "Mesh"
         },
         "13869866763355798971": {
-            "hash": 8203417305637761152,
+            "hash": 16253558097209450721,
             "path": "assets/models/platformer/block-grass.obj",
             "type": "Mesh"
         },
         "13896522047870410889": {
-            "hash": 17492919670142397180,
+            "hash": 10113912725884793229,
             "path": "assets/models/survival/bucket.obj",
             "type": "Mesh"
         },
@@ -746,7 +746,7 @@
             "type": "Mesh"
         },
         "13950194293139424754": {
-            "hash": 4094438819899237678,
+            "hash": 9835898375087597173,
             "path": "assets/models/platformer/coin-bronze.obj",
             "type": "Mesh"
         },
@@ -761,17 +761,17 @@
             "type": "Mesh"
         },
         "14095634273896658644": {
-            "hash": 4517549457468443032,
+            "hash": 16273624032180891109,
             "path": "assets/models/survival/fence-doorway.obj",
             "type": "Mesh"
         },
         "14107561771102641535": {
-            "hash": 1766564834085544882,
+            "hash": 1642208528537636589,
             "path": "assets/models/survival/box-large-open.obj",
             "type": "Mesh"
         },
         "14125160279623259487": {
-            "hash": 17059060214703660887,
+            "hash": 15998559808973907853,
             "path": "assets/models/blaster/blaster-o.obj",
             "type": "Mesh"
         },
@@ -781,17 +781,17 @@
             "type": "Mesh"
         },
         "14178595583264263648": {
-            "hash": 9337434865104528437,
+            "hash": 7772470366287545328,
             "path": "assets/models/survival/structure.obj",
             "type": "Mesh"
         },
         "1421884563127388265": {
-            "hash": 11262879786354113246,
+            "hash": 12028787492999932803,
             "path": "assets/models/platformer/character-ooli.obj",
             "type": "Mesh"
         },
         "1425027200271535420": {
-            "hash": 16421039560026733267,
+            "hash": 2871779543757671986,
             "path": "assets/models/blaster/target-fragment-small.obj",
             "type": "Mesh"
         },
@@ -816,12 +816,12 @@
             "type": "Audio"
         },
         "1433515113574634887": {
-            "hash": 13985844651278954707,
+            "hash": 2296445183502950708,
             "path": "assets/models/platformer/block-snow-corner.obj",
             "type": "Mesh"
         },
         "14339574102194841622": {
-            "hash": 16753605357237437919,
+            "hash": 5338400820135105930,
             "path": "assets/models/platformer/block-grass-large-slope-steep.obj",
             "type": "Mesh"
         },
@@ -831,12 +831,12 @@
             "type": "Audio"
         },
         "14383388465186827831": {
-            "hash": 11200636258865279748,
+            "hash": 8357801394810359077,
             "path": "assets/models/platformer/fence-low-broken.obj",
             "type": "Mesh"
         },
         "14385317968798783503": {
-            "hash": 10643432357231892398,
+            "hash": 2503450761591235582,
             "path": "assets/models/platformer/star.obj",
             "type": "Mesh"
         },
@@ -846,17 +846,17 @@
             "type": "Mesh"
         },
         "14445615708787203553": {
-            "hash": 8119705890757919295,
+            "hash": 12635786503557629124,
             "path": "assets/models/platformer/character-oobi.obj",
             "type": "Mesh"
         },
         "14479007337914847903": {
-            "hash": 14943807410305283699,
+            "hash": 1547924783406470428,
             "path": "assets/models/platformer/block-grass-low-hexagon.obj",
             "type": "Mesh"
         },
         "14488991500126646411": {
-            "hash": 10537752561196395114,
+            "hash": 2616945220485256389,
             "path": "assets/models/platformer/door-rotate-large.obj",
             "type": "Mesh"
         },
@@ -881,7 +881,7 @@
             "type": "Mesh"
         },
         "14581866395984437533": {
-            "hash": 12011416508935068058,
+            "hash": 10774277041190395416,
             "path": "assets/models/blaster/blaster-j.obj",
             "type": "Mesh"
         },
@@ -891,7 +891,7 @@
             "type": "Texture"
         },
         "14610705941160694197": {
-            "hash": 17243377531894336768,
+            "hash": 3008853862123855453,
             "path": "assets/models/blaster/blaster-l.obj",
             "type": "Mesh"
         },
@@ -911,7 +911,7 @@
             "type": "Mesh"
         },
         "14689164114903250644": {
-            "hash": 3790972817065478683,
+            "hash": 14444119888003872674,
             "path": "assets/models/platformer/block-snow-overhang-edge.obj",
             "type": "Mesh"
         },
@@ -921,7 +921,7 @@
             "type": "Mesh"
         },
         "14817153059582580975": {
-            "hash": 7131375285406093910,
+            "hash": 10873327051369005102,
             "path": "assets/models/blaster/blaster-f.obj",
             "type": "Mesh"
         },
@@ -941,7 +941,7 @@
             "type": "Mesh"
         },
         "14877484026599802955": {
-            "hash": 5704962872729452772,
+            "hash": 2382193010979877989,
             "path": "assets/models/platformer/poles.obj",
             "type": "Mesh"
         },
@@ -951,12 +951,12 @@
             "type": "Mesh"
         },
         "14916263302369694750": {
-            "hash": 3073261565400121424,
+            "hash": 5275432593006326456,
             "path": "assets/models/pets/animal-koala.obj",
             "type": "Mesh"
         },
         "14941069530075397351": {
-            "hash": 10998197977812361375,
+            "hash": 18071026426040710706,
             "path": "assets/models/survival/fish.obj",
             "type": "Mesh"
         },
@@ -976,22 +976,22 @@
             "type": "Mesh"
         },
         "14974922511094685969": {
-            "hash": 14081383481187674168,
+            "hash": 3312335252383864680,
             "path": "assets/models/blaster/blaster-p.obj",
             "type": "Mesh"
         },
         "14988555992891318372": {
-            "hash": 12609336532689765255,
+            "hash": 4966264280515545171,
             "path": "scenes/verdance.scene",
             "type": "Scene"
         },
         "15048996602699957370": {
-            "hash": 7595127699368544704,
+            "hash": 16057629682858990918,
             "path": "assets/models/blaster/bullet-foam-tip-thick.obj",
             "type": "Mesh"
         },
         "15070150240544473434": {
-            "hash": 4320502680358641400,
+            "hash": 4278125392929074101,
             "path": "assets/models/platformer/block-snow-large-slope-narrow.obj",
             "type": "Mesh"
         },
@@ -1031,7 +1031,7 @@
             "type": "Mesh"
         },
         "1519809086383823633": {
-            "hash": 15085627882757563453,
+            "hash": 14900063975402317866,
             "path": "assets/models/blaster/bullet-foam-thick.obj",
             "type": "Mesh"
         },
@@ -1041,7 +1041,7 @@
             "type": "Mesh"
         },
         "15202531633432734327": {
-            "hash": 92659264732802825,
+            "hash": 11224451238997500018,
             "path": "assets/models/pets/animal-panda.obj",
             "type": "Mesh"
         },
@@ -1051,7 +1051,7 @@
             "type": "Mesh"
         },
         "15217639627051996475": {
-            "hash": 8291211947991900361,
+            "hash": 10402094706935598922,
             "path": "assets/models/survival/tree-autumn-tall.obj",
             "type": "Mesh"
         },
@@ -1061,7 +1061,7 @@
             "type": "Mesh"
         },
         "1534340318770682681": {
-            "hash": 487611509821905975,
+            "hash": 13845448237803221702,
             "path": "assets/models/platformer/block-snow-large-slope-steep-narrow.obj",
             "type": "Mesh"
         },
@@ -1091,7 +1091,7 @@
             "type": "Mesh"
         },
         "15436264820315347383": {
-            "hash": 7779876827182171630,
+            "hash": 15671537403180162543,
             "path": "assets/models/platformer/block-grass-corner-low.obj",
             "type": "Mesh"
         },
@@ -1101,7 +1101,7 @@
             "type": "Mesh"
         },
         "15636977023882884536": {
-            "hash": 3981790734237788978,
+            "hash": 1787611176460181062,
             "path": "assets/models/platformer/character-oodi.obj",
             "type": "Mesh"
         },
@@ -1111,7 +1111,7 @@
             "type": "Mesh"
         },
         "15706129957534163268": {
-            "hash": 7162729142080143235,
+            "hash": 7033126542748322148,
             "path": "assets/models/platformer/spike-block-wide.obj",
             "type": "Mesh"
         },
@@ -1121,27 +1121,27 @@
             "type": "Mesh"
         },
         "15748229413700678514": {
-            "hash": 4597250072772522423,
+            "hash": 5371565682383156207,
             "path": "assets/models/platformer/block-grass-long.obj",
             "type": "Mesh"
         },
         "15755014493158924608": {
-            "hash": 750392869896595273,
+            "hash": 12139557147118320240,
             "path": "assets/models/survival/floor-old.obj",
             "type": "Mesh"
         },
         "15758103426553703070": {
-            "hash": 15686174999008093190,
+            "hash": 2370623529490653819,
             "path": "assets/models/platformer/block-grass-overhang-low-hexagon.obj",
             "type": "Mesh"
         },
         "15869361739146511865": {
-            "hash": 10133643229275350088,
+            "hash": 4816709718508517114,
             "path": "assets/models/pets/animal-lion.obj",
             "type": "Mesh"
         },
         "15880115433634907394": {
-            "hash": 13365403207674975530,
+            "hash": 9113626546720057497,
             "path": "assets/models/pets/animal-caterpillar.obj",
             "type": "Mesh"
         },
@@ -1151,7 +1151,7 @@
             "type": "Mesh"
         },
         "15921466314815849177": {
-            "hash": 13286659748125403670,
+            "hash": 7868842837463458084,
             "path": "assets/models/platformer/block-grass-large-slope.obj",
             "type": "Mesh"
         },
@@ -1176,12 +1176,12 @@
             "type": "Audio"
         },
         "16063613147416305578": {
-            "hash": 6470451490614220498,
+            "hash": 11290243064867632801,
             "path": "assets/models/survival/tool-hammer-upgraded.obj",
             "type": "Mesh"
         },
         "16088887651488679546": {
-            "hash": 6486084200691887521,
+            "hash": 7061255162589410960,
             "path": "assets/models/survival/tree-log.obj",
             "type": "Mesh"
         },
@@ -1201,7 +1201,7 @@
             "type": "Mesh"
         },
         "16126956178039786394": {
-            "hash": 1837473252215695781,
+            "hash": 15823243489972503126,
             "path": "assets/models/platformer/block-grass-low.obj",
             "type": "Mesh"
         },
@@ -1216,7 +1216,7 @@
             "type": "Mesh"
         },
         "16238647752828597400": {
-            "hash": 13050359843504585405,
+            "hash": 11985349318723538362,
             "path": "assets/models/forest/rocks-low.obj",
             "type": "Mesh"
         },
@@ -1226,12 +1226,12 @@
             "type": "Mesh"
         },
         "16407034651749337415": {
-            "hash": 3546960791685135047,
+            "hash": 6433999302395102597,
             "path": "assets/models/forest/patch-dirt.obj",
             "type": "Mesh"
         },
         "16414618099177862588": {
-            "hash": 17923196836052945147,
+            "hash": 3520462546321498599,
             "path": "assets/models/pets/animal-dog.obj",
             "type": "Mesh"
         },
@@ -1241,7 +1241,7 @@
             "type": "Mesh"
         },
         "16426801170670536461": {
-            "hash": 2877847628440235944,
+            "hash": 6956072994378532758,
             "path": "assets/models/forest/bridge.obj",
             "type": "Mesh"
         },
@@ -1256,12 +1256,12 @@
             "type": "Mesh"
         },
         "16509633284882281876": {
-            "hash": 15100703907664742703,
+            "hash": 7317640649904063146,
             "path": "assets/models/platformer/block-moving-blue.obj",
             "type": "Mesh"
         },
         "1651267034252733168": {
-            "hash": 2070618556798499354,
+            "hash": 2912175831049757662,
             "path": "assets/models/survival/tool-shovel-upgraded.obj",
             "type": "Mesh"
         },
@@ -1271,32 +1271,32 @@
             "type": "Mesh"
         },
         "16523720899533595962": {
-            "hash": 16524472158479708778,
+            "hash": 13769748153557768603,
             "path": "assets/models/platformer/block-snow-corner-overhang.obj",
             "type": "Mesh"
         },
         "16537443812632707336": {
-            "hash": 4067208123431599302,
+            "hash": 3017766979814363464,
             "path": "assets/models/platformer/flag.obj",
             "type": "Mesh"
         },
         "16568796335257409462": {
-            "hash": 10328385783419298486,
+            "hash": 15757295759261488932,
             "path": "assets/models/survival/rock-sand-a.obj",
             "type": "Mesh"
         },
         "16570573400995087002": {
-            "hash": 10204552343241807151,
+            "hash": 14778386780040414835,
             "path": "assets/models/survival/fish-large.obj",
             "type": "Mesh"
         },
         "16590651214817845051": {
-            "hash": 15124583553224277585,
+            "hash": 269109467587923033,
             "path": "assets/models/platformer/coin-silver.obj",
             "type": "Mesh"
         },
         "16625094465553185486": {
-            "hash": 12373932866641310583,
+            "hash": 13547409515202420129,
             "path": "assets/models/platformer/crate-item.obj",
             "type": "Mesh"
         },
@@ -1331,32 +1331,32 @@
             "type": "Mesh"
         },
         "16727566225640027794": {
-            "hash": 1090740620810468699,
+            "hash": 5032026505186444114,
             "path": "assets/models/platformer/ladder-broken.obj",
             "type": "Mesh"
         },
         "16732291329568321477": {
-            "hash": 10757813083295760112,
+            "hash": 6212622853065524047,
             "path": "assets/models/pets/animal-polar.obj",
             "type": "Mesh"
         },
         "16736495396910243775": {
-            "hash": 6459469045359945420,
+            "hash": 14519809681721544307,
             "path": "assets/models/survival/bottle-large.obj",
             "type": "Mesh"
         },
         "16746329527625437751": {
-            "hash": 3130336135889495767,
+            "hash": 4339655096154052227,
             "path": "assets/models/survival/grass.obj",
             "type": "Mesh"
         },
         "16762607370645599399": {
-            "hash": 12096114416249234849,
+            "hash": 9691011953659990624,
             "path": "assets/models/platformer/block-snow-hexagon.obj",
             "type": "Mesh"
         },
         "16799823929110137855": {
-            "hash": 4849705863060612864,
+            "hash": 2821557946661522519,
             "path": "assets/models/survival/tool-pickaxe.obj",
             "type": "Mesh"
         },
@@ -1386,12 +1386,12 @@
             "type": "Mesh"
         },
         "16878994174673095073": {
-            "hash": 1969398303249592199,
+            "hash": 3847679219239250412,
             "path": "assets/models/platformer/block-snow-overhang-low.obj",
             "type": "Mesh"
         },
         "16903903103407241767": {
-            "hash": 4984750792244032823,
+            "hash": 16021171559100346269,
             "path": "assets/models/platformer/block-snow-large-slope-steep.obj",
             "type": "Mesh"
         },
@@ -1406,7 +1406,7 @@
             "type": "Mesh"
         },
         "16927528981727865689": {
-            "hash": 3140782629441551172,
+            "hash": 10792719358946042045,
             "path": "assets/models/platformer/sign.obj",
             "type": "Mesh"
         },
@@ -1416,9 +1416,14 @@
             "type": "Mesh"
         },
         "16991773674561418904": {
-            "hash": 11344971621209120028,
+            "hash": 5492505183948036714,
             "path": "assets/models/forest/building-platform.obj",
             "type": "Mesh"
+        },
+        "17006948393683197593": {
+            "hash": 18342851380560304587,
+            "path": "scenes/deep_wilds.scene",
+            "type": "Scene"
         },
         "17040874374904263958": {
             "hash": 8656709858704552001,
@@ -1426,22 +1431,22 @@
             "type": "Mesh"
         },
         "17048829807376588411": {
-            "hash": 4670114721595160731,
+            "hash": 8874351225606057789,
             "path": "assets/models/blaster/scope-large-a.obj",
             "type": "Mesh"
         },
         "17079146527222739698": {
-            "hash": 4691986696998026011,
+            "hash": 3062653539590716768,
             "path": "assets/models/platformer/button-round.obj",
             "type": "Mesh"
         },
         "17080322591764735107": {
-            "hash": 14781316059407776472,
+            "hash": 16303787984599194768,
             "path": "assets/models/blaster/blaster-c.obj",
             "type": "Mesh"
         },
         "17084098410970165791": {
-            "hash": 5670071801907547963,
+            "hash": 9308428885983961801,
             "path": "assets/models/platformer/flowers-tall.obj",
             "type": "Mesh"
         },
@@ -1471,17 +1476,17 @@
             "type": "Mesh"
         },
         "17231649495518243310": {
-            "hash": 8906998405129673796,
+            "hash": 8062779120684334862,
             "path": "assets/models/survival/tool-hoe.obj",
             "type": "Mesh"
         },
         "17269583338928613972": {
-            "hash": 10538030988753772270,
+            "hash": 6354402992274775347,
             "path": "assets/models/platformer/tree-snow.obj",
             "type": "Mesh"
         },
         "17282268232923447778": {
-            "hash": 15126530677389051482,
+            "hash": 16170769137916323130,
             "path": "assets/models/platformer/block-snow-narrow.obj",
             "type": "Mesh"
         },
@@ -1491,7 +1496,7 @@
             "type": "Mesh"
         },
         "17315541400985045075": {
-            "hash": 2411290807714919905,
+            "hash": 6456089218375410290,
             "path": "assets/models/survival/tree.obj",
             "type": "Mesh"
         },
@@ -1511,12 +1516,12 @@
             "type": "Mesh"
         },
         "17418413227547282352": {
-            "hash": 982075504345411441,
+            "hash": 13860815025496861984,
             "path": "assets/models/platformer/fence-corner.obj",
             "type": "Mesh"
         },
         "17446202874664766078": {
-            "hash": 7957446965070709021,
+            "hash": 17232500734696384270,
             "path": "assets/models/survival/barrel.obj",
             "type": "Mesh"
         },
@@ -1526,12 +1531,12 @@
             "type": "Mesh"
         },
         "17485972558957206660": {
-            "hash": 8127083507183511500,
+            "hash": 14881553342832312636,
             "path": "assets/models/survival/signpost-single.obj",
             "type": "Mesh"
         },
         "17550611841021789484": {
-            "hash": 9769423818359217342,
+            "hash": 3623677386831056731,
             "path": "assets/models/survival/tree-tall.obj",
             "type": "Mesh"
         },
@@ -1546,7 +1551,7 @@
             "type": "Mesh"
         },
         "17580269120204518159": {
-            "hash": 14661720635225708190,
+            "hash": 1471867819647575788,
             "path": "assets/models/survival/metal-panel.obj",
             "type": "Mesh"
         },
@@ -1556,27 +1561,27 @@
             "type": "Mesh"
         },
         "17641175030904894947": {
-            "hash": 15408288041150623425,
+            "hash": 2540098904092305527,
             "path": "assets/models/survival/metal-panel-narrow.obj",
             "type": "Mesh"
         },
         "17661526704487780627": {
-            "hash": 15409372762272352459,
+            "hash": 7469469859538290322,
             "path": "assets/models/platformer/block-snow-overhang-large-slope-steep-narrow.obj",
             "type": "Mesh"
         },
         "17662102058276298619": {
-            "hash": 16756149210295271202,
+            "hash": 6871923613940931131,
             "path": "assets/models/platformer/fence-straight.obj",
             "type": "Mesh"
         },
         "17671221368562034026": {
-            "hash": 16998427485907014815,
+            "hash": 16481028110462385427,
             "path": "assets/models/platformer/block-grass-corner-overhang.obj",
             "type": "Mesh"
         },
         "17678406518981165246": {
-            "hash": 4962418900373767182,
+            "hash": 10665466443219902567,
             "path": "assets/models/blaster/grenade-a.obj",
             "type": "Mesh"
         },
@@ -1586,12 +1591,12 @@
             "type": "Mesh"
         },
         "17813922498059065602": {
-            "hash": 14443482443222100959,
+            "hash": 7167365734608379050,
             "path": "assets/models/blaster/blaster-m.obj",
             "type": "Mesh"
         },
         "17822651816745220454": {
-            "hash": 9877107529691674869,
+            "hash": 2705210389810561162,
             "path": "assets/models/platformer/platform-ramp.obj",
             "type": "Mesh"
         },
@@ -1616,12 +1621,12 @@
             "type": "Mesh"
         },
         "17929645671682473238": {
-            "hash": 16464389955171564702,
+            "hash": 17912776944120456974,
             "path": "assets/models/survival/tent-canvas.obj",
             "type": "Mesh"
         },
         "17929902420372953951": {
-            "hash": 4180109836531430880,
+            "hash": 4889236235176496793,
             "path": "assets/models/blaster/silencer-larger.obj",
             "type": "Mesh"
         },
@@ -1646,7 +1651,7 @@
             "type": "Mesh"
         },
         "1806207349570538153": {
-            "hash": 9944600688803750337,
+            "hash": 11347285347194744944,
             "path": "assets/models/platformer/lock.obj",
             "type": "Mesh"
         },
@@ -1661,22 +1666,22 @@
             "type": "Mesh"
         },
         "18110842160539790600": {
-            "hash": 14413866482077241426,
+            "hash": 15685513684328327383,
             "path": "assets/models/blaster/crate-small.obj",
             "type": "Mesh"
         },
         "18136521703084395503": {
-            "hash": 15379237187193586735,
+            "hash": 17261253702867852976,
             "path": "assets/models/survival/floor-hole.obj",
             "type": "Mesh"
         },
         "18150920880434058276": {
-            "hash": 15928100408933475988,
+            "hash": 13531250487137796797,
             "path": "assets/models/platformer/character-oozi.obj",
             "type": "Mesh"
         },
         "18170880657797935322": {
-            "hash": 13104271088216165458,
+            "hash": 9517067742967421614,
             "path": "assets/models/survival/resource-stone-large.obj",
             "type": "Mesh"
         },
@@ -1696,7 +1701,7 @@
             "type": "Mesh"
         },
         "18315381104444385453": {
-            "hash": 10333484235121789739,
+            "hash": 14604886716730294506,
             "path": "assets/models/platformer/spike-block.obj",
             "type": "Mesh"
         },
@@ -1711,22 +1716,22 @@
             "type": "Mesh"
         },
         "18360022096740947068": {
-            "hash": 15090379861553206745,
+            "hash": 14122462998514006907,
             "path": "assets/models/blaster/blaster-q.obj",
             "type": "Mesh"
         },
         "1839098412732278891": {
-            "hash": 1048540048791335463,
+            "hash": 16396888488374360706,
             "path": "assets/models/platformer/door-large-open.obj",
             "type": "Mesh"
         },
         "1843931250596543807": {
-            "hash": 15789646179779924943,
+            "hash": 4971855134695355519,
             "path": "assets/models/platformer/block-grass-overhang-large.obj",
             "type": "Mesh"
         },
         "1877725547144686680": {
-            "hash": 11145394883888483498,
+            "hash": 1080758290530895404,
             "path": "assets/models/platformer/block-snow-overhang-large-slope-narrow.obj",
             "type": "Mesh"
         },
@@ -1761,22 +1766,22 @@
             "type": "Mesh"
         },
         "2012799238025956459": {
-            "hash": 1355738053854895739,
+            "hash": 18379722387674276509,
             "path": "assets/models/platformer/ladder.obj",
             "type": "Mesh"
         },
         "2031901378834481955": {
-            "hash": 781081465780060544,
+            "hash": 7449403147935499479,
             "path": "assets/models/platformer/tree-pine.obj",
             "type": "Mesh"
         },
         "2066579135708592620": {
-            "hash": 4919727752979848955,
+            "hash": 6373559236776677528,
             "path": "assets/models/pets/animal-parrot.obj",
             "type": "Mesh"
         },
         "2075402746481007323": {
-            "hash": 11432951487632574070,
+            "hash": 8329426551159226634,
             "path": "assets/models/platformer/coin-gold.obj",
             "type": "Mesh"
         },
@@ -1791,7 +1796,7 @@
             "type": "Mesh"
         },
         "2225249277201826000": {
-            "hash": 3889975208191833913,
+            "hash": 13833916635902201913,
             "path": "assets/models/platformer/block-grass-overhang-large-slope-narrow.obj",
             "type": "Mesh"
         },
@@ -1811,7 +1816,7 @@
             "type": "Texture"
         },
         "2345868791885713145": {
-            "hash": 8872384010878377986,
+            "hash": 7810380469957065564,
             "path": "assets/models/survival/rock-flat.obj",
             "type": "Mesh"
         },
@@ -1826,12 +1831,12 @@
             "type": "Mesh"
         },
         "2489368748722998562": {
-            "hash": 3224830460761458672,
+            "hash": 15704409069112669427,
             "path": "assets/models/blaster/target-detail.obj",
             "type": "Mesh"
         },
         "2498288557158305092": {
-            "hash": 5756067177646185910,
+            "hash": 13798689486717880599,
             "path": "assets/models/survival/tree-autumn-trunk.obj",
             "type": "Mesh"
         },
@@ -1851,22 +1856,22 @@
             "type": "Mesh"
         },
         "2568429219320525366": {
-            "hash": 1624785756221654832,
+            "hash": 5288340084167033997,
             "path": "assets/models/platformer/door-rotate.obj",
             "type": "Mesh"
         },
         "2654946411425858934": {
-            "hash": 2483385354984783020,
+            "hash": 2207499663758382786,
             "path": "assets/models/forest/tree.obj",
             "type": "Mesh"
         },
         "2725169314246221067": {
-            "hash": 9624417856576115464,
+            "hash": 594990013734281683,
             "path": "assets/models/blaster/clip-small.obj",
             "type": "Mesh"
         },
         "2767099766900632549": {
-            "hash": 5225486649689191907,
+            "hash": 11907156971890314032,
             "path": "assets/models/platformer/block-grass-overhang-hexagon.obj",
             "type": "Mesh"
         },
@@ -1876,17 +1881,17 @@
             "type": "Audio"
         },
         "279889800219798624": {
-            "hash": 3354049680470899278,
+            "hash": 17615357227298228564,
             "path": "assets/models/blaster/bullet-foam.obj",
             "type": "Mesh"
         },
         "2873436869008672846": {
-            "hash": 13773877994322288930,
+            "hash": 16799463680893809116,
             "path": "assets/models/platformer/chest.obj",
             "type": "Mesh"
         },
         "2903363479198200877": {
-            "hash": 7705742864052438509,
+            "hash": 12283448772930985030,
             "path": "assets/models/platformer/block-snow-curve.obj",
             "type": "Mesh"
         },
@@ -1921,12 +1926,12 @@
             "type": "Mesh"
         },
         "3057856581253245632": {
-            "hash": 8787051828277722787,
+            "hash": 7563926039835512116,
             "path": "assets/models/pets/animal-hog.obj",
             "type": "Mesh"
         },
         "3092789194832577155": {
-            "hash": 11592691874993275803,
+            "hash": 8463866893798161766,
             "path": "assets/models/platformer/block-snow-overhang-corner.obj",
             "type": "Mesh"
         },
@@ -1936,7 +1941,7 @@
             "type": "Mesh"
         },
         "3106933933212214807": {
-            "hash": 828754541496643763,
+            "hash": 11921283369822312960,
             "path": "assets/models/platformer/saw.obj",
             "type": "Mesh"
         },
@@ -1961,17 +1966,17 @@
             "type": "Mesh"
         },
         "3254555291510358812": {
-            "hash": 6176180351944989066,
+            "hash": 17301352713660364934,
             "path": "assets/models/platformer/spring.obj",
             "type": "Mesh"
         },
         "3259392846576184485": {
-            "hash": 8554576435119823970,
+            "hash": 15983435182809113930,
             "path": "assets/models/platformer/tree-pine-small.obj",
             "type": "Mesh"
         },
         "3270816818437121221": {
-            "hash": 7441431525275957306,
+            "hash": 6678236206440383295,
             "path": "assets/models/platformer/mushrooms.obj",
             "type": "Mesh"
         },
@@ -1981,7 +1986,7 @@
             "type": "Mesh"
         },
         "3319309361050356910": {
-            "hash": 8704343484541792526,
+            "hash": 12399141902339602266,
             "path": "assets/models/forest/plant.obj",
             "type": "Mesh"
         },
@@ -2006,12 +2011,12 @@
             "type": "Mesh"
         },
         "3424614357143819184": {
-            "hash": 10586191485236024654,
+            "hash": 6871342081333159402,
             "path": "assets/models/platformer/block-snow-large.obj",
             "type": "Mesh"
         },
         "3442748486415979366": {
-            "hash": 1569059881154479224,
+            "hash": 684749892853615304,
             "path": "assets/models/platformer/block-moving-large.obj",
             "type": "Mesh"
         },
@@ -2021,7 +2026,7 @@
             "type": "Mesh"
         },
         "3480565092788790376": {
-            "hash": 5420128434630326959,
+            "hash": 12585071592357564798,
             "path": "assets/models/blaster/crate-medium.obj",
             "type": "Mesh"
         },
@@ -2061,17 +2066,17 @@
             "type": "Mesh"
         },
         "3578775007078367069": {
-            "hash": 8313166625081114001,
+            "hash": 1730639885336421337,
             "path": "assets/models/platformer/conveyor-belt.obj",
             "type": "Mesh"
         },
         "3617321174661526529": {
-            "hash": 6920862864089649593,
+            "hash": 6281096998634966192,
             "path": "assets/models/blaster/scope-small.obj",
             "type": "Mesh"
         },
         "3632201014048933458": {
-            "hash": 16534112110666103815,
+            "hash": 5809601560408472402,
             "path": "assets/models/platformer/platform-overhang.obj",
             "type": "Mesh"
         },
@@ -2081,17 +2086,17 @@
             "type": "Mesh"
         },
         "365680259528744842": {
-            "hash": 2537472938445707606,
+            "hash": 7421203050298681578,
             "path": "assets/models/survival/box-open.obj",
             "type": "Mesh"
         },
         "3662707375119049238": {
-            "hash": 5311614752754752203,
+            "hash": 9063396894437353026,
             "path": "assets/models/survival/workbench.obj",
             "type": "Mesh"
         },
         "3679655639952207175": {
-            "hash": 2016210482266936240,
+            "hash": 2689125175686839267,
             "path": "assets/models/blaster/silencer-small.obj",
             "type": "Mesh"
         },
@@ -2101,17 +2106,17 @@
             "type": "Mesh"
         },
         "3741462477958561557": {
-            "hash": 16573357732206164322,
+            "hash": 14547408487065862706,
             "path": "assets/models/survival/box-large.obj",
             "type": "Mesh"
         },
         "375624316998933074": {
-            "hash": 3589209396913170164,
+            "hash": 10860432233616119315,
             "path": "assets/models/platformer/block-grass-corner-overhang-low.obj",
             "type": "Mesh"
         },
         "3820154579727439650": {
-            "hash": 1608486888244079185,
+            "hash": 17650107612775983425,
             "path": "assets/models/platformer/barrel.obj",
             "type": "Mesh"
         },
@@ -2126,7 +2131,7 @@
             "type": "Audio"
         },
         "3918557507070078636": {
-            "hash": 10597523692014500969,
+            "hash": 17967357693108756854,
             "path": "assets/models/survival/rock-flat-grass.obj",
             "type": "Mesh"
         },
@@ -2141,7 +2146,7 @@
             "type": "Mesh"
         },
         "3987764054328464506": {
-            "hash": 17463839378523968931,
+            "hash": 18137894473598990316,
             "path": "assets/models/survival/floor.obj",
             "type": "Mesh"
         },
@@ -2151,12 +2156,12 @@
             "type": "Mesh"
         },
         "4007785468442740437": {
-            "hash": 16185831225532647590,
+            "hash": 3663827487484829022,
             "path": "assets/models/platformer/crate-strong.obj",
             "type": "Mesh"
         },
         "40229433160574056": {
-            "hash": 11242250201515592331,
+            "hash": 4772513145582787788,
             "path": "assets/models/platformer/grass.obj",
             "type": "Mesh"
         },
@@ -2171,7 +2176,7 @@
             "type": "Mesh"
         },
         "406530796038312837": {
-            "hash": 12816810345993051645,
+            "hash": 16264374514085900376,
             "path": "assets/models/platformer/block-grass-large.obj",
             "type": "Mesh"
         },
@@ -2181,12 +2186,12 @@
             "type": "Mesh"
         },
         "4114496444910977723": {
-            "hash": 9588489037374102571,
+            "hash": 11283435449046133644,
             "path": "assets/models/pets/animal-deer.obj",
             "type": "Mesh"
         },
         "4146976231657627005": {
-            "hash": 4741598809958960804,
+            "hash": 3266710608683180590,
             "path": "assets/models/pets/animal-beaver.obj",
             "type": "Mesh"
         },
@@ -2196,12 +2201,12 @@
             "type": "Mesh"
         },
         "418615666015229772": {
-            "hash": 11883196305371736205,
+            "hash": 16780508496444469026,
             "path": "assets/models/platformer/block-grass-large-tall.obj",
             "type": "Mesh"
         },
         "4234734826302818421": {
-            "hash": 14342479249154562586,
+            "hash": 16804583953580285755,
             "path": "assets/models/survival/tree-trunk.obj",
             "type": "Mesh"
         },
@@ -2211,7 +2216,7 @@
             "type": "Mesh"
         },
         "4267943768284814093": {
-            "hash": 3822579168884303238,
+            "hash": 15701038099519667813,
             "path": "assets/models/blaster/target-small.obj",
             "type": "Mesh"
         },
@@ -2226,12 +2231,12 @@
             "type": "Mesh"
         },
         "430096937235872733": {
-            "hash": 15075008125841135296,
+            "hash": 10426190133892850266,
             "path": "assets/models/platformer/brick.obj",
             "type": "Mesh"
         },
         "4338311642438993241": {
-            "hash": 9101246735981798691,
+            "hash": 1867949578328736718,
             "path": "assets/models/platformer/fence-rope.obj",
             "type": "Mesh"
         },
@@ -2251,12 +2256,12 @@
             "type": "Mesh"
         },
         "4437766245932068301": {
-            "hash": 15098233726553596445,
+            "hash": 7965757095871751718,
             "path": "assets/models/survival/rock-a.obj",
             "type": "Mesh"
         },
         "4441956636567231442": {
-            "hash": 12952486676810256586,
+            "hash": 12971584958969839994,
             "path": "assets/models/survival/chest.obj",
             "type": "Mesh"
         },
@@ -2266,7 +2271,7 @@
             "type": "Mesh"
         },
         "457958610896496073": {
-            "hash": 16127193567072326769,
+            "hash": 12173835020542044824,
             "path": "assets/models/survival/barrel-open.obj",
             "type": "Mesh"
         },
@@ -2276,7 +2281,7 @@
             "type": "Mesh"
         },
         "4602664958024639610": {
-            "hash": 12253274540429634839,
+            "hash": 9508857960656817802,
             "path": "assets/models/forest/tree-high.obj",
             "type": "Mesh"
         },
@@ -2286,7 +2291,7 @@
             "type": "Mesh"
         },
         "4666032322751044652": {
-            "hash": 8633191698426662363,
+            "hash": 17917618828540726323,
             "path": "assets/models/pets/animal-elephant.obj",
             "type": "Mesh"
         },
@@ -2301,7 +2306,7 @@
             "type": "Mesh"
         },
         "472482689496136487": {
-            "hash": 2453965158737579651,
+            "hash": 10382720668723522678,
             "path": "assets/models/survival/fence-fortified.obj",
             "type": "Mesh"
         },
@@ -2321,7 +2326,7 @@
             "type": "Mesh"
         },
         "4872863115398464341": {
-            "hash": 13190767647027848622,
+            "hash": 1490888920519820274,
             "path": "assets/models/survival/tool-pickaxe-upgraded.obj",
             "type": "Mesh"
         },
@@ -2336,7 +2341,7 @@
             "type": "Mesh"
         },
         "4944816569329962237": {
-            "hash": 8775292228965930849,
+            "hash": 14758901373401373973,
             "path": "assets/models/survival/workbench-grind.obj",
             "type": "Mesh"
         },
@@ -2351,7 +2356,7 @@
             "type": "Mesh"
         },
         "5019959663394953511": {
-            "hash": 9157303109756657961,
+            "hash": 8637427812201388317,
             "path": "assets/models/survival/metal-panel-screws-narrow.obj",
             "type": "Mesh"
         },
@@ -2366,7 +2371,7 @@
             "type": "Mesh"
         },
         "5045095257230186621": {
-            "hash": 8997863146235449908,
+            "hash": 498598414234190204,
             "path": "assets/models/platformer/block-grass-curve-half.obj",
             "type": "Mesh"
         },
@@ -2376,17 +2381,17 @@
             "type": "Mesh"
         },
         "5186820651918923174": {
-            "hash": 13040487134454109090,
+            "hash": 13119144488969609503,
             "path": "assets/models/survival/bedroll-frame.obj",
             "type": "Mesh"
         },
         "5238550227043340368": {
-            "hash": 8524543635323484131,
+            "hash": 3376561712139918984,
             "path": "assets/models/platformer/block-grass-overhang-long.obj",
             "type": "Mesh"
         },
         "5240942330165365383": {
-            "hash": 6974276676192665293,
+            "hash": 5431952112219444151,
             "path": "assets/models/platformer/block-grass-overhang-low-long.obj",
             "type": "Mesh"
         },
@@ -2396,7 +2401,7 @@
             "type": "Mesh"
         },
         "5269263519550163342": {
-            "hash": 3465221242329183983,
+            "hash": 674296123556478772,
             "path": "assets/models/pets/animal-tiger.obj",
             "type": "Mesh"
         },
@@ -2406,7 +2411,7 @@
             "type": "Mesh"
         },
         "5306799318794769440": {
-            "hash": 1950404166833935230,
+            "hash": 4463518756219459077,
             "path": "assets/models/survival/rock-b.obj",
             "type": "Mesh"
         },
@@ -2416,7 +2421,7 @@
             "type": "Mesh"
         },
         "5320148410874362053": {
-            "hash": 9642861895680956706,
+            "hash": 15992530540951478579,
             "path": "assets/models/platformer/block-grass-low-narrow.obj",
             "type": "Mesh"
         },
@@ -2426,17 +2431,17 @@
             "type": "Mesh"
         },
         "5376836964024944145": {
-            "hash": 8756814089171015637,
+            "hash": 7336843615611287864,
             "path": "assets/models/survival/structure-roof.obj",
             "type": "Mesh"
         },
         "538395813696327218": {
-            "hash": 10375292634031985738,
+            "hash": 3269536602127024635,
             "path": "assets/models/survival/rock-sand-b.obj",
             "type": "Mesh"
         },
         "5394195835147259564": {
-            "hash": 12949419832825263826,
+            "hash": 2491023324945352966,
             "path": "assets/models/blaster/blaster-g.obj",
             "type": "Mesh"
         },
@@ -2446,7 +2451,7 @@
             "type": "Mesh"
         },
         "540691264058249786": {
-            "hash": 1784005819038317865,
+            "hash": 2087609888658128835,
             "path": "assets/models/platformer/lever.obj",
             "type": "Mesh"
         },
@@ -2456,17 +2461,17 @@
             "type": "Mesh"
         },
         "5430226263107192784": {
-            "hash": 11037383588898852833,
+            "hash": 3605154725999762238,
             "path": "assets/models/platformer/block-snow-overhang-narrow.obj",
             "type": "Mesh"
         },
         "5482099199848627876": {
-            "hash": 10217223733158035579,
+            "hash": 16198046089948892848,
             "path": "assets/models/survival/bedroll.obj",
             "type": "Mesh"
         },
         "5510131124113561247": {
-            "hash": 728504101229697330,
+            "hash": 16454704990958307747,
             "path": "assets/models/platformer/block-snow-overhang-large.obj",
             "type": "Mesh"
         },
@@ -2481,7 +2486,7 @@
             "type": "Mesh"
         },
         "5648082291467299079": {
-            "hash": 741551328616468499,
+            "hash": 2688316070760549948,
             "path": "assets/models/platformer/block-snow-low-large.obj",
             "type": "Mesh"
         },
@@ -2496,7 +2501,7 @@
             "type": "Mesh"
         },
         "577546500924396199": {
-            "hash": 691261716038560018,
+            "hash": 5711430638203045659,
             "path": "assets/models/survival/resource-wood.obj",
             "type": "Mesh"
         },
@@ -2506,7 +2511,7 @@
             "type": "Mesh"
         },
         "5837143895676954557": {
-            "hash": 2028246820345887238,
+            "hash": 10800688931781378773,
             "path": "assets/models/survival/structure-metal-roof.obj",
             "type": "Mesh"
         },
@@ -2521,17 +2526,17 @@
             "type": "Mesh"
         },
         "5913966381130462954": {
-            "hash": 1418746274414446141,
+            "hash": 10452497616462755605,
             "path": "assets/models/platformer/block-snow-curve-half.obj",
             "type": "Mesh"
         },
         "5945198823241410647": {
-            "hash": 12209988515951003726,
+            "hash": 4058162507854081173,
             "path": "assets/models/survival/bottle.obj",
             "type": "Mesh"
         },
         "5981774423341068315": {
-            "hash": 17840453794361218016,
+            "hash": 11251667113419756769,
             "path": "assets/models/platformer/block-snow-overhang-large-slope.obj",
             "type": "Mesh"
         },
@@ -2541,7 +2546,7 @@
             "type": "Mesh"
         },
         "600717903886020605": {
-            "hash": 16335656479013330926,
+            "hash": 9335812405880901726,
             "path": "assets/models/platformer/trap-spikes.obj",
             "type": "Mesh"
         },
@@ -2556,7 +2561,7 @@
             "type": "Mesh"
         },
         "6060119436993070804": {
-            "hash": 11592992869392853181,
+            "hash": 8410074492035163273,
             "path": "assets/models/pets/animal-fish.obj",
             "type": "Mesh"
         },
@@ -2576,12 +2581,12 @@
             "type": "Mesh"
         },
         "6120808288889983071": {
-            "hash": 1551726181057433122,
+            "hash": 6404799110057438199,
             "path": "assets/models/survival/box.obj",
             "type": "Mesh"
         },
         "6121646732136787806": {
-            "hash": 11320422155610978148,
+            "hash": 8720961543901132704,
             "path": "assets/models/platformer/fence-low-corner-curved.obj",
             "type": "Mesh"
         },
@@ -2621,7 +2626,7 @@
             "type": "Mesh"
         },
         "6291667884769308069": {
-            "hash": 14363138335391630774,
+            "hash": 16805279457991226593,
             "path": "assets/models/platformer/pipe.obj",
             "type": "Mesh"
         },
@@ -2631,22 +2636,22 @@
             "type": "Mesh"
         },
         "6299686016593387486": {
-            "hash": 14977931138247553161,
+            "hash": 14388389503431830944,
             "path": "assets/models/survival/fence.obj",
             "type": "Mesh"
         },
         "6329444610535921708": {
-            "hash": 16332494695064383026,
+            "hash": 9770620670837731012,
             "path": "assets/models/platformer/block-grass-overhang-large-slope-steep-narrow.obj",
             "type": "Mesh"
         },
         "6354796774886486073": {
-            "hash": 6128525108166624013,
+            "hash": 14789437929882205110,
             "path": "assets/models/survival/rock-sand-c.obj",
             "type": "Mesh"
         },
         "6360358787172197248": {
-            "hash": 10733210117782920559,
+            "hash": 16636360005468603872,
             "path": "assets/models/forest/fence.obj",
             "type": "Mesh"
         },
@@ -2661,7 +2666,7 @@
             "type": "Texture"
         },
         "641285236627180577": {
-            "hash": 12826603135546807538,
+            "hash": 18426843135070704201,
             "path": "assets/models/survival/tent.obj",
             "type": "Mesh"
         },
@@ -2676,17 +2681,17 @@
             "type": "Mesh"
         },
         "6455124876372259767": {
-            "hash": 96029528788298260,
+            "hash": 16354899706694318515,
             "path": "assets/models/platformer/heart.obj",
             "type": "Mesh"
         },
         "6456705267655607561": {
-            "hash": 10959506004828238552,
+            "hash": 14722133327788428897,
             "path": "assets/models/platformer/hedge.obj",
             "type": "Mesh"
         },
         "6461581980166988934": {
-            "hash": 11728028313024172705,
+            "hash": 495017076100094402,
             "path": "assets/models/platformer/block-grass-large-slope-steep-narrow.obj",
             "type": "Mesh"
         },
@@ -2696,7 +2701,7 @@
             "type": "Mesh"
         },
         "6479456401066868351": {
-            "hash": 6888534847161363945,
+            "hash": 7242278964864804408,
             "path": "assets/models/platformer/tree.obj",
             "type": "Mesh"
         },
@@ -2711,12 +2716,12 @@
             "type": "Mesh"
         },
         "6539583373182996295": {
-            "hash": 14529774367704987559,
+            "hash": 752943588768161573,
             "path": "assets/models/pets/animal-bunny.obj",
             "type": "Mesh"
         },
         "6596055258743984341": {
-            "hash": 5937148074618471897,
+            "hash": 16613166901108144468,
             "path": "assets/models/platformer/platform-fortified.obj",
             "type": "Mesh"
         },
@@ -2726,7 +2731,7 @@
             "type": "Mesh"
         },
         "6618960971633989087": {
-            "hash": 15637424264122595962,
+            "hash": 10614465244266274249,
             "path": "assets/models/platformer/tree-pine-snow-small.obj",
             "type": "Mesh"
         },
@@ -2741,7 +2746,7 @@
             "type": "Mesh"
         },
         "6766267690038445482": {
-            "hash": 18059245173866046611,
+            "hash": 7630300197006104094,
             "path": "assets/models/pets/animal-penguin.obj",
             "type": "Mesh"
         },
@@ -2751,17 +2756,17 @@
             "type": "Mesh"
         },
         "680495446270686680": {
-            "hash": 1109419283886883001,
+            "hash": 14729597920336808475,
             "path": "assets/models/platformer/block-grass-edge.obj",
             "type": "Mesh"
         },
         "6810617492966820179": {
-            "hash": 5574655876856644852,
+            "hash": 4032555068560718733,
             "path": "assets/models/survival/metal-panel-screws.obj",
             "type": "Mesh"
         },
         "6816079289526257115": {
-            "hash": 4759186389715114243,
+            "hash": 15241178250785013074,
             "path": "assets/models/platformer/block-snow.obj",
             "type": "Mesh"
         },
@@ -2781,12 +2786,12 @@
             "type": "Mesh"
         },
         "6885608409844283787": {
-            "hash": 7317069622613891349,
+            "hash": 2289016541844641544,
             "path": "assets/models/platformer/fence-broken.obj",
             "type": "Mesh"
         },
         "6896626804370270111": {
-            "hash": 1373137984720103663,
+            "hash": 5017827385085438972,
             "path": "assets/models/platformer/crate-item-strong.obj",
             "type": "Mesh"
         },
@@ -2801,7 +2806,7 @@
             "type": "Mesh"
         },
         "6972794074816438934": {
-            "hash": 13579547859955498782,
+            "hash": 12530088533203503554,
             "path": "assets/models/forest/building-roof.obj",
             "type": "Mesh"
         },
@@ -2811,12 +2816,12 @@
             "type": "Mesh"
         },
         "6995948670883093623": {
-            "hash": 3499538858751468599,
+            "hash": 8738665413730977678,
             "path": "assets/models/blaster/target-large.obj",
             "type": "Mesh"
         },
         "7005356224624708095": {
-            "hash": 8457972276968016034,
+            "hash": 16675695953100013939,
             "path": "assets/models/platformer/block-grass-overhang-large-tall.obj",
             "type": "Mesh"
         },
@@ -2831,7 +2836,7 @@
             "type": "Mesh"
         },
         "7152667491161894220": {
-            "hash": 12360191980001937668,
+            "hash": 4279214451292326531,
             "path": "assets/models/forest/rocks-ramp.obj",
             "type": "Mesh"
         },
@@ -2846,7 +2851,7 @@
             "type": "Mesh"
         },
         "7301689392809773122": {
-            "hash": 11726877322566564548,
+            "hash": 7335680899836489781,
             "path": "assets/models/platformer/block-snow-overhang-hexagon.obj",
             "type": "Mesh"
         },
@@ -2856,27 +2861,27 @@
             "type": "Mesh"
         },
         "7337530656812379831": {
-            "hash": 16489197154158494700,
+            "hash": 7545576890929940637,
             "path": "assets/models/survival/campfire-stand.obj",
             "type": "Mesh"
         },
         "7342025218114652339": {
-            "hash": 2050022909750164675,
+            "hash": 7310487994071129513,
             "path": "assets/models/forest/platform.obj",
             "type": "Mesh"
         },
         "7392194786709611918": {
-            "hash": 5329107060343184891,
+            "hash": 12736559608295108062,
             "path": "assets/models/platformer/block-grass-overhang-low-narrow.obj",
             "type": "Mesh"
         },
         "7396721550651233789": {
-            "hash": 14711518192422329377,
+            "hash": 220840328902321343,
             "path": "assets/models/survival/structure-metal.obj",
             "type": "Mesh"
         },
         "7481686273014422203": {
-            "hash": 18028987388820449804,
+            "hash": 10841061885539433903,
             "path": "assets/models/platformer/fence-low-straight.obj",
             "type": "Mesh"
         },
@@ -2886,27 +2891,27 @@
             "type": "Mesh"
         },
         "7587271970385591160": {
-            "hash": 9185402038569865158,
+            "hash": 3854449589890528804,
             "path": "assets/models/platformer/trap-spikes-large.obj",
             "type": "Mesh"
         },
         "7591297458944675246": {
-            "hash": 13862499310527266142,
+            "hash": 15396802014314694759,
             "path": "assets/models/forest/flag.obj",
             "type": "Mesh"
         },
         "7644141195550862161": {
-            "hash": 14659950673396693811,
+            "hash": 9368475763018246537,
             "path": "assets/models/platformer/block-snow-low-long.obj",
             "type": "Mesh"
         },
         "7660006888150246542": {
-            "hash": 2576606620224120977,
+            "hash": 2425303509198821022,
             "path": "assets/models/survival/metal-panel-screws-half.obj",
             "type": "Mesh"
         },
         "7684191821229307533": {
-            "hash": 16404912934842650502,
+            "hash": 14933702123288851491,
             "path": "assets/models/forest/weapon-bow.obj",
             "type": "Mesh"
         },
@@ -2931,17 +2936,17 @@
             "type": "Mesh"
         },
         "783611208824600771": {
-            "hash": 1046282442208200965,
+            "hash": 1377682851960813721,
             "path": "assets/models/survival/rock-c.obj",
             "type": "Mesh"
         },
         "7840810580769153506": {
-            "hash": 14310799538136094778,
+            "hash": 1014745467526773256,
             "path": "assets/models/platformer/key.obj",
             "type": "Mesh"
         },
         "7880752593671105153": {
-            "hash": 18089514389315756768,
+            "hash": 15881672942652586377,
             "path": "assets/models/survival/signpost.obj",
             "type": "Mesh"
         },
@@ -2956,17 +2961,17 @@
             "type": "Mesh"
         },
         "7937223196406465536": {
-            "hash": 7806362288762339495,
+            "hash": 15497125440788035442,
             "path": "assets/models/platformer/door-open.obj",
             "type": "Mesh"
         },
         "7956194125354684957": {
-            "hash": 2555289738288164508,
+            "hash": 6557114862533338521,
             "path": "assets/models/forest/ladder.obj",
             "type": "Mesh"
         },
         "7956488166553162441": {
-            "hash": 15706251306743181732,
+            "hash": 7344881573200524275,
             "path": "assets/models/blaster/bullet-foam-tip.obj",
             "type": "Mesh"
         },
@@ -2976,17 +2981,17 @@
             "type": "Mesh"
         },
         "7981986834162928299": {
-            "hash": 15400480493357692525,
+            "hash": 9506383118090319399,
             "path": "assets/models/platformer/block-snow-overhang-low-large.obj",
             "type": "Mesh"
         },
         "8011000313708834149": {
-            "hash": 15365085268722732526,
+            "hash": 1565005793824907611,
             "path": "assets/models/survival/campfire-fishing-stand.obj",
             "type": "Mesh"
         },
         "8035291821313981616": {
-            "hash": 12417295049831393319,
+            "hash": 4939861056245072467,
             "path": "assets/models/forest/patch-grass.obj",
             "type": "Mesh"
         },
@@ -3001,7 +3006,7 @@
             "type": "Mesh"
         },
         "8153611696498953811": {
-            "hash": 1774327227445843923,
+            "hash": 13026673874237204530,
             "path": "assets/models/platformer/block-snow-corner-low.obj",
             "type": "Mesh"
         },
@@ -3011,17 +3016,17 @@
             "type": "Mesh"
         },
         "81892563771868318": {
-            "hash": 12236681860391220137,
+            "hash": 15066214541148713716,
             "path": "assets/models/survival/patch-grass.obj",
             "type": "Mesh"
         },
         "8257752927065367539": {
-            "hash": 8838593975588538172,
+            "hash": 7847685897807496480,
             "path": "assets/models/blaster/blaster-k.obj",
             "type": "Mesh"
         },
         "8268639864333040742": {
-            "hash": 12929398339521174888,
+            "hash": 2575236356108224985,
             "path": "assets/models/platformer/block-grass-overhang-corner.obj",
             "type": "Mesh"
         },
@@ -3031,22 +3036,22 @@
             "type": "Mesh"
         },
         "8332146158110673394": {
-            "hash": 12295230340475993685,
+            "hash": 9488767852927792746,
             "path": "assets/models/platformer/block-snow-overhang-low-long.obj",
             "type": "Mesh"
         },
         "8334284370701475529": {
-            "hash": 14412332207132681849,
+            "hash": 1136886595132167824,
             "path": "assets/models/platformer/block-snow-curve-low.obj",
             "type": "Mesh"
         },
         "8371918109406342145": {
-            "hash": 7506610666066144236,
+            "hash": 10715891748047331730,
             "path": "assets/models/platformer/block-grass-overhang-narrow.obj",
             "type": "Mesh"
         },
         "8404335391014009579": {
-            "hash": 3679985748219615636,
+            "hash": 4089640737911155991,
             "path": "assets/models/platformer/platform.obj",
             "type": "Mesh"
         },
@@ -3056,7 +3061,7 @@
             "type": "Mesh"
         },
         "842821114345101865": {
-            "hash": 11189417457873361382,
+            "hash": 13976294414707727820,
             "path": "assets/models/forest/tent.obj",
             "type": "Mesh"
         },
@@ -3086,7 +3091,7 @@
             "type": "Mesh"
         },
         "8540029002957626590": {
-            "hash": 14941567930585568791,
+            "hash": 17118497196011577230,
             "path": "assets/models/blaster/blaster-a.obj",
             "type": "Mesh"
         },
@@ -3101,7 +3106,7 @@
             "type": "Mesh"
         },
         "856398276026348399": {
-            "hash": 14920964097618145758,
+            "hash": 10516042885839118918,
             "path": "assets/models/platformer/character-oopi.obj",
             "type": "Mesh"
         },
@@ -3116,7 +3121,7 @@
             "type": "Mesh"
         },
         "8588306298573887117": {
-            "hash": 6404458940647754848,
+            "hash": 16506075480850127950,
             "path": "assets/models/pets/animal-chick.obj",
             "type": "Mesh"
         },
@@ -3126,37 +3131,37 @@
             "type": "Mesh"
         },
         "8656254582779026133": {
-            "hash": 14323412832947044809,
+            "hash": 14960749395200580360,
             "path": "assets/models/survival/tool-shovel.obj",
             "type": "Mesh"
         },
         "8681603282353156860": {
-            "hash": 16460458287687250066,
+            "hash": 3276958338282454265,
             "path": "assets/models/platformer/fence-corner-curved.obj",
             "type": "Mesh"
         },
         "8693258991383625344": {
-            "hash": 977750272976655402,
+            "hash": 3027694307759588424,
             "path": "assets/models/survival/structure-metal-doorway.obj",
             "type": "Mesh"
         },
         "869941806608895950": {
-            "hash": 10949844955964149413,
+            "hash": 17533335423511550482,
             "path": "assets/models/blaster/grenade-b.obj",
             "type": "Mesh"
         },
         "8778890402952064574": {
-            "hash": 15522921321591214289,
+            "hash": 8735875383133382685,
             "path": "assets/models/survival/structure-metal-floor.obj",
             "type": "Mesh"
         },
         "8782111401316698689": {
-            "hash": 17411421909530405013,
+            "hash": 3353564452690239359,
             "path": "assets/models/platformer/block-grass-low-large.obj",
             "type": "Mesh"
         },
         "8785600197659828783": {
-            "hash": 12217976249252192064,
+            "hash": 5721214069741296514,
             "path": "assets/models/platformer/block-grass-overhang-edge.obj",
             "type": "Mesh"
         },
@@ -3166,7 +3171,7 @@
             "type": "Mesh"
         },
         "8796175002814662707": {
-            "hash": 4488649154077354710,
+            "hash": 12344470368412631711,
             "path": "assets/models/blaster/clip-large.obj",
             "type": "Mesh"
         },
@@ -3186,22 +3191,22 @@
             "type": "Mesh"
         },
         "8893286187476707291": {
-            "hash": 14939636005009233553,
+            "hash": 18160092148285680967,
             "path": "assets/models/platformer/tree-pine-snow.obj",
             "type": "Mesh"
         },
         "8894030257094605131": {
-            "hash": 8693232169710017735,
+            "hash": 9892428833434390336,
             "path": "assets/models/survival/structure-canvas.obj",
             "type": "Mesh"
         },
         "8929872670490686884": {
-            "hash": 14005246029425932608,
+            "hash": 13642811483303623159,
             "path": "assets/models/survival/workbench-anvil.obj",
             "type": "Mesh"
         },
         "8939556890368378496": {
-            "hash": 332198246746312150,
+            "hash": 15063349578841266863,
             "path": "assets/models/platformer/fence-low-corner.obj",
             "type": "Mesh"
         },
@@ -3221,7 +3226,7 @@
             "type": "Mesh"
         },
         "897823708348063921": {
-            "hash": 5395008230526027720,
+            "hash": 15199182854949806499,
             "path": "assets/models/platformer/block-snow-low-hexagon.obj",
             "type": "Mesh"
         },
@@ -3266,27 +3271,27 @@
             "type": "Mesh"
         },
         "9193274533168077229": {
-            "hash": 9899862851490717523,
+            "hash": 16262742655800590264,
             "path": "assets/models/platformer/button-square.obj",
             "type": "Mesh"
         },
         "9218147005330065162": {
-            "hash": 2911672155165714075,
+            "hash": 7106235256984667008,
             "path": "assets/models/platformer/block-grass-curve-low.obj",
             "type": "Mesh"
         },
         "9221771207397856165": {
-            "hash": 13156945460956611905,
+            "hash": 7476010386766542990,
             "path": "assets/models/platformer/block-grass-overhang-low.obj",
             "type": "Mesh"
         },
         "9337963029044586301": {
-            "hash": 14380967078699574424,
+            "hash": 8784593445432983783,
             "path": "assets/models/platformer/arrow.obj",
             "type": "Mesh"
         },
         "9367230734046788192": {
-            "hash": 3440040499703929346,
+            "hash": 572803945597751137,
             "path": "assets/models/survival/resource-planks.obj",
             "type": "Mesh"
         },
@@ -3306,7 +3311,7 @@
             "type": "Mesh"
         },
         "9515889647396348462": {
-            "hash": 5410143362502915973,
+            "hash": 13252757655321712112,
             "path": "assets/models/platformer/ladder-long.obj",
             "type": "Mesh"
         },
@@ -3316,12 +3321,12 @@
             "type": "Mesh"
         },
         "9563934111286153248": {
-            "hash": 3800134027806996800,
+            "hash": 13811320247111956533,
             "path": "assets/models/platformer/block-snow-overhang-low-hexagon.obj",
             "type": "Mesh"
         },
         "9564320955000253620": {
-            "hash": 11211898060788794062,
+            "hash": 14145654647258579611,
             "path": "assets/models/blaster/blaster-r.obj",
             "type": "Mesh"
         },
@@ -3336,7 +3341,7 @@
             "type": "Mesh"
         },
         "9675255602477377815": {
-            "hash": 8737031350967856836,
+            "hash": 9188135489948065614,
             "path": "assets/models/platformer/plant.obj",
             "type": "Mesh"
         },
@@ -3346,7 +3351,7 @@
             "type": "Mesh"
         },
         "9681810244587653809": {
-            "hash": 3466679496697116672,
+            "hash": 15508574136042176627,
             "path": "assets/models/forest/building-structure.obj",
             "type": "Mesh"
         },
@@ -3371,12 +3376,12 @@
             "type": "Mesh"
         },
         "9854925544140808505": {
-            "hash": 1359216759320921701,
+            "hash": 7244970606507651720,
             "path": "assets/models/blaster/target-fragment-large.obj",
             "type": "Mesh"
         },
         "9905105935358605691": {
-            "hash": 13458387266127498216,
+            "hash": 1607622167604194147,
             "path": "assets/models/blaster/smoke.obj",
             "type": "Mesh"
         },
@@ -3386,7 +3391,7 @@
             "type": "Mesh"
         },
         "9995735450271112044": {
-            "hash": 6230713236972219459,
+            "hash": 12879652490142216371,
             "path": "assets/models/pets/animal-cat.obj",
             "type": "Mesh"
         }

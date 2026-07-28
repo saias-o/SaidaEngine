@@ -381,6 +381,16 @@ What is missing:
   against the wrong schema, then add a real headless load verb for runtime
   scenes so CI and authors share one check.
 
+- [ ] Scripting: make `tree.changeScene(path)` report the eventual load result.
+  The binding currently returns `true` as soon as its argument converts to a
+  string; it does not resolve the path or wait for the deferred load. A game
+  therefore cannot distinguish a queued valid transition from a missing or
+  rejected scene. If it consumes the exit item before the load fails, progression
+  is stranded in the old scene. Return a transition handle or publish a
+  completion/failure signal carrying the requested path and diagnostic. Cover a
+  successful replacement, a missing file and a schema-rejected scene; queued
+  acceptance alone must not be presented as load success.
+
 - [ ] Input: allow a binding to be added, and validate the context.
   `Input::applyBindingProfile` assigns over `g_bindings` — it replaces the entire
   table — and `rebindKey` calls `unmapAction` before `bindKey`. A script can
@@ -478,7 +488,104 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   `ui_screenshot`, `ui_layout` (the JSON above, live) and `ui_reload` against
   the running editor.
 
+- [ ] Tooling: drive a real `WebCanvasNode` by element id or selector. The
+  current VerticalSlice E2E calls `tree.changeScene` directly, so it proved the
+  gameplay scene while completely bypassing the menu button that launches it.
+  Add a deterministic interaction harness available from `saida_tool`, the
+  editor test CLI and MCP: `ui_focus`, `ui_pointer_move`, `ui_pointer_down`,
+  `ui_pointer_up`, `ui_click`, `ui_key` and `ui_text`, all routed through
+  `UIInteractionSystem` and the same RmlUi/QuickJS bridge used by a player.
+  It must be possible to express "focus `#play-button`, activate it, wait for
+  `scenes/verdance.scene`, assert `#hud`" without screen coordinates. A helper
+  that invokes `tree.changeScene` is not equivalent proof.
+
+- [ ] Tooling: capture animated UI as a deterministic sequence, not only one
+  still frame. Add a fixed-step mode to `render-ui`/`ui_screenshot` with an
+  event script and checkpoints, producing numbered PNG frames plus layout/state
+  JSON at requested times. Record active pseudo-classes, classes, focus,
+  computed opacity/transform and the running transitions/animations. A compact
+  contact sheet or image diff across checkpoints should make hover, focus,
+  entrance, reduced-motion and scene-exit animations reviewable by an agent
+  without watching a live window.
+
+- [ ] Tooling: expose an ordered UI event and mutation trace. For each driven
+  interaction, report event type, target/currentTarget, listener entry/exit,
+  focus owner, class/style/text mutations, deferred layout flushes, document
+  generation and scene-change/destruction boundaries. Bound and filter the
+  trace by canvas or selector so it stays usable. This would have shown the
+  `focus -> classList.add -> Context::Update -> focus` recursion and the later
+  call into a destroyed menu in one run instead of requiring Windows Event
+  Viewer, GDB and manual RVA symbolication.
+
+- [ ] Editor UI inspector: expose the complete pointer-routing decision for the
+  current frame. Show window coordinates, the dockspace central rectangle,
+  canvas-local coordinates, the RmlUi element under the pointer and its border
+  box, the `WebCanvasNode::hitTest` result, whether the event was consumed, and
+  which system owns cursor capture. The overlay and a machine-readable MCP
+  result must use the same data. This incident otherwise presented three
+  indistinguishable symptoms: a viewport-offset transform, a canvas that did
+  not receive mouse moves, and a correct hover state whose colour was still
+  transitioning.
+
+- [ ] Tooling: symbolize local crash reports automatically. The crash reporter
+  writes the build commit, exception RVA and minidump, but a development build
+  still requires manually matching the image base and invoking GDB/addr2line.
+  Add `saida_tool symbolize-crash <log-or-dmp> --symbols <dir>` (and make the
+  editor offer it) to emit a source-level stack, identify a missing/mismatched
+  symbol artifact explicitly and preserve the original immutable report.
+
 #### 6.3.2 Silent traps — each one produced a wrong menu with no diagnostic
+
+- [ ] UI runtime: make DOM mutation scheduling non-reentrant by contract.
+  RmlUi dispatches focus and pointer listeners from `Context::Update`; a
+  `classList`, style or text mutation inside one of those listeners must be
+  queued and flushed once at the next safe UI boundary, never call `Update`
+  recursively. Centralize the dispatch-depth/flush rule rather than relying on
+  every binding to remember it, expose a diagnostic when a synchronous update
+  is attempted during dispatch, and test focus, hover, click and animation
+  callbacks that mutate the DOM.
+
+- [ ] UI input: replace cross-frame raw interaction pointers with
+  lifetime-checked handles. `UIInteractionSystem` keeps hovered, pressed,
+  focused and touch targets while a deferred `changeScene` can destroy their
+  entire `WebCanvasNode` after input handling. Use `NodeId` plus a document
+  generation (or an equivalent invalidation token), clear every target
+  atomically on hierarchy/document replacement, and cover mouse, keyboard,
+  gamepad and touch. The corpus must change scene from `mousedown`, `click` and
+  keyboard activation, then run at least one more frame; a direct
+  `tree.changeScene` test does not exercise this lifetime boundary.
+
+- [ ] UI input: define one screen-to-canvas transform and explicit cursor
+  ownership for the editor. Rendering, RmlUi pointer movement, hit-testing,
+  click dispatch and editor picking must all consume the dockspace central
+  rectangle recorded by `EditorUI`; none may substitute the main OS viewport.
+  Mouse movement must reach the RmlUi context whenever the pointer is inside
+  the canvas so that enter/leave state remains current. The interactive
+  `hitTest` result is only for click/scroll arbitration, and a click consumed by
+  UI must never enable relative mouse capture or hide the cursor. Add a docked
+  editor regression with asymmetric side panels and test button centres,
+  borders, gaps, entry from both directions, clicking and leaving the canvas.
+
+- [ ] UI tests: add a shipping-document interaction corpus. Load a real
+  HTML/RCSS/JS `WebCanvasNode` without hand-reimplementing its behavior, drive
+  its controls through the public interaction harness, advance a deterministic
+  clock through its transitions, and assert pixels, layout, event order,
+  document lifetime and the resulting engine action. Include the VerticalSlice
+  `BEGIN THE JOURNEY` flow as a regression: no `Maximum call stack size
+  exceeded`, no stale `ProcessMouseLeave`, the gameplay scene reaches ready and
+  the old menu receives no later input.
+
+- [ ] UI authoring: make pointer feedback latency visible and safe by default.
+  The VerticalSlice buttons transitioned every hover colour for 180 ms. The
+  hit target and RmlUi `:hover` state were correct, but while crossing a button
+  the highlight became visible only near the opposite edge; reversing pointer
+  direction reversed the apparent activation point. Ship menu templates whose
+  primary hover affordance changes immediately, reserving transitions for
+  secondary decoration or hover exit. Extend `validate-ui` to report controls
+  for which every visible hover indicator is delayed, and have the interaction
+  trace distinguish the pseudo-class timestamp from the computed visual
+  transition. Do not change CSS transition semantics globally: diagnose the
+  delay and provide a correct default.
 
 - [ ] UI: ship an engine user-agent stylesheet. RmlUi provides no default
   stylesheet, and RCSS defaults `display` to `inline`

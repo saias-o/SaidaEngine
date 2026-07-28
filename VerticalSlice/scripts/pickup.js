@@ -16,6 +16,9 @@ function onReady() {
         if (props.kind === "star") {
             audio.play("star");
             gameState.call("starTaken", props.value);
+        } else if (props.kind === "relic") {
+            audio.play("star");
+            gameState.call("relicTaken", props.value);
         } else {
             audio.play("coin");
             gameState.call("coinTaken", props.value);
