@@ -34,6 +34,28 @@
 
 namespace saida {
 
+// A bare cgltf_result number in a log says nothing about which third-party file
+// is at fault or why, and these failures are almost always an exporter quirk in
+// content the engine did not produce. Naming the cause is what makes the file
+// fixable instead of merely rejected.
+static const char* cgltfResultName(cgltf_result result) {
+    switch (result) {
+        case cgltf_result_success: return "success";
+        case cgltf_result_data_too_short: return "truncated file";
+        case cgltf_result_unknown_format: return "unknown format (not glTF/GLB)";
+        case cgltf_result_invalid_json: return "malformed JSON";
+        case cgltf_result_invalid_gltf:
+            return "invalid glTF (a common cause is a scene root that is also "
+                   "another node's child)";
+        case cgltf_result_invalid_options: return "invalid loader options";
+        case cgltf_result_file_not_found: return "file not found";
+        case cgltf_result_io_error: return "I/O error";
+        case cgltf_result_out_of_memory: return "out of memory";
+        case cgltf_result_legacy_gltf: return "glTF 1.0 is not supported";
+        default: return "unknown error";
+    }
+}
+
 static glm::vec4 toVec4(const float* f) { return {f[0], f[1], f[2], f[3]}; }
 static glm::vec3 toVec3(const float* f) { return {f[0], f[1], f[2]}; }
 
@@ -371,8 +393,9 @@ bool GLTFLoader::loadAnimationData(const std::string& path, GltfAnimationData& o
                                    std::string* error) {
     cgltf_options cgltfOptions = {};
     cgltf_data* data = nullptr;
-    if (cgltf_parse_file(&cgltfOptions, path.c_str(), &data) != cgltf_result_success) {
-        if (error) *error = "failed to parse " + path;
+    if (cgltf_result parsed = cgltf_parse_file(&cgltfOptions, path.c_str(), &data);
+        parsed != cgltf_result_success) {
+        if (error) *error = "failed to parse " + path + ": " + cgltfResultName(parsed);
         return false;
     }
     if (cgltf_load_buffers(&cgltfOptions, data, path.c_str()) != cgltf_result_success) {
@@ -425,7 +448,8 @@ bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& 
     cgltf_result result = cgltf_parse_file(&cgltfOptions, loadPath.c_str(), &data);
     
     if (result != cgltf_result_success) {
-        Log::error("GLTFLoader: Failed to parse ", loadPath, " (error ", result, ")");
+        Log::error("GLTFLoader: failed to parse ", loadPath, " — ",
+                   cgltfResultName(result));
         return false;
     }
     

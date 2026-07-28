@@ -426,7 +426,10 @@ AssetType AssetRegistry::determineType(const std::filesystem::path& path) const 
         return static_cast<char>(std::tolower(c));
     });
     if (ext == ".obj" || ext == ".fbx" || ext == ".gltf" || ext == ".glb") return AssetType::Mesh;
-    if (ext == ".png" || ext == ".jpg" || ext == ".bmp") return AssetType::Texture;
+    // .hdr is the equirectangular skybox/IBL source; Texture already decodes it
+    // through stbi_is_hdr into a float format.
+    if (ext == ".png" || ext == ".jpg" || ext == ".bmp" || ext == ".hdr")
+        return AssetType::Texture;
     if (ext == ".mat") return AssetType::Material;
     if (ext == ".scene") return AssetType::Scene;
     if (ext == ".ogg") return AssetType::Audio;
