@@ -1,0 +1,49 @@
+{
+  "audio": {
+    "aliases": {
+      "coin": "assets/audio/coin.ogg",
+      "defeat": "assets/audio/defeat.ogg",
+      "enemy_die": "assets/audio/enemy_die.ogg",
+      "explosion": "assets/audio/explosion.ogg",
+      "hit": "assets/audio/hit.ogg",
+      "hurt": "assets/audio/hurt.ogg",
+      "jump": "assets/audio/jump.ogg",
+      "land": "assets/audio/land.ogg",
+      "shoot": "assets/audio/shoot.ogg",
+      "shoot_alt": "assets/audio/shoot_alt.ogg",
+      "spring": "assets/audio/spring.ogg",
+      "star": "assets/audio/star.ogg",
+      "step_a": "assets/audio/step_a.ogg",
+      "step_b": "assets/audio/step_b.ogg",
+      "target_break": "assets/audio/target_break.ogg",
+      "victory": "assets/audio/victory.ogg"
+    },
+    "default": {
+      "loop": false,
+      "maxDistance": 100.0,
+      "minDistance": 1.0,
+      "spatialized": false,
+      "volume": 1.0
+    },
+    "masterVolume": 0.85
+  },
+  "autoloads": {
+    "GameState": "scripts/game_state.mjs"
+  },
+  "engineVersion": "0.1.0",
+  "mainScene": "scenes/verdance.scene",
+  "name": "Verdance",
+  "rendering": {
+    "autoMeshLods": false,
+    "shadowDistance": 70.0,
+    "shadowResolution": 4096,
+    "shadowSoftness": 1.15,
+    "showColliders": false
+  },
+  "runtime": {
+    "maxFps": 144,
+    "vsync": true
+  },
+  "schema": 1,
+  "version": 1
+}
