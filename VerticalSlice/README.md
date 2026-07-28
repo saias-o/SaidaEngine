@@ -5,6 +5,10 @@ skybox with SH-based image-based lighting, DDGI, SSAO, bloom, distance fog,
 cascaded shadows, skinned characters with clip blending, SaidaFX particles,
 physics bodies and areas, UI, audio and QuickJS gameplay.
 
+The project opens on an animated RmlUi main menu authored as separate HTML,
+CSS and JavaScript files under `ui/`. Its live 3D backdrop is generated
+alongside the playable scene.
+
 ## Run it
 
 ```sh
@@ -28,7 +32,8 @@ the star.
 
 | Path | What it is |
 | --- | --- |
-| `gen_slice.py` | Generates `scenes/verdance.scene` and the `.saidaproj`. **The level's source of truth** — edit this, not the scene. |
+| `gen_slice.py` | Generates the menu and gameplay scenes plus the `.saidaproj`. **The scenes' source of truth** — edit this, not the generated scenes. |
+| `ui/` | Main-menu structure, styling and document behavior (`main_menu.html`, `main_menu.css`, `main_menu.js`). |
 | `scripts/` | Gameplay (QuickJS). `game_state.mjs` is the autoload that owns score, health, phase and the HUD; everything else talks to it through `NodeRef.call`. |
 | `tools/` | The asset pipeline. Each script is idempotent and re-runnable. |
 | `assets/` | Art, audio and the sky, after the pipeline has run. |

@@ -234,6 +234,9 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
 
     bool webHandled = false;
     const int modifiers = rmlModifiers();
+    if (hoveredWebCanvas_ && hoveredWebCanvas_ != webTarget) {
+        webHandled = hoveredWebCanvas_->fireMouseLeave() || webHandled;
+    }
     if (webTarget) {
         hoveredWebCanvas_ = webTarget;
         glm::vec2 local = clampCanvasLocal(*webTarget, mouseHit.local);

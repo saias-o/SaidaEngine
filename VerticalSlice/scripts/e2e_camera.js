@@ -22,6 +22,7 @@ const MAX_SWING = 1.5;      // metres between the closest and furthest sample
 let frames = 0;
 let player = null;
 let camera = null;
+let gameplayRequested = false;
 
 let previous = null;
 let lastDelta = 0.0;
@@ -43,8 +44,16 @@ function onReady() {
 }
 
 function onUpdate() {
+    if (player === null || camera === null) {
+        player = tree.firstInGroup("player");
+        camera = tree.firstInGroup("camera");
+        if (player === null && !gameplayRequested) {
+            gameplayRequested = true;
+            tree.changeScene("scenes/verdance.scene");
+        }
+        return;
+    }
     frames += 1;
-    if (player === null || camera === null) return;
 
     // Hold the rig hard against its downward pitch limit for the whole run, so
     // it stays in the configuration that used to fight itself.

@@ -10,6 +10,7 @@ let frames = 0;
 let gameState = null;
 let startScore = 0;
 let targetsAtStart = 0;
+let gameplayRequested = false;
 
 function report(label, ok, detail) {
     console.log("[E2E] " + (ok ? "ok  " : "FAIL") + " " + label +
@@ -22,6 +23,13 @@ function onReady() {
 }
 
 function onUpdate() {
+    if (tree.firstInGroup("player") === null) {
+        if (!gameplayRequested) {
+            gameplayRequested = true;
+            tree.changeScene("scenes/verdance.scene");
+        }
+        return;
+    }
     frames += 1;
 
     if (frames === 20) {

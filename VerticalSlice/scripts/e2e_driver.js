@@ -3,6 +3,7 @@
 //   SaidaEngine.exe --project VerticalSlice --play --test-autoload "E2E=scripts/e2e_driver.js"
 
 let frames = 0;
+let gameplayRequested = false;
 
 function report(label, ok, detail) {
     console.log("[E2E] " + (ok ? "ok  " : "FAIL") + " " + label +
@@ -11,6 +12,13 @@ function report(label, ok, detail) {
 }
 
 function onUpdate() {
+    if (tree.firstInGroup("player") === null) {
+        if (!gameplayRequested) {
+            gameplayRequested = true;
+            tree.changeScene("scenes/verdance.scene");
+        }
+        return;
+    }
     frames += 1;
 
     // Deliberately does not fire: this pass asserts what the scene declares, and

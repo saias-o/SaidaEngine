@@ -31,7 +31,7 @@
     "GameState": "scripts/game_state.mjs"
   },
   "engineVersion": "0.1.0",
-  "mainScene": "scenes/verdance.scene",
+  "mainScene": "scenes/main_menu.scene",
   "name": "Verdance",
   "rendering": {
     "autoMeshLods": false,

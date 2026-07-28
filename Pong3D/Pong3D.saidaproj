@@ -1,11 +1,30 @@
 {
-  "schema": 1,
-  "version": 1,
-  "name": "Pong 3D",
+  "audio": {
+    "aliases": {},
+    "default": {
+      "loop": false,
+      "maxDistance": 100.0,
+      "minDistance": 1.0,
+      "spatialized": false,
+      "volume": 1.0
+    },
+    "masterVolume": 1.0
+  },
+  "autoloads": {},
   "engineVersion": "0.1.0",
   "mainScene": "scenes/pong.scene",
+  "name": "Pong 3D",
+  "rendering": {
+    "autoMeshLods": false,
+    "shadowDistance": 25.0,
+    "shadowResolution": 2048,
+    "shadowSoftness": 1.0,
+    "showColliders": true
+  },
   "runtime": {
-    "maxFps": 144,
+    "maxFps": 99,
     "vsync": true
-  }
+  },
+  "schema": 1,
+  "version": 1
 }

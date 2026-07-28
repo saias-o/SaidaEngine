@@ -70,6 +70,7 @@ public:
     bool setElementRml(const std::string& id, const std::string& rml);
 
     bool fireMouseEvent(MouseEvent type, int x, int y, MouseButton button, int modifiers = 0);
+    bool fireMouseLeave();
     bool fireScrollEvent(float deltaX, float deltaY, int modifiers = 0);
     bool fireKeyEvent(bool down, Rml::Input::KeyIdentifier key, int modifiers = 0);
     bool fireTextInput(uint32_t codepoint);

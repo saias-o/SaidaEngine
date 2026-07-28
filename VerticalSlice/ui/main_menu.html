@@ -1,0 +1,152 @@
+<rml>
+<head>
+    <title>Verdance — Main Menu</title>
+    <link type="text/rcss" href="main_menu.css"/>
+    <script src="main_menu.js"></script>
+</head>
+<body id="menu-body" lock-navigation>
+    <div id="menu-root">
+        <div class="ambient ambient-one"></div>
+        <div class="ambient ambient-two"></div>
+        <div class="ambient ambient-three"></div>
+        <div class="horizon-line"></div>
+
+        <div class="topbar">
+            <div class="engine-mark">
+                <span class="mark-diamond"></span>
+                <span class="mark-copy">SAIDA ENGINE</span>
+            </div>
+            <div class="slice-badge">VERTICAL SLICE / 01</div>
+        </div>
+
+        <div id="main-view" class="view">
+            <div class="hero-copy">
+                <div class="eyebrow">
+                    <span class="eyebrow-line"></span>
+                    <span>A WILDER WORLD AWAITS</span>
+                </div>
+                <h1>VERDANCE</h1>
+                <p class="tagline">Cross the living wilds. Break the guardians.<br/>Claim the light beyond the ruins.</p>
+
+                <div class="menu-actions">
+                    <button id="play-button" class="menu-button primary ui-hit">
+                        <span class="button-index">01</span>
+                        <span class="button-copy">
+                            <span class="button-label">BEGIN THE JOURNEY</span>
+                            <span class="button-note">Enter the emerald frontier</span>
+                        </span>
+                        <span class="button-arrow">&gt;</span>
+                    </button>
+
+                    <button id="how-button" class="menu-button ui-hit">
+                        <span class="button-index">02</span>
+                        <span class="button-copy">
+                            <span class="button-label">HOW TO PLAY</span>
+                            <span class="button-note">Movement, combat and your objective</span>
+                        </span>
+                        <span class="button-arrow">&gt;</span>
+                    </button>
+
+                    <button id="options-button" class="menu-button ui-hit">
+                        <span class="button-index">03</span>
+                        <span class="button-copy">
+                            <span class="button-label">OPTIONS</span>
+                            <span class="button-note">Tune the menu presentation</span>
+                        </span>
+                        <span class="button-arrow">&gt;</span>
+                    </button>
+
+                    <button id="credits-button" class="menu-button ui-hit">
+                        <span class="button-index">04</span>
+                        <span class="button-copy">
+                            <span class="button-label">CREDITS</span>
+                            <span class="button-note">The tools and artists behind Verdance</span>
+                        </span>
+                        <span class="button-arrow">&gt;</span>
+                    </button>
+
+                    <button id="quit-button" class="menu-button compact ui-hit">
+                        <span class="button-index">05</span>
+                        <span class="button-copy">
+                            <span class="button-label">LEAVE VERDANCE</span>
+                        </span>
+                        <span class="button-arrow">X</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="expedition-card">
+                <div class="card-kicker">THE EXPEDITION</div>
+                <div class="card-number">03</div>
+                <div class="card-title">WILDS TO CONQUER</div>
+                <div class="card-rule"></div>
+                <div class="route-step">
+                    <span class="route-dot active"></span>
+                    <span class="route-copy"><strong>THE GROVE</strong><br/>Break the signal targets</span>
+                </div>
+                <div class="route-step">
+                    <span class="route-dot"></span>
+                    <span class="route-copy"><strong>THE ASCENT</strong><br/>Cross the floating passage</span>
+                </div>
+                <div class="route-step">
+                    <span class="route-dot"></span>
+                    <span class="route-copy"><strong>THE RUINS</strong><br/>Face the awakened guardians</span>
+                </div>
+                <div class="card-footer">SOLO ADVENTURE&nbsp;&nbsp;•&nbsp;&nbsp;THIRD PERSON</div>
+            </div>
+        </div>
+
+        <div id="how-view" class="view detail-view hidden">
+            <div class="detail-card">
+                <div class="detail-kicker">FIELD GUIDE / 01</div>
+                <h2>HOW TO PLAY</h2>
+                <p class="detail-intro">Master the clearing, follow the trail through the sky, then take the star from the heart of the ruins.</p>
+                <div class="control-grid">
+                    <div class="control-row"><span class="key">WASD / ZQSD</span><span class="control-copy">MOVE</span></div>
+                    <div class="control-row"><span class="key">MOUSE</span><span class="control-copy">LOOK</span></div>
+                    <div class="control-row"><span class="key">SPACE</span><span class="control-copy">DOUBLE JUMP</span></div>
+                    <div class="control-row"><span class="key">LEFT CLICK</span><span class="control-copy">FIRE</span></div>
+                    <div class="control-row"><span class="key">SHIFT</span><span class="control-copy">SPRINT</span></div>
+                    <div class="control-row"><span class="key">R</span><span class="control-copy">RESTART</span></div>
+                </div>
+                <button id="how-back" class="back-button ui-hit">&lt;&nbsp;&nbsp; RETURN TO MENU</button>
+            </div>
+        </div>
+
+        <div id="options-view" class="view detail-view hidden">
+            <div class="detail-card">
+                <div class="detail-kicker">SYSTEM / PRESENTATION</div>
+                <h2>OPTIONS</h2>
+                <p class="detail-intro">These preferences affect the main menu presentation immediately.</p>
+                <button id="motion-toggle" class="preference-button ui-hit">
+                    <span class="preference-copy"><strong>MOTION</strong><br/>Button hover transitions</span>
+                    <span id="motion-value" class="preference-value">DYNAMIC</span>
+                </button>
+                <button id="contrast-toggle" class="preference-button ui-hit">
+                    <span class="preference-copy"><strong>CONTRAST</strong><br/>Backdrop strength behind the interface</span>
+                    <span id="contrast-value" class="preference-value">DEEP</span>
+                </button>
+                <button id="options-back" class="back-button ui-hit">&lt;&nbsp;&nbsp; RETURN TO MENU</button>
+            </div>
+        </div>
+
+        <div id="credits-view" class="view detail-view hidden">
+            <div class="detail-card credits-card">
+                <div class="detail-kicker">ARCHIVE / CREDITS</div>
+                <h2>MADE TO EXPLORE</h2>
+                <p class="detail-intro">Verdance is a playable SaidaEngine vertical slice built to prove the complete journey from authored world to shipped game.</p>
+                <div class="credit-line"><span>ENGINE</span><strong>SAIDA ENGINE</strong></div>
+                <div class="credit-line"><span>WORLD &amp; GAMEPLAY</span><strong>VERDANCE TEAM</strong></div>
+                <div class="credit-line"><span>CC0 ART &amp; AUDIO</span><strong>KENNEY</strong></div>
+                <div class="credit-line"><span>SKY &amp; IMAGE LIGHTING</span><strong>POLY HAVEN</strong></div>
+                <button id="credits-back" class="back-button ui-hit">&lt;&nbsp;&nbsp; RETURN TO MENU</button>
+            </div>
+        </div>
+
+        <div class="bottom-bar">
+            <span id="status-copy">SELECT AN OPTION</span>
+            <span>POINTER / ARROW KEYS / ENTER</span>
+        </div>
+    </div>
+</body>
+</rml>

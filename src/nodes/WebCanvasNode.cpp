@@ -739,6 +739,13 @@ bool WebCanvasNode::fireMouseEvent(MouseEvent type, int x, int y, MouseButton bu
     return handled;
 }
 
+bool WebCanvasNode::fireMouseLeave() {
+    if (!rmlContext_ || !interactive_) return false;
+    const bool handled = rmlContext_->ProcessMouseLeave();
+    markUiDirty();
+    return handled;
+}
+
 bool WebCanvasNode::fireScrollEvent(float deltaX, float deltaY, int modifiers) {
     if (!rmlContext_ || !interactive_) return false;
     bool handled = rmlContext_->ProcessMouseWheel(Rml::Vector2f(deltaX, deltaY), modifiers);

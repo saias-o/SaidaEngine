@@ -597,6 +597,80 @@ def build():
     return scene
 
 
+def build_menu():
+    """Build the lightweight 3D stage that lives behind the main menu."""
+    scene = node("Scene", "VerdanceMainMenu")
+    world = scene["children"]
+
+    world.append(node("LightNode", "MenuSun", (0.0, 20.0, 8.0),
+                      lightType=0, color=[1.0, 0.91, 0.72], intensity=3.4,
+                      direction=[-0.38, -0.72, -0.58], castShadows=True,
+                      bakeMode=0, range=10.0, spotInnerAngle=25.0, spotOuterAngle=35.0))
+    world.append(node("LightNode", "MenuFill", (4.0, 5.0, 6.0),
+                      lightType=1, color=[0.45, 0.76, 0.63], intensity=7.5,
+                      direction=[0.0, -1.0, -1.0], castShadows=False,
+                      bakeMode=0, range=16.0, spotInnerAngle=25.0, spotOuterAngle=35.0))
+
+    stage = node("Node", "MenuStage")
+    stage["children"] = [
+        slab("MenuGround", (2.5, -1.45, -1.0), (20.0, 1.2, 12.0), GRASS,
+             roughness=0.95),
+        nature("MenuTreeA", "tree_pineTallA", (-5.5, -0.85, -3.5), TREE * 1.25, 20.0),
+        nature("MenuTreeB", "tree_oak_fall", (7.0, -0.85, -5.0), TREE * 1.2, -28.0),
+        nature("MenuTreeC", "tree_pineTallB", (10.5, -0.85, 0.0), TREE, 12.0),
+        nature("MenuRockA", "rock_largeA", (6.0, -0.85, 1.2), PROP * 1.35, 40.0),
+        nature("MenuRockB", "rock_tallB", (-3.2, -0.85, -1.5), PROP * 1.1, -15.0),
+        nature("MenuFernA", "plant_bushLarge", (1.5, -0.85, -0.8), PROP * 1.15, 10.0),
+        nature("MenuFernB", "grass_leafsLarge", (5.5, -0.85, -0.5), PROP, -25.0),
+        nature("MenuFlowerA", "flower_yellowA", (2.0, -0.85, 1.0), PROP, 0.0),
+        nature("MenuFlowerB", "flower_purpleB", (4.8, -0.85, 0.8), PROP, 15.0),
+        nature("MenuRuin", "statue_ring", (7.2, -0.85, -3.0), PROP * 1.6, -25.0),
+    ]
+    world.append(stage)
+
+    hero = node("Node", "MenuHero", (3.9, -0.82, 0.0), 1.16, 0.0,
+                importedFrom="assets/models/characters/player.glb")
+    hero["behaviours"] = [script("scripts/menu_hero.js")]
+    world.append(hero)
+
+    world.append(particles(
+        "MenuPollen", (3.5, 2.4, -0.5), effectClass=2, maxParticles=180,
+        spawnRate=24.0, lifetime=7.0, startSpeed=0.32, startSize=0.075,
+        startColor=[1.0, 0.96, 0.68, 0.85], endColor=[0.7, 1.0, 0.5, 0.0],
+        gravity=[0.08, 0.04, 0.0], radius=9.0, shape=1, emissive=3.8,
+        noiseStrength=0.55, noiseFrequency=0.4, endSizeScale=0.75))
+
+    camera = node("Camera", "MenuCamera", (0.0, 2.15, 10.5),
+                  fovDegrees=52.0, nearZ=0.08, farZ=300.0,
+                  priority=10, active=True)
+    pitch = math.radians(-7.0) * 0.5
+    camera["transform"]["rotation"] = [math.sin(pitch), 0.0, 0.0, math.cos(pitch)]
+    world.append(camera)
+
+    world.append(node(
+        "WebCanvasNode", "MainMenu", width=1920, height=1080, mode=0,
+        url="ui/main_menu.html", html="", hotReload=True, startupScripts=[],
+        worldWidth=1.0, interactive=True, renderOrder=1000))
+
+    scene["settings"] = {
+        "ambient": srgb(0.055, 0.085, 0.075)[:3],
+        "clearColor": srgb(0.12, 0.21, 0.17)[:3],
+        "postProcessing": True,
+        "lightingMode": 0,
+        "giEnabled": True, "giMode": 1, "giIntensity": 0.6,
+        "skyboxTexture": "assets/skies/sky.hdr",
+        "skyboxExposure": 0.62, "skyboxRotation": 155.0,
+        "iblEnabled": True, "iblDiffuseIntensity": 0.18, "iblSpecularIntensity": 0.55,
+        "aoEnabled": True, "aoRadius": 0.8, "aoIntensity": 1.3, "aoPower": 1.7,
+        "fogEnabled": True, "fogColor": srgb(0.16, 0.27, 0.21)[:3],
+        "fogStart": 18.0, "fogDensity": 0.028,
+        "bloomEnabled": True, "bloomThreshold": 1.55, "bloomIntensity": 0.30,
+        "bloomRadius": 4.0,
+        "changeRenderingAtLoad": True,
+    }
+    return scene
+
+
 def uitext(name, group, text, size, color, x, y, width=760.0, height=48.0):
     return node("UITextNode", name, groups=[group], text=text, fontSize=size,
                 color=color, x=x, y=y, width=width, height=height,
@@ -611,16 +685,20 @@ SOUNDS = ("shoot", "shoot_alt", "hit", "target_break", "enemy_die", "explosion",
 def main():
     scene = build()
     doc = {"schema": 2, "version": 2, "scene": scene}
+    menu_scene = build_menu()
+    menu_doc = {"schema": 2, "version": 2, "scene": menu_scene}
     scenes_dir = os.path.join(HERE, "scenes")
     os.makedirs(scenes_dir, exist_ok=True)
     with open(os.path.join(scenes_dir, "verdance.scene"), "w") as f:
         json.dump(doc, f, indent=1)
+    with open(os.path.join(scenes_dir, "main_menu.scene"), "w") as f:
+        json.dump(menu_doc, f, indent=1)
 
     project = {
         "schema": 1, "version": 1,
         "name": "Verdance",
         "engineVersion": "0.1.0",
-        "mainScene": "scenes/verdance.scene",
+        "mainScene": "scenes/main_menu.scene",
         "autoloads": {"GameState": "scripts/game_state.mjs"},
         "audio": {
             "masterVolume": 0.85,
@@ -640,6 +718,9 @@ def main():
         return 1 + sum(count(c) for c in n["children"])
 
     print("scenes/verdance.scene — %d nodes" % count(scene))
+
+
+    print("scenes/main_menu.scene - %d nodes" % count(menu_scene))
 
 
 if __name__ == "__main__":

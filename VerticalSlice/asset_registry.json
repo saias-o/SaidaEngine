@@ -1,0 +1,3396 @@
+{
+    "assets": {
+        "10016409779636306990": {
+            "hash": 14512720548387139663,
+            "path": "assets/models/platformer/block-snow-low-narrow.obj",
+            "type": "Mesh"
+        },
+        "10035965066617140884": {
+            "hash": 15482998937456222664,
+            "path": "assets/models/survival/grass-large.obj",
+            "type": "Mesh"
+        },
+        "10046042381321912664": {
+            "hash": 1535166967938571153,
+            "path": "assets/models/nature/stone_tallB.glb",
+            "type": "Mesh"
+        },
+        "10075586663017496475": {
+            "hash": 10914366582022703912,
+            "path": "assets/models/nature/rock_tallJ.glb",
+            "type": "Mesh"
+        },
+        "10091711897176604133": {
+            "hash": 3290327691088853751,
+            "path": "assets/models/nature/plant_flatShort.glb",
+            "type": "Mesh"
+        },
+        "10156951388487930436": {
+            "hash": 110835986799528008,
+            "path": "assets/models/nature/path_stoneEnd.glb",
+            "type": "Mesh"
+        },
+        "1021058460998047489": {
+            "hash": 8725847132187295787,
+            "path": "assets/models/nature/flower_redB.glb",
+            "type": "Mesh"
+        },
+        "10247769519112755396": {
+            "hash": 18089390305757211671,
+            "path": "assets/models/nature/rock_smallE.glb",
+            "type": "Mesh"
+        },
+        "10270257249160919664": {
+            "hash": 15243198987523348733,
+            "path": "assets/models/nature/rock_smallF.glb",
+            "type": "Mesh"
+        },
+        "10323732578122509247": {
+            "hash": 10108526847503456185,
+            "path": "assets/models/nature/ground_riverEndClosed.glb",
+            "type": "Mesh"
+        },
+        "10347992036145366939": {
+            "hash": 14107283289887812351,
+            "path": "assets/models/platformer/block-snow-long.obj",
+            "type": "Mesh"
+        },
+        "10389536306138292124": {
+            "hash": 13792580457233443176,
+            "path": "assets/models/nature/fence_bendCenter.glb",
+            "type": "Mesh"
+        },
+        "1043947674141020239": {
+            "hash": 13233623869177874079,
+            "path": "assets/models/nature/ground_riverBendBank.glb",
+            "type": "Mesh"
+        },
+        "1044622678644374808": {
+            "hash": 2166054834982508439,
+            "path": "assets/models/survival/bedroll-packed.obj",
+            "type": "Mesh"
+        },
+        "10469879444198296165": {
+            "hash": 13528151322239946089,
+            "path": "assets/models/forest/target.obj",
+            "type": "Mesh"
+        },
+        "10492437571110455287": {
+            "hash": 12844973313901445568,
+            "path": "assets/models/nature/cliff_blockHalf_rock.glb",
+            "type": "Mesh"
+        },
+        "10524364603200876604": {
+            "hash": 12891841106992880036,
+            "path": "assets/models/blaster/blaster-h.obj",
+            "type": "Mesh"
+        },
+        "10543243472175683808": {
+            "hash": 14759931343789646356,
+            "path": "assets/models/platformer/block-snow-overhang-long.obj",
+            "type": "Mesh"
+        },
+        "10556100180905247809": {
+            "hash": 1306570428485266111,
+            "path": "assets/models/nature/rock_smallB.glb",
+            "type": "Mesh"
+        },
+        "10574373848533383008": {
+            "hash": 5578845570707527669,
+            "path": "assets/models/nature/tree_pineRoundF.glb",
+            "type": "Mesh"
+        },
+        "10589564537738081250": {
+            "hash": 16406901340679037783,
+            "path": "assets/models/survival/tent-canvas-half.obj",
+            "type": "Mesh"
+        },
+        "10609768145647303197": {
+            "hash": 17452009824584012000,
+            "path": "assets/models/nature/tree_tall_dark.glb",
+            "type": "Mesh"
+        },
+        "10663681644804766329": {
+            "hash": 1499256954662832329,
+            "path": "assets/models/nature/cliff_cave_stone.glb",
+            "type": "Mesh"
+        },
+        "10746385586129601089": {
+            "hash": 5577442018669682162,
+            "path": "assets/models/nature/crops_dirtDoubleRowCorner.glb",
+            "type": "Mesh"
+        },
+        "10809957522693686436": {
+            "hash": 3796600040186316642,
+            "path": "assets/models/nature/campfire_bricks.glb",
+            "type": "Mesh"
+        },
+        "10813792337505412414": {
+            "hash": 13860392166624765122,
+            "path": "assets/models/nature/mushroom_redGroup.glb",
+            "type": "Mesh"
+        },
+        "10853672296390783330": {
+            "hash": 11300619101989850576,
+            "path": "assets/models/platformer/bomb.obj",
+            "type": "Mesh"
+        },
+        "10870453823934927941": {
+            "hash": 14998581164982357209,
+            "path": "assets/models/platformer/flowers.obj",
+            "type": "Mesh"
+        },
+        "10876682000829786034": {
+            "hash": 11818953893732688507,
+            "path": "assets/models/nature/rock_largeC.glb",
+            "type": "Mesh"
+        },
+        "10886886291654136321": {
+            "hash": 7315191381772572454,
+            "path": "assets/models/survival/tool-axe-upgraded.obj",
+            "type": "Mesh"
+        },
+        "10887504175351008753": {
+            "hash": 11184168548996295145,
+            "path": "assets/models/nature/rock_smallFlatC.glb",
+            "type": "Mesh"
+        },
+        "10889384376191009160": {
+            "hash": 13052099306947361901,
+            "path": "assets/models/forest/character-archer.obj",
+            "type": "Mesh"
+        },
+        "109020548889106647": {
+            "hash": 14035754179230627997,
+            "path": "assets/audio/explosion.ogg",
+            "type": "Audio"
+        },
+        "10915853563392792203": {
+            "hash": 13106472287396522413,
+            "path": "assets/models/nature/path_stone.glb",
+            "type": "Mesh"
+        },
+        "10969760958841855664": {
+            "hash": 7605483175716468242,
+            "path": "assets/models/nature/tent_smallOpen.glb",
+            "type": "Mesh"
+        },
+        "10973400043113191829": {
+            "hash": 18312310931268379366,
+            "path": "assets/models/nature/platform_stone.glb",
+            "type": "Mesh"
+        },
+        "11033105800741365791": {
+            "hash": 575795280999613211,
+            "path": "assets/models/platformer/jewel.obj",
+            "type": "Mesh"
+        },
+        "11038758824299687446": {
+            "hash": 922336533454042106,
+            "path": "assets/models/nature/rock_smallH.glb",
+            "type": "Mesh"
+        },
+        "11041010313306200789": {
+            "hash": 16115620938987273482,
+            "path": "assets/models/platformer/block-grass-large-slope-narrow.obj",
+            "type": "Mesh"
+        },
+        "11059497685143343669": {
+            "hash": 3390230692830421283,
+            "path": "assets/models/nature/cliff_top_rock.glb",
+            "type": "Mesh"
+        },
+        "11128800919925551174": {
+            "hash": 11612565883284653818,
+            "path": "assets/models/nature/rock_tallB.glb",
+            "type": "Mesh"
+        },
+        "11143223332685080134": {
+            "hash": 634609867737183629,
+            "path": "assets/models/nature/stone_smallE.glb",
+            "type": "Mesh"
+        },
+        "11159610506347574612": {
+            "hash": 3190740165530081959,
+            "path": "assets/models/platformer/stones.obj",
+            "type": "Mesh"
+        },
+        "11184006884183321995": {
+            "hash": 16374520715400906267,
+            "path": "assets/models/nature/crops_dirtRow.glb",
+            "type": "Mesh"
+        },
+        "11206113079759915020": {
+            "hash": 487867998623725350,
+            "path": "assets/models/nature/log_large.glb",
+            "type": "Mesh"
+        },
+        "1124816453023314552": {
+            "hash": 9363030530664463301,
+            "path": "assets/models/nature/bridge_stone.glb",
+            "type": "Mesh"
+        },
+        "11271173809507769692": {
+            "hash": 8388195710021600534,
+            "path": "assets/models/blaster/crate-wide.obj",
+            "type": "Mesh"
+        },
+        "11354392138513557854": {
+            "hash": 7110981373163226833,
+            "path": "assets/audio/victory.ogg",
+            "type": "Audio"
+        },
+        "11401236482717091919": {
+            "hash": 8913787524054582492,
+            "path": "assets/models/nature/sign.glb",
+            "type": "Mesh"
+        },
+        "11402241812889023516": {
+            "hash": 179207419052519509,
+            "path": "assets/audio/shoot.ogg",
+            "type": "Audio"
+        },
+        "11418461644791338550": {
+            "hash": 17362055370070412013,
+            "path": "assets/models/platformer/arrows.obj",
+            "type": "Mesh"
+        },
+        "1142234464246738167": {
+            "hash": 16282288669200295256,
+            "path": "assets/models/nature/flower_yellowC.glb",
+            "type": "Mesh"
+        },
+        "11484099544736434257": {
+            "hash": 3883052592893086957,
+            "path": "assets/models/nature/cliff_blockSlope_rock.glb",
+            "type": "Mesh"
+        },
+        "11503278172437940597": {
+            "hash": 8580698250586572864,
+            "path": "assets/models/platformer/block-snow-large-slope.obj",
+            "type": "Mesh"
+        },
+        "11505646315096591685": {
+            "hash": 13078243090989792566,
+            "path": "assets/models/platformer/block-snow-large-tall.obj",
+            "type": "Mesh"
+        },
+        "11505973476280306828": {
+            "hash": 2377438150902109323,
+            "path": "assets/models/nature/platform_grass.glb",
+            "type": "Mesh"
+        },
+        "11518330287450515037": {
+            "hash": 10382131679838256158,
+            "path": "assets/models/blaster/blaster-i.obj",
+            "type": "Mesh"
+        },
+        "11521034439339801833": {
+            "hash": 15100522341777741299,
+            "path": "assets/models/blaster/scope-large-b.obj",
+            "type": "Mesh"
+        },
+        "11522576564742211243": {
+            "hash": 1797814932294364055,
+            "path": "assets/models/platformer/block-snow-edge.obj",
+            "type": "Mesh"
+        },
+        "11537031706667447025": {
+            "hash": 3294055099132386169,
+            "path": "assets/models/platformer/block-grass-overhang-low-large.obj",
+            "type": "Mesh"
+        },
+        "11538763004232937733": {
+            "hash": 8342527893737205863,
+            "path": "assets/models/nature/crops_dirtRowCorner.glb",
+            "type": "Mesh"
+        },
+        "11615533381660922587": {
+            "hash": 10062880891457023453,
+            "path": "assets/models/survival/structure-floor.obj",
+            "type": "Mesh"
+        },
+        "11722865275990385528": {
+            "hash": 3035903919595307953,
+            "path": "assets/models/nature/rock_tallH.glb",
+            "type": "Mesh"
+        },
+        "11754156086627348974": {
+            "hash": 14678778297695077955,
+            "path": "assets/models/platformer/block-grass-narrow.obj",
+            "type": "Mesh"
+        },
+        "1176037465104851160": {
+            "hash": 8892032090056030756,
+            "path": "assets/models/nature/path_stoneCorner.glb",
+            "type": "Mesh"
+        },
+        "1176103501930113749": {
+            "hash": 2410205231980156640,
+            "path": "assets/models/nature/cliff_blockDiagonal_rock.glb",
+            "type": "Mesh"
+        },
+        "11786296156960152234": {
+            "hash": 18259271611256458533,
+            "path": "assets/models/nature/stone_largeB.glb",
+            "type": "Mesh"
+        },
+        "11815640641504992740": {
+            "hash": 10965770052738264473,
+            "path": "assets/models/nature/log_stackLarge.glb",
+            "type": "Mesh"
+        },
+        "11937561726154540261": {
+            "hash": 2521133894256385855,
+            "path": "assets/models/nature/tree_cone_fall.glb",
+            "type": "Mesh"
+        },
+        "11963644829470760532": {
+            "hash": 8673611662869394412,
+            "path": "assets/models/nature/bed_floor.glb",
+            "type": "Mesh"
+        },
+        "11984345429103051454": {
+            "hash": 9563133966521877345,
+            "path": "assets/models/pets/animal-bee.obj",
+            "type": "Mesh"
+        },
+        "12010867871999270021": {
+            "hash": 15501415707374152787,
+            "path": "assets/models/nature/stone_smallFlatC.glb",
+            "type": "Mesh"
+        },
+        "12016273351755237231": {
+            "hash": 5684619996137681126,
+            "path": "assets/models/platformer/block-snow-low.obj",
+            "type": "Mesh"
+        },
+        "12034035373996177332": {
+            "hash": 18025243963988669533,
+            "path": "assets/models/nature/stone_smallD.glb",
+            "type": "Mesh"
+        },
+        "12034436230322773710": {
+            "hash": 18281815997545378502,
+            "path": "assets/models/platformer/block-grass-corner.obj",
+            "type": "Mesh"
+        },
+        "12080278122441112190": {
+            "hash": 13532728253960471302,
+            "path": "assets/models/nature/cliff_halfCornerInner_rock.glb",
+            "type": "Mesh"
+        },
+        "12142340067071838526": {
+            "hash": 15366572843580234563,
+            "path": "assets/models/nature/crops_cornStageC.glb",
+            "type": "Mesh"
+        },
+        "12214636830819417019": {
+            "hash": 2092324748396898958,
+            "path": "assets/models/pets/animal-monkey.obj",
+            "type": "Mesh"
+        },
+        "1221772422534406972": {
+            "hash": 9767442970900731828,
+            "path": "assets/models/nature/ground_pathOpen.glb",
+            "type": "Mesh"
+        },
+        "12224288661449055735": {
+            "hash": 1776765583568539610,
+            "path": "assets/models/platformer/block-snow-overhang-low-narrow.obj",
+            "type": "Mesh"
+        },
+        "12251937912217189819": {
+            "hash": 16557632946135044442,
+            "path": "assets/models/nature/rock_smallD.glb",
+            "type": "Mesh"
+        },
+        "12256080611736909084": {
+            "hash": 15354041088208945141,
+            "path": "assets/models/nature/stone_largeE.glb",
+            "type": "Mesh"
+        },
+        "12261168731485126821": {
+            "hash": 13285204376384146603,
+            "path": "assets/models/survival/resource-stone.obj",
+            "type": "Mesh"
+        },
+        "12273894114950229117": {
+            "hash": 8748316949327860501,
+            "path": "assets/models/nature/stump_squareDetailedWide.glb",
+            "type": "Mesh"
+        },
+        "12339022940819688574": {
+            "hash": 16032653464560543805,
+            "path": "assets/models/platformer/block-moving.obj",
+            "type": "Mesh"
+        },
+        "12352203754870125576": {
+            "hash": 16107937741357135905,
+            "path": "assets/audio/step_a.ogg",
+            "type": "Audio"
+        },
+        "12360442685583661725": {
+            "hash": 8835979811024050340,
+            "path": "assets/models/survival/colormap.png",
+            "type": "Texture"
+        },
+        "12422426504456155745": {
+            "hash": 6469011950118960538,
+            "path": "assets/models/pets/animal-giraffe.obj",
+            "type": "Mesh"
+        },
+        "12438509660019156237": {
+            "hash": 10020412973058759538,
+            "path": "assets/models/nature/bridge_side_woodRound.glb",
+            "type": "Mesh"
+        },
+        "12478264951104760079": {
+            "hash": 6653637856693044710,
+            "path": "assets/models/nature/rock_largeA.glb",
+            "type": "Mesh"
+        },
+        "12484420191436200472": {
+            "hash": 5582065928903106076,
+            "path": "assets/models/platformer/block-snow-overhang-large-slope-steep.obj",
+            "type": "Mesh"
+        },
+        "12495005921973481508": {
+            "hash": 10895763750170398538,
+            "path": "assets/models/nature/path_stoneCircle.glb",
+            "type": "Mesh"
+        },
+        "12585164712642715486": {
+            "hash": 12118766099729627326,
+            "path": "assets/models/forest/rocks-high.obj",
+            "type": "Mesh"
+        },
+        "12593674620800116013": {
+            "hash": 12502746849117294016,
+            "path": "assets/models/nature/crop_carrot.glb",
+            "type": "Mesh"
+        },
+        "12599588898400581964": {
+            "hash": 9602184469158594340,
+            "path": "assets/models/survival/tree-autumn.obj",
+            "type": "Mesh"
+        },
+        "12626578651579966477": {
+            "hash": 3691294396648104824,
+            "path": "assets/models/forest/weapon-arrow.obj",
+            "type": "Mesh"
+        },
+        "12646083501725484556": {
+            "hash": 12409776261282177256,
+            "path": "assets/models/nature/tree_pineTallC.glb",
+            "type": "Mesh"
+        },
+        "12672741704806391712": {
+            "hash": 961105186500195603,
+            "path": "assets/models/platformer/block-grass-overhang-large-slope-steep.obj",
+            "type": "Mesh"
+        },
+        "12692084564164327374": {
+            "hash": 15119195400103192434,
+            "path": "assets/models/nature/stone_tallF.glb",
+            "type": "Mesh"
+        },
+        "12720557325756819498": {
+            "hash": 3651548200916885692,
+            "path": "assets/models/platformer/rocks.obj",
+            "type": "Mesh"
+        },
+        "12728909382757856756": {
+            "hash": 59341450744011864,
+            "path": "assets/models/nature/mushroom_red.glb",
+            "type": "Mesh"
+        },
+        "12730300209064881089": {
+            "hash": 2091800309901689340,
+            "path": "assets/models/survival/patch-grass-large.obj",
+            "type": "Mesh"
+        },
+        "12743443911468582978": {
+            "hash": 9606103287659735475,
+            "path": "assets/models/pets/animal-pig.obj",
+            "type": "Mesh"
+        },
+        "12819888324171777158": {
+            "hash": 3546712278758941968,
+            "path": "assets/models/blaster/blaster-b.obj",
+            "type": "Mesh"
+        },
+        "1282193183987072546": {
+            "hash": 11033631707056705835,
+            "path": "scenes/main_menu.scene",
+            "type": "Scene"
+        },
+        "12827284609413052553": {
+            "hash": 8929684151999537084,
+            "path": "assets/models/nature/flower_yellowB.glb",
+            "type": "Mesh"
+        },
+        "12880961522921209324": {
+            "hash": 3203941590509619194,
+            "path": "assets/models/forest/stones.obj",
+            "type": "Mesh"
+        },
+        "1288928607188538750": {
+            "hash": 528609261441369892,
+            "path": "assets/models/nature/stone_tallE.glb",
+            "type": "Mesh"
+        },
+        "12946240333987880493": {
+            "hash": 8094820804919438893,
+            "path": "assets/models/nature/rock_smallC.glb",
+            "type": "Mesh"
+        },
+        "12959074659428528690": {
+            "hash": 513908630541092722,
+            "path": "assets/models/nature/log_stack.glb",
+            "type": "Mesh"
+        },
+        "1295988931320006707": {
+            "hash": 8150955954642411195,
+            "path": "assets/models/nature/stump_old.glb",
+            "type": "Mesh"
+        },
+        "13021922102745093146": {
+            "hash": 15210557904762680721,
+            "path": "assets/models/nature/platform_beach.glb",
+            "type": "Mesh"
+        },
+        "13032948696527510134": {
+            "hash": 5119445567410659412,
+            "path": "assets/models/nature/plant_bushLargeTriangle.glb",
+            "type": "Mesh"
+        },
+        "13127724104551617135": {
+            "hash": 9923602158367288681,
+            "path": "assets/models/platformer/block-grass-overhang-large-slope.obj",
+            "type": "Mesh"
+        },
+        "13133203001865125540": {
+            "hash": 1684528363502308682,
+            "path": "assets/models/survival/tool-hoe-upgraded.obj",
+            "type": "Mesh"
+        },
+        "1317595994459793912": {
+            "hash": 10569608057215568990,
+            "path": "assets/models/nature/bridge_side_stoneRound.glb",
+            "type": "Mesh"
+        },
+        "13230013638072718904": {
+            "hash": 2829678960580985684,
+            "path": "assets/models/pets/animal-cow.obj",
+            "type": "Mesh"
+        },
+        "13233194433575530045": {
+            "hash": 9501903389995770224,
+            "path": "assets/models/platformer/block-grass-low-long.obj",
+            "type": "Mesh"
+        },
+        "13247397793281446815": {
+            "hash": 16471084098911848168,
+            "path": "assets/models/blaster/blaster-d.obj",
+            "type": "Mesh"
+        },
+        "13251047705185047463": {
+            "hash": 1699444330827578677,
+            "path": "assets/models/platformer/block-grass-curve.obj",
+            "type": "Mesh"
+        },
+        "13252022848138126479": {
+            "hash": 12817594350028271531,
+            "path": "assets/models/survival/structure-metal-wall.obj",
+            "type": "Mesh"
+        },
+        "13331368693163253917": {
+            "hash": 11900598666341716334,
+            "path": "assets/models/survival/tree-log-small.obj",
+            "type": "Mesh"
+        },
+        "13348466648980225293": {
+            "hash": 2018243262472968276,
+            "path": "assets/models/survival/tool-hammer.obj",
+            "type": "Mesh"
+        },
+        "1339528315264625481": {
+            "hash": 2062478651940753360,
+            "path": "assets/models/platformer/hedge-corner.obj",
+            "type": "Mesh"
+        },
+        "13396723495733214422": {
+            "hash": 5289896088957579784,
+            "path": "assets/models/nature/canoe_paddle.glb",
+            "type": "Mesh"
+        },
+        "13411645298469164796": {
+            "hash": 16876426273138853995,
+            "path": "assets/models/nature/campfire_planks.glb",
+            "type": "Mesh"
+        },
+        "13421471559644661203": {
+            "hash": 14423514010953379618,
+            "path": "assets/models/survival/campfire-pit.obj",
+            "type": "Mesh"
+        },
+        "13435900283790327660": {
+            "hash": 15038863625127092911,
+            "path": "assets/models/nature/crop_melon.glb",
+            "type": "Mesh"
+        },
+        "13452415491378912378": {
+            "hash": 17031404292410406850,
+            "path": "assets/models/nature/mushroom_tanGroup.glb",
+            "type": "Mesh"
+        },
+        "13455019403656228695": {
+            "hash": 7010293175709389955,
+            "path": "assets/models/nature/stone_smallB.glb",
+            "type": "Mesh"
+        },
+        "13483445854214329546": {
+            "hash": 10309242479769861073,
+            "path": "assets/models/blaster/blaster-e.obj",
+            "type": "Mesh"
+        },
+        "13512874904740857356": {
+            "hash": 4733079683046502,
+            "path": "assets/models/nature/canoe.glb",
+            "type": "Mesh"
+        },
+        "1354212180042624231": {
+            "hash": 6343554154263250881,
+            "path": "assets/models/platformer/block-snow-overhang-large-tall.obj",
+            "type": "Mesh"
+        },
+        "13557851420812130822": {
+            "hash": 9090621631464913327,
+            "path": "assets/models/nature/ground_pathRocks.glb",
+            "type": "Mesh"
+        },
+        "13558232838245963611": {
+            "hash": 13347584743850990152,
+            "path": "assets/models/platformer/block-grass-hexagon.obj",
+            "type": "Mesh"
+        },
+        "13581679004412235400": {
+            "hash": 14449960799587624667,
+            "path": "assets/models/nature/ground_riverTile.glb",
+            "type": "Mesh"
+        },
+        "13583223999092235460": {
+            "hash": 9766092285226251372,
+            "path": "assets/models/pets/animal-fox.obj",
+            "type": "Mesh"
+        },
+        "13588410763395644415": {
+            "hash": 5416799589135126039,
+            "path": "assets/models/pets/animal-crab.obj",
+            "type": "Mesh"
+        },
+        "1363251919329441147": {
+            "hash": 11378559086748037090,
+            "path": "assets/models/survival/tool-axe.obj",
+            "type": "Mesh"
+        },
+        "13656604470330486980": {
+            "hash": 650439335625578957,
+            "path": "assets/models/nature/stone_largeA.glb",
+            "type": "Mesh"
+        },
+        "13687686090318916126": {
+            "hash": 8582916094158226319,
+            "path": "assets/models/platformer/block-snow-corner-overhang-low.obj",
+            "type": "Mesh"
+        },
+        "13695499487617418793": {
+            "hash": 9651759993575889953,
+            "path": "assets/models/nature/statue_ring.glb",
+            "type": "Mesh"
+        },
+        "13701474364084890592": {
+            "hash": 14897923612461537792,
+            "path": "assets/models/platformer/crate.obj",
+            "type": "Mesh"
+        },
+        "13769259087810840720": {
+            "hash": 934705969920603258,
+            "path": "assets/audio/hurt.ogg",
+            "type": "Audio"
+        },
+        "1383444677787291669": {
+            "hash": 10065338192485912906,
+            "path": "assets/models/blaster/blaster-n.obj",
+            "type": "Mesh"
+        },
+        "13869866763355798971": {
+            "hash": 8203417305637761152,
+            "path": "assets/models/platformer/block-grass.obj",
+            "type": "Mesh"
+        },
+        "13896522047870410889": {
+            "hash": 17492919670142397180,
+            "path": "assets/models/survival/bucket.obj",
+            "type": "Mesh"
+        },
+        "13906544952629754133": {
+            "hash": 10896938042260232554,
+            "path": "assets/models/nature/tree_palmBend.glb",
+            "type": "Mesh"
+        },
+        "13913924489811804580": {
+            "hash": 8432618709702597541,
+            "path": "assets/models/nature/tree_pineRoundC.glb",
+            "type": "Mesh"
+        },
+        "13950194293139424754": {
+            "hash": 4094438819899237678,
+            "path": "assets/models/platformer/coin-bronze.obj",
+            "type": "Mesh"
+        },
+        "13972983002230513821": {
+            "hash": 15445567703405713169,
+            "path": "assets/models/nature/tree_pineTallB.glb",
+            "type": "Mesh"
+        },
+        "14094962031191766586": {
+            "hash": 6997454361846466873,
+            "path": "assets/models/nature/ground_pathSide.glb",
+            "type": "Mesh"
+        },
+        "14095634273896658644": {
+            "hash": 4517549457468443032,
+            "path": "assets/models/survival/fence-doorway.obj",
+            "type": "Mesh"
+        },
+        "14107561771102641535": {
+            "hash": 1766564834085544882,
+            "path": "assets/models/survival/box-large-open.obj",
+            "type": "Mesh"
+        },
+        "14125160279623259487": {
+            "hash": 17059060214703660887,
+            "path": "assets/models/blaster/blaster-o.obj",
+            "type": "Mesh"
+        },
+        "14167159629681719042": {
+            "hash": 8839726653399600210,
+            "path": "assets/models/nature/tree_pineTallB_detailed.glb",
+            "type": "Mesh"
+        },
+        "14178595583264263648": {
+            "hash": 9337434865104528437,
+            "path": "assets/models/survival/structure.obj",
+            "type": "Mesh"
+        },
+        "1421884563127388265": {
+            "hash": 11262879786354113246,
+            "path": "assets/models/platformer/character-ooli.obj",
+            "type": "Mesh"
+        },
+        "1425027200271535420": {
+            "hash": 16421039560026733267,
+            "path": "assets/models/blaster/target-fragment-small.obj",
+            "type": "Mesh"
+        },
+        "1426559190753516030": {
+            "hash": 17331355715899207667,
+            "path": "assets/models/nature/tree_pineDefaultB.glb",
+            "type": "Mesh"
+        },
+        "14268453082388751584": {
+            "hash": 16068731833460291553,
+            "path": "assets/models/nature/tree_pineSmallD.glb",
+            "type": "Mesh"
+        },
+        "1429380687161867409": {
+            "hash": 10329621775946384712,
+            "path": "assets/models/nature/fence_simpleCenter.glb",
+            "type": "Mesh"
+        },
+        "14332484920853500505": {
+            "hash": 888992153409309759,
+            "path": "assets/audio/hit.ogg",
+            "type": "Audio"
+        },
+        "1433515113574634887": {
+            "hash": 13985844651278954707,
+            "path": "assets/models/platformer/block-snow-corner.obj",
+            "type": "Mesh"
+        },
+        "14339574102194841622": {
+            "hash": 16753605357237437919,
+            "path": "assets/models/platformer/block-grass-large-slope-steep.obj",
+            "type": "Mesh"
+        },
+        "14341301461415107728": {
+            "hash": 12791101518118268223,
+            "path": "assets/audio/defeat.ogg",
+            "type": "Audio"
+        },
+        "14383388465186827831": {
+            "hash": 11200636258865279748,
+            "path": "assets/models/platformer/fence-low-broken.obj",
+            "type": "Mesh"
+        },
+        "14385317968798783503": {
+            "hash": 10643432357231892398,
+            "path": "assets/models/platformer/star.obj",
+            "type": "Mesh"
+        },
+        "14395308112403056731": {
+            "hash": 8880782952700824771,
+            "path": "assets/models/nature/fence_planks.glb",
+            "type": "Mesh"
+        },
+        "14445615708787203553": {
+            "hash": 8119705890757919295,
+            "path": "assets/models/platformer/character-oobi.obj",
+            "type": "Mesh"
+        },
+        "14479007337914847903": {
+            "hash": 14943807410305283699,
+            "path": "assets/models/platformer/block-grass-low-hexagon.obj",
+            "type": "Mesh"
+        },
+        "14488991500126646411": {
+            "hash": 10537752561196395114,
+            "path": "assets/models/platformer/door-rotate-large.obj",
+            "type": "Mesh"
+        },
+        "14509813068589892786": {
+            "hash": 7169988790249649131,
+            "path": "assets/models/nature/rock_tallI.glb",
+            "type": "Mesh"
+        },
+        "14563676686309699326": {
+            "hash": 5767159478352272424,
+            "path": "assets/models/nature/bridge_side_wood.glb",
+            "type": "Mesh"
+        },
+        "14573730196516993452": {
+            "hash": 1468690642755875519,
+            "path": "assets/models/nature/cactus_short.glb",
+            "type": "Mesh"
+        },
+        "14576071900220969642": {
+            "hash": 1790098080680741756,
+            "path": "assets/models/nature/crops_leafsStageA.glb",
+            "type": "Mesh"
+        },
+        "14581866395984437533": {
+            "hash": 12011416508935068058,
+            "path": "assets/models/blaster/blaster-j.obj",
+            "type": "Mesh"
+        },
+        "1458918406103327158": {
+            "hash": 16538436144522345482,
+            "path": "assets/models/blaster/colormap.png",
+            "type": "Texture"
+        },
+        "14610705941160694197": {
+            "hash": 17243377531894336768,
+            "path": "assets/models/blaster/blaster-l.obj",
+            "type": "Mesh"
+        },
+        "14624663824589479425": {
+            "hash": 8132953121985292891,
+            "path": "assets/audio/step_b.ogg",
+            "type": "Audio"
+        },
+        "14630968805853809541": {
+            "hash": 7387339190358613044,
+            "path": "assets/models/nature/tree_pineRoundB.glb",
+            "type": "Mesh"
+        },
+        "14673829065855054691": {
+            "hash": 9466860899832473495,
+            "path": "assets/models/nature/tree_blocks.glb",
+            "type": "Mesh"
+        },
+        "14689164114903250644": {
+            "hash": 3790972817065478683,
+            "path": "assets/models/platformer/block-snow-overhang-edge.obj",
+            "type": "Mesh"
+        },
+        "14814354385441967235": {
+            "hash": 15599730213644861422,
+            "path": "assets/models/nature/cliff_block_rock.glb",
+            "type": "Mesh"
+        },
+        "14817153059582580975": {
+            "hash": 7131375285406093910,
+            "path": "assets/models/blaster/blaster-f.obj",
+            "type": "Mesh"
+        },
+        "14822039864089374652": {
+            "hash": 6103877732454193770,
+            "path": "assets/models/nature/cliff_waterfall_rock.glb",
+            "type": "Mesh"
+        },
+        "14837420161604498294": {
+            "hash": 7267485165476721295,
+            "path": "assets/models/nature/ground_pathCornerSmall.glb",
+            "type": "Mesh"
+        },
+        "1485986999404557689": {
+            "hash": 8145481634373166617,
+            "path": "assets/models/nature/plant_bushTriangle.glb",
+            "type": "Mesh"
+        },
+        "14877484026599802955": {
+            "hash": 5704962872729452772,
+            "path": "assets/models/platformer/poles.obj",
+            "type": "Mesh"
+        },
+        "1488621748842463558": {
+            "hash": 11630981501175165193,
+            "path": "assets/models/nature/tree_pineRoundE.glb",
+            "type": "Mesh"
+        },
+        "14916263302369694750": {
+            "hash": 3073261565400121424,
+            "path": "assets/models/pets/animal-koala.obj",
+            "type": "Mesh"
+        },
+        "14941069530075397351": {
+            "hash": 10998197977812361375,
+            "path": "assets/models/survival/fish.obj",
+            "type": "Mesh"
+        },
+        "14945504869634936582": {
+            "hash": 2054724121942725756,
+            "path": "assets/models/nature/fence_simpleHigh.glb",
+            "type": "Mesh"
+        },
+        "14955025785726804102": {
+            "hash": 3551055944345229215,
+            "path": "assets/models/nature/tree_blocks_fall.glb",
+            "type": "Mesh"
+        },
+        "14959710985169868895": {
+            "hash": 2817401757856544549,
+            "path": "assets/models/nature/ground_riverOpen.glb",
+            "type": "Mesh"
+        },
+        "14974922511094685969": {
+            "hash": 14081383481187674168,
+            "path": "assets/models/blaster/blaster-p.obj",
+            "type": "Mesh"
+        },
+        "14988555992891318372": {
+            "hash": 12609336532689765255,
+            "path": "scenes/verdance.scene",
+            "type": "Scene"
+        },
+        "15048996602699957370": {
+            "hash": 7595127699368544704,
+            "path": "assets/models/blaster/bullet-foam-tip-thick.obj",
+            "type": "Mesh"
+        },
+        "15070150240544473434": {
+            "hash": 4320502680358641400,
+            "path": "assets/models/platformer/block-snow-large-slope-narrow.obj",
+            "type": "Mesh"
+        },
+        "15079344966690721392": {
+            "hash": 9541709449993335984,
+            "path": "assets/models/nature/cliff_topDiagonal_stone.glb",
+            "type": "Mesh"
+        },
+        "15082096380112068527": {
+            "hash": 2204076956146897710,
+            "path": "assets/models/nature/ground_pathTile.glb",
+            "type": "Mesh"
+        },
+        "15084227182733435462": {
+            "hash": 14423898829400398721,
+            "path": "assets/models/nature/path_woodCorner.glb",
+            "type": "Mesh"
+        },
+        "15091253243058464060": {
+            "hash": 8405732020253481723,
+            "path": "assets/models/nature/rock_largeE.glb",
+            "type": "Mesh"
+        },
+        "15161825441795785644": {
+            "hash": 6107241595242404846,
+            "path": "assets/models/nature/stone_smallF.glb",
+            "type": "Mesh"
+        },
+        "15165932742046048215": {
+            "hash": 9408072381134476059,
+            "path": "assets/models/nature/crops_wheatStageA.glb",
+            "type": "Mesh"
+        },
+        "15193704383017826155": {
+            "hash": 6122228386786226178,
+            "path": "assets/models/nature/tree_pineSmallB.glb",
+            "type": "Mesh"
+        },
+        "1519809086383823633": {
+            "hash": 15085627882757563453,
+            "path": "assets/models/blaster/bullet-foam-thick.obj",
+            "type": "Mesh"
+        },
+        "15202457676799508362": {
+            "hash": 3350127218641216,
+            "path": "assets/models/nature/cliff_halfCornerInner_stone.glb",
+            "type": "Mesh"
+        },
+        "15202531633432734327": {
+            "hash": 92659264732802825,
+            "path": "assets/models/pets/animal-panda.obj",
+            "type": "Mesh"
+        },
+        "15213943446587821914": {
+            "hash": 7458323477008411880,
+            "path": "assets/models/nature/rock_tallC.glb",
+            "type": "Mesh"
+        },
+        "15217639627051996475": {
+            "hash": 8291211947991900361,
+            "path": "assets/models/survival/tree-autumn-tall.obj",
+            "type": "Mesh"
+        },
+        "15296118024812544833": {
+            "hash": 11609422272910022631,
+            "path": "assets/models/nature/fence_simpleDiagonalCenter.glb",
+            "type": "Mesh"
+        },
+        "1534340318770682681": {
+            "hash": 487611509821905975,
+            "path": "assets/models/platformer/block-snow-large-slope-steep-narrow.obj",
+            "type": "Mesh"
+        },
+        "15366801210037478814": {
+            "hash": 1276622729353465098,
+            "path": "assets/models/nature/rock_smallFlatA.glb",
+            "type": "Mesh"
+        },
+        "15368659741968387128": {
+            "hash": 4174020744485190077,
+            "path": "assets/models/nature/tree_thin_fall.glb",
+            "type": "Mesh"
+        },
+        "1538647802900620406": {
+            "hash": 6983477996381543462,
+            "path": "assets/models/nature/cliff_blockQuarter_stone.glb",
+            "type": "Mesh"
+        },
+        "15416375292182583908": {
+            "hash": 7227564074261795734,
+            "path": "assets/models/nature/tree_pineGroundA.glb",
+            "type": "Mesh"
+        },
+        "15423444856408184275": {
+            "hash": 1452193588575577961,
+            "path": "assets/models/nature/crop_turnip.glb",
+            "type": "Mesh"
+        },
+        "15436264820315347383": {
+            "hash": 7779876827182171630,
+            "path": "assets/models/platformer/block-grass-corner-low.obj",
+            "type": "Mesh"
+        },
+        "15585405365360535654": {
+            "hash": 2087517027820721072,
+            "path": "assets/models/nature/rock_tallF.glb",
+            "type": "Mesh"
+        },
+        "15636977023882884536": {
+            "hash": 3981790734237788978,
+            "path": "assets/models/platformer/character-oodi.obj",
+            "type": "Mesh"
+        },
+        "15678109929511169579": {
+            "hash": 1868846014294789317,
+            "path": "assets/models/nature/rock_smallTopB.glb",
+            "type": "Mesh"
+        },
+        "15706129957534163268": {
+            "hash": 7162729142080143235,
+            "path": "assets/models/platformer/spike-block-wide.obj",
+            "type": "Mesh"
+        },
+        "15734717399656081665": {
+            "hash": 10367926763309361008,
+            "path": "assets/models/nature/tree_small.glb",
+            "type": "Mesh"
+        },
+        "15748229413700678514": {
+            "hash": 4597250072772522423,
+            "path": "assets/models/platformer/block-grass-long.obj",
+            "type": "Mesh"
+        },
+        "15755014493158924608": {
+            "hash": 750392869896595273,
+            "path": "assets/models/survival/floor-old.obj",
+            "type": "Mesh"
+        },
+        "15758103426553703070": {
+            "hash": 15686174999008093190,
+            "path": "assets/models/platformer/block-grass-overhang-low-hexagon.obj",
+            "type": "Mesh"
+        },
+        "15869361739146511865": {
+            "hash": 10133643229275350088,
+            "path": "assets/models/pets/animal-lion.obj",
+            "type": "Mesh"
+        },
+        "15880115433634907394": {
+            "hash": 13365403207674975530,
+            "path": "assets/models/pets/animal-caterpillar.obj",
+            "type": "Mesh"
+        },
+        "15888336798417263130": {
+            "hash": 17255060563043596686,
+            "path": "assets/models/nature/flower_purpleB.glb",
+            "type": "Mesh"
+        },
+        "15921466314815849177": {
+            "hash": 13286659748125403670,
+            "path": "assets/models/platformer/block-grass-large-slope.obj",
+            "type": "Mesh"
+        },
+        "15961745978131357649": {
+            "hash": 11198797445096380747,
+            "path": "assets/models/nature/flower_purpleA.glb",
+            "type": "Mesh"
+        },
+        "15994875988794769255": {
+            "hash": 745554472283311347,
+            "path": "assets/models/nature/tree_pineRoundD.glb",
+            "type": "Mesh"
+        },
+        "16001155394347158397": {
+            "hash": 5013659322372674806,
+            "path": "assets/models/nature/crops_bambooStageB.glb",
+            "type": "Mesh"
+        },
+        "16002363624782725154": {
+            "hash": 3542985282986164693,
+            "path": "assets/audio/star.ogg",
+            "type": "Audio"
+        },
+        "16063613147416305578": {
+            "hash": 6470451490614220498,
+            "path": "assets/models/survival/tool-hammer-upgraded.obj",
+            "type": "Mesh"
+        },
+        "16088887651488679546": {
+            "hash": 6486084200691887521,
+            "path": "assets/models/survival/tree-log.obj",
+            "type": "Mesh"
+        },
+        "16090851209994992356": {
+            "hash": 740901829461968432,
+            "path": "assets/models/nature/stump_roundDetailed.glb",
+            "type": "Mesh"
+        },
+        "16114502070176155438": {
+            "hash": 13651762721505939644,
+            "path": "assets/models/nature/flower_purpleC.glb",
+            "type": "Mesh"
+        },
+        "16116989895798032852": {
+            "hash": 17422608592464446055,
+            "path": "assets/models/nature/ground_pathEnd.glb",
+            "type": "Mesh"
+        },
+        "16126956178039786394": {
+            "hash": 1837473252215695781,
+            "path": "assets/models/platformer/block-grass-low.obj",
+            "type": "Mesh"
+        },
+        "16182513425160515588": {
+            "hash": 14234291669074362079,
+            "path": "assets/models/nature/path_woodEnd.glb",
+            "type": "Mesh"
+        },
+        "16231021005218695808": {
+            "hash": 5293960985910892215,
+            "path": "assets/models/nature/cliff_cornerLarge_rock.glb",
+            "type": "Mesh"
+        },
+        "16238647752828597400": {
+            "hash": 13050359843504585405,
+            "path": "assets/models/forest/rocks-low.obj",
+            "type": "Mesh"
+        },
+        "16259900312917305976": {
+            "hash": 1478610370671057287,
+            "path": "assets/models/nature/cliff_cornerInner_rock.glb",
+            "type": "Mesh"
+        },
+        "16407034651749337415": {
+            "hash": 3546960791685135047,
+            "path": "assets/models/forest/patch-dirt.obj",
+            "type": "Mesh"
+        },
+        "16414618099177862588": {
+            "hash": 17923196836052945147,
+            "path": "assets/models/pets/animal-dog.obj",
+            "type": "Mesh"
+        },
+        "16417239808961351588": {
+            "hash": 12156229413830503555,
+            "path": "assets/models/characters/ally.glb",
+            "type": "Mesh"
+        },
+        "16426801170670536461": {
+            "hash": 2877847628440235944,
+            "path": "assets/models/forest/bridge.obj",
+            "type": "Mesh"
+        },
+        "16473019921778871321": {
+            "hash": 9022318798186814700,
+            "path": "assets/models/nature/cliff_blockSlopeWalls_stone.glb",
+            "type": "Mesh"
+        },
+        "16494844689464660725": {
+            "hash": 4202798170378382950,
+            "path": "assets/models/nature/rock_largeB.glb",
+            "type": "Mesh"
+        },
+        "16509633284882281876": {
+            "hash": 15100703907664742703,
+            "path": "assets/models/platformer/block-moving-blue.obj",
+            "type": "Mesh"
+        },
+        "1651267034252733168": {
+            "hash": 2070618556798499354,
+            "path": "assets/models/survival/tool-shovel-upgraded.obj",
+            "type": "Mesh"
+        },
+        "16519182656194897391": {
+            "hash": 9988847894919225622,
+            "path": "assets/models/nature/crops_leafsStageB.glb",
+            "type": "Mesh"
+        },
+        "16523720899533595962": {
+            "hash": 16524472158479708778,
+            "path": "assets/models/platformer/block-snow-corner-overhang.obj",
+            "type": "Mesh"
+        },
+        "16537443812632707336": {
+            "hash": 4067208123431599302,
+            "path": "assets/models/platformer/flag.obj",
+            "type": "Mesh"
+        },
+        "16568796335257409462": {
+            "hash": 10328385783419298486,
+            "path": "assets/models/survival/rock-sand-a.obj",
+            "type": "Mesh"
+        },
+        "16570573400995087002": {
+            "hash": 10204552343241807151,
+            "path": "assets/models/survival/fish-large.obj",
+            "type": "Mesh"
+        },
+        "16590651214817845051": {
+            "hash": 15124583553224277585,
+            "path": "assets/models/platformer/coin-silver.obj",
+            "type": "Mesh"
+        },
+        "16625094465553185486": {
+            "hash": 12373932866641310583,
+            "path": "assets/models/platformer/crate-item.obj",
+            "type": "Mesh"
+        },
+        "16626843048088520537": {
+            "hash": 3462612918573270275,
+            "path": "assets/models/nature/rock_smallA.glb",
+            "type": "Mesh"
+        },
+        "16630454863147980648": {
+            "hash": 1982076497238100800,
+            "path": "assets/models/nature/cliff_cornerInnerLarge_stone.glb",
+            "type": "Mesh"
+        },
+        "1665535359103498": {
+            "hash": 8749440992750239219,
+            "path": "assets/models/nature/cliff_large_rock.glb",
+            "type": "Mesh"
+        },
+        "16681130163415444738": {
+            "hash": 10107057633060205522,
+            "path": "assets/models/nature/cliff_blockHalf_stone.glb",
+            "type": "Mesh"
+        },
+        "16701930020491453327": {
+            "hash": 13557127919883120501,
+            "path": "assets/models/nature/ground_pathCorner.glb",
+            "type": "Mesh"
+        },
+        "16708668299862703586": {
+            "hash": 12937324802790951946,
+            "path": "assets/models/nature/crops_dirtRowEnd.glb",
+            "type": "Mesh"
+        },
+        "16727566225640027794": {
+            "hash": 1090740620810468699,
+            "path": "assets/models/platformer/ladder-broken.obj",
+            "type": "Mesh"
+        },
+        "16732291329568321477": {
+            "hash": 10757813083295760112,
+            "path": "assets/models/pets/animal-polar.obj",
+            "type": "Mesh"
+        },
+        "16736495396910243775": {
+            "hash": 6459469045359945420,
+            "path": "assets/models/survival/bottle-large.obj",
+            "type": "Mesh"
+        },
+        "16746329527625437751": {
+            "hash": 3130336135889495767,
+            "path": "assets/models/survival/grass.obj",
+            "type": "Mesh"
+        },
+        "16762607370645599399": {
+            "hash": 12096114416249234849,
+            "path": "assets/models/platformer/block-snow-hexagon.obj",
+            "type": "Mesh"
+        },
+        "16799823929110137855": {
+            "hash": 4849705863060612864,
+            "path": "assets/models/survival/tool-pickaxe.obj",
+            "type": "Mesh"
+        },
+        "1681521631054762228": {
+            "hash": 3625718384102584716,
+            "path": "assets/models/nature/tree_palmDetailedTall.glb",
+            "type": "Mesh"
+        },
+        "16834067891903269086": {
+            "hash": 17433807026234365029,
+            "path": "assets/models/nature/ground_pathCross.glb",
+            "type": "Mesh"
+        },
+        "16838599976911085393": {
+            "hash": 5379826390177661555,
+            "path": "assets/models/nature/fence_simpleDiagonal.glb",
+            "type": "Mesh"
+        },
+        "16852400052434075409": {
+            "hash": 7895027205572746835,
+            "path": "assets/models/nature/ground_riverRocks.glb",
+            "type": "Mesh"
+        },
+        "16857772611501344294": {
+            "hash": 13192657208696535699,
+            "path": "assets/models/nature/rock_tallG.glb",
+            "type": "Mesh"
+        },
+        "16878994174673095073": {
+            "hash": 1969398303249592199,
+            "path": "assets/models/platformer/block-snow-overhang-low.obj",
+            "type": "Mesh"
+        },
+        "16903903103407241767": {
+            "hash": 4984750792244032823,
+            "path": "assets/models/platformer/block-snow-large-slope-steep.obj",
+            "type": "Mesh"
+        },
+        "16920809494510018220": {
+            "hash": 5280677119414849411,
+            "path": "assets/models/nature/grass_leafsLarge.glb",
+            "type": "Mesh"
+        },
+        "16926154783042603933": {
+            "hash": 8567149970211041922,
+            "path": "assets/models/nature/mushroom_redTall.glb",
+            "type": "Mesh"
+        },
+        "16927528981727865689": {
+            "hash": 3140782629441551172,
+            "path": "assets/models/platformer/sign.obj",
+            "type": "Mesh"
+        },
+        "16977408656167448421": {
+            "hash": 4948880601717770330,
+            "path": "assets/models/nature/path_wood.glb",
+            "type": "Mesh"
+        },
+        "16991773674561418904": {
+            "hash": 11344971621209120028,
+            "path": "assets/models/forest/building-platform.obj",
+            "type": "Mesh"
+        },
+        "17040874374904263958": {
+            "hash": 8656709858704552001,
+            "path": "assets/models/nature/cliff_cornerLarge_stone.glb",
+            "type": "Mesh"
+        },
+        "17048829807376588411": {
+            "hash": 4670114721595160731,
+            "path": "assets/models/blaster/scope-large-a.obj",
+            "type": "Mesh"
+        },
+        "17079146527222739698": {
+            "hash": 4691986696998026011,
+            "path": "assets/models/platformer/button-round.obj",
+            "type": "Mesh"
+        },
+        "17080322591764735107": {
+            "hash": 14781316059407776472,
+            "path": "assets/models/blaster/blaster-c.obj",
+            "type": "Mesh"
+        },
+        "17084098410970165791": {
+            "hash": 5670071801907547963,
+            "path": "assets/models/platformer/flowers-tall.obj",
+            "type": "Mesh"
+        },
+        "17108335106446111342": {
+            "hash": 15136259555540367660,
+            "path": "assets/models/nature/rock_smallFlatB.glb",
+            "type": "Mesh"
+        },
+        "17138293305349723170": {
+            "hash": 16550129499975307205,
+            "path": "assets/models/nature/bridge_center_woodRound.glb",
+            "type": "Mesh"
+        },
+        "17167805593875894656": {
+            "hash": 4922064767864872493,
+            "path": "assets/models/nature/fence_corner.glb",
+            "type": "Mesh"
+        },
+        "17170567977117349859": {
+            "hash": 4602204758215293917,
+            "path": "assets/models/nature/campfire_stones.glb",
+            "type": "Mesh"
+        },
+        "17217992900740210809": {
+            "hash": 1789018743094410788,
+            "path": "assets/models/characters/ally_b.glb",
+            "type": "Mesh"
+        },
+        "17231649495518243310": {
+            "hash": 8906998405129673796,
+            "path": "assets/models/survival/tool-hoe.obj",
+            "type": "Mesh"
+        },
+        "17269583338928613972": {
+            "hash": 10538030988753772270,
+            "path": "assets/models/platformer/tree-snow.obj",
+            "type": "Mesh"
+        },
+        "17282268232923447778": {
+            "hash": 15126530677389051482,
+            "path": "assets/models/platformer/block-snow-narrow.obj",
+            "type": "Mesh"
+        },
+        "17293785914925306061": {
+            "hash": 13032697297059190936,
+            "path": "assets/models/nature/tree_pineTallD.glb",
+            "type": "Mesh"
+        },
+        "17315541400985045075": {
+            "hash": 2411290807714919905,
+            "path": "assets/models/survival/tree.obj",
+            "type": "Mesh"
+        },
+        "17361885879142062692": {
+            "hash": 269122744297325764,
+            "path": "assets/models/nature/tree_small_dark.glb",
+            "type": "Mesh"
+        },
+        "17385895912602374964": {
+            "hash": 16141865013238782638,
+            "path": "assets/models/nature/bridge_woodRound.glb",
+            "type": "Mesh"
+        },
+        "17388774363731119504": {
+            "hash": 4054123662636401001,
+            "path": "assets/models/nature/crops_dirtSingle.glb",
+            "type": "Mesh"
+        },
+        "17418413227547282352": {
+            "hash": 982075504345411441,
+            "path": "assets/models/platformer/fence-corner.obj",
+            "type": "Mesh"
+        },
+        "17446202874664766078": {
+            "hash": 7957446965070709021,
+            "path": "assets/models/survival/barrel.obj",
+            "type": "Mesh"
+        },
+        "1746034455276741745": {
+            "hash": 12154814661964907615,
+            "path": "assets/models/nature/ground_riverCross.glb",
+            "type": "Mesh"
+        },
+        "17485972558957206660": {
+            "hash": 8127083507183511500,
+            "path": "assets/models/survival/signpost-single.obj",
+            "type": "Mesh"
+        },
+        "17550611841021789484": {
+            "hash": 9769423818359217342,
+            "path": "assets/models/survival/tree-tall.obj",
+            "type": "Mesh"
+        },
+        "17565490013740697766": {
+            "hash": 33510484708758029,
+            "path": "assets/models/nature/bridge_woodNarrow.glb",
+            "type": "Mesh"
+        },
+        "17576907518295685959": {
+            "hash": 7407068168662603308,
+            "path": "assets/models/nature/cliff_stepsCorner_stone.glb",
+            "type": "Mesh"
+        },
+        "17580269120204518159": {
+            "hash": 14661720635225708190,
+            "path": "assets/models/survival/metal-panel.obj",
+            "type": "Mesh"
+        },
+        "1758389548420708387": {
+            "hash": 8598335755819747559,
+            "path": "assets/models/nature/plant_bushDetailed.glb",
+            "type": "Mesh"
+        },
+        "17641175030904894947": {
+            "hash": 15408288041150623425,
+            "path": "assets/models/survival/metal-panel-narrow.obj",
+            "type": "Mesh"
+        },
+        "17661526704487780627": {
+            "hash": 15409372762272352459,
+            "path": "assets/models/platformer/block-snow-overhang-large-slope-steep-narrow.obj",
+            "type": "Mesh"
+        },
+        "17662102058276298619": {
+            "hash": 16756149210295271202,
+            "path": "assets/models/platformer/fence-straight.obj",
+            "type": "Mesh"
+        },
+        "17671221368562034026": {
+            "hash": 16998427485907014815,
+            "path": "assets/models/platformer/block-grass-corner-overhang.obj",
+            "type": "Mesh"
+        },
+        "17678406518981165246": {
+            "hash": 4962418900373767182,
+            "path": "assets/models/blaster/grenade-a.obj",
+            "type": "Mesh"
+        },
+        "17794105180471913890": {
+            "hash": 17118884973800593260,
+            "path": "assets/models/nature/stone_tallJ.glb",
+            "type": "Mesh"
+        },
+        "17813922498059065602": {
+            "hash": 14443482443222100959,
+            "path": "assets/models/blaster/blaster-m.obj",
+            "type": "Mesh"
+        },
+        "17822651816745220454": {
+            "hash": 9877107529691674869,
+            "path": "assets/models/platformer/platform-ramp.obj",
+            "type": "Mesh"
+        },
+        "17857600731730454236": {
+            "hash": 4278968434841282010,
+            "path": "assets/models/nature/cliff_cornerInnerLarge_rock.glb",
+            "type": "Mesh"
+        },
+        "17875089043562564310": {
+            "hash": 750526656607851669,
+            "path": "assets/models/nature/stone_smallG.glb",
+            "type": "Mesh"
+        },
+        "17895016794495008366": {
+            "hash": 8648671518697108406,
+            "path": "assets/models/nature/cliff_steps_stone.glb",
+            "type": "Mesh"
+        },
+        "17900512391479461168": {
+            "hash": 13398035367914384779,
+            "path": "assets/models/nature/pot_small.glb",
+            "type": "Mesh"
+        },
+        "17929645671682473238": {
+            "hash": 16464389955171564702,
+            "path": "assets/models/survival/tent-canvas.obj",
+            "type": "Mesh"
+        },
+        "17929902420372953951": {
+            "hash": 4180109836531430880,
+            "path": "assets/models/blaster/silencer-larger.obj",
+            "type": "Mesh"
+        },
+        "17934408436787962955": {
+            "hash": 3631663073554696647,
+            "path": "assets/models/nature/cliff_large_stone.glb",
+            "type": "Mesh"
+        },
+        "17943347759279233035": {
+            "hash": 16505472036752031672,
+            "path": "assets/models/nature/tree_default_fall.glb",
+            "type": "Mesh"
+        },
+        "17996583143383122304": {
+            "hash": 18219054050008241305,
+            "path": "assets/models/nature/crop_pumpkin.glb",
+            "type": "Mesh"
+        },
+        "18039620981584587775": {
+            "hash": 7460049983224153126,
+            "path": "assets/models/nature/tree_palm.glb",
+            "type": "Mesh"
+        },
+        "1806207349570538153": {
+            "hash": 9944600688803750337,
+            "path": "assets/models/platformer/lock.obj",
+            "type": "Mesh"
+        },
+        "18092383919806073665": {
+            "hash": 18261068030655880999,
+            "path": "assets/models/nature/tree_tall.glb",
+            "type": "Mesh"
+        },
+        "18095911299530640902": {
+            "hash": 903196518780110980,
+            "path": "assets/models/nature/stone_tallA.glb",
+            "type": "Mesh"
+        },
+        "18110842160539790600": {
+            "hash": 14413866482077241426,
+            "path": "assets/models/blaster/crate-small.obj",
+            "type": "Mesh"
+        },
+        "18136521703084395503": {
+            "hash": 15379237187193586735,
+            "path": "assets/models/survival/floor-hole.obj",
+            "type": "Mesh"
+        },
+        "18150920880434058276": {
+            "hash": 15928100408933475988,
+            "path": "assets/models/platformer/character-oozi.obj",
+            "type": "Mesh"
+        },
+        "18170880657797935322": {
+            "hash": 13104271088216165458,
+            "path": "assets/models/survival/resource-stone-large.obj",
+            "type": "Mesh"
+        },
+        "18253750881238290088": {
+            "hash": 4904051453657250490,
+            "path": "assets/models/nature/cliff_stone.glb",
+            "type": "Mesh"
+        },
+        "18285972310283257461": {
+            "hash": 10006440542237485682,
+            "path": "assets/models/nature/ground_riverSide.glb",
+            "type": "Mesh"
+        },
+        "18299158105596542099": {
+            "hash": 9043683274855477892,
+            "path": "assets/models/nature/crops_cornStageD.glb",
+            "type": "Mesh"
+        },
+        "18315381104444385453": {
+            "hash": 10333484235121789739,
+            "path": "assets/models/platformer/spike-block.obj",
+            "type": "Mesh"
+        },
+        "18316072463036303232": {
+            "hash": 11752462053310087775,
+            "path": "assets/models/nature/fence_simple.glb",
+            "type": "Mesh"
+        },
+        "18345105592080947252": {
+            "hash": 17603103588254475767,
+            "path": "assets/models/nature/bridge_stoneNarrow.glb",
+            "type": "Mesh"
+        },
+        "18360022096740947068": {
+            "hash": 15090379861553206745,
+            "path": "assets/models/blaster/blaster-q.obj",
+            "type": "Mesh"
+        },
+        "1839098412732278891": {
+            "hash": 1048540048791335463,
+            "path": "assets/models/platformer/door-large-open.obj",
+            "type": "Mesh"
+        },
+        "1843931250596543807": {
+            "hash": 15789646179779924943,
+            "path": "assets/models/platformer/block-grass-overhang-large.obj",
+            "type": "Mesh"
+        },
+        "1877725547144686680": {
+            "hash": 11145394883888483498,
+            "path": "assets/models/platformer/block-snow-overhang-large-slope-narrow.obj",
+            "type": "Mesh"
+        },
+        "1884290370224223938": {
+            "hash": 9556282898265303267,
+            "path": "assets/models/nature/cliff_waterfallTop_stone.glb",
+            "type": "Mesh"
+        },
+        "1916868277966554698": {
+            "hash": 15371307309741770055,
+            "path": "assets/models/nature/cliff_halfCorner_stone.glb",
+            "type": "Mesh"
+        },
+        "1922952209807183920": {
+            "hash": 11456394216936692902,
+            "path": "assets/models/nature/cliff_blockSlopeHalfWalls_rock.glb",
+            "type": "Mesh"
+        },
+        "1922956341749856336": {
+            "hash": 9929443622107745636,
+            "path": "assets/models/nature/ground_riverStraight.glb",
+            "type": "Mesh"
+        },
+        "1935636218899170887": {
+            "hash": 14746458424889234585,
+            "path": "assets/models/nature/cliff_blockSlope_stone.glb",
+            "type": "Mesh"
+        },
+        "1955552744362288581": {
+            "hash": 4490373489228349184,
+            "path": "assets/models/nature/bridge_center_wood.glb",
+            "type": "Mesh"
+        },
+        "2012799238025956459": {
+            "hash": 1355738053854895739,
+            "path": "assets/models/platformer/ladder.obj",
+            "type": "Mesh"
+        },
+        "2031901378834481955": {
+            "hash": 781081465780060544,
+            "path": "assets/models/platformer/tree-pine.obj",
+            "type": "Mesh"
+        },
+        "2066579135708592620": {
+            "hash": 4919727752979848955,
+            "path": "assets/models/pets/animal-parrot.obj",
+            "type": "Mesh"
+        },
+        "2075402746481007323": {
+            "hash": 11432951487632574070,
+            "path": "assets/models/platformer/coin-gold.obj",
+            "type": "Mesh"
+        },
+        "2107039205098817927": {
+            "hash": 8982681233061132936,
+            "path": "assets/models/nature/campfire_logs.glb",
+            "type": "Mesh"
+        },
+        "220173490317442983": {
+            "hash": 1176941898772028827,
+            "path": "assets/models/nature/cliff_waterfall_stone.glb",
+            "type": "Mesh"
+        },
+        "2225249277201826000": {
+            "hash": 3889975208191833913,
+            "path": "assets/models/platformer/block-grass-overhang-large-slope-narrow.obj",
+            "type": "Mesh"
+        },
+        "2284353255176182855": {
+            "hash": 17892847307521029203,
+            "path": "assets/audio/target_break.ogg",
+            "type": "Audio"
+        },
+        "2300466500402651337": {
+            "hash": 7150177894225241926,
+            "path": "assets/models/nature/tree_default_dark.glb",
+            "type": "Mesh"
+        },
+        "2310067754318459883": {
+            "hash": 13802298535107650609,
+            "path": "assets/skies/sky.hdr",
+            "type": "Texture"
+        },
+        "2345868791885713145": {
+            "hash": 8872384010878377986,
+            "path": "assets/models/survival/rock-flat.obj",
+            "type": "Mesh"
+        },
+        "234768243570758318": {
+            "hash": 7876632805330046794,
+            "path": "assets/models/nature/tree_pineTallD_detailed.glb",
+            "type": "Mesh"
+        },
+        "2458993450176359402": {
+            "hash": 8320271792018118808,
+            "path": "assets/models/nature/lily_small.glb",
+            "type": "Mesh"
+        },
+        "2489368748722998562": {
+            "hash": 3224830460761458672,
+            "path": "assets/models/blaster/target-detail.obj",
+            "type": "Mesh"
+        },
+        "2498288557158305092": {
+            "hash": 5756067177646185910,
+            "path": "assets/models/survival/tree-autumn-trunk.obj",
+            "type": "Mesh"
+        },
+        "2504491151410437703": {
+            "hash": 11427146718195893751,
+            "path": "assets/audio/spring.ogg",
+            "type": "Audio"
+        },
+        "2531431987162590372": {
+            "hash": 12793004475351730210,
+            "path": "assets/models/nature/cliff_rock.glb",
+            "type": "Mesh"
+        },
+        "255804013368416264": {
+            "hash": 11350149295154869472,
+            "path": "assets/models/nature/crops_dirtDoubleRowEnd.glb",
+            "type": "Mesh"
+        },
+        "2568429219320525366": {
+            "hash": 1624785756221654832,
+            "path": "assets/models/platformer/door-rotate.obj",
+            "type": "Mesh"
+        },
+        "2654946411425858934": {
+            "hash": 2483385354984783020,
+            "path": "assets/models/forest/tree.obj",
+            "type": "Mesh"
+        },
+        "2725169314246221067": {
+            "hash": 9624417856576115464,
+            "path": "assets/models/blaster/clip-small.obj",
+            "type": "Mesh"
+        },
+        "2767099766900632549": {
+            "hash": 5225486649689191907,
+            "path": "assets/models/platformer/block-grass-overhang-hexagon.obj",
+            "type": "Mesh"
+        },
+        "2784040800108535941": {
+            "hash": 15054759790288226505,
+            "path": "assets/audio/coin.ogg",
+            "type": "Audio"
+        },
+        "279889800219798624": {
+            "hash": 3354049680470899278,
+            "path": "assets/models/blaster/bullet-foam.obj",
+            "type": "Mesh"
+        },
+        "2873436869008672846": {
+            "hash": 13773877994322288930,
+            "path": "assets/models/platformer/chest.obj",
+            "type": "Mesh"
+        },
+        "2903363479198200877": {
+            "hash": 7705742864052438509,
+            "path": "assets/models/platformer/block-snow-curve.obj",
+            "type": "Mesh"
+        },
+        "2939698046770246176": {
+            "hash": 16204478955198379645,
+            "path": "assets/models/nature/stone_tallD.glb",
+            "type": "Mesh"
+        },
+        "2972197728978946908": {
+            "hash": 4156140887973967429,
+            "path": "assets/models/nature/crops_wheatStageB.glb",
+            "type": "Mesh"
+        },
+        "2977512513087119315": {
+            "hash": 6724951807147741994,
+            "path": "assets/models/nature/tree_cone.glb",
+            "type": "Mesh"
+        },
+        "2994556978476210620": {
+            "hash": 18181639831733511039,
+            "path": "assets/models/nature/mushroom_tan.glb",
+            "type": "Mesh"
+        },
+        "3031314797034177246": {
+            "hash": 1259547218816281895,
+            "path": "assets/models/forest/colormap.png",
+            "type": "Texture"
+        },
+        "3039917426770395670": {
+            "hash": 3884206556328485545,
+            "path": "assets/models/nature/cliff_cornerTop_rock.glb",
+            "type": "Mesh"
+        },
+        "3057856581253245632": {
+            "hash": 8787051828277722787,
+            "path": "assets/models/pets/animal-hog.obj",
+            "type": "Mesh"
+        },
+        "3092789194832577155": {
+            "hash": 11592691874993275803,
+            "path": "assets/models/platformer/block-snow-overhang-corner.obj",
+            "type": "Mesh"
+        },
+        "3104450274636477206": {
+            "hash": 10069074161568407801,
+            "path": "assets/models/nature/cliff_diagonal_rock.glb",
+            "type": "Mesh"
+        },
+        "3106933933212214807": {
+            "hash": 828754541496643763,
+            "path": "assets/models/platformer/saw.obj",
+            "type": "Mesh"
+        },
+        "3148837446384817365": {
+            "hash": 9301612312177477223,
+            "path": "assets/models/nature/tree_fat.glb",
+            "type": "Mesh"
+        },
+        "3150554251951315973": {
+            "hash": 6520671775281738143,
+            "path": "assets/models/nature/cliff_blockCave_rock.glb",
+            "type": "Mesh"
+        },
+        "320338524743101989": {
+            "hash": 3408489890059290645,
+            "path": "assets/models/nature/cliff_halfCorner_rock.glb",
+            "type": "Mesh"
+        },
+        "3209694383428572052": {
+            "hash": 9401039897187576221,
+            "path": "assets/models/nature/ground_pathEndClosed.glb",
+            "type": "Mesh"
+        },
+        "3254555291510358812": {
+            "hash": 6176180351944989066,
+            "path": "assets/models/platformer/spring.obj",
+            "type": "Mesh"
+        },
+        "3259392846576184485": {
+            "hash": 8554576435119823970,
+            "path": "assets/models/platformer/tree-pine-small.obj",
+            "type": "Mesh"
+        },
+        "3270816818437121221": {
+            "hash": 7441431525275957306,
+            "path": "assets/models/platformer/mushrooms.obj",
+            "type": "Mesh"
+        },
+        "3312852186849389010": {
+            "hash": 16743946314143449076,
+            "path": "assets/models/nature/hanging_moss.glb",
+            "type": "Mesh"
+        },
+        "3319309361050356910": {
+            "hash": 8704343484541792526,
+            "path": "assets/models/forest/plant.obj",
+            "type": "Mesh"
+        },
+        "3354351557602545268": {
+            "hash": 8266873629811335497,
+            "path": "assets/models/nature/cliff_half_rock.glb",
+            "type": "Mesh"
+        },
+        "337179764941043835": {
+            "hash": 16265163946031731226,
+            "path": "assets/models/nature/rock_tallE.glb",
+            "type": "Mesh"
+        },
+        "3409864723518555635": {
+            "hash": 18081856256658572572,
+            "path": "assets/models/nature/log.glb",
+            "type": "Mesh"
+        },
+        "3411532809573687123": {
+            "hash": 9653862101425509510,
+            "path": "assets/models/nature/tree_pineTallC_detailed.glb",
+            "type": "Mesh"
+        },
+        "3424614357143819184": {
+            "hash": 10586191485236024654,
+            "path": "assets/models/platformer/block-snow-large.obj",
+            "type": "Mesh"
+        },
+        "3442748486415979366": {
+            "hash": 1569059881154479224,
+            "path": "assets/models/platformer/block-moving-large.obj",
+            "type": "Mesh"
+        },
+        "3449104449552315472": {
+            "hash": 4539080562495722480,
+            "path": "assets/models/nature/rock_smallTopA.glb",
+            "type": "Mesh"
+        },
+        "3480565092788790376": {
+            "hash": 5420128434630326959,
+            "path": "assets/models/blaster/crate-medium.obj",
+            "type": "Mesh"
+        },
+        "3480851720770681064": {
+            "hash": 10756531079348209656,
+            "path": "assets/models/nature/stump_round.glb",
+            "type": "Mesh"
+        },
+        "3511593816316056903": {
+            "hash": 11482907788621760457,
+            "path": "assets/models/nature/grass.glb",
+            "type": "Mesh"
+        },
+        "3514549053300457739": {
+            "hash": 14515097398124688112,
+            "path": "assets/models/nature/flower_yellowA.glb",
+            "type": "Mesh"
+        },
+        "3522784612139100284": {
+            "hash": 9493293967264987226,
+            "path": "assets/models/nature/tree_pineSmallA.glb",
+            "type": "Mesh"
+        },
+        "3553912813843199299": {
+            "hash": 8845637065709684393,
+            "path": "assets/models/nature/fence_simpleLow.glb",
+            "type": "Mesh"
+        },
+        "3568980966040873842": {
+            "hash": 3910846166624379368,
+            "path": "assets/audio/enemy_die.ogg",
+            "type": "Audio"
+        },
+        "3577142238153310160": {
+            "hash": 1409560615545890204,
+            "path": "assets/models/nature/stone_smallH.glb",
+            "type": "Mesh"
+        },
+        "3578775007078367069": {
+            "hash": 8313166625081114001,
+            "path": "assets/models/platformer/conveyor-belt.obj",
+            "type": "Mesh"
+        },
+        "3617321174661526529": {
+            "hash": 6920862864089649593,
+            "path": "assets/models/blaster/scope-small.obj",
+            "type": "Mesh"
+        },
+        "3632201014048933458": {
+            "hash": 16534112110666103815,
+            "path": "assets/models/platformer/platform-overhang.obj",
+            "type": "Mesh"
+        },
+        "3644317886965634811": {
+            "hash": 8498206461375094150,
+            "path": "assets/models/nature/tree_pineDefaultA.glb",
+            "type": "Mesh"
+        },
+        "365680259528744842": {
+            "hash": 2537472938445707606,
+            "path": "assets/models/survival/box-open.obj",
+            "type": "Mesh"
+        },
+        "3662707375119049238": {
+            "hash": 5311614752754752203,
+            "path": "assets/models/survival/workbench.obj",
+            "type": "Mesh"
+        },
+        "3679655639952207175": {
+            "hash": 2016210482266936240,
+            "path": "assets/models/blaster/silencer-small.obj",
+            "type": "Mesh"
+        },
+        "3687092177188735421": {
+            "hash": 15164852124462897335,
+            "path": "assets/models/nature/statue_block.glb",
+            "type": "Mesh"
+        },
+        "3741462477958561557": {
+            "hash": 16573357732206164322,
+            "path": "assets/models/survival/box-large.obj",
+            "type": "Mesh"
+        },
+        "375624316998933074": {
+            "hash": 3589209396913170164,
+            "path": "assets/models/platformer/block-grass-corner-overhang-low.obj",
+            "type": "Mesh"
+        },
+        "3820154579727439650": {
+            "hash": 1608486888244079185,
+            "path": "assets/models/platformer/barrel.obj",
+            "type": "Mesh"
+        },
+        "3834466739981138627": {
+            "hash": 18112588520319303406,
+            "path": "assets/models/nature/tree_thin_dark.glb",
+            "type": "Mesh"
+        },
+        "3851151365205010569": {
+            "hash": 9325370082660851822,
+            "path": "assets/audio/land.ogg",
+            "type": "Audio"
+        },
+        "3918557507070078636": {
+            "hash": 10597523692014500969,
+            "path": "assets/models/survival/rock-flat-grass.obj",
+            "type": "Mesh"
+        },
+        "3940267741254921327": {
+            "hash": 11390647631395167607,
+            "path": "assets/models/characters/player.glb",
+            "type": "Mesh"
+        },
+        "3943836756822970262": {
+            "hash": 7541233900466200444,
+            "path": "assets/models/nature/stone_largeD.glb",
+            "type": "Mesh"
+        },
+        "3987764054328464506": {
+            "hash": 17463839378523968931,
+            "path": "assets/models/survival/floor.obj",
+            "type": "Mesh"
+        },
+        "3995652504860581621": {
+            "hash": 14983518693942384639,
+            "path": "assets/models/nature/bridge_wood.glb",
+            "type": "Mesh"
+        },
+        "4007785468442740437": {
+            "hash": 16185831225532647590,
+            "path": "assets/models/platformer/crate-strong.obj",
+            "type": "Mesh"
+        },
+        "40229433160574056": {
+            "hash": 11242250201515592331,
+            "path": "assets/models/platformer/grass.obj",
+            "type": "Mesh"
+        },
+        "4028335106689402770": {
+            "hash": 5609598485010990101,
+            "path": "assets/models/nature/bridge_woodRoundNarrow.glb",
+            "type": "Mesh"
+        },
+        "4043522581871351985": {
+            "hash": 2421837029664311243,
+            "path": "assets/models/nature/flower_redC.glb",
+            "type": "Mesh"
+        },
+        "406530796038312837": {
+            "hash": 12816810345993051645,
+            "path": "assets/models/platformer/block-grass-large.obj",
+            "type": "Mesh"
+        },
+        "409986695347166906": {
+            "hash": 4551782152869569664,
+            "path": "assets/models/nature/stone_smallC.glb",
+            "type": "Mesh"
+        },
+        "4114496444910977723": {
+            "hash": 9588489037374102571,
+            "path": "assets/models/pets/animal-deer.obj",
+            "type": "Mesh"
+        },
+        "4146976231657627005": {
+            "hash": 4741598809958960804,
+            "path": "assets/models/pets/animal-beaver.obj",
+            "type": "Mesh"
+        },
+        "4173197757984005489": {
+            "hash": 8607841124458312906,
+            "path": "assets/models/nature/fence_planksDouble.glb",
+            "type": "Mesh"
+        },
+        "418615666015229772": {
+            "hash": 11883196305371736205,
+            "path": "assets/models/platformer/block-grass-large-tall.obj",
+            "type": "Mesh"
+        },
+        "4234734826302818421": {
+            "hash": 14342479249154562586,
+            "path": "assets/models/survival/tree-trunk.obj",
+            "type": "Mesh"
+        },
+        "4235313291105988233": {
+            "hash": 15535297909810825838,
+            "path": "assets/models/nature/tree_pineTallA.glb",
+            "type": "Mesh"
+        },
+        "4267943768284814093": {
+            "hash": 3822579168884303238,
+            "path": "assets/models/blaster/target-small.obj",
+            "type": "Mesh"
+        },
+        "4268545268301939174": {
+            "hash": 9627299341193879393,
+            "path": "assets/models/nature/stump_squareDetailed.glb",
+            "type": "Mesh"
+        },
+        "4275904460519893757": {
+            "hash": 10579495982797985486,
+            "path": "assets/models/nature/bridge_stoneRound.glb",
+            "type": "Mesh"
+        },
+        "430096937235872733": {
+            "hash": 15075008125841135296,
+            "path": "assets/models/platformer/brick.obj",
+            "type": "Mesh"
+        },
+        "4338311642438993241": {
+            "hash": 9101246735981798691,
+            "path": "assets/models/platformer/fence-rope.obj",
+            "type": "Mesh"
+        },
+        "436593517146008745": {
+            "hash": 16753489920436889974,
+            "path": "assets/models/nature/tree_fat_darkh.glb",
+            "type": "Mesh"
+        },
+        "4382234174192453945": {
+            "hash": 8935296879380625263,
+            "path": "assets/models/nature/ground_pathBend.glb",
+            "type": "Mesh"
+        },
+        "4398346743284233476": {
+            "hash": 10804749127328456376,
+            "path": "assets/models/nature/crops_cornStageB.glb",
+            "type": "Mesh"
+        },
+        "4437766245932068301": {
+            "hash": 15098233726553596445,
+            "path": "assets/models/survival/rock-a.obj",
+            "type": "Mesh"
+        },
+        "4441956636567231442": {
+            "hash": 12952486676810256586,
+            "path": "assets/models/survival/chest.obj",
+            "type": "Mesh"
+        },
+        "451130273695573155": {
+            "hash": 17909243799632465160,
+            "path": "assets/models/nature/grass_large.glb",
+            "type": "Mesh"
+        },
+        "457958610896496073": {
+            "hash": 16127193567072326769,
+            "path": "assets/models/survival/barrel-open.obj",
+            "type": "Mesh"
+        },
+        "4592921357968559787": {
+            "hash": 160688538486963478,
+            "path": "assets/models/characters/enemy_a.glb",
+            "type": "Mesh"
+        },
+        "4602664958024639610": {
+            "hash": 12253274540429634839,
+            "path": "assets/models/forest/tree-high.obj",
+            "type": "Mesh"
+        },
+        "4605776689304922902": {
+            "hash": 4549744567672439648,
+            "path": "assets/models/nature/tree_plateau.glb",
+            "type": "Mesh"
+        },
+        "4666032322751044652": {
+            "hash": 8633191698426662363,
+            "path": "assets/models/pets/animal-elephant.obj",
+            "type": "Mesh"
+        },
+        "4675485088219867862": {
+            "hash": 6494676337292356693,
+            "path": "assets/models/nature/ground_riverSideOpen.glb",
+            "type": "Mesh"
+        },
+        "4687631716582450652": {
+            "hash": 12018609980201194794,
+            "path": "assets/models/nature/rock_tallA.glb",
+            "type": "Mesh"
+        },
+        "472482689496136487": {
+            "hash": 2453965158737579651,
+            "path": "assets/models/survival/fence-fortified.obj",
+            "type": "Mesh"
+        },
+        "4768988917881031235": {
+            "hash": 7592740668448142238,
+            "path": "assets/models/nature/tree_palmTall.glb",
+            "type": "Mesh"
+        },
+        "4832438431698421696": {
+            "hash": 11592374948139062799,
+            "path": "assets/models/nature/tree_pineTallA_detailed.glb",
+            "type": "Mesh"
+        },
+        "4844572625158076778": {
+            "hash": 8350102225774813178,
+            "path": "assets/models/nature/stone_smallTopB.glb",
+            "type": "Mesh"
+        },
+        "4872863115398464341": {
+            "hash": 13190767647027848622,
+            "path": "assets/models/survival/tool-pickaxe-upgraded.obj",
+            "type": "Mesh"
+        },
+        "4874130531124622999": {
+            "hash": 4505671380802798280,
+            "path": "assets/models/nature/tent_detailedOpen.glb",
+            "type": "Mesh"
+        },
+        "4904089902538169585": {
+            "hash": 16253673780889700059,
+            "path": "assets/models/nature/cliff_top_stone.glb",
+            "type": "Mesh"
+        },
+        "4944816569329962237": {
+            "hash": 8775292228965930849,
+            "path": "assets/models/survival/workbench-grind.obj",
+            "type": "Mesh"
+        },
+        "4982419343949355457": {
+            "hash": 7635143934368048009,
+            "path": "assets/models/nature/plant_bush.glb",
+            "type": "Mesh"
+        },
+        "5003675771849128403": {
+            "hash": 7043190078385526602,
+            "path": "assets/models/nature/stone_tallG.glb",
+            "type": "Mesh"
+        },
+        "5019959663394953511": {
+            "hash": 9157303109756657961,
+            "path": "assets/models/survival/metal-panel-screws-narrow.obj",
+            "type": "Mesh"
+        },
+        "503937859955926207": {
+            "hash": 15673142783374251688,
+            "path": "assets/models/nature/cliff_corner_stone.glb",
+            "type": "Mesh"
+        },
+        "5041433144068277737": {
+            "hash": 2208752334022559336,
+            "path": "assets/models/nature/tree_pineGroundB.glb",
+            "type": "Mesh"
+        },
+        "5045095257230186621": {
+            "hash": 8997863146235449908,
+            "path": "assets/models/platformer/block-grass-curve-half.obj",
+            "type": "Mesh"
+        },
+        "5088113791368635575": {
+            "hash": 18242292843295830062,
+            "path": "assets/models/nature/tree_oak_fall.glb",
+            "type": "Mesh"
+        },
+        "5186820651918923174": {
+            "hash": 13040487134454109090,
+            "path": "assets/models/survival/bedroll-frame.obj",
+            "type": "Mesh"
+        },
+        "5238550227043340368": {
+            "hash": 8524543635323484131,
+            "path": "assets/models/platformer/block-grass-overhang-long.obj",
+            "type": "Mesh"
+        },
+        "5240942330165365383": {
+            "hash": 6974276676192665293,
+            "path": "assets/models/platformer/block-grass-overhang-low-long.obj",
+            "type": "Mesh"
+        },
+        "5266120057679989140": {
+            "hash": 14317615275817037902,
+            "path": "assets/models/nature/cliff_blockDiagonal_stone.glb",
+            "type": "Mesh"
+        },
+        "5269263519550163342": {
+            "hash": 3465221242329183983,
+            "path": "assets/models/pets/animal-tiger.obj",
+            "type": "Mesh"
+        },
+        "5285414088662616773": {
+            "hash": 4007602857689809432,
+            "path": "assets/models/nature/cliff_stepsCorner_rock.glb",
+            "type": "Mesh"
+        },
+        "5306799318794769440": {
+            "hash": 1950404166833935230,
+            "path": "assets/models/survival/rock-b.obj",
+            "type": "Mesh"
+        },
+        "5319376496539972871": {
+            "hash": 7776917747539143410,
+            "path": "assets/models/nature/stone_smallFlatA.glb",
+            "type": "Mesh"
+        },
+        "5320148410874362053": {
+            "hash": 9642861895680956706,
+            "path": "assets/models/platformer/block-grass-low-narrow.obj",
+            "type": "Mesh"
+        },
+        "5366282470545551067": {
+            "hash": 11589047626143306348,
+            "path": "assets/models/nature/ground_pathSideOpen.glb",
+            "type": "Mesh"
+        },
+        "5376836964024944145": {
+            "hash": 8756814089171015637,
+            "path": "assets/models/survival/structure-roof.obj",
+            "type": "Mesh"
+        },
+        "538395813696327218": {
+            "hash": 10375292634031985738,
+            "path": "assets/models/survival/rock-sand-b.obj",
+            "type": "Mesh"
+        },
+        "5394195835147259564": {
+            "hash": 12949419832825263826,
+            "path": "assets/models/blaster/blaster-g.obj",
+            "type": "Mesh"
+        },
+        "5405382790247562633": {
+            "hash": 14110329243825307662,
+            "path": "assets/models/nature/stone_smallA.glb",
+            "type": "Mesh"
+        },
+        "540691264058249786": {
+            "hash": 1784005819038317865,
+            "path": "assets/models/platformer/lever.obj",
+            "type": "Mesh"
+        },
+        "5419998678974914718": {
+            "hash": 8948055623339596586,
+            "path": "assets/models/nature/cliff_cornerInnerTop_stone.glb",
+            "type": "Mesh"
+        },
+        "5430226263107192784": {
+            "hash": 11037383588898852833,
+            "path": "assets/models/platformer/block-snow-overhang-narrow.obj",
+            "type": "Mesh"
+        },
+        "5482099199848627876": {
+            "hash": 10217223733158035579,
+            "path": "assets/models/survival/bedroll.obj",
+            "type": "Mesh"
+        },
+        "5510131124113561247": {
+            "hash": 728504101229697330,
+            "path": "assets/models/platformer/block-snow-overhang-large.obj",
+            "type": "Mesh"
+        },
+        "559044884214761964": {
+            "hash": 6523130346852859754,
+            "path": "assets/models/nature/cliff_blockQuarter_rock.glb",
+            "type": "Mesh"
+        },
+        "5610725435882499351": {
+            "hash": 5511680689895641811,
+            "path": "assets/models/nature/cliff_half_stone.glb",
+            "type": "Mesh"
+        },
+        "5648082291467299079": {
+            "hash": 741551328616468499,
+            "path": "assets/models/platformer/block-snow-low-large.obj",
+            "type": "Mesh"
+        },
+        "5669607796504035571": {
+            "hash": 14385377103141482928,
+            "path": "assets/models/nature/tree_blocks_dark.glb",
+            "type": "Mesh"
+        },
+        "5738068144535285446": {
+            "hash": 13630811537806650277,
+            "path": "assets/models/nature/tree_small_fall.glb",
+            "type": "Mesh"
+        },
+        "577546500924396199": {
+            "hash": 691261716038560018,
+            "path": "assets/models/survival/resource-wood.obj",
+            "type": "Mesh"
+        },
+        "5830023094889989638": {
+            "hash": 13747501843825683136,
+            "path": "assets/models/nature/bridge_center_stoneRound.glb",
+            "type": "Mesh"
+        },
+        "5837143895676954557": {
+            "hash": 2028246820345887238,
+            "path": "assets/models/survival/structure-metal-roof.obj",
+            "type": "Mesh"
+        },
+        "5842181085700144368": {
+            "hash": 12272713275791420488,
+            "path": "assets/models/nature/ground_grass.glb",
+            "type": "Mesh"
+        },
+        "5853743247471670521": {
+            "hash": 8969846572678397957,
+            "path": "assets/models/nature/ground_pathStraight.glb",
+            "type": "Mesh"
+        },
+        "5913966381130462954": {
+            "hash": 1418746274414446141,
+            "path": "assets/models/platformer/block-snow-curve-half.obj",
+            "type": "Mesh"
+        },
+        "5945198823241410647": {
+            "hash": 12209988515951003726,
+            "path": "assets/models/survival/bottle.obj",
+            "type": "Mesh"
+        },
+        "5981774423341068315": {
+            "hash": 17840453794361218016,
+            "path": "assets/models/platformer/block-snow-overhang-large-slope.obj",
+            "type": "Mesh"
+        },
+        "6004409507101327190": {
+            "hash": 12448521792919019936,
+            "path": "assets/models/nature/tree_oak_dark.glb",
+            "type": "Mesh"
+        },
+        "600717903886020605": {
+            "hash": 16335656479013330926,
+            "path": "assets/models/platformer/trap-spikes.obj",
+            "type": "Mesh"
+        },
+        "6015360868588895443": {
+            "hash": 8816115696376778219,
+            "path": "assets/models/nature/lily_large.glb",
+            "type": "Mesh"
+        },
+        "6024329338051961315": {
+            "hash": 12115658266638928230,
+            "path": "assets/models/nature/tent_smallClosed.glb",
+            "type": "Mesh"
+        },
+        "6060119436993070804": {
+            "hash": 11592992869392853181,
+            "path": "assets/models/pets/animal-fish.obj",
+            "type": "Mesh"
+        },
+        "6081169795065493181": {
+            "hash": 709810837242118380,
+            "path": "assets/models/nature/cliff_steps_rock.glb",
+            "type": "Mesh"
+        },
+        "6098123441817494338": {
+            "hash": 8810664849697563504,
+            "path": "assets/models/nature/grass_leafs.glb",
+            "type": "Mesh"
+        },
+        "6105536135129360702": {
+            "hash": 2406678952386889162,
+            "path": "assets/models/nature/tree_plateau_fall.glb",
+            "type": "Mesh"
+        },
+        "6120808288889983071": {
+            "hash": 1551726181057433122,
+            "path": "assets/models/survival/box.obj",
+            "type": "Mesh"
+        },
+        "6121646732136787806": {
+            "hash": 11320422155610978148,
+            "path": "assets/models/platformer/fence-low-corner-curved.obj",
+            "type": "Mesh"
+        },
+        "6151294579908944844": {
+            "hash": 14651151934002454609,
+            "path": "assets/models/nature/tree_thin.glb",
+            "type": "Mesh"
+        },
+        "616348590918877089": {
+            "hash": 11173085892338962637,
+            "path": "assets/models/nature/rock_tallD.glb",
+            "type": "Mesh"
+        },
+        "6206411458002607611": {
+            "hash": 2699172599202428329,
+            "path": "assets/audio/shoot_alt.ogg",
+            "type": "Audio"
+        },
+        "6216937698704159536": {
+            "hash": 16934772745223729375,
+            "path": "assets/models/nature/cliff_stepsCornerInner_stone.glb",
+            "type": "Mesh"
+        },
+        "6238028546917235740": {
+            "hash": 944521634904158277,
+            "path": "assets/models/nature/tent_detailedClosed.glb",
+            "type": "Mesh"
+        },
+        "623936220236738115": {
+            "hash": 9380082667161457737,
+            "path": "assets/models/nature/rock_smallG.glb",
+            "type": "Mesh"
+        },
+        "6269153985333164843": {
+            "hash": 3771592021007750958,
+            "path": "assets/models/nature/ground_riverEnd.glb",
+            "type": "Mesh"
+        },
+        "6291667884769308069": {
+            "hash": 14363138335391630774,
+            "path": "assets/models/platformer/pipe.obj",
+            "type": "Mesh"
+        },
+        "6297003043878853292": {
+            "hash": 11314691043062210240,
+            "path": "assets/models/nature/pot_large.glb",
+            "type": "Mesh"
+        },
+        "6299686016593387486": {
+            "hash": 14977931138247553161,
+            "path": "assets/models/survival/fence.obj",
+            "type": "Mesh"
+        },
+        "6329444610535921708": {
+            "hash": 16332494695064383026,
+            "path": "assets/models/platformer/block-grass-overhang-large-slope-steep-narrow.obj",
+            "type": "Mesh"
+        },
+        "6354796774886486073": {
+            "hash": 6128525108166624013,
+            "path": "assets/models/survival/rock-sand-c.obj",
+            "type": "Mesh"
+        },
+        "6360358787172197248": {
+            "hash": 10733210117782920559,
+            "path": "assets/models/forest/fence.obj",
+            "type": "Mesh"
+        },
+        "6372678264150555336": {
+            "hash": 14236528118106480998,
+            "path": "assets/models/nature/statue_columnDamaged.glb",
+            "type": "Mesh"
+        },
+        "6374894077394156676": {
+            "hash": 10149848773162359863,
+            "path": "assets/models/pets/colormap.png",
+            "type": "Texture"
+        },
+        "641285236627180577": {
+            "hash": 12826603135546807538,
+            "path": "assets/models/survival/tent.obj",
+            "type": "Mesh"
+        },
+        "6419136983566285400": {
+            "hash": 352827718443208067,
+            "path": "assets/models/nature/crops_bambooStageA.glb",
+            "type": "Mesh"
+        },
+        "6424619385863025160": {
+            "hash": 15498469997311731734,
+            "path": "assets/models/nature/stump_oldTall.glb",
+            "type": "Mesh"
+        },
+        "6455124876372259767": {
+            "hash": 96029528788298260,
+            "path": "assets/models/platformer/heart.obj",
+            "type": "Mesh"
+        },
+        "6456705267655607561": {
+            "hash": 10959506004828238552,
+            "path": "assets/models/platformer/hedge.obj",
+            "type": "Mesh"
+        },
+        "6461581980166988934": {
+            "hash": 11728028313024172705,
+            "path": "assets/models/platformer/block-grass-large-slope-steep-narrow.obj",
+            "type": "Mesh"
+        },
+        "6473242955904046145": {
+            "hash": 14425012985938515294,
+            "path": "assets/models/nature/crops_dirtDoubleRow.glb",
+            "type": "Mesh"
+        },
+        "6479456401066868351": {
+            "hash": 6888534847161363945,
+            "path": "assets/models/platformer/tree.obj",
+            "type": "Mesh"
+        },
+        "6533151146545983089": {
+            "hash": 6511206996309208955,
+            "path": "assets/models/nature/stone_smallI.glb",
+            "type": "Mesh"
+        },
+        "6539394317354435446": {
+            "hash": 14998971181741627503,
+            "path": "assets/models/nature/cliff_topDiagonal_rock.glb",
+            "type": "Mesh"
+        },
+        "6539583373182996295": {
+            "hash": 14529774367704987559,
+            "path": "assets/models/pets/animal-bunny.obj",
+            "type": "Mesh"
+        },
+        "6596055258743984341": {
+            "hash": 5937148074618471897,
+            "path": "assets/models/platformer/platform-fortified.obj",
+            "type": "Mesh"
+        },
+        "6618751867281864501": {
+            "hash": 7150818964061009799,
+            "path": "assets/models/nature/cliff_stepsCornerInner_rock.glb",
+            "type": "Mesh"
+        },
+        "6618960971633989087": {
+            "hash": 15637424264122595962,
+            "path": "assets/models/platformer/tree-pine-snow-small.obj",
+            "type": "Mesh"
+        },
+        "6719457022617454878": {
+            "hash": 1794979967673437341,
+            "path": "assets/models/nature/stone_largeF.glb",
+            "type": "Mesh"
+        },
+        "6735365980557478254": {
+            "hash": 9250459055665688915,
+            "path": "assets/models/nature/plant_flatTall.glb",
+            "type": "Mesh"
+        },
+        "6766267690038445482": {
+            "hash": 18059245173866046611,
+            "path": "assets/models/pets/animal-penguin.obj",
+            "type": "Mesh"
+        },
+        "6795033194041556911": {
+            "hash": 6867378548766136994,
+            "path": "assets/models/nature/rock_largeF.glb",
+            "type": "Mesh"
+        },
+        "680495446270686680": {
+            "hash": 1109419283886883001,
+            "path": "assets/models/platformer/block-grass-edge.obj",
+            "type": "Mesh"
+        },
+        "6810617492966820179": {
+            "hash": 5574655876856644852,
+            "path": "assets/models/survival/metal-panel-screws.obj",
+            "type": "Mesh"
+        },
+        "6816079289526257115": {
+            "hash": 4759186389715114243,
+            "path": "assets/models/platformer/block-snow.obj",
+            "type": "Mesh"
+        },
+        "6826771213717335856": {
+            "hash": 7794014172802507352,
+            "path": "assets/models/nature/tree_default.glb",
+            "type": "Mesh"
+        },
+        "6856471923600505143": {
+            "hash": 12578847574467031008,
+            "path": "assets/models/nature/cliff_corner_rock.glb",
+            "type": "Mesh"
+        },
+        "6874976182282236537": {
+            "hash": 15461266376456503390,
+            "path": "assets/models/nature/cliff_blockSlopeHalfWalls_stone.glb",
+            "type": "Mesh"
+        },
+        "6885608409844283787": {
+            "hash": 7317069622613891349,
+            "path": "assets/models/platformer/fence-broken.obj",
+            "type": "Mesh"
+        },
+        "6896626804370270111": {
+            "hash": 1373137984720103663,
+            "path": "assets/models/platformer/crate-item-strong.obj",
+            "type": "Mesh"
+        },
+        "6924195248847416025": {
+            "hash": 16942720619294469554,
+            "path": "assets/models/characters/enemy_c.glb",
+            "type": "Mesh"
+        },
+        "6941804617306428059": {
+            "hash": 18029297805135305431,
+            "path": "assets/models/nature/tree_palmShort.glb",
+            "type": "Mesh"
+        },
+        "6972794074816438934": {
+            "hash": 13579547859955498782,
+            "path": "assets/models/forest/building-roof.obj",
+            "type": "Mesh"
+        },
+        "6979827763126476465": {
+            "hash": 2444490400084551405,
+            "path": "assets/models/nature/cliff_cornerInner_stone.glb",
+            "type": "Mesh"
+        },
+        "6995948670883093623": {
+            "hash": 3499538858751468599,
+            "path": "assets/models/blaster/target-large.obj",
+            "type": "Mesh"
+        },
+        "7005356224624708095": {
+            "hash": 8457972276968016034,
+            "path": "assets/models/platformer/block-grass-overhang-large-tall.obj",
+            "type": "Mesh"
+        },
+        "7008653319306057446": {
+            "hash": 17995188262476643311,
+            "path": "assets/models/nature/ground_pathSplit.glb",
+            "type": "Mesh"
+        },
+        "7090773049186794636": {
+            "hash": 10421716856585185101,
+            "path": "assets/models/nature/tree_simple_dark.glb",
+            "type": "Mesh"
+        },
+        "7152667491161894220": {
+            "hash": 12360191980001937668,
+            "path": "assets/models/forest/rocks-ramp.obj",
+            "type": "Mesh"
+        },
+        "715353109571394582": {
+            "hash": 6183542567376887204,
+            "path": "assets/models/nature/tree_detailed_dark.glb",
+            "type": "Mesh"
+        },
+        "7157158493311007429": {
+            "hash": 1343686113952923893,
+            "path": "assets/models/nature/stone_smallTopA.glb",
+            "type": "Mesh"
+        },
+        "7301689392809773122": {
+            "hash": 11726877322566564548,
+            "path": "assets/models/platformer/block-snow-overhang-hexagon.obj",
+            "type": "Mesh"
+        },
+        "7325665372903984004": {
+            "hash": 8012619964084005555,
+            "path": "assets/models/nature/stone_tallH.glb",
+            "type": "Mesh"
+        },
+        "7337530656812379831": {
+            "hash": 16489197154158494700,
+            "path": "assets/models/survival/campfire-stand.obj",
+            "type": "Mesh"
+        },
+        "7342025218114652339": {
+            "hash": 2050022909750164675,
+            "path": "assets/models/forest/platform.obj",
+            "type": "Mesh"
+        },
+        "7392194786709611918": {
+            "hash": 5329107060343184891,
+            "path": "assets/models/platformer/block-grass-overhang-low-narrow.obj",
+            "type": "Mesh"
+        },
+        "7396721550651233789": {
+            "hash": 14711518192422329377,
+            "path": "assets/models/survival/structure-metal.obj",
+            "type": "Mesh"
+        },
+        "7481686273014422203": {
+            "hash": 18028987388820449804,
+            "path": "assets/models/platformer/fence-low-straight.obj",
+            "type": "Mesh"
+        },
+        "7557915681784109257": {
+            "hash": 18086917641890714417,
+            "path": "assets/models/nature/cliff_cornerTop_stone.glb",
+            "type": "Mesh"
+        },
+        "7587271970385591160": {
+            "hash": 9185402038569865158,
+            "path": "assets/models/platformer/trap-spikes-large.obj",
+            "type": "Mesh"
+        },
+        "7591297458944675246": {
+            "hash": 13862499310527266142,
+            "path": "assets/models/forest/flag.obj",
+            "type": "Mesh"
+        },
+        "7644141195550862161": {
+            "hash": 14659950673396693811,
+            "path": "assets/models/platformer/block-snow-low-long.obj",
+            "type": "Mesh"
+        },
+        "7660006888150246542": {
+            "hash": 2576606620224120977,
+            "path": "assets/models/survival/metal-panel-screws-half.obj",
+            "type": "Mesh"
+        },
+        "7684191821229307533": {
+            "hash": 16404912934842650502,
+            "path": "assets/models/forest/weapon-bow.obj",
+            "type": "Mesh"
+        },
+        "7701008280380767999": {
+            "hash": 18015487090318743085,
+            "path": "assets/models/nature/fence_gate.glb",
+            "type": "Mesh"
+        },
+        "7705908669849511989": {
+            "hash": 13751791347736647237,
+            "path": "assets/models/nature/tree_simple_fall.glb",
+            "type": "Mesh"
+        },
+        "7756413312817299205": {
+            "hash": 9724827021521463038,
+            "path": "assets/models/nature/statue_obelisk.glb",
+            "type": "Mesh"
+        },
+        "778259355003692025": {
+            "hash": 7501968275463659317,
+            "path": "assets/models/nature/plant_bushSmall.glb",
+            "type": "Mesh"
+        },
+        "783611208824600771": {
+            "hash": 1046282442208200965,
+            "path": "assets/models/survival/rock-c.obj",
+            "type": "Mesh"
+        },
+        "7840810580769153506": {
+            "hash": 14310799538136094778,
+            "path": "assets/models/platformer/key.obj",
+            "type": "Mesh"
+        },
+        "7880752593671105153": {
+            "hash": 18089514389315756768,
+            "path": "assets/models/survival/signpost.obj",
+            "type": "Mesh"
+        },
+        "789055762319413861": {
+            "hash": 380212919771998290,
+            "path": "assets/models/nature/ground_riverCorner.glb",
+            "type": "Mesh"
+        },
+        "7912853337259483683": {
+            "hash": 435287619593676921,
+            "path": "assets/models/nature/tree_pineSmallC.glb",
+            "type": "Mesh"
+        },
+        "7937223196406465536": {
+            "hash": 7806362288762339495,
+            "path": "assets/models/platformer/door-open.obj",
+            "type": "Mesh"
+        },
+        "7956194125354684957": {
+            "hash": 2555289738288164508,
+            "path": "assets/models/forest/ladder.obj",
+            "type": "Mesh"
+        },
+        "7956488166553162441": {
+            "hash": 15706251306743181732,
+            "path": "assets/models/blaster/bullet-foam-tip.obj",
+            "type": "Mesh"
+        },
+        "7961596019255949680": {
+            "hash": 4115773132468267705,
+            "path": "assets/models/nature/stump_square.glb",
+            "type": "Mesh"
+        },
+        "7981986834162928299": {
+            "hash": 15400480493357692525,
+            "path": "assets/models/platformer/block-snow-overhang-low-large.obj",
+            "type": "Mesh"
+        },
+        "8011000313708834149": {
+            "hash": 15365085268722732526,
+            "path": "assets/models/survival/campfire-fishing-stand.obj",
+            "type": "Mesh"
+        },
+        "8035291821313981616": {
+            "hash": 12417295049831393319,
+            "path": "assets/models/forest/patch-grass.obj",
+            "type": "Mesh"
+        },
+        "8053363654763545483": {
+            "hash": 7500052444765807445,
+            "path": "assets/models/nature/crops_cornStageA.glb",
+            "type": "Mesh"
+        },
+        "8088507056260250712": {
+            "hash": 2035760233105581986,
+            "path": "assets/models/nature/plant_bushLarge.glb",
+            "type": "Mesh"
+        },
+        "8153611696498953811": {
+            "hash": 1774327227445843923,
+            "path": "assets/models/platformer/block-snow-corner-low.obj",
+            "type": "Mesh"
+        },
+        "8173005136949979797": {
+            "hash": 18007616562704794904,
+            "path": "assets/models/nature/bridge_side_stone.glb",
+            "type": "Mesh"
+        },
+        "81892563771868318": {
+            "hash": 12236681860391220137,
+            "path": "assets/models/survival/patch-grass.obj",
+            "type": "Mesh"
+        },
+        "8257752927065367539": {
+            "hash": 8838593975588538172,
+            "path": "assets/models/blaster/blaster-k.obj",
+            "type": "Mesh"
+        },
+        "8268639864333040742": {
+            "hash": 12929398339521174888,
+            "path": "assets/models/platformer/block-grass-overhang-corner.obj",
+            "type": "Mesh"
+        },
+        "8318311657482428890": {
+            "hash": 3518381232131225770,
+            "path": "assets/models/nature/tree_simple.glb",
+            "type": "Mesh"
+        },
+        "8332146158110673394": {
+            "hash": 12295230340475993685,
+            "path": "assets/models/platformer/block-snow-overhang-low-long.obj",
+            "type": "Mesh"
+        },
+        "8334284370701475529": {
+            "hash": 14412332207132681849,
+            "path": "assets/models/platformer/block-snow-curve-low.obj",
+            "type": "Mesh"
+        },
+        "8371918109406342145": {
+            "hash": 7506610666066144236,
+            "path": "assets/models/platformer/block-grass-overhang-narrow.obj",
+            "type": "Mesh"
+        },
+        "8404335391014009579": {
+            "hash": 3679985748219615636,
+            "path": "assets/models/platformer/platform.obj",
+            "type": "Mesh"
+        },
+        "8408091034698270814": {
+            "hash": 6411297401158116164,
+            "path": "assets/models/nature/cliff_waterfallTop_rock.glb",
+            "type": "Mesh"
+        },
+        "842821114345101865": {
+            "hash": 11189417457873361382,
+            "path": "assets/models/forest/tent.obj",
+            "type": "Mesh"
+        },
+        "8460213593400324707": {
+            "hash": 10388128350275158794,
+            "path": "assets/models/nature/statue_head.glb",
+            "type": "Mesh"
+        },
+        "8471926263655171274": {
+            "hash": 3364913089855348878,
+            "path": "assets/models/nature/tree_tall_fall.glb",
+            "type": "Mesh"
+        },
+        "8474270802305075798": {
+            "hash": 8478649483497284160,
+            "path": "assets/models/nature/ground_pathBendBank.glb",
+            "type": "Mesh"
+        },
+        "8511246842698538316": {
+            "hash": 14568601303568876311,
+            "path": "assets/models/nature/cliff_blockCave_stone.glb",
+            "type": "Mesh"
+        },
+        "8526091191226429904": {
+            "hash": 16994677269469378389,
+            "path": "assets/models/nature/bridge_stoneRoundNarrow.glb",
+            "type": "Mesh"
+        },
+        "8540029002957626590": {
+            "hash": 14941567930585568791,
+            "path": "assets/models/blaster/blaster-a.obj",
+            "type": "Mesh"
+        },
+        "8542331563294621290": {
+            "hash": 9812397460682023048,
+            "path": "assets/models/nature/tree_fat_fall.glb",
+            "type": "Mesh"
+        },
+        "8553051237213762792": {
+            "hash": 8443068675030004268,
+            "path": "assets/models/nature/tree_plateau_dark.glb",
+            "type": "Mesh"
+        },
+        "856398276026348399": {
+            "hash": 14920964097618145758,
+            "path": "assets/models/platformer/character-oopi.obj",
+            "type": "Mesh"
+        },
+        "856820814678355464": {
+            "hash": 10961399378303365545,
+            "path": "assets/models/nature/tree_detailed.glb",
+            "type": "Mesh"
+        },
+        "8577173181847869682": {
+            "hash": 7153176620278431571,
+            "path": "assets/models/nature/rock_smallI.glb",
+            "type": "Mesh"
+        },
+        "8588306298573887117": {
+            "hash": 6404458940647754848,
+            "path": "assets/models/pets/animal-chick.obj",
+            "type": "Mesh"
+        },
+        "8646140015554198385": {
+            "hash": 3936967937039531045,
+            "path": "assets/models/nature/cliff_cornerInnerTop_rock.glb",
+            "type": "Mesh"
+        },
+        "8656254582779026133": {
+            "hash": 14323412832947044809,
+            "path": "assets/models/survival/tool-shovel.obj",
+            "type": "Mesh"
+        },
+        "8681603282353156860": {
+            "hash": 16460458287687250066,
+            "path": "assets/models/platformer/fence-corner-curved.obj",
+            "type": "Mesh"
+        },
+        "8693258991383625344": {
+            "hash": 977750272976655402,
+            "path": "assets/models/survival/structure-metal-doorway.obj",
+            "type": "Mesh"
+        },
+        "869941806608895950": {
+            "hash": 10949844955964149413,
+            "path": "assets/models/blaster/grenade-b.obj",
+            "type": "Mesh"
+        },
+        "8778890402952064574": {
+            "hash": 15522921321591214289,
+            "path": "assets/models/survival/structure-metal-floor.obj",
+            "type": "Mesh"
+        },
+        "8782111401316698689": {
+            "hash": 17411421909530405013,
+            "path": "assets/models/platformer/block-grass-low-large.obj",
+            "type": "Mesh"
+        },
+        "8785600197659828783": {
+            "hash": 12217976249252192064,
+            "path": "assets/models/platformer/block-grass-overhang-edge.obj",
+            "type": "Mesh"
+        },
+        "8786797728011709391": {
+            "hash": 12358216019475403903,
+            "path": "assets/models/nature/fence_bend.glb",
+            "type": "Mesh"
+        },
+        "8796175002814662707": {
+            "hash": 4488649154077354710,
+            "path": "assets/models/blaster/clip-large.obj",
+            "type": "Mesh"
+        },
+        "8864709190490090008": {
+            "hash": 4094988486368417321,
+            "path": "assets/models/nature/cliff_cave_rock.glb",
+            "type": "Mesh"
+        },
+        "8885134658087255935": {
+            "hash": 18051657305268522059,
+            "path": "assets/models/nature/stone_largeC.glb",
+            "type": "Mesh"
+        },
+        "8891257086563973250": {
+            "hash": 9921437502799784060,
+            "path": "assets/models/nature/ground_riverBend.glb",
+            "type": "Mesh"
+        },
+        "8893286187476707291": {
+            "hash": 14939636005009233553,
+            "path": "assets/models/platformer/tree-pine-snow.obj",
+            "type": "Mesh"
+        },
+        "8894030257094605131": {
+            "hash": 8693232169710017735,
+            "path": "assets/models/survival/structure-canvas.obj",
+            "type": "Mesh"
+        },
+        "8929872670490686884": {
+            "hash": 14005246029425932608,
+            "path": "assets/models/survival/workbench-anvil.obj",
+            "type": "Mesh"
+        },
+        "8939556890368378496": {
+            "hash": 332198246746312150,
+            "path": "assets/models/platformer/fence-low-corner.obj",
+            "type": "Mesh"
+        },
+        "8959602004047762009": {
+            "hash": 3026711371703552892,
+            "path": "assets/models/nature/cliff_blockSlopeWalls_rock.glb",
+            "type": "Mesh"
+        },
+        "8969807107578046909": {
+            "hash": 14412586054863851750,
+            "path": "assets/models/platformer/colormap.png",
+            "type": "Texture"
+        },
+        "8971645499446700040": {
+            "hash": 7234107632222415970,
+            "path": "assets/models/nature/cactus_tall.glb",
+            "type": "Mesh"
+        },
+        "897823708348063921": {
+            "hash": 5395008230526027720,
+            "path": "assets/models/platformer/block-snow-low-hexagon.obj",
+            "type": "Mesh"
+        },
+        "9001802902217711757": {
+            "hash": 12467954787878099098,
+            "path": "assets/models/nature/bridge_center_stone.glb",
+            "type": "Mesh"
+        },
+        "9023495992108875839": {
+            "hash": 4110970785463881582,
+            "path": "assets/models/nature/flower_redA.glb",
+            "type": "Mesh"
+        },
+        "9027396395488813743": {
+            "hash": 12602585276540481135,
+            "path": "assets/models/nature/tree_detailed_fall.glb",
+            "type": "Mesh"
+        },
+        "9117116801802127073": {
+            "hash": 5669525273663433832,
+            "path": "assets/models/nature/tree_palmDetailedShort.glb",
+            "type": "Mesh"
+        },
+        "9117834006081968012": {
+            "hash": 4772588670072275926,
+            "path": "assets/models/nature/stone_tallI.glb",
+            "type": "Mesh"
+        },
+        "9127991734738406274": {
+            "hash": 548673620109464457,
+            "path": "assets/models/nature/stone_tallC.glb",
+            "type": "Mesh"
+        },
+        "9160043468566713201": {
+            "hash": 15385922873571179048,
+            "path": "assets/models/nature/tree_pineRoundA.glb",
+            "type": "Mesh"
+        },
+        "9168318629258063126": {
+            "hash": 4649848295055367504,
+            "path": "assets/models/nature/ground_riverCornerSmall.glb",
+            "type": "Mesh"
+        },
+        "9193274533168077229": {
+            "hash": 9899862851490717523,
+            "path": "assets/models/platformer/button-square.obj",
+            "type": "Mesh"
+        },
+        "9218147005330065162": {
+            "hash": 2911672155165714075,
+            "path": "assets/models/platformer/block-grass-curve-low.obj",
+            "type": "Mesh"
+        },
+        "9221771207397856165": {
+            "hash": 13156945460956611905,
+            "path": "assets/models/platformer/block-grass-overhang-low.obj",
+            "type": "Mesh"
+        },
+        "9337963029044586301": {
+            "hash": 14380967078699574424,
+            "path": "assets/models/platformer/arrow.obj",
+            "type": "Mesh"
+        },
+        "9367230734046788192": {
+            "hash": 3440040499703929346,
+            "path": "assets/models/survival/resource-planks.obj",
+            "type": "Mesh"
+        },
+        "9373362399992771482": {
+            "hash": 13251841470930167805,
+            "path": "assets/models/nature/stone_smallFlatB.glb",
+            "type": "Mesh"
+        },
+        "939325106034947356": {
+            "hash": 12645502052385693582,
+            "path": "assets/models/nature/mushroom_tanTall.glb",
+            "type": "Mesh"
+        },
+        "9469110117847100463": {
+            "hash": 13741312015661997495,
+            "path": "assets/models/nature/tree_cone_dark.glb",
+            "type": "Mesh"
+        },
+        "9515889647396348462": {
+            "hash": 5410143362502915973,
+            "path": "assets/models/platformer/ladder-long.obj",
+            "type": "Mesh"
+        },
+        "9529975047272880634": {
+            "hash": 3468345603774434078,
+            "path": "assets/models/nature/bed.glb",
+            "type": "Mesh"
+        },
+        "9563934111286153248": {
+            "hash": 3800134027806996800,
+            "path": "assets/models/platformer/block-snow-overhang-low-hexagon.obj",
+            "type": "Mesh"
+        },
+        "9564320955000253620": {
+            "hash": 11211898060788794062,
+            "path": "assets/models/blaster/blaster-r.obj",
+            "type": "Mesh"
+        },
+        "9585225131646234424": {
+            "hash": 3346977863270493616,
+            "path": "assets/models/nature/statue_column.glb",
+            "type": "Mesh"
+        },
+        "9603626276598588630": {
+            "hash": 8925469069139175549,
+            "path": "assets/models/nature/cliff_diagonal_stone.glb",
+            "type": "Mesh"
+        },
+        "9675255602477377815": {
+            "hash": 8737031350967856836,
+            "path": "assets/models/platformer/plant.obj",
+            "type": "Mesh"
+        },
+        "9677044671551079356": {
+            "hash": 732587388921653597,
+            "path": "assets/models/nature/tree_oak.glb",
+            "type": "Mesh"
+        },
+        "9681810244587653809": {
+            "hash": 3466679496697116672,
+            "path": "assets/models/forest/building-structure.obj",
+            "type": "Mesh"
+        },
+        "9752628157481070093": {
+            "hash": 10791547725145440294,
+            "path": "assets/models/nature/cliff_block_stone.glb",
+            "type": "Mesh"
+        },
+        "9783669732745778149": {
+            "hash": 16371491391026123185,
+            "path": "assets/audio/jump.ogg",
+            "type": "Audio"
+        },
+        "9784023767752254610": {
+            "hash": 854415954606108701,
+            "path": "assets/models/characters/enemy_b.glb",
+            "type": "Mesh"
+        },
+        "9839884804207857661": {
+            "hash": 6697119101777392895,
+            "path": "assets/models/nature/rock_largeD.glb",
+            "type": "Mesh"
+        },
+        "9854925544140808505": {
+            "hash": 1359216759320921701,
+            "path": "assets/models/blaster/target-fragment-large.obj",
+            "type": "Mesh"
+        },
+        "9905105935358605691": {
+            "hash": 13458387266127498216,
+            "path": "assets/models/blaster/smoke.obj",
+            "type": "Mesh"
+        },
+        "9947336992416919708": {
+            "hash": 1958890398796835563,
+            "path": "assets/models/nature/ground_riverSplit.glb",
+            "type": "Mesh"
+        },
+        "9995735450271112044": {
+            "hash": 6230713236972219459,
+            "path": "assets/models/pets/animal-cat.obj",
+            "type": "Mesh"
+        }
+    },
+    "schema": 2,
+    "version": 2
+}

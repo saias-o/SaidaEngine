@@ -21,6 +21,7 @@ const SAMPLES = 150;
 let frames = 0;
 let player = null;
 let camera = null;
+let gameplayRequested = false;
 
 let prevPlayer = null;
 let prevCam = null;
@@ -63,8 +64,16 @@ function onReady() {
 }
 
 function onUpdate(dt) {
+    if (player === null || camera === null) {
+        player = tree.firstInGroup("player");
+        camera = tree.firstInGroup("camera");
+        if (player === null && !gameplayRequested) {
+            gameplayRequested = true;
+            tree.changeScene("scenes/verdance.scene");
+        }
+        return;
+    }
     frames += 1;
-    if (player === null || camera === null) return;
 
     // Run in a straight line, no turning, no camera input.
     input.inject("MoveForward", true);
