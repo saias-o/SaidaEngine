@@ -260,6 +260,18 @@ and be benchmarked against the classic path on heavy scenes. Performance claims
 require reproducible scenes, published GPU/driver, resolution, number of
 lights/draws/particles and CPU/GPU frame times.
 
+The desktop editor profiler exposes indexed mesh geometry as
+`Renderer/FrustumTriangles` and `Scene/TotalTriangles`, displayed together as
+camera/scene triangles. The scene value sums every active renderable mesh
+instance at its renderer-selected LOD; the camera value sums the subset whose
+bounding spheres intersect the camera frustum. They describe per-instance
+indexed mesh workload, not exact pixel visibility: occluded and back-facing
+triangles still count, while shadow re-submission, particles, water, UI and
+post-processing do not. Collection runs only while the desktop Profiler is open
+and enabled. Its collector belongs exclusively to `saida_editor`; standalone
+desktop and Web players neither link it nor traverse their scenes for these
+diagnostics.
+
 ### 4.2 AssetRegistry and AssetLoader
 
 `AssetRegistry` is the only base of identities. `AssetLoader` exposes

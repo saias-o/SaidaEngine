@@ -1,4 +1,5 @@
 #include "render/GpuDrivenLayout.hpp"
+#include "render/TriangleMetrics.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -31,7 +32,44 @@ int main() {
     static_assert(binding(CullingBinding::DrawCount) == 2);
     static_assert(binding(CullingBinding::CulledDrawCommands) == 3);
 
-    const std::filesystem::path shaders = std::filesystem::path(SAIDA_PROJECT_ROOT) / "shaders";
+    saida::MeshTriangleMetrics triangles;
+    triangles.addIndexedMesh(36, true);
+    triangles.addIndexedMesh(60, false);
+    triangles.addIndexedMesh(6, true);
+    triangles.addIndexedMesh(36, true); // A second instance of the same mesh.
+    if (!require(triangles.frustumTriangles == 26)) return 11;
+    if (!require(triangles.sceneTriangles == 46)) return 12;
+    if (!require(std::string(saida::kProfilerFrustumTriangles) ==
+                 "Renderer/FrustumTriangles")) return 13;
+    if (!require(std::string(saida::kProfilerSceneTriangles) ==
+                 "Scene/TotalTriangles")) return 14;
+
+    const std::filesystem::path root = SAIDA_PROJECT_ROOT;
+    const std::string rendererSource =
+        readText(root / "src/render/Renderer.cpp");
+    if (!require(!contains(rendererSource, "MeshTriangleMetrics"))) return 15;
+    if (!require(!contains(rendererSource, "Renderer/Triangles"))) return 16;
+
+    const std::string rootCmake = readText(root / "CMakeLists.txt");
+    const size_t editorTarget =
+        rootCmake.find("add_library(saida_editor STATIC");
+    const size_t editorCollector =
+        rootCmake.find("src/editor/ProfilerTriangleMetrics.cpp");
+    const size_t editorTargetEnd =
+        rootCmake.find("target_link_libraries(saida_editor", editorTarget);
+    if (!require(editorTarget != std::string::npos &&
+                 editorCollector > editorTarget &&
+                 editorCollector < editorTargetEnd)) return 17;
+    if (!require(contains(
+            rootCmake,
+            "target_link_libraries(SaidaEngineRuntime PRIVATE saida_engine)")))
+        return 18;
+    const std::string webPlayerCmake =
+        readText(root / "web/player/CMakeLists.txt");
+    if (!require(!contains(webPlayerCmake, "ProfilerTriangleMetrics")))
+        return 19;
+
+    const std::filesystem::path shaders = root / "shaders";
     const std::string culling = readText(shaders / "culling.comp");
     const std::string fragment = readText(shaders / "shader.frag");
     if (!require(!culling.empty())) return 1;

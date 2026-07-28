@@ -14,6 +14,7 @@
 #include "graphics/ResourceManager.hpp"
 #include "render/GIVolume.hpp"
 #include "render/PostProcessor.hpp"
+#include "render/FrustumCulling.hpp"
 #include "graphics/UIRenderer.hpp"
 #include "nodes/LightNode.hpp"
 #include "scene/Node.hpp"
@@ -63,7 +64,6 @@ constexpr float kMediumGiProbeSpacing = 1.5f;
 constexpr float kLowGiProbeSpacing = 2.4f;
 constexpr float kMinAoPower = 0.001f;
 constexpr float kMinBoundsRadius = 0.001f;
-constexpr float kUnitCubeBoundsRadius = 0.866f; // approximately sqrt(3) / 2
 constexpr uint32_t kAllTextureLayers = ~0u;
 
 // Picks an up vector not colinear with the light direction.
@@ -890,28 +890,12 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
                     // null frustum (stereo) → render everything, no per-eye cull.
                     bool inside = true;
                     if (cullFrustum) {
-                        float maxScale = std::max({
-                            glm::length(glm::vec3(world[0])),
-                            glm::length(glm::vec3(world[1])),
-                            glm::length(glm::vec3(world[2]))
-                        });
-                        const float localRadius = glm::length(drawMesh->bounds().extent()) * 0.5f;
-                        float radius =
-                            (localRadius > kMinBoundsRadius
-                                 ? localRadius
-                                 : kUnitCubeBoundsRadius) *
-                            maxScale;
-                        glm::vec3 center = glm::vec3(world * glm::vec4(drawMesh->bounds().center(), 1.0f));
-                        for (int i = 0; i < 6; ++i) {
-                            if (glm::dot(glm::vec3(cullFrustum->planes[i]), center) +
-                                    cullFrustum->planes[i].w < -radius) {
-                                inside = false;
-                                break;
-                            }
-                        }
+                        inside = meshIntersectsFrustum(
+                            *drawMesh, world, *cullFrustum);
                     }
 
-    const int32_t boneOffset = (gpuFrameActive_ || inside) ? boneOffsetFor(node) : -1;
+                    const int32_t boneOffset =
+                        (gpuFrameActive_ || inside) ? boneOffsetFor(node) : -1;
                     SceneDraw draw{drawMesh, drawMat, node, world, node->castShadows(),
                                    boneOffset, drawMat->desc().type};
 
@@ -1266,7 +1250,6 @@ void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstP
     Material* lastMaterial = nullptr;
     rhi::Pipeline* activePipeline = firstPipeline;
     uint64_t drawCalls = 0;
-    uint64_t triangles = 0;
     const rhi::BindGroup& globalSet = *globalGroups_[currentFrame_];
     rp.setPipeline(*activePipeline);
     rp.setBindGroup(0, globalSet);
@@ -1301,10 +1284,8 @@ void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstP
         draw.mesh->bind(rp);
         draw.mesh->draw(rp);
         ++drawCalls;
-        triangles += draw.mesh->allocation().indexCount / 3;
     }
     SAIDA_PROFILE_COUNTER("Renderer/DrawCalls", drawCalls);
-    SAIDA_PROFILE_COUNTER("Renderer/Triangles", triangles);
 }
 
 void Renderer::recordWorldWebCanvases(rhi::RenderPassEncoder& rp, Scene& scene, const Camera& camera) {

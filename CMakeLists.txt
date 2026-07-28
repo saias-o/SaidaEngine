@@ -638,6 +638,7 @@ add_library(saida_editor STATIC
     src/editor/CommandHistory.cpp
     src/editor/ThumbnailCache.cpp
     src/editor/InspectorRegistry.cpp
+    src/editor/ProfilerTriangleMetrics.cpp
     src/editor/panels/MenuBarPanel.cpp
     src/editor/panels/SceneHierarchyPanel.cpp
     src/editor/panels/InspectorPanel.cpp

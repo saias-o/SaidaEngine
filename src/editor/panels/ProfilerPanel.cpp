@@ -2,6 +2,7 @@
 
 #include "core/Profiler.hpp"
 #include "editor/EditorUI.hpp"
+#include "editor/ProfilerTriangleMetrics.hpp"
 
 #include <imgui.h>
 
@@ -524,6 +525,14 @@ void drawCompactOverlay(const ProfileFrame& frame, const FrameStats& stats) {
         ImGui::Text("GPU %.2f ms  avg %.2f", gpu, stats.avgGpu);
         if (const ProfileCounter* draws = findCounter(frame, "Renderer/DrawCalls"))
             ImGui::Text("Draws %.0f", draws->value);
+        const ProfileCounter* cameraTriangles =
+            findCounter(frame, kProfilerFrustumTriangles);
+        const ProfileCounter* sceneTriangles =
+            findCounter(frame, kProfilerSceneTriangles);
+        if (cameraTriangles && sceneTriangles) {
+            ImGui::Text("Triangles %.0f / %.0f",
+                        cameraTriangles->value, sceneTriangles->value);
+        }
         if (frame.cpuFrameMs > 33.3)
             ImGui::TextColored(ImVec4(0.95f, 0.25f, 0.25f, 1.0f), "Spike");
     }
@@ -599,6 +608,19 @@ void ProfilerPanel::draw(EditorUI* editor) {
     if (!openedOnce) {
         profiler.setEnabled(true);
         openedOnce = true;
+    }
+
+    if (profiler.enabled() && editor->ctxScene_ && editor->ctxCamera_) {
+        const MeshTriangleMetrics triangles =
+            collectProfilerTriangleMetrics(*editor->ctxScene_,
+                                           *editor->ctxCamera_);
+        profiler.setCounter(kProfilerFrustumTriangles,
+                            static_cast<double>(triangles.frustumTriangles));
+        profiler.setCounter(kProfilerSceneTriangles,
+                            static_cast<double>(triangles.sceneTriangles));
+        // Preserve the original counter name for existing traces and tooling.
+        profiler.setCounter("Renderer/Triangles",
+                            static_cast<double>(triangles.frustumTriangles));
     }
 
     auto frames = profiler.recentFrames();
@@ -707,6 +729,24 @@ void ProfilerPanel::draw(EditorUI* editor) {
         ImGui::SameLine();
         std::snprintf(value, sizeof(value), "%.0f", draws->value);
         drawMetric("Draws", value);
+    }
+    const ProfileCounter* cameraTriangles =
+        findCounter(frame, kProfilerFrustumTriangles);
+    const ProfileCounter* sceneTriangles =
+        findCounter(frame, kProfilerSceneTriangles);
+    if (cameraTriangles && sceneTriangles) {
+        ImGui::SameLine();
+        std::snprintf(value, sizeof(value), "%.0f / %.0f",
+                      cameraTriangles->value, sceneTriangles->value);
+        drawMetric("Triangles (Camera / Scene)", value);
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip(
+                "Camera: active selected-LOD mesh instances intersecting the "
+                "camera frustum.\n"
+                "Scene: all active renderable mesh instances.\n"
+                "Excludes occlusion, shadows, particles, water, UI and "
+                "post-processing.");
+        }
     }
     if (stats.worstFrame != 0) {
         ImGui::SameLine();
