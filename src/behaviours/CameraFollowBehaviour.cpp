@@ -23,6 +23,16 @@ constexpr glm::vec3 kWorldUp{0.0f, 1.0f, 0.0f};
 // wall. See the note at the raycast below.
 constexpr float kSelfHitEpsilon = 0.05f;
 
+// The target's speed is measured, not reported, so it is a one-frame finite
+// difference — and dividing a position delta by a jittery frame time is a noise
+// amplifier: between a 7 ms and a 24 ms frame the same steady run reads as a 3x
+// swing in speed. Everything that consumes it (look-ahead, the speed-driven fov,
+// velocity recentring) then shakes the whole image while the character itself is
+// moving perfectly evenly. Low-passing the estimate costs a few milliseconds of
+// response and removes the shake; this is estimation, not feel, so it is not a
+// tunable.
+constexpr float kVelocityEstimateRate = 10.0f;
+
 // Look direction from yaw/pitch (same convention as Camera::front()).
 glm::vec3 dirFromAngles(float yawDeg, float pitchDeg) {
     float y = glm::radians(yawDeg);
@@ -87,7 +97,11 @@ void CameraFollowBehaviour::setPitch(float pitchDegrees) {
 
 void CameraFollowBehaviour::recenter() { recentring_ = true; }
 
-void CameraFollowBehaviour::snap() { initialized_ = false; }
+void CameraFollowBehaviour::snap() {
+    initialized_ = false;
+    occlusionInitialized_ = false;
+    smoothedVelocity_ = glm::vec3(0.0f);
+}
 
 glm::vec3 CameraFollowBehaviour::computeDesired(const glm::vec3& pivot) const {
     glm::vec3 forward = dirFromAngles(yaw_, pitch_);          // camera looks toward pivot
@@ -117,8 +131,15 @@ void CameraFollowBehaviour::onUpdate(float dt) {
     const glm::vec3 targetPos = glm::vec3(target->worldTransform()[3]);
     // Measured, not asked for, so it works for anything that moves — character,
     // vehicle, projectile. Needed before the recentring decision below.
-    glm::vec3 targetVelocity = initialized_ ? (targetPos - lastTargetPos_) / dt : glm::vec3(0.0f);
-    targetVelocity.y = 0.0f;
+    glm::vec3 measured = initialized_ ? (targetPos - lastTargetPos_) / dt : glm::vec3(0.0f);
+    measured.y = 0.0f;
+    if (!initialized_) {
+        smoothedVelocity_ = measured;
+    } else {
+        smoothedVelocity_ = glm::mix(smoothedVelocity_, measured,
+                                     1.0f - std::exp(-kVelocityEstimateRate * dt));
+    }
+    const glm::vec3 targetVelocity = smoothedVelocity_;
     const float targetSpeed = glm::length(targetVelocity);
 
     // Drift back behind the target's own facing. The rig's yaw is the direction
@@ -189,14 +210,29 @@ void CameraFollowBehaviour::onUpdate(float dt) {
     }
     lastTargetPos_ = targetPos;
 
-    // Applied AFTER the smoothing, not to the target it eases toward: pulling
-    // in must be immediate or the camera spends the easing frames inside the
-    // wall. Easing out is free — the clamp simply stops applying.
+    // De-occlusion. Two rules make this stable, and breaking either one makes
+    // the camera oscillate between two distances every frame:
+    //
+    //  * the probe measures the segment the rig WANTS to occupy (pivot ->
+    //    desired), never the one it currently occupies. Probing the current,
+    //    already-shortened segment means a pulled-in camera casts a ray too
+    //    short to reach the wall that pulled it in, the clamp stops applying,
+    //    the camera eases back out, the ray reaches the wall again — a limit
+    //    cycle, and the more so the closer the occluder is to the pivot, which
+    //    is exactly what pitching the rig down into the ground does;
+    //  * the correction never enters `camPos_`. That variable is the smoothing
+    //    state, so writing the clamp into it feeds the correction back into its
+    //    own input on the next frame.
+    //
+    // The free length itself is what carries the easing: it drops instantly, so
+    // the camera never spends frames inside a wall, and returns at
+    // positionDamping, so leaving cover does not fling it outward.
+    glm::vec3 finalPos = camPos_;
     if (PhysicsWorld* physics = t->world().physics()) {
-        glm::vec3 toCam = camPos_ - pivot;
-        const float dist = glm::length(toCam);
-        if (dist > 1e-4f) {
-            const glm::vec3 dir = toCam / dist;
+        const glm::vec3 toDesired = desired - pivot;
+        const float wanted = glm::length(toDesired);
+        if (wanted > 1e-4f) {
+            const glm::vec3 dir = toDesired / wanted;
             // The pivot sits inside the target, so the target answers its own
             // ray. The filter covers a RigidBody or StaticBody; a CharacterBody
             // needs the epsilon too, its inner body (SPEC 5.1) not being the one
@@ -204,19 +240,34 @@ void CameraFollowBehaviour::onUpdate(float dt) {
             QueryFilter filter;
             if (auto* collider = dynamic_cast<CollisionObjectNode*>(target))
                 filter.ignore = collider->bodyId();
-            const RaycastHit hit = physics->raycast(pivot, dir, dist, filter);
+            const RaycastHit hit = physics->raycast(pivot, dir, wanted, filter);
+
+            float allowed = wanted;
             if (hit.hit && hit.distance > kSelfHitEpsilon)
-                camPos_ = pivot + dir * std::max(hit.distance - collisionMargin, minDistance);
+                allowed = std::max(hit.distance - collisionMargin, minDistance);
+
+            if (!occlusionInitialized_ || allowed < freeDistance_) {
+                freeDistance_ = allowed;
+                occlusionInitialized_ = true;
+            } else {
+                freeDistance_ = glm::mix(freeDistance_, allowed,
+                                         1.0f - std::exp(-positionDamping * dt));
+            }
+
+            const glm::vec3 toCam = finalPos - pivot;
+            const float held = glm::length(toCam);
+            if (held > freeDistance_ && held > 1e-4f)
+                finalPos = pivot + (toCam / held) * freeDistance_;
         }
     }
 
     // Drive the node: position + orientation looking at the pivot. Assumes a
     // top-level camera (local transform == world transform).
-    node()->transform().position = camPos_;
-    glm::vec3 lookDir = pivot - camPos_;
+    node()->transform().position = finalPos;
+    glm::vec3 lookDir = pivot - finalPos;
     if (glm::dot(lookDir, lookDir) > 1e-6f)
         node()->transform().rotation =
-            glm::quat_cast(glm::inverse(glm::lookAt(camPos_, pivot, kWorldUp)));
+            glm::quat_cast(glm::inverse(glm::lookAt(finalPos, pivot, kWorldUp)));
 
     // Speed opens the lens. Left alone unless fovAtRest names a value, because
     // the camera's own fov is the authority otherwise.

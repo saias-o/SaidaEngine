@@ -113,8 +113,17 @@ private:
 
     float yaw_ = -90.0f;   // degrees (orbit angle around the target)
     float pitch_ = 15.0f;
+    // The smoothed, UNOCCLUDED rig position. The de-occlusion clamp must never
+    // be written back here: this is the smoothing's own input.
     glm::vec3 camPos_{0.0f};
+    // Free length along pivot -> desired, after occluders. Drops instantly,
+    // returns at positionDamping.
+    float freeDistance_ = 0.0f;
+    bool occlusionInitialized_ = false;
     glm::vec3 lookAheadOffset_{0.0f};
+    // Low-passed estimate of the target's speed; the raw finite difference is
+    // too noisy to drive anything visible.
+    glm::vec3 smoothedVelocity_{0.0f};
     glm::vec3 lastTargetPos_{0.0f};
     float pivotHeight_ = 0.0f;
     float idleTimer_ = 0.0f;
