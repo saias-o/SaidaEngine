@@ -22,14 +22,6 @@
   ],
   "assets": [
     {
-      "path": "BeachDemo/assets/models/Zleda.glb",
-      "kind": "model",
-      "distribution": false,
-      "license": "NOASSERTION",
-      "copyrightText": "NOASSERTION",
-      "provenance": "Provenance not established. No source, author or licence is recorded for this file anywhere in the repository, so it is declared unresolved and excluded from distribution until it is identified or removed."
-    },
-    {
       "path": "BeachDemo/assets/skies/sunset.png",
       "kind": "image",
       "distribution": true,

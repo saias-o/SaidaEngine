@@ -3,7 +3,7 @@
   "version": 1,
   "name": "BeachDemo",
   "engineVersion": "1.0.0-beta.1",
-  "mainScene": "scenes/zleda.scene",
+  "mainScene": "scenes/beach.scene",
   "runtime": {
     "maxFps": 240,
     "vsync": true
