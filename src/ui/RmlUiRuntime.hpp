@@ -48,6 +48,12 @@ public:
     static void beginLogCapture(std::vector<RmlUiDiagnostic>& diagnostics);
     static void endLogCapture();
 
+    // Report an engine-side UI diagnostic (a missing texture, a refused
+    // resource) on the same channel as RmlUi's own messages, so a caller that
+    // captures diagnostics sees all of them and not only the ones RmlUi
+    // happened to raise. Logs as well; capture only duplicates.
+    static void reportDiagnostic(const std::string& severity, const std::string& message);
+
     // Load a document with the engine's user-agent stylesheet applied.
     //
     // These are the only supported way for the engine to create a document:

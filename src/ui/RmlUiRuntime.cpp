@@ -459,6 +459,17 @@ void RmlUiRuntime::endLogCapture() {
     gLogCapture = nullptr;
 }
 
+void RmlUiRuntime::reportDiagnostic(const std::string& severity, const std::string& message) {
+    if (severity == "error") {
+        Log::error("[RmlUi] ", message);
+    } else if (severity == "warning") {
+        Log::warn("[RmlUi] ", message);
+    } else {
+        Log::info("[RmlUi] ", message);
+    }
+    if (gLogCapture) gLogCapture->push_back({severity, message});
+}
+
 void RmlUiRuntime::recordFileDependency(const std::string& pathOrUrl) {
     if (!gDependencyCapture) return;
 

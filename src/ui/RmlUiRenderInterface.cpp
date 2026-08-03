@@ -123,7 +123,7 @@ Rml::TextureHandle RmlUiRenderInterface::LoadTexture(Rml::Vector2i& textureDimen
     std::string path = resolveTexturePath(source);
     stbi_uc* loaded = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
     if (!loaded) {
-        Log::warn("[RmlUi] texture not found: ", source);
+        RmlUiRuntime::reportDiagnostic("warning", "texture not found: " + source);
         return addMissingTexturePlaceholder(textureDimensions);
     }
 

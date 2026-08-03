@@ -828,6 +828,29 @@ diffable. The document path is project-relative and confined exactly like every
 other tool path (§6.2): absolute paths, parent traversal and symlink escapes are
 refused before anything is read.
 
+`saida_tool validate-ui <document> --project <dir>` lints a document on the
+model of `validate-scene`: a JSON report, exit 0 when clean and 1 when not. It
+reports four kinds, chosen because each is silent otherwise —
+`rejected-declaration` (what RCSS refused, which it logs where nobody reads it),
+`unresolved-asset` (a referenced image that could not be opened, which renders
+the magenta checker), `inline-box-properties` (an element computing to
+`display: inline` while carrying `width`, `height` or its own `text-align` —
+always a bug, since RCSS discards them without a word), and
+`fractional-rgba-alpha` (`rgba()` written with a 0-1 alpha; RCSS alpha is 0-255,
+so the value parses as nothing and the *whole declaration* vanishes with no
+diagnostic at all). The last is found by reading the document and the
+stylesheets it pulled in, because a dropped declaration leaves no trace in the
+live document; it is reported with `file:line` and the 0-255 value that was
+meant. `text-align` is only reported when it differs from the parent's computed
+value, so a legitimately inherited alignment is not flagged, and RmlUi's
+anonymous `#text` elements are skipped — they are always inline and never
+authored.
+
+Both UI commands share `cli/UiDocumentSession`, which owns the headless
+document: one runtime, one context, one document, engine output routed to
+stderr, diagnostics and file dependencies recorded. The two must agree on what
+opening a document means, or their verdicts would not be comparable.
+
 The engine itself captures the composite the player sees — 3D, editor chrome
 and UI in one image — with `SaidaEngine --screenshot <png> [--after-frames N]`,
 which writes frame N (1-based; the request is armed before that frame is drawn)

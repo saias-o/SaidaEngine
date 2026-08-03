@@ -1105,6 +1105,9 @@ add_executable(saida_tool
     # render-ui drives the same CPU RmlUi backend the UI corpus tests exercise,
     # so a UI document is renderable without a GPU or a window.
     src/cli/RenderUiCommand.cpp
+    src/cli/ValidateUiCommand.cpp
+    src/cli/UiCommandSupport.cpp
+    src/cli/UiDocumentSession.cpp
     # export-game reuses the Build button's exporter (no UI dependency).
     src/editor/BuildExporter.cpp
     src/editor/ExeMetadata.cpp
@@ -1209,6 +1212,28 @@ if (BUILD_TESTING)
                 --out ${CMAKE_CURRENT_BINARY_DIR}/render-ui-malformed.png
     )
     set_tests_properties(saida_tool_render_ui_rejects_malformed PROPERTIES WILL_FAIL TRUE)
+
+    # validate-ui: a document carrying the silent traps is rejected, and one
+    # that only *looks* like it (a valid 0-255 rgba alpha, an inline element
+    # with no box property) is not — a lint nobody trusts is a lint nobody runs.
+    add_test(
+        NAME saida_tool_validate_ui_clean
+        COMMAND $<TARGET_FILE:saida_tool> validate-ui ui/lint-clean.html
+                --project ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ui-project
+                --size 320x200
+    )
+    # Asserted on the output, not just on the exit code: a lint that rejected
+    # the document for some other reason would satisfy WILL_FAIL while having
+    # lost the very checks this fixture exists to pin.
+    add_test(
+        NAME saida_tool_validate_ui_reports_silent_traps
+        COMMAND $<TARGET_FILE:saida_tool> validate-ui ui/lint-dirty.html
+                --project ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ui-project
+                --size 320x200
+    )
+    set_tests_properties(saida_tool_validate_ui_reports_silent_traps PROPERTIES
+        PASS_REGULAR_EXPRESSION
+        "unresolved-asset(.|\n)*inline-box-properties(.|\n)*fractional-rgba-alpha")
 
     # Confinement (SPEC section 6.2): a document path is project-relative, so
     # traversal out of the project is refused before anything is read.

@@ -1,0 +1,39 @@
+<rml>
+<head>
+<style>
+body
+{
+	width: 100%;
+	height: 100%;
+	font-family: NextSans;
+	font-size: 16px;
+	color: #FFFFFF;
+}
+
+/* Written the CSS way: RCSS alpha is 0-255, so this parses as nothing and the
+   whole declaration is dropped without a warning. */
+#faded
+{
+	display: block;
+	width: 100px;
+	height: 40px;
+	background-color: rgba(0, 128, 255, 0.4);
+}
+
+/* An inline box silently discards every property below it. <span> is not in
+   the engine's user-agent stylesheet, so it keeps the RCSS inline default. */
+#badge
+{
+	width: 120px;
+	height: 30px;
+	text-align: center;
+	background-color: #2C6E49;
+}
+</style>
+</head>
+<body>
+<div id="faded"/>
+<span id="badge">Badge</span>
+<img id="icon" src="missing-icon.png"/>
+</body>
+</rml>

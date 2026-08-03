@@ -1,0 +1,36 @@
+<rml>
+<head>
+<style>
+body
+{
+	width: 100%;
+	height: 100%;
+	font-family: NextSans;
+	font-size: 16px;
+	color: #FFFFFF;
+}
+
+#panel
+{
+	display: block;
+	position: absolute;
+	left: 20px;
+	top: 20px;
+	width: 200px;
+	height: 80px;
+	/* RCSS alpha is 0-255: a half-transparent red is written like this. */
+	background-color: rgba(255, 0, 0, 128);
+}
+
+/* An inline element carrying no box property is perfectly fine. */
+#note
+{
+	display: inline;
+	color: #C8C8C8;
+}
+</style>
+</head>
+<body>
+<div id="panel"><span id="note">inline text</span></div>
+</body>
+</rml>

@@ -653,14 +653,30 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   wrapping in the sampler; if it is declined, reject the `repeat` keyword with
   a diagnostic instead of drawing something plausible and wrong.
 
-- [ ] Tooling: lint a UI document. RCSS reports a failed declaration as one
-  warning in a log nobody reads at authoring time, and the two mistakes met
-  here are both mechanically detectable: `rgba()` written with a 0-1 alpha
-  (RCSS alpha is 0-255) parses as nothing and the property silently vanishes;
-  an element carrying `width`/`height`/`text-align` while computing to
-  `display: inline` is always a bug. Fix: `saida_tool validate-ui <document>`
-  reporting unparsed declarations, unresolved asset references and that
-  inline-with-box-properties pattern, on the model of `validate-scene`.
+- [x] Tooling: lint a UI document. `saida_tool validate-ui <document> --project
+  <dir>` reports four kinds, each of them silent today: `rejected-declaration`,
+  `unresolved-asset`, `inline-box-properties` and `fractional-rgba-alpha`
+  (specified in SPEC 8.3). The `rgba()` trap needed a text pass over the
+  document and its stylesheets — confirmed during this work that RCSS drops the
+  declaration with **no diagnostic whatsoever**, so there is nothing in the live
+  document left to inspect; it is reported with `file:line` and the 0-255 value
+  that was meant.
+
+  Two deliberate precautions against false positives, because a lint nobody
+  trusts is a lint nobody runs: `text-align` is reported only when it differs
+  from the parent's computed value (an inherited alignment is doing its job),
+  and RmlUi's anonymous `#text` elements are skipped (always inline, never
+  authored). The `lint-clean` fixture exists to pin this: it contains a valid
+  0-255 `rgba()` and an inline element with no box property, and must stay
+  clean.
+
+  Proof: `saida_tool_validate_ui_clean` and
+  `saida_tool_validate_ui_reports_silent_traps` in CTest (78/78), the latter
+  asserted on its output rather than only its exit code. The shipped
+  VerticalSlice main menu lints clean. Engine-side, missing-asset warnings now
+  travel the same diagnostic channel as RmlUi's own
+  (`RmlUiRuntime::reportDiagnostic`) instead of going straight to the log, so a
+  caller capturing diagnostics sees all of them.
 
 #### 6.3.3 Content pipeline and authoring surface
 

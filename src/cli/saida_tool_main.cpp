@@ -2,6 +2,7 @@
 
 #include "authoring/EngineManifest.hpp"
 #include "cli/RenderUiCommand.hpp"
+#include "cli/ValidateUiCommand.hpp"
 #include "core/CrashReporter.hpp"
 #include "editor/BuildExporter.hpp"
 #include "project/Project.hpp"
@@ -67,6 +68,7 @@ int usage(std::ostream& out) {
            "  saida_tool render-ui <document> --project <dir> [--size WxH]\n"
            "                    [--out <png>] [--layout-json <file|->] [--pretty]\n"
            "                    [--allow-warnings]\n"
+           "  saida_tool validate-ui <document> --project <dir> [--size WxH] [--pretty]\n"
            "  saida_tool export-game <project.saidaproj> [--platform windows|web]\n"
            "                    [--out <dir>] [--main-scene <rel>] [--version a.b.c]\n"
            "                    [--company <name>] [--icon <ico>]\n"
@@ -132,6 +134,13 @@ int usage(std::ostream& out) {
            "                    nothing is written; --allow-warnings renders anyway.\n"
            "                    exit 0 if it rendered, 1 if the document was\n"
            "                    rejected.\n"
+           "  validate-ui       Lint a UI document: declarations RCSS refused,\n"
+           "                    unresolved asset references, elements computing to\n"
+           "                    display:inline while carrying box properties, and\n"
+           "                    rgba() written with a 0-1 alpha (RCSS alpha is\n"
+           "                    0-255, so it parses as nothing and the whole\n"
+           "                    declaration vanishes unreported). Prints a JSON\n"
+           "                    report; exit 0 if clean, 1 if any issue.\n"
            "  export-game       Package a project exactly like the editor's Build\n"
            "                    button (same BuildExporter): runtime exe + shaders +\n"
            "                    project data + boot manifest. --platform web emits the\n"
@@ -1132,6 +1141,9 @@ int main(int argc, char** argv) {
     }
     if (command == "render-ui") {
         return saida::runRenderUiCommand(rest);
+    }
+    if (command == "validate-ui") {
+        return saida::runValidateUiCommand(rest);
     }
     if (command == "export-game") {
         return cmdExportGame(rest);
