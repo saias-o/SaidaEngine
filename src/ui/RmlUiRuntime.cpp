@@ -25,6 +25,7 @@ namespace saida {
 namespace {
 
 std::vector<std::string>* gDependencyCapture = nullptr;
+std::vector<RmlUiDiagnostic>* gLogCapture = nullptr;
 
 std::string normalizedPathString(const std::filesystem::path& path) {
     std::error_code ec;
@@ -49,18 +50,22 @@ public:
     }
 
     bool LogMessage(Rml::Log::Type type, const Rml::String& message) override {
+        const char* severity = "info";
         switch (type) {
         case Rml::Log::LT_ERROR:
         case Rml::Log::LT_ASSERT:
+            severity = "error";
             Log::error("[RmlUi] ", message);
             break;
         case Rml::Log::LT_WARNING:
+            severity = "warning";
             Log::warn("[RmlUi] ", message);
             break;
         default:
             Log::info("[RmlUi] ", message);
             break;
         }
+        if (gLogCapture) gLogCapture->push_back({severity, message});
         return true;
     }
 };
@@ -378,6 +383,15 @@ void RmlUiRuntime::beginFileDependencyCapture(std::vector<std::string>& paths) {
 
 void RmlUiRuntime::endFileDependencyCapture() {
     gDependencyCapture = nullptr;
+}
+
+void RmlUiRuntime::beginLogCapture(std::vector<RmlUiDiagnostic>& diagnostics) {
+    diagnostics.clear();
+    gLogCapture = &diagnostics;
+}
+
+void RmlUiRuntime::endLogCapture() {
+    gLogCapture = nullptr;
 }
 
 void RmlUiRuntime::recordFileDependency(const std::string& pathOrUrl) {

@@ -376,6 +376,7 @@ add_library(saida_engine STATIC
     src/core/Input.cpp
     src/core/InputProfile.cpp
     src/core/Paths.cpp
+    src/core/PngWriter.cpp
     src/core/Profiler.cpp
     src/core/Reflection.cpp
     src/fx/ParticleEffect.cpp
@@ -681,6 +682,15 @@ if (BUILD_TESTING)
     )
     target_compile_options(saida_core_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_core_tests COMMAND $<TARGET_FILE:saida_core_tests>)
+
+    # The PNG encoder is written in-tree, so its output is proven by decoding it
+    # back with stb_image (an independent implementation) rather than by trusting
+    # the encoder to describe itself.
+    add_executable(saida_png_writer_tests tests/PngWriterTests.cpp src/core/PngWriter.cpp)
+    saida_test_target(saida_png_writer_tests)
+    target_include_directories(saida_png_writer_tests PRIVATE src third_party/stb)
+    target_compile_options(saida_png_writer_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_png_writer_tests COMMAND $<TARGET_FILE:saida_png_writer_tests>)
 
     add_executable(saida_crash_reporter_tests tests/CrashReporterTests.cpp)
     saida_test_target(saida_crash_reporter_tests)
@@ -1091,6 +1101,9 @@ endif()
 # apply-ops). Never opens a Vulkan context — safe to run in CI/headless.
 add_executable(saida_tool
     src/cli/saida_tool_main.cpp
+    # render-ui drives the same CPU RmlUi backend the UI corpus tests exercise,
+    # so a UI document is renderable without a GPU or a window.
+    src/cli/RenderUiCommand.cpp
     # export-game reuses the Build button's exporter (no UI dependency).
     src/editor/BuildExporter.cpp
     src/editor/ExeMetadata.cpp
@@ -1175,6 +1188,36 @@ if (BUILD_TESTING)
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/scene-invalid-dupid.json
     )
     set_tests_properties(saida_tool_validate_scene_invalid PROPERTIES WILL_FAIL TRUE)
+
+    # render-ui: a UI document renders without a GPU or a window, and a document
+    # RmlUi complained about is rejected rather than rendered into a plausible
+    # picture. The PNG lands in the build tree, never in the fixture project.
+    add_test(
+        NAME saida_tool_render_ui_valid
+        COMMAND $<TARGET_FILE:saida_tool> render-ui ui/render-valid.html
+                --project ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ui-project
+                --size 320x200
+                --out ${CMAKE_CURRENT_BINARY_DIR}/render-ui-valid.png
+                --layout-json ${CMAKE_CURRENT_BINARY_DIR}/render-ui-valid.json
+    )
+    add_test(
+        NAME saida_tool_render_ui_rejects_malformed
+        COMMAND $<TARGET_FILE:saida_tool> render-ui ui/render-malformed.html
+                --project ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ui-project
+                --size 320x200
+                --out ${CMAKE_CURRENT_BINARY_DIR}/render-ui-malformed.png
+    )
+    set_tests_properties(saida_tool_render_ui_rejects_malformed PROPERTIES WILL_FAIL TRUE)
+
+    # Confinement (SPEC section 6.2): a document path is project-relative, so
+    # traversal out of the project is refused before anything is read.
+    add_test(
+        NAME saida_tool_render_ui_refuses_traversal
+        COMMAND $<TARGET_FILE:saida_tool> render-ui ../../../../SPEC.md
+                --project ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/ui-project
+                --out ${CMAKE_CURRENT_BINARY_DIR}/render-ui-escaped.png
+    )
+    set_tests_properties(saida_tool_render_ui_refuses_traversal PROPERTIES WILL_FAIL TRUE)
 
     add_test(
         NAME saida_tool_validate_script_valid

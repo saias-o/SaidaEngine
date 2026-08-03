@@ -164,7 +164,9 @@ taken out of the V1 refactor because it is not safe to do mechanically.
    GPU. The HUD already has computed-pixel assertions
    (`saida_ui_corpus_tests`) — extend that idea to a full scene frame
    (mesh + light + shadow + tonemap). The engine-side capture this needs is the
-   same one §6.3.1 asks for (`SaidaEngine --screenshot`); build it once.
+   same one §6.3.1 asks for (`SaidaEngine --screenshot`); build it once. The
+   encoder half is done and reusable: `core/PngWriter` writes deterministic
+   PNGs with no third-party dependency, so a golden image is byte-comparable.
 2. **Extract one unit at a time, leaf-first order**, one commit + one visual
    check per unit: `TonemapPass` (clean boundary: input = HDR target,
    output = swapchain) → `GpuDrivenCuller` (behind its flag) → `XrRenderer`
@@ -451,25 +453,26 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
 
 #### 6.3.1 The feedback loop — an agent cannot see what it builds
 
-- [ ] Tooling: render a UI document headlessly. There is no way to look at a
-  UI without a GPU, a window and a human. The CPU RmlUi backend already
-  produces a full RGBA frame (`RmlUiRenderInterface::pixels()`, exercised by
-  `saida_ui_corpus_tests`), so the capability exists and is simply not exposed.
-  Proving this: a throwaway 60-line program linked against `libsaida_engine.a`
-  rendered the menu at three resolutions in seconds — that program should be a
-  supported command, not a scratch file. Fix: `saida_tool render-ui <document>
-  --project <dir> --size WxH --out <png>`, the same code path the corpus tests
-  use, so a golden UI image becomes as cheap to produce as a scene validation.
+- [x] Tooling: render a UI document headlessly. `saida_tool render-ui
+  <document> --project <dir> [--size WxH] --out <png>` drives the same CPU
+  RmlUi backend `saida_ui_corpus_tests` exercises (`src/cli/RenderUiCommand.cpp`,
+  SPEC 8.3). PNGs come from `core/PngWriter`, an in-tree fixed-Huffman deflate
+  encoder with no third-party dependency, proven by decoding its output back
+  with `stb_image` (`saida_png_writer_tests`, 38 checks: noise, alpha gradient,
+  degenerate shapes, determinism, refusals). Proof: the VerticalSlice main menu
+  renders at 1280x720 with zero diagnostics; `saida_tool_render_ui_valid`,
+  `saida_tool_render_ui_rejects_malformed` and
+  `saida_tool_render_ui_refuses_traversal` in CTest (76/76).
 
-- [ ] Tooling: dump the computed layout, not just pixels. An image says
-  *something is wrong*; it does not say *why*. Every layout defect met while
-  building the menu was diagnosable from computed values alone — an element
-  whose computed `display` is `inline`, a box outside the context rect, a
-  declaration that failed to parse and left the default in place. Fix:
-  `--layout-json` on the command above, emitting per element the tag, id,
-  classes, computed `display`, border box, and the declarations that did not
-  parse. For an agent this is strictly more useful than the image: it is
-  assertable, diffable and small.
+- [x] Tooling: dump the computed layout, not just pixels. `--layout-json
+  <file|->` emits per element the tag, id, classes, computed `display` and
+  border box, plus every diagnostic RmlUi raised. Engine log output is routed
+  to stderr for the duration of the render so stdout stays parseable. It found
+  the §6.3.2 trap on first use: a `<div>` declaring `width`/`height`/
+  `text-align` reports `display=inline` with a `0x0` box — and `body` itself
+  computes to `inline`, which is what the `engine.rcss` item below fixes.
+  RCSS's silent property drops (`rgba()` with a 0-1 alpha) produce no
+  diagnostic at all, confirming that item stays open for `validate-ui`.
 
 - [ ] Tooling: capture a real frame from the engine. `SaidaEngine` can run
   headless (`SAIDA_WINDOW_HIDDEN=1`) but cannot write what it drew, so the

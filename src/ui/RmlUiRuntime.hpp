@@ -20,6 +20,15 @@ struct EngineFontFile {
     bool required = true;
 };
 
+// One diagnostic emitted by RmlUi while a document was loaded or updated.
+// RCSS reports a declaration it could not parse as a warning and then keeps
+// going, so these messages are the only trace that a property silently
+// vanished; tooling that must report *why* a document looks wrong reads them.
+struct RmlUiDiagnostic {
+    std::string severity;  // "error" | "warning" | "info"
+    std::string message;
+};
+
 class RmlUiRuntime {
 public:
     static bool ensureInitialized();
@@ -30,6 +39,12 @@ public:
     static void beginFileDependencyCapture(std::vector<std::string>& paths);
     static void endFileDependencyCapture();
     static void recordFileDependency(const std::string& pathOrUrl);
+
+    // Collect RmlUi log output into `diagnostics` until endLogCapture(). The
+    // messages still reach the engine log; capturing only duplicates them so a
+    // caller can attach them to its own report.
+    static void beginLogCapture(std::vector<RmlUiDiagnostic>& diagnostics);
+    static void endLogCapture();
 
 private:
     static bool initialized_;

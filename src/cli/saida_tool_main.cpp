@@ -1,6 +1,7 @@
 // Headless tool entry point. Keep machine output on stdout and diagnostics on stderr.
 
 #include "authoring/EngineManifest.hpp"
+#include "cli/RenderUiCommand.hpp"
 #include "core/CrashReporter.hpp"
 #include "editor/BuildExporter.hpp"
 #include "project/Project.hpp"
@@ -63,6 +64,9 @@ int usage(std::ostream& out) {
            "  saida_tool validate-clipview <view.sclip> [--root <dir>] [--pretty]\n"
            "  saida_tool validate-animgraph <graph.sgraph> [--root <dir>] [--pretty]\n"
            "  saida_tool validate-sequence <sequence.sseq> [--root <dir>] [--pretty]\n"
+           "  saida_tool render-ui <document> --project <dir> [--size WxH]\n"
+           "                    [--out <png>] [--layout-json <file|->] [--pretty]\n"
+           "                    [--allow-warnings]\n"
            "  saida_tool export-game <project.saidaproj> [--platform windows|web]\n"
            "                    [--out <dir>] [--main-scene <rel>] [--version a.b.c]\n"
            "                    [--company <name>] [--icon <ico>]\n"
@@ -117,6 +121,17 @@ int usage(std::ostream& out) {
            "  validate-sequence Parse a .sseq multi-track sequence, check clip\n"
            "                    placements/blends/events and resolve every referenced\n"
            "                    clip against --root. Prints {ok, diagnostics}; exit 0/1.\n"
+           "  render-ui         Render a project UI document with the CPU RmlUi\n"
+           "                    backend — no GPU, no window. --out writes the frame\n"
+           "                    as a PNG (default size 1920x1080); --layout-json\n"
+           "                    writes what the layout engine computed per element\n"
+           "                    (tag, id, classes, display, border box) plus the\n"
+           "                    declarations RCSS refused. RmlUi warns and renders\n"
+           "                    on regardless after a malformed document, so any\n"
+           "                    complaint raised while loading rejects it and\n"
+           "                    nothing is written; --allow-warnings renders anyway.\n"
+           "                    exit 0 if it rendered, 1 if the document was\n"
+           "                    rejected.\n"
            "  export-game       Package a project exactly like the editor's Build\n"
            "                    button (same BuildExporter): runtime exe + shaders +\n"
            "                    project data + boot manifest. --platform web emits the\n"
@@ -1114,6 +1129,9 @@ int main(int argc, char** argv) {
     }
     if (command == "validate-sequence") {
         return cmdValidateSequence(rest);
+    }
+    if (command == "render-ui") {
+        return saida::runRenderUiCommand(rest);
     }
     if (command == "export-game") {
         return cmdExportGame(rest);

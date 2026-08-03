@@ -791,6 +791,28 @@ decoded project image, missing image → magenta checkerboard (same convention a
 `transform`, resize and DPI ratio. A GPU/Vulkan RmlUi backend remains a future
 optimization, not a condition if the CPU backend holds the V1 load.
 
+That same backend is exposed headlessly as `saida_tool render-ui <document>
+--project <dir>`, so a UI document is verifiable without a GPU, a window or a
+human. `--out <png>` writes the rendered frame (default 1920x1080, `--size WxH`
+to change it) through the engine's own PNG encoder (`core/PngWriter`: fixed
+Huffman deflate, no third-party encoder, output a pure function of the pixels so
+a frame is usable as a committed golden image). `--layout-json <file|->` writes
+what the layout engine computed per element — tag, id, classes, computed
+`display`, border box in image coordinates — plus every diagnostic RmlUi raised;
+for a machine that is strictly more useful than the image, being assertable and
+diffable. The document path is project-relative and confined exactly like every
+other tool path (§6.2): absolute paths, parent traversal and symlink escapes are
+refused before anything is read.
+
+The command is **fail-closed**, which is a deliberate divergence from RmlUi's own
+behavior: RmlUi warns about a malformed document or a refused declaration and
+then renders whatever survived, so a broken document otherwise yields exit 0 and
+a plausible picture. Any diagnostic raised while the document loads and lays out
+therefore rejects it — exit 1, every complaint named on stderr, and **no file
+written**. `--allow-warnings` is the explicit opt-out for a document whose author
+has accepted its warnings. Engine log output is routed to stderr for the duration
+of the render, so `--layout-json -` stays parseable on stdout.
+
 The text HUD (`UICanvasNode`/`UITextNode`) is rasterized by the shared module
 `ui/HudRasterizer`: desktop and Web player build the same markup and the same
 RGBA8 pixel buffer via the CPU backend, then each platform composes it via its RHI
