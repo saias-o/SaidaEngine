@@ -266,6 +266,13 @@ void Swapchain::createSwapchain() {
     ci.imageExtent = extent;
     ci.imageArrayLayers = 1;
     ci.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    // TRANSFER_SRC makes the presented image readable back to the host, which is
+    // what frame capture copies from. The spec only guarantees COLOR_ATTACHMENT,
+    // so it is requested when the surface offers it and its absence is recorded
+    // rather than assumed — capture then refuses instead of producing nothing.
+    supportsCapture_ =
+        (support.capabilities.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+    if (supportsCapture_) ci.imageUsage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
     auto idx = device_.findQueueFamilies();
     uint32_t queueFamilyIndices[] = {idx.graphicsFamily.value(), idx.presentFamily.value()};

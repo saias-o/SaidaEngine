@@ -480,6 +480,7 @@ add_library(saida_engine STATIC
     src/graphics/TextureCache.cpp
     src/graphics/ResourceManager.cpp
     src/render/Renderer.cpp
+    src/render/FrameCapture.cpp
     src/render/EnvironmentSH.cpp
     src/render/PostProcessor.cpp
     src/render/RenderFeatureRegistry.cpp

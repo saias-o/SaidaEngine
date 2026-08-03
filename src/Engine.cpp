@@ -386,6 +386,49 @@ void Engine::clearRenderViewport() {
     if (renderer_) renderer_->clearViewportRect();
 }
 
+void Engine::captureFrameThenExit(const std::string& pngPath, uint32_t afterFrames) {
+    capturePath_ = pngPath;
+    // Frames are 1-based: --after-frames N captures frame N, and frame 0 is
+    // nothing, so N is clamped up rather than silently skipping the capture.
+    captureAfterFrames_ = afterFrames == 0 ? 1 : afterFrames;
+}
+
+// Called immediately before the frame is drawn. The request must be in place
+// while the target frame is recorded, which is what makes "--after-frames N
+// captures frame N" true rather than approximately true.
+void Engine::armFrameCapture() {
+    if (capturePath_.empty() || captureRequested_) return;
+    if (framesDrawn_ + 1 < captureAfterFrames_) return;
+
+    std::string error;
+    if (!renderer_->requestCapture(capturePath_, error)) {
+        Log::error("[capture] ", error);
+        captureFailed_ = true;
+        capturePath_.clear();
+        window_->close();
+        return;
+    }
+    captureRequested_ = true;
+}
+
+// Called after the frame is drawn: the copy is now recorded, so the image can
+// be read back and written. The window closes either way, so a failed capture
+// cannot leave the process spinning on an image that will never arrive.
+void Engine::serviceFrameCapture() {
+    if (capturePath_.empty() || !captureRequested_) return;
+    if (!renderer_->capturePending()) return;
+
+    std::string error;
+    if (renderer_->resolveCapture(error)) {
+        Log::info("[capture] wrote ", capturePath_, " (frame ", framesDrawn_, ")");
+    } else {
+        Log::error("[capture] ", error);
+        captureFailed_ = true;
+    }
+    capturePath_.clear();
+    window_->close();
+}
+
 void Engine::runDesktop() {
     TimerResolutionScope timerResolution;
     Profiler::instance().setThreadName("Main");
@@ -485,10 +528,13 @@ bool Engine::tick() {
         if (Profiler::instance().enabled()) {
             MemoryProfiler::publish(*device_);
         }
+        armFrameCapture();
         {
             SAIDA_PROFILE_SCOPE("Renderer/DrawFrame");
             renderer_->drawFrame(*activeScene, camera_, project_.get());
         }
+        ++framesDrawn_;
+        serviceFrameCapture();
 
         const int maxFps = project_ ? project_->maxFps() : Project::kDefaultMaxFps;
         if (maxFps > 0) {

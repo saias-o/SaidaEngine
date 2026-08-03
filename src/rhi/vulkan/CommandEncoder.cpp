@@ -276,4 +276,19 @@ void CommandEncoder::copyBufferToTexture(const saida::Buffer& src, VkImage dst,
                            1, &region);
 }
 
+void CommandEncoder::copyTextureToBuffer(VkImage src, const saida::Buffer& dst,
+                                         uint32_t width, uint32_t height,
+                                         uint32_t mipLevel, uint32_t baseLayer,
+                                         uint32_t layerCount, uint64_t dstOffset) {
+    VkBufferImageCopy region{};
+    region.bufferOffset = dstOffset;
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = mipLevel;
+    region.imageSubresource.baseArrayLayer = baseLayer;
+    region.imageSubresource.layerCount = layerCount;
+    region.imageExtent = {width, height, 1};
+    vkCmdCopyImageToBuffer(cmd_, src, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                           dst.handle(), 1, &region);
+}
+
 } // namespace saida::rhi::vulkan

@@ -163,10 +163,17 @@ taken out of the V1 refactor because it is not safe to do mechanically.
    pixel-by-pixel (bounded tolerance), run on Lavapipe in CI **and** on a real
    GPU. The HUD already has computed-pixel assertions
    (`saida_ui_corpus_tests`) — extend that idea to a full scene frame
-   (mesh + light + shadow + tonemap). The engine-side capture this needs is the
-   same one §6.3.1 asks for (`SaidaEngine --screenshot`); build it once. The
-   encoder half is done and reusable: `core/PngWriter` writes deterministic
-   PNGs with no third-party dependency, so a golden image is byte-comparable.
+   (mesh + light + shadow + tonemap).
+
+   The **capture half is now built** (§6.3.1): `SaidaEngine --screenshot <png>
+   --after-frames N` writes the presented composite, and `core/PngWriter`
+   encodes it deterministically with no third-party dependency, so a golden
+   image is byte-comparable. What remains is the **deterministic content**:
+   two runs of the editor differ by 25 pixels out of 230 400, all of them in
+   the live FPS/camera overlay. The net needs a fixed scene captured with the
+   overlays off and time pinned, plus the comparison harness and its CI wiring.
+   That is a bounded task now, not a missing capability — but it is not done,
+   and §3 stays closed until it is.
 2. **Extract one unit at a time, leaf-first order**, one commit + one visual
    check per unit: `TonemapPass` (clean boundary: input = HDR target,
    output = swapchain) → `GpuDrivenCuller` (behind its flag) → `XrRenderer`
@@ -474,14 +481,33 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   RCSS's silent property drops (`rgba()` with a 0-1 alpha) produce no
   diagnostic at all, confirming that item stays open for `validate-ui`.
 
-- [ ] Tooling: capture a real frame from the engine. `SaidaEngine` can run
-  headless (`SAIDA_WINDOW_HIDDEN=1`) but cannot write what it drew, so the
-  composite of 3D and UI — the thing the player actually sees — is verifiable
-  by nobody except a human looking at a screen. Fix:
-  `--screenshot <png> [--after-frames N]`, writing the presented frame after a
-  deterministic number of frames. **This is the same capability §3 declares an
-  absolute prerequisite to touching `Renderer.cpp`**: build it once, and both
-  the UI loop and the golden-image net become possible.
+- [x] Tooling: capture a real frame from the engine.
+  `SaidaEngine --screenshot <png> [--after-frames N]` writes the presented
+  composite (3D + editor chrome + UI). `--after-frames N` captures **frame N**
+  exactly: the request is armed before that frame is drawn, not after, so the
+  flag means what it says. `src/render/FrameCapture.cpp` owns its staging
+  buffer and exposes only record/resolve, following the §3 anti-spaghetti rules
+  so it does not become another thing to untangle later.
+
+  Required three enabling changes: the swapchain now requests
+  `TRANSFER_SRC` (guarded by `supportedUsageFlags`, `Swapchain::supportsCapture`
+  reports its absence so capture refuses instead of writing nothing), the RHI
+  gained `copyTextureToBuffer` (it had no image→buffer copy at all), and the
+  channel order is resolved from the actual swapchain format rather than
+  assumed.
+
+  Proof: the VerticalSlice editor captured at frames 1, 5 and 10 headless
+  (`SAIDA_WINDOW_HIDDEN=1`), each PNG decoded by an independent decoder; an
+  unwritable target exits 1 with a named diagnostic. Native 76/76, Web player
+  rebuilt (`Renderer.cpp` is in its source list and the unit is
+  `SAIDA_RHI_WEBGPU`-guarded).
+
+  **What this does not yet give the §3 golden-image net**: two runs of the same
+  command differ by 25 pixels out of 230 400, all in the editor's live FPS and
+  camera overlay. The capture path is reproducible; the *content* is not. A
+  golden-image comparison needs a capture of a scene with the overlays off and
+  time pinned — that is the remaining half, and it is now a small step rather
+  than a missing capability.
 
 - [ ] MCP: no UI tools at all. The catalog is 45 tools over animation, assets,
   nodes, scenes and scenarios; an agent driving a live editor can move a node

@@ -828,7 +828,22 @@ diffable. The document path is project-relative and confined exactly like every
 other tool path (§6.2): absolute paths, parent traversal and symlink escapes are
 refused before anything is read.
 
-The command is **fail-closed**, which is a deliberate divergence from RmlUi's own
+The engine itself captures the composite the player sees — 3D, editor chrome
+and UI in one image — with `SaidaEngine --screenshot <png> [--after-frames N]`,
+which writes frame N (1-based; the request is armed before that frame is drawn)
+and then exits. `render/FrameCapture` owns the staging buffer and exposes only
+record/resolve; the copy is recorded while the swapchain image is still a colour
+attachment, just before it transitions to Present. This requires
+`VK_IMAGE_USAGE_TRANSFER_SRC_BIT` on the swapchain images, which the spec does
+not guarantee: it is requested when `supportedUsageFlags` offers it, and
+`Swapchain::supportsCapture()` reports its absence so a capture refuses instead
+of writing an empty file. The channel order comes from the actual swapchain
+format, and a format outside R8G8B8A8/B8G8R8A8 is refused rather than written
+with swapped channels. The capture *path* is reproducible by frame number; the
+captured *content* is only as deterministic as the frame itself — the editor's
+live FPS and camera overlays still vary between runs.
+
+The `render-ui` command is **fail-closed**, which is a deliberate divergence from RmlUi's own
 behavior: RmlUi warns about a malformed document or a refused declaration and
 then renders whatever survived, so a broken document otherwise yields exit 0 and
 a plausible picture. Any diagnostic raised while the document loads and lays out
@@ -1067,6 +1082,11 @@ The editor's Play mode is also automatable with `SaidaEngine --project <p>
 --play`. It triggers the same deferred transition as the Play button;
 `tools/witness_editor_play.sh` uses it on a pristine copy of WitnessGame and
 requires gameplay, HUD and save+HUD restoration on the second launch.
+
+`SaidaEngine --project <p> --screenshot <png> [--after-frames N]` writes the
+presented frame and exits, non-zero when the capture failed (§8.3). It combines
+with `--play` and `SAIDA_WINDOW_HIDDEN=1`, so a recipe can capture what a driven
+session actually displayed rather than asserting on logs alone.
 
 Recipes can add `--test-autoload NAME=script.js` without rewriting the
 `.saidaproj` or the artifact. This autoload stays ephemeral, limited to a simple

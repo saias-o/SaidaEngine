@@ -12,6 +12,7 @@
 #include "graphics/Pipeline.hpp"
 #include "graphics/ShadowMap.hpp"
 #include "graphics/ResourceManager.hpp"
+#include "render/FrameCapture.hpp"
 #include "render/GIVolume.hpp"
 #include "render/PostProcessor.hpp"
 #include "render/FrustumCulling.hpp"
@@ -1513,6 +1514,13 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
 
     recordTonemapPass(encoder, imageIndex, scene, camera);
 
+#ifndef SAIDA_RHI_WEBGPU
+    // Read the finished composite back before it is handed to the presentation
+    // engine — this is the only point where the frame the player sees exists as
+    // a single image the host can copy.
+    if (capture_) capture_->recordCopy(encoder, imageIndex);
+#endif
+
     encoder.transition(swapchain_->image(imageIndex), rhi::ResourceState::ColorAttachment,
                        rhi::ResourceState::Present);
 
@@ -1627,6 +1635,31 @@ void Renderer::drawFrame(Scene& scene, Camera& camera, Project* project) {
 
     currentFrame_ = (currentFrame_ + 1) % kMaxFramesInFlight;
 }
+
+#ifndef SAIDA_RHI_WEBGPU
+bool Renderer::requestCapture(const std::string& pngPath, std::string& error) {
+    if (swapchain_ == nullptr) {
+        error = "no swapchain to capture from (XR mode owns presentation)";
+        return false;
+    }
+    if (!capture_) capture_ = std::make_unique<FrameCapture>(device_, *swapchain_);
+    return capture_->request(pngPath, error);
+}
+
+bool Renderer::capturePending() const {
+    return capture_ && capture_->pending();
+}
+
+bool Renderer::resolveCapture(std::string& error) {
+    if (!capture_) {
+        error = "no frame capture is pending";
+        return false;
+    }
+    // The recorded copy must have completed before the staging buffer is read.
+    device_.waitIdle();
+    return capture_->resolve(error);
+}
+#endif
 
 } // namespace saida
 

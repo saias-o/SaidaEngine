@@ -52,6 +52,15 @@ public:
     void mountWorld();
     void unmountWorld();
 
+    // Write the composite frame (3D + UI) to `pngPath` once frame `afterFrames`
+    // has been drawn (1-based: frame N is captured), then close the window. The
+    // frame number is what makes a capture reproducible: the caller names the
+    // frame it wants rather than racing the loop. A failure is reported and
+    // closes the window too, so the process never hangs waiting for an image
+    // that will not come.
+    void captureFrameThenExit(const std::string& pngPath, uint32_t afterFrames);
+    bool captureFailed() const { return captureFailed_; }
+
 #ifdef SAIDA_ENABLE_XR
     // XR preview is isolated so the editor never owns OpenXR presentation.
     bool launchExternalPreviewIfNeeded();
@@ -68,6 +77,17 @@ private:
     void runDesktop();
     double tickLastTime_ = 0.0;
     bool tickWasLeftDown_ = false;
+
+    // Deterministic frame capture (--screenshot). `capturePath_` empty means no
+    // capture was asked for. Armed before the target frame is drawn, resolved
+    // after, so the requested frame number is the one actually captured.
+    void armFrameCapture();
+    void serviceFrameCapture();
+    std::string capturePath_;
+    uint32_t captureAfterFrames_ = 0;
+    uint32_t framesDrawn_ = 0;
+    bool captureRequested_ = false;
+    bool captureFailed_ = false;
 #ifdef SAIDA_ENABLE_XR
     void runXr();
 #endif

@@ -142,6 +142,14 @@ public:
                              uint32_t mipLevel = 0, uint32_t baseLayer = 0,
                              uint32_t layerCount = 1, uint64_t srcOffset = 0);
 
+    // Read an image back into a buffer. The caller transitions the source to
+    // CopySrc around this copy, and must wait for the submission before reading
+    // the buffer. Used by frame capture on the presented swapchain image.
+    void copyTextureToBuffer(VkImage src, const saida::Buffer& dst,
+                             uint32_t width, uint32_t height,
+                             uint32_t mipLevel = 0, uint32_t baseLayer = 0,
+                             uint32_t layerCount = 1, uint64_t dstOffset = 0);
+
     // The image must be in CopyDst before this clear.
     void clearColorTexture(VkImage image, const std::array<float, 4>& color);
 

@@ -4,6 +4,7 @@
 
 #include <array>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "core/Camera.hpp"
@@ -32,6 +33,9 @@ class ShadowMap;
 class UIRenderer;
 class GIVolume;
 class GpuProfiler;
+#ifndef SAIDA_RHI_WEBGPU
+class FrameCapture;
+#endif
 class PostProcessor;
 struct SceneSettings;
 
@@ -97,6 +101,16 @@ public:
     // Viewer setting; does not alter per-light scene data.
     void setShadowsEnabled(bool enabled) { shadowsEnabled_ = enabled; }
     bool shadowsEnabled() const { return shadowsEnabled_; }
+
+#ifndef SAIDA_RHI_WEBGPU
+    // Capture the composite the player sees (3D + UI) to a PNG. The request is
+    // recorded on the next drawFrame; resolveCapture() writes the file once the
+    // GPU is done with it. Both report their failure rather than leaving an
+    // empty or missing image behind.
+    bool requestCapture(const std::string& pngPath, std::string& error);
+    bool capturePending() const;
+    bool resolveCapture(std::string& error);
+#endif
 
 #ifdef SAIDA_ENABLE_XR
     void drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eyes,
@@ -177,6 +191,11 @@ private:
     std::unique_ptr<UIRenderer> uiRenderer_;
     std::unique_ptr<GIVolume> gi_;  // DDGI irradiance volume (the single GI primitive)
     std::unique_ptr<GpuProfiler> gpuProfiler_;
+#ifndef SAIDA_RHI_WEBGPU
+    // Owns its staging buffer and nothing else; allocated only once a capture
+    // is actually requested.
+    std::unique_ptr<FrameCapture> capture_;
+#endif
 
     bool viewportOverride_ = false;
     glm::vec2 viewportPos_{0.0f};

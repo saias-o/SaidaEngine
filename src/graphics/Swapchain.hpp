@@ -44,6 +44,11 @@ public:
     VkFormat colorFormat() const { return imageFormat_; }
     VkFormat depthFormat() const { return depthFormat_; }
 
+    // True when the surface allowed TRANSFER_SRC on the swapchain images, i.e.
+    // when the presented frame can be copied back to the host. Frame capture
+    // refuses when this is false instead of writing an empty image.
+    bool supportsCapture() const { return supportsCapture_; }
+
     // Per-image present target (single-sample).
     VkImage image(uint32_t i) const { return images_[i]; }
     VkImageView imageView(uint32_t i) const { return imageViews_[i]; }
@@ -77,6 +82,7 @@ private:
     std::vector<VkImageView> imageViews_;
     VkFormat imageFormat_{};
     VkFormat depthFormat_{};
+    bool supportsCapture_ = false;
     VkExtent2D extent_{};
     VkSampleCountFlagBits samples_ = VK_SAMPLE_COUNT_1_BIT;
     bool vSync_ = false;
