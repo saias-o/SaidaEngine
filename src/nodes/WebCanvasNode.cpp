@@ -1020,9 +1020,9 @@ bool WebCanvasNode::loadDocumentFromState(bool keepExistingOnFailure) {
     {
         RmlDependencyCapture capture(dependencies);
         if (!url_.empty()) {
-            nextDocument = rmlContext_->LoadDocument(url_);
+            nextDocument = RmlUiRuntime::loadDocument(*rmlContext_, url_);
         } else if (!html_.empty()) {
-            nextDocument = rmlContext_->LoadDocumentFromMemory(html_, "<web-canvas>");
+            nextDocument = RmlUiRuntime::loadDocumentFromMemory(*rmlContext_, html_, "<web-canvas>");
         }
     }
 

@@ -4,6 +4,7 @@
 #include "ui/RmlUiRenderInterface.hpp"
 #include "ui/RmlUiRuntime.hpp"
 
+#include <RmlUi/Core/ComputedValues.h>
 #include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/Core.h>
 #include <RmlUi/Core/Element.h>
@@ -346,6 +347,71 @@ void testDpRatioScalesDpUnits() {
     require(raster.at(95, 20).a == 255, "50dp is 100px at dp-ratio 2");
 }
 
+// -- Engine user-agent stylesheet (SPEC section 8.2) -------------------------
+//
+// RmlUi ships no default stylesheet and RCSS defaults `display` to `inline`, so
+// a <div> that only declares its box is an inline box that discards width,
+// height, padding and text-align without logging anything. The engine merges its
+// own baseline under every document it loads; these two cases pin both halves of
+// that contract — the baseline applies, and the document still overrides it.
+
+void testUserAgentStyleSheetMakesABareDivBlock() {
+    ContextFixture ctx("corpus-user-agent", 256, 128);
+    // Markup written the way HTML is normally written: it declares a box and
+    // says nothing about display.
+    Rml::ElementDocument* doc = RmlUiRuntime::loadDocumentFromMemory(
+        *ctx,
+        document("#panel { width: 100px; height: 60px; background-color: #00FF00; }",
+                  "<div id=\"panel\"/>"),
+        "<ua-corpus>");
+    require(doc != nullptr, "document loads through the engine loader");
+    doc->Show();
+    ctx->Update();
+
+    Rml::Element* panel = doc->GetElementById("panel");
+    require(panel != nullptr, "panel element exists");
+    require(panel->GetComputedValues().display() == Rml::Style::Display::Block,
+            "a bare <div> computes to display:block under the engine stylesheet");
+
+    Raster raster = renderContext(*ctx, 256, 128);
+    requirePixel(raster, 50, 30, 0, 255, 0, 255, "the declared box actually paints");
+    require(raster.visibleInRect(101, 0, 256, 128) == 0,
+            "nothing paints past the declared width");
+
+    // What the sheet actually buys: the identical markup loaded straight from
+    // the context — the path that skips the baseline — still collapses to an
+    // inline box. Without this the case above could pass for the wrong reason,
+    // and if RmlUi ever grows a default stylesheet we want to be told.
+    ContextFixture bare("corpus-user-agent-absent", 256, 128);
+    Rml::ElementDocument* unstyled = bare.show(
+        document("#panel { width: 100px; height: 60px; background-color: #00FF00; }",
+                 "<div id=\"panel\"/>"));
+    require(unstyled != nullptr, "the same markup loads without the baseline");
+    Rml::Element* barePanel = unstyled->GetElementById("panel");
+    require(barePanel != nullptr && barePanel->GetComputedValues().display() == Rml::Style::Display::Inline,
+            "the same <div> is an inline box when the engine baseline is skipped");
+}
+
+void testDocumentOverridesUserAgentStyleSheet() {
+    ContextFixture ctx("corpus-user-agent-override", 256, 128);
+    // The baseline is merged *under* the document, so an author can still opt
+    // out of it. If this inverted, the sheet would be a theme, not a baseline.
+    Rml::ElementDocument* doc = RmlUiRuntime::loadDocumentFromMemory(
+        *ctx,
+        document("#inlined { display: inline; width: 100px; height: 60px;"
+                  "           background-color: #FF0000; }",
+                  "<div id=\"inlined\"/>"),
+        "<ua-corpus>");
+    require(doc != nullptr, "override document loads");
+    doc->Show();
+    ctx->Update();
+
+    Rml::Element* element = doc->GetElementById("inlined");
+    require(element != nullptr, "override element exists");
+    require(element->GetComputedValues().display() == Rml::Style::Display::Inline,
+            "a document's own display declaration overrides the engine stylesheet");
+}
+
 // -- Shared HUD: the rasterizer used by BOTH desktop and Web -----------------
 //
 // Proves that the shared markup generation + rasterization (HudRasterizer)
@@ -483,6 +549,8 @@ int main() {
     testTransformTranslatesGeometry();
     testResizeRelayouts();
     testDpRatioScalesDpUnits();
+    testUserAgentStyleSheetMakesABareDivBlock();
+    testDocumentOverridesUserAgentStyleSheet();
     testHudRasterizerRendersCanvasText();
     testHudRasterizerEmptyCanvasHasNoContent();
     testVerticalSliceMenuButtonHoverMatchesVisualBox();

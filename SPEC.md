@@ -765,6 +765,30 @@ elements, `textContent`, `innerHTML/innerRML`, `id`, `classList`,
 `style.setProperty/removeProperty`, `add/removeEventListener`, `click`, `focus`,
 `blur`, `getBoundingClientRect`, offsets and client sizes.
 
+**Authoring baseline — the engine user-agent stylesheet.** RmlUi ships no
+default stylesheet and RCSS defaults `display` to `inline`, so a `<div>` that
+does not declare its display is an inline box that silently discards `width`,
+`height`, `padding` and `text-align` — markup written the way HTML is normally
+written collapses into a left-aligned run of text with nothing logged. The
+engine therefore merges its own baseline under every document it loads
+(`RmlUiRuntime::userAgentStyleSheet`, embedded rather than shipped as a file so
+it cannot go missing from a package):
+
+```rcss
+body, div, p, section, h1, h2, h3, h4, h5, h6 { display: block; }
+img, button { display: inline-block; }
+```
+
+It is a contract, not a theme: it sets `display` and nothing else — no margins,
+no fonts, no colours. It is merged *under* the document, so any rule the
+document declares wins. Documents must be created through
+`RmlUiRuntime::loadDocument`/`loadDocumentFromMemory`; a document loaded
+straight from an `Rml::Context` does not get the baseline. Both halves are
+proven by `saida_ui_corpus_tests` (the baseline applies and paints the declared
+box; the same markup loaded bare still computes to `inline`; a document's own
+`display` overrides it). Tags outside the list above keep RCSS's `inline`
+default — extending the list is a contract change.
+
 Reliable CSS: block, inline-block, flex, direction/align/justify/gap, margin,
 padding, px/% sizes, position absolute, hover/active, classes, colors, borders,
 backgrounds, fonts and line-height. `text-shadow` is filtered; vendor properties,

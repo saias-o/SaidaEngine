@@ -4,6 +4,8 @@
 #include <vector>
 
 namespace Rml {
+class Context;
+class ElementDocument;
 class RenderInterface;
 }
 
@@ -45,6 +47,23 @@ public:
     // caller can attach them to its own report.
     static void beginLogCapture(std::vector<RmlUiDiagnostic>& diagnostics);
     static void endLogCapture();
+
+    // Load a document with the engine's user-agent stylesheet applied.
+    //
+    // These are the only supported way for the engine to create a document:
+    // RmlUi ships no default stylesheet and RCSS defaults `display` to
+    // `inline`, so a document loaded straight from a context silently discards
+    // the box properties of every element that does not declare its display.
+    // Going through here is what makes the baseline in SPEC section 8.2 true of
+    // every engine document rather than of the ones that remembered.
+    static Rml::ElementDocument* loadDocument(Rml::Context& context, const std::string& path);
+    static Rml::ElementDocument* loadDocumentFromMemory(Rml::Context& context,
+                                                        const std::string& markup,
+                                                        const std::string& sourceName);
+
+    // The user-agent stylesheet's text, so tooling and documentation quote the
+    // contract rather than restating it.
+    static const char* userAgentStyleSheet();
 
 private:
     static bool initialized_;

@@ -284,7 +284,7 @@ int runRenderUiCommand(const std::vector<std::string>& args) {
             RmlUiRuntime::shutdown();
         };
 
-        Rml::ElementDocument* document = context->LoadDocument(resolved.absolute);
+        Rml::ElementDocument* document = RmlUiRuntime::loadDocument(*context, resolved.absolute);
         if (document == nullptr) {
             abandon("could not be loaded");
             return kExitInvalid;

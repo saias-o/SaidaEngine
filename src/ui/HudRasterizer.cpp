@@ -148,7 +148,7 @@ HudRasterizer::Frame HudRasterizer::rasterize(UICanvasNode& canvas, glm::vec2 vi
         context_->UnloadDocument(document_);
         document_ = nullptr;
     }
-    document_ = context_->LoadDocumentFromMemory(markup, "<saida-hud>");
+    document_ = RmlUiRuntime::loadDocumentFromMemory(*context_, markup, "<saida-hud>");
     if (!document_) {
         Log::error("[HUD] failed to build the HUD document");
         return frame;

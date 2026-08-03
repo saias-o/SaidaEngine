@@ -590,18 +590,22 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   transition. Do not change CSS transition semantics globally: diagnose the
   delay and provide a correct default.
 
-- [ ] UI: ship an engine user-agent stylesheet. RmlUi provides no default
-  stylesheet, and RCSS defaults `display` to `inline`
-  (`StyleSheetSpecification.cpp`), so a `<div>` that does not declare its
-  display is an inline box that silently discards `width`, `height`, `padding`
-  and `text-align`. Any markup written the way HTML is normally written — which
-  is what every author and every model produces first — collapses into a
-  left-aligned run of text, with nothing logged. This single default cost more
-  debugging than the rest of the menu combined. Fix: a small `engine.rcss`
-  applied to every document created by the engine (`div`, `p`, `section`,
-  `h1`-`h6`, `body` → block; `img`, `button` → inline-block), documented in
-  SPEC as the authoring baseline. Keep it minimal: it is a contract, not a
-  theme.
+- [x] UI: ship an engine user-agent stylesheet. The baseline is embedded in
+  `RmlUiRuntime` (`userAgentStyleSheet()`) rather than shipped as a file, so it
+  cannot go missing from a package, and is merged *under* every document loaded
+  through `RmlUiRuntime::loadDocument`/`loadDocumentFromMemory` — the three
+  engine load sites (`WebCanvasNode`, `HudRasterizer`, `render-ui`) go through
+  it. Specified in SPEC 8.2. Proof: `saida_ui_corpus_tests` (105 checks) pins
+  both halves — the baseline paints the declared box, the same markup loaded
+  bare still computes to `inline`, and a document's own `display` still wins.
+  Measured on the trap document: `div` declaring `width`/`height`/`text-align`
+  went from `display=inline` box `0x0` to `display=block` box `200x80`, with
+  the text correctly centred.
+
+  Left open deliberately: tags outside the specified list (`header`, `nav`,
+  `ul`, `li`, `article`, …) keep RCSS's `inline` default and hit the same trap.
+  Extending the list is a contract change, so it is a decision rather than an
+  oversight.
 
 - [ ] UI: give a screen-space canvas a reference resolution. A screen-space
   `WebCanvasNode` that fills the viewport is resized to the real window

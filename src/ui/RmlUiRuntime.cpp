@@ -5,8 +5,12 @@
 #include "core/Time.hpp"
 #include "ui/RmlUiRenderInterface.hpp"
 
+#include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/Core.h>
+#include <RmlUi/Core/ElementDocument.h>
+#include <RmlUi/Core/Factory.h>
 #include <RmlUi/Core/FileInterface.h>
+#include <RmlUi/Core/StyleSheetContainer.h>
 #include <RmlUi/Core/StyleTypes.h>
 #include <RmlUi/Core/SystemInterface.h>
 
@@ -226,6 +230,46 @@ std::unique_ptr<NextRmlSystemInterface> gSystemInterface;
 std::unique_ptr<NextRmlFileInterface> gFileInterface;
 std::unique_ptr<RmlUiRenderInterface> gRenderInterface;
 
+// ── Engine user-agent stylesheet ─────────────────────────────────────────────
+//
+// RmlUi provides no default stylesheet, and RCSS defaults `display` to `inline`
+// (StyleSheetSpecification.cpp), so a <div> that does not declare its display is
+// an inline box that silently discards width, height, padding and text-align.
+// Markup written the way HTML is normally written therefore collapses into a
+// left-aligned run of text with nothing logged.
+//
+// This sheet is the engine's authoring baseline (SPEC section 8.2): it restores
+// the block/inline-block distinction HTML authors already assume, and nothing
+// else. It is a contract, not a theme — no margins, no fonts, no colours — and
+// it is embedded rather than shipped as a file so it can never go missing from
+// a package. It is merged *under* each document, so any rule the document
+// declares wins.
+constexpr const char* kUserAgentStyleSheet = R"RCSS(
+body, div, p, section, h1, h2, h3, h4, h5, h6 { display: block; }
+img, button { display: inline-block; }
+)RCSS";
+
+Rml::SharedPtr<Rml::StyleSheetContainer> gUserAgentSheet;
+
+// Merge the user-agent sheet under `document`'s own rules. Failing to build the
+// sheet is an engine defect, not a document problem: report it rather than
+// letting documents silently fall back to RCSS's inline default.
+void applyUserAgentStyleSheet(Rml::ElementDocument& document) {
+    if (!gUserAgentSheet) {
+        gUserAgentSheet = Rml::Factory::InstanceStyleSheetString(kUserAgentStyleSheet);
+        if (!gUserAgentSheet) {
+            Log::error("[RmlUi] the engine user-agent stylesheet failed to parse — "
+                       "documents will use the RCSS inline default");
+            return;
+        }
+    }
+
+    const Rml::StyleSheetContainer* own = document.GetStyleSheetContainer();
+    document.SetStyleSheetContainer(
+        own ? gUserAgentSheet->CombineStyleSheetContainer(*own)
+            : gUserAgentSheet->CombineStyleSheetContainer(Rml::StyleSheetContainer()));
+}
+
 // ── Default engine fonts ─────────────────────────────────────────────────────
 //
 // The game declares its own fonts via @font-face in its RCSS stylesheets; this
@@ -361,6 +405,9 @@ bool RmlUiRuntime::ensureInitialized() {
 
 void RmlUiRuntime::shutdown() {
     if (!initialized_) return;
+    // Released before Rml::Shutdown(): the sheet is an RmlUi object and must not
+    // outlive the core that owns its allocator.
+    gUserAgentSheet.reset();
     Rml::Shutdown();
     initialized_ = false;
     gRenderInterface.reset();
@@ -383,6 +430,24 @@ void RmlUiRuntime::beginFileDependencyCapture(std::vector<std::string>& paths) {
 
 void RmlUiRuntime::endFileDependencyCapture() {
     gDependencyCapture = nullptr;
+}
+
+const char* RmlUiRuntime::userAgentStyleSheet() {
+    return kUserAgentStyleSheet;
+}
+
+Rml::ElementDocument* RmlUiRuntime::loadDocument(Rml::Context& context, const std::string& path) {
+    Rml::ElementDocument* document = context.LoadDocument(path);
+    if (document) applyUserAgentStyleSheet(*document);
+    return document;
+}
+
+Rml::ElementDocument* RmlUiRuntime::loadDocumentFromMemory(Rml::Context& context,
+                                                           const std::string& markup,
+                                                           const std::string& sourceName) {
+    Rml::ElementDocument* document = context.LoadDocumentFromMemory(markup, sourceName);
+    if (document) applyUserAgentStyleSheet(*document);
+    return document;
 }
 
 void RmlUiRuntime::beginLogCapture(std::vector<RmlUiDiagnostic>& diagnostics) {
