@@ -449,6 +449,19 @@ walking target now bleeds off at the braking rate instead of snapping down, so
 a `launch` — the thing every special move is built from — is spent rather than
 erased on the next frame. With no braking rate configured it still snaps.
 
+A screen-space `WebCanvasNode` that fills the viewport reconciles the size it
+was authored at with the window through `scaleMode` and
+`referenceWidth`/`referenceHeight`. `Stretch` (default) resizes the canvas to
+the window, so the document lays out at whatever resolution the player runs —
+which is why absolute pixel geometry silently lands off-centre. `Fit` lays the
+document out at the reference size and letterboxes the result, giving an author
+one resolution to reason about. `Expand` keeps the reference on the constrained
+axis and grants logical room on the other, filling the window without bars. A
+mode without a reference behaves as `Stretch`. The node owns both halves of the
+decision: rendering and pointer input read the same placement, so a click inside
+a letterboxed image lands where it looks like it should and one on a bar misses
+the canvas.
+
 The right stick is bound by default to `LookLeft`/`LookRight`/`LookUp`/
 `LookDown`, which `CameraFollow` reads as a rate in degrees per second on top of
 the mouse's degrees per pixel. Scripts gain `input.bindKey`,

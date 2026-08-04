@@ -38,6 +38,21 @@ public:
         WorldSpace
     };
 
+    // How a screen-space canvas that fills the viewport reconciles the size it
+    // was authored at with the window it ends up in.
+    enum class ScaleMode {
+        // The canvas becomes the window: the document lays out at whatever
+        // resolution the player happens to run. Historic behaviour, and the
+        // reason absolute pixel geometry silently lands off-centre.
+        Stretch = 0,
+        // The document always lays out at the reference size and the result is
+        // scaled to fit, letterboxed. One resolution to reason about.
+        Fit = 1,
+        // The document lays out at the reference size on the constrained axis
+        // and gains logical room on the other, filling the window without bars.
+        Expand = 2,
+    };
+
     enum class MouseEvent {
         Down,
         Up,
@@ -88,6 +103,26 @@ public:
     uint32_t width() const { return width_; }
     uint32_t height() const { return height_; }
     void resize(uint32_t width, uint32_t height);
+
+    ScaleMode scaleMode() const { return scaleMode_; }
+    void setScaleMode(ScaleMode mode) { scaleMode_ = mode; }
+    uint32_t referenceWidth() const { return referenceWidth_; }
+    uint32_t referenceHeight() const { return referenceHeight_; }
+    void setReferenceSize(uint32_t width, uint32_t height);
+
+    // Reconcile this canvas with a viewport it fills, per scaleMode. Owns both
+    // halves of the decision — the resolution the document lays out at, and
+    // where the result lands on screen — because rendering and pointer input
+    // both read the placement through screenPosition/screenSize, and a rig that
+    // drew letterboxed while hit-testing full-screen would put every click in
+    // the wrong place.
+    void applyViewportLayout(glm::vec2 viewport);
+    // True when the canvas is authored as a full-screen overlay (origin, unit
+    // scale). Asked of the authored transform, never of the placement
+    // applyViewportLayout derives from it — a letterboxed canvas must keep
+    // being told about the window, or it freezes at its first size.
+    bool fillsViewport() const;
+
     glm::vec2 screenPosition() const;
     glm::vec2 screenSize() const;
     bool screenContains(glm::vec2 point) const;
@@ -148,6 +183,17 @@ private:
     Mode mode_ = Mode::ScreenSpace;
     uint32_t width_ = 0;
     uint32_t height_ = 0;
+    ScaleMode scaleMode_ = ScaleMode::Stretch;
+    // 0 means "no reference declared": Fit and Expand then have nothing to
+    // scale against and behave as Stretch.
+    uint32_t referenceWidth_ = 0;
+    uint32_t referenceHeight_ = 0;
+    // Where applyViewportLayout put the canvas on screen. Not serialized: it is
+    // derived from the window, and overrides the authored transform only while
+    // the canvas is filling the viewport.
+    bool placementValid_ = false;
+    glm::vec2 placementOffset_{0.0f};
+    glm::vec2 placementSize_{0.0f};
     std::string url_;
     std::string html_;
 

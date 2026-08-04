@@ -431,6 +431,35 @@ void InspectorPanel::draw(EditorUI* editor) {
                  [](Node& n, int v) { static_cast<WebCanvasNode&>(n).setMode(static_cast<WebCanvasNode::Mode>(v)); },
                  "ScreenSpace\0WorldSpace\0");
 
+        pe.combo("Scale Mode",
+                 [](Node& n) { return static_cast<int>(static_cast<WebCanvasNode&>(n).scaleMode()); },
+                 [](Node& n, int v) {
+                     static_cast<WebCanvasNode&>(n).setScaleMode(
+                         static_cast<WebCanvasNode::ScaleMode>(v));
+                 },
+                 "Stretch\0Fit\0Expand\0");
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("How a full-screen canvas meets the window: Stretch lays out at "
+                              "the window size, Fit keeps the reference letterboxed, Expand "
+                              "keeps it on the constrained axis and fills the rest.");
+        pe.dragInt("Reference Width",
+                   [](Node& n) { return static_cast<int>(static_cast<WebCanvasNode&>(n).referenceWidth()); },
+                   [](Node& n, int v) {
+                       auto& w = static_cast<WebCanvasNode&>(n);
+                       w.setReferenceSize(static_cast<uint32_t>(std::max(v, 0)), w.referenceHeight());
+                   },
+                   1, 0, 8192);
+        pe.dragInt("Reference Height",
+                   [](Node& n) { return static_cast<int>(static_cast<WebCanvasNode&>(n).referenceHeight()); },
+                   [](Node& n, int v) {
+                       auto& w = static_cast<WebCanvasNode&>(n);
+                       w.setReferenceSize(w.referenceWidth(), static_cast<uint32_t>(std::max(v, 0)));
+                   },
+                   1, 0, 8192);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Resolution the document is authored at; 0 leaves Fit and Expand "
+                              "behaving as Stretch.");
+
         pe.inputText("URL",
                      [](Node& n) { return static_cast<WebCanvasNode&>(n).url(); },
                      [](Node& n, std::string v) { static_cast<WebCanvasNode&>(n).setUrl(v); });

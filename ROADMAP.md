@@ -633,17 +633,21 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   Extending the list is a contract change, so it is a decision rather than an
   oversight.
 
-- [ ] UI: give a screen-space canvas a reference resolution. A screen-space
-  `WebCanvasNode` that fills the viewport is resized to the real window
-  (`UIRenderer::gatherUI`), while the scene keeps declaring 1920x1080. Absolute
-  pixel geometry — the natural way to lay out a fixed-size canvas, and what the
-  declared size invites — therefore lands off-centre on every other window
-  size, and anything past the window height is clipped by the context scissor
-  with no warning. Fix: `referenceWidth`/`referenceHeight` plus a `scaleMode`
-  (`stretch` = today's behaviour, `fit` = letterboxed reference, `expand`),
-  which is what Unity's CanvasScaler and Godot's stretch mode exist for. It
-  makes pixel layout *correct* instead of merely tempting, and `fit` gives an
-  author one resolution to reason about.
+- [x] UI: give a screen-space canvas a reference resolution.
+  `WebCanvasNode` carries `referenceWidth`/`referenceHeight` and a `scaleMode`
+  (`Stretch` = the historic resize-to-window and still the default, `Fit` =
+  the reference letterboxed inside the window, `Expand` = the reference kept on
+  the constrained axis and the other one gaining logical room). The policy lives
+  on the node (`applyViewportLayout`), not in the renderer, because rendering
+  and pointer input both read the placement through `screenPosition`/
+  `screenSize` — a rig that drew letterboxed while hit-testing full-screen would
+  put every click in the wrong place. Whether a canvas wants the viewport at all
+  is asked of its authored transform (`fillsViewport`), so a letterboxed canvas
+  keeps being told about the window instead of freezing at its first size.
+  Proved by `saida_webcanvas_scale_tests` (33 checks, no device): the three
+  modes, a missing reference falling back to Stretch, and a click on a
+  letterbox bar missing the canvas while the image's top-left maps to the
+  document origin.
 
 - [ ] UI: wrap texture coordinates in the CPU RmlUi backend.
   `decorator: image(x.png repeat)` does not tile: the backend clamps instead of

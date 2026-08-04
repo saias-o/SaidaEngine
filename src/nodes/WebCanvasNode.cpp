@@ -631,11 +631,65 @@ void WebCanvasNode::resize(uint32_t width, uint32_t height) {
     markUiDirty();
 }
 
+void WebCanvasNode::setReferenceSize(uint32_t width, uint32_t height) {
+    referenceWidth_ = width;
+    referenceHeight_ = height;
+}
+
+bool WebCanvasNode::fillsViewport() const {
+    return std::abs(transform_.position.x) < 0.5f &&
+           std::abs(transform_.position.y) < 0.5f &&
+           std::abs(transform_.scale.x - 1.0f) < 0.001f &&
+           std::abs(transform_.scale.y - 1.0f) < 0.001f;
+}
+
+void WebCanvasNode::applyViewportLayout(glm::vec2 viewport) {
+    const float vw = std::max(viewport.x, 1.0f);
+    const float vh = std::max(viewport.y, 1.0f);
+    const bool hasReference = referenceWidth_ > 0 && referenceHeight_ > 0;
+
+    if (scaleMode_ == ScaleMode::Stretch || !hasReference) {
+        resize(static_cast<uint32_t>(std::lround(vw)),
+               static_cast<uint32_t>(std::lround(vh)));
+        placementOffset_ = {0.0f, 0.0f};
+        placementSize_ = {vw, vh};
+        placementValid_ = true;
+        return;
+    }
+
+    const float rw = static_cast<float>(referenceWidth_);
+    const float rh = static_cast<float>(referenceHeight_);
+    const float scale = std::min(vw / rw, vh / rh);
+
+    if (scaleMode_ == ScaleMode::Fit) {
+        // The document never sees anything but its reference size; the bars are
+        // the window's, not the layout's.
+        resize(referenceWidth_, referenceHeight_);
+        placementSize_ = {rw * scale, rh * scale};
+        placementOffset_ = {(vw - placementSize_.x) * 0.5f,
+                            (vh - placementSize_.y) * 0.5f};
+        placementValid_ = true;
+        return;
+    }
+
+    // Expand: the constrained axis keeps the reference size and the other one
+    // grows, so the pixel scale still matches the reference everywhere and the
+    // window is filled. A layout anchored to an edge gains room; one centred on
+    // the reference stays put.
+    resize(static_cast<uint32_t>(std::lround(vw / scale)),
+           static_cast<uint32_t>(std::lround(vh / scale)));
+    placementOffset_ = {0.0f, 0.0f};
+    placementSize_ = {vw, vh};
+    placementValid_ = true;
+}
+
 glm::vec2 WebCanvasNode::screenPosition() const {
+    if (placementValid_) return placementOffset_;
     return {transform_.position.x, transform_.position.y};
 }
 
 glm::vec2 WebCanvasNode::screenSize() const {
+    if (placementValid_) return placementSize_;
     return {
         static_cast<float>(width_) * std::max(transform_.scale.x, 0.0f),
         static_cast<float>(height_) * std::max(transform_.scale.y, 0.0f)
@@ -863,6 +917,9 @@ void WebCanvasNode::serialize(nlohmann::json& j, ResourceManager& resources) con
     Node::serialize(j, resources);
     j["width"] = width_;
     j["height"] = height_;
+    j["scaleMode"] = static_cast<int>(scaleMode_);
+    j["referenceWidth"] = referenceWidth_;
+    j["referenceHeight"] = referenceHeight_;
     j["mode"] = static_cast<int>(mode_);
     j["url"] = url_;
     j["html"] = html_;
@@ -876,6 +933,9 @@ void WebCanvasNode::serialize(nlohmann::json& j, ResourceManager& resources) con
 void WebCanvasNode::deserialize(const nlohmann::json& j, ResourceManager& resources) {
     Node::deserialize(j, resources);
     width_ = j.value("width", 800u);
+    scaleMode_ = static_cast<ScaleMode>(j.value("scaleMode", 0));
+    referenceWidth_ = j.value("referenceWidth", 0u);
+    referenceHeight_ = j.value("referenceHeight", 0u);
     height_ = j.value("height", 600u);
     mode_ = static_cast<Mode>(j.value("mode", static_cast<int>(Mode::ScreenSpace)));
     url_ = j.value("url", "");

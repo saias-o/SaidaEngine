@@ -134,19 +134,11 @@ void UIRenderer::gatherUI(Scene& scene, glm::vec2 viewportSize) {
     for (WebCanvasNode* wcn : scene.webCanvases()) {
         if (!wcn || !wcn->isActiveInHierarchy()) continue;
         if (wcn->mode() == WebCanvasNode::Mode::ScreenSpace) {
-            glm::vec2 pos = wcn->screenPosition();
-            glm::vec2 size = wcn->screenSize();
-            bool fillsViewport = viewportSize.x > 0.0f && viewportSize.y > 0.0f &&
-                std::abs(pos.x) < 0.5f && std::abs(pos.y) < 0.5f &&
-                std::abs(size.x - static_cast<float>(wcn->width())) < 0.5f &&
-                std::abs(size.y - static_cast<float>(wcn->height())) < 0.5f;
-            if (fillsViewport) {
-                uint32_t targetWidth = std::max(1u, static_cast<uint32_t>(std::round(viewportSize.x)));
-                uint32_t targetHeight = std::max(1u, static_cast<uint32_t>(std::round(viewportSize.y)));
-                if (wcn->width() != targetWidth || wcn->height() != targetHeight) {
-                    wcn->resize(targetWidth, targetHeight);
-                }
-            }
+            // The canvas owns what filling the viewport means: it may stretch
+            // to the window, keep a reference resolution letterboxed inside it,
+            // or expand around it. The renderer only says how big the window is.
+            if (viewportSize.x > 0.0f && viewportSize.y > 0.0f && wcn->fillsViewport())
+                wcn->applyViewportLayout(viewportSize);
         }
         webNodesToUpdate_.push_back(wcn);
         if (wcn->mode() == WebCanvasNode::Mode::ScreenSpace && wcn->texture()) {

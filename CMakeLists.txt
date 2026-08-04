@@ -990,6 +990,11 @@ if (BUILD_TESTING)
     target_link_libraries(saida_physics_character_tests PRIVATE saida_engine)
     add_test(NAME saida_physics_character_tests COMMAND $<TARGET_FILE:saida_physics_character_tests>)
 
+    add_executable(saida_webcanvas_scale_tests tests/WebCanvasScaleModeTests.cpp)
+    saida_test_target(saida_webcanvas_scale_tests)
+    target_link_libraries(saida_webcanvas_scale_tests PRIVATE saida_engine)
+    add_test(NAME saida_webcanvas_scale_tests COMMAND $<TARGET_FILE:saida_webcanvas_scale_tests>)
+
     add_executable(saida_character_controller_tests tests/CharacterControllerTests.cpp)
     saida_test_target(saida_character_controller_tests)
     target_link_libraries(saida_character_controller_tests PRIVATE saida_engine)
