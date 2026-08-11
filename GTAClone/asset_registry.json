@@ -1,0 +1,1791 @@
+{
+    "assets": {
+        "10016426412300087926": {
+            "hash": 10509765353198944602,
+            "path": "assets/models/suburb/building-type-j.obj",
+            "type": "Mesh"
+        },
+        "10056708202582277947": {
+            "hash": 10873327051369005102,
+            "path": "assets/models/blaster/blaster-f.obj",
+            "type": "Mesh"
+        },
+        "10087193393161208463": {
+            "hash": 5034794836387270473,
+            "path": "assets/models/roads/light-curved-cross.obj",
+            "type": "Mesh"
+        },
+        "10098632944710201887": {
+            "hash": 4088355811550989642,
+            "path": "assets/models/roads/road-intersection-barrier.obj",
+            "type": "Mesh"
+        },
+        "10149791710312930182": {
+            "hash": 4996278333264375551,
+            "path": "assets/models/cars/sedan-sports.obj",
+            "type": "Mesh"
+        },
+        "10172848494295978307": {
+            "hash": 14778386780040414835,
+            "path": "assets/models/survival/fish-large.obj",
+            "type": "Mesh"
+        },
+        "1019243691170768606": {
+            "hash": 16688503026012706657,
+            "path": "assets/models/roads/road-slant-flat.obj",
+            "type": "Mesh"
+        },
+        "10233410011995991090": {
+            "hash": 9978770038697709392,
+            "path": "assets/models/suburb/building-type-f.obj",
+            "type": "Mesh"
+        },
+        "10243480713260996824": {
+            "hash": 16198046089948892848,
+            "path": "assets/models/survival/bedroll.obj",
+            "type": "Mesh"
+        },
+        "10360827292477633869": {
+            "hash": 2593778228202845226,
+            "path": "assets/models/suburb/building-type-a.obj",
+            "type": "Mesh"
+        },
+        "10380818330678992373": {
+            "hash": 10352533995955391733,
+            "path": "assets/models/cars/debris-tire.obj",
+            "type": "Mesh"
+        },
+        "10392456280578072665": {
+            "hash": 14430120598708347120,
+            "path": "assets/models/suburb/fence-low.obj",
+            "type": "Mesh"
+        },
+        "10408940547894709054": {
+            "hash": 10665466443219902567,
+            "path": "assets/models/blaster/grenade-a.obj",
+            "type": "Mesh"
+        },
+        "10419659110568825185": {
+            "hash": 220840328902321343,
+            "path": "assets/models/survival/structure-metal.obj",
+            "type": "Mesh"
+        },
+        "10471796930233816448": {
+            "hash": 12447993888989225972,
+            "path": "assets/models/suburb/building-type-m.obj",
+            "type": "Mesh"
+        },
+        "10489748185886108988": {
+            "hash": 6643465760393531583,
+            "path": "assets/models/roads/road-curve-pavement.obj",
+            "type": "Mesh"
+        },
+        "10506447425052671744": {
+            "hash": 16273624032180891109,
+            "path": "assets/models/survival/fence-doorway.obj",
+            "type": "Mesh"
+        },
+        "10514667122232159029": {
+            "hash": 17592776010828849373,
+            "path": "assets/models/survival/tent-canvas-half.obj",
+            "type": "Mesh"
+        },
+        "10539640990261365117": {
+            "hash": 15998559808973907853,
+            "path": "assets/models/blaster/blaster-o.obj",
+            "type": "Mesh"
+        },
+        "10541870048201321004": {
+            "hash": 17967357693108756854,
+            "path": "assets/models/survival/rock-flat-grass.obj",
+            "type": "Mesh"
+        },
+        "10578577575224376140": {
+            "hash": 3851388421475056845,
+            "path": "assets/models/city/building-skyscraper-d.obj",
+            "type": "Mesh"
+        },
+        "10586247431928573942": {
+            "hash": 160688538486963478,
+            "path": "assets/models/characters/enemy_a.glb",
+            "type": "Mesh"
+        },
+        "1064215266078576387": {
+            "hash": 15249655552137603892,
+            "path": "assets/models/cars/kart-oozi.obj",
+            "type": "Mesh"
+        },
+        "10752505411066746083": {
+            "hash": 6962897632309476685,
+            "path": "assets/models/roads/light-curved-double.obj",
+            "type": "Mesh"
+        },
+        "10836388919885532970": {
+            "hash": 17683813242434528139,
+            "path": "assets/models/cars/tractor.obj",
+            "type": "Mesh"
+        },
+        "10836638914951143312": {
+            "hash": 16075803092700714977,
+            "path": "assets/models/cars/wheel-dark.obj",
+            "type": "Mesh"
+        },
+        "10847887672960083481": {
+            "hash": 6177741323374475302,
+            "path": "assets/models/cars/colormap.png",
+            "type": "Texture"
+        },
+        "10900205601126333454": {
+            "hash": 2689125175686839267,
+            "path": "assets/models/blaster/silencer-small.obj",
+            "type": "Mesh"
+        },
+        "11068907997358586680": {
+            "hash": 8637427812201388317,
+            "path": "assets/models/survival/metal-panel-screws-narrow.obj",
+            "type": "Mesh"
+        },
+        "11171203218507960373": {
+            "hash": 9325370082660851822,
+            "path": "assets/audio/land.ogg",
+            "type": "Audio"
+        },
+        "11207646872878560967": {
+            "hash": 11117452899395454884,
+            "path": "assets/models/cars/taxi.obj",
+            "type": "Mesh"
+        },
+        "11221277521948132171": {
+            "hash": 15165363800280362217,
+            "path": "assets/models/city/building-skyscraper-b.obj",
+            "type": "Mesh"
+        },
+        "11244984429532063990": {
+            "hash": 7847685897807496480,
+            "path": "assets/models/blaster/blaster-k.obj",
+            "type": "Mesh"
+        },
+        "11311709709175323167": {
+            "hash": 6893373532240577844,
+            "path": "assets/models/suburb/path-short.obj",
+            "type": "Mesh"
+        },
+        "11343889892319475969": {
+            "hash": 15685513684328327383,
+            "path": "assets/models/blaster/crate-small.obj",
+            "type": "Mesh"
+        },
+        "11367825217403754290": {
+            "hash": 12145969472709100857,
+            "path": "assets/models/boats/boat-row-small.obj",
+            "type": "Mesh"
+        },
+        "11385234774871581212": {
+            "hash": 3027694307759588424,
+            "path": "assets/models/survival/structure-metal-doorway.obj",
+            "type": "Mesh"
+        },
+        "11435676558732440338": {
+            "hash": 3292374220775115911,
+            "path": "assets/models/survival/tool-hammer.obj",
+            "type": "Mesh"
+        },
+        "11446309176541541681": {
+            "hash": 13996892718154811955,
+            "path": "assets/models/roads/road-side-barrier.obj",
+            "type": "Mesh"
+        },
+        "1156772296782519679": {
+            "hash": 16538436144522345482,
+            "path": "assets/models/blaster/colormap.png",
+            "type": "Texture"
+        },
+        "11649745872486198372": {
+            "hash": 3735096928257037867,
+            "path": "assets/models/roads/road-side-exit.obj",
+            "type": "Mesh"
+        },
+        "11739129974876708816": {
+            "hash": 9892428833434390336,
+            "path": "assets/models/survival/structure-canvas.obj",
+            "type": "Mesh"
+        },
+        "11748694766646747016": {
+            "hash": 10639894574990747649,
+            "path": "assets/models/cars/truck.obj",
+            "type": "Mesh"
+        },
+        "11794705372359907466": {
+            "hash": 668550143774550329,
+            "path": "assets/models/cars/suv.obj",
+            "type": "Mesh"
+        },
+        "11831978004332357351": {
+            "hash": 1307845872119767165,
+            "path": "assets/models/city/building-h.obj",
+            "type": "Mesh"
+        },
+        "11847127130587191555": {
+            "hash": 16560945615138758054,
+            "path": "assets/models/suburb/building-type-p.obj",
+            "type": "Mesh"
+        },
+        "11863615904152792003": {
+            "hash": 12585071592357564798,
+            "path": "assets/models/blaster/crate-medium.obj",
+            "type": "Mesh"
+        },
+        "11953475643983345170": {
+            "hash": 17087598804688038930,
+            "path": "assets/models/suburb/tree-large.obj",
+            "type": "Mesh"
+        },
+        "1197577192012612991": {
+            "hash": 12344470368412631711,
+            "path": "assets/models/blaster/clip-large.obj",
+            "type": "Mesh"
+        },
+        "11977300152698874514": {
+            "hash": 15066214541148713716,
+            "path": "assets/models/survival/patch-grass.obj",
+            "type": "Mesh"
+        },
+        "11981998872027078932": {
+            "hash": 14354034579364737095,
+            "path": "assets/models/suburb/fence-1x2.obj",
+            "type": "Mesh"
+        },
+        "1200465651750409852": {
+            "hash": 15757295759261488932,
+            "path": "assets/models/survival/rock-sand-a.obj",
+            "type": "Mesh"
+        },
+        "12096101822530559344": {
+            "hash": 9577365134574042894,
+            "path": "assets/models/city/building-k.obj",
+            "type": "Mesh"
+        },
+        "12140155043465419278": {
+            "hash": 10113912725884793229,
+            "path": "assets/models/survival/bucket.obj",
+            "type": "Mesh"
+        },
+        "12146628594084998192": {
+            "hash": 14035754179230627997,
+            "path": "assets/audio/explosion.ogg",
+            "type": "Audio"
+        },
+        "12267528957565052131": {
+            "hash": 5283655941466709623,
+            "path": "assets/models/cars/garbage-truck.obj",
+            "type": "Mesh"
+        },
+        "1228118287949698577": {
+            "hash": 17118497196011577230,
+            "path": "assets/models/blaster/blaster-a.obj",
+            "type": "Mesh"
+        },
+        "12343203092520565567": {
+            "hash": 13653942107988591389,
+            "path": "assets/models/city/building-d.obj",
+            "type": "Mesh"
+        },
+        "12368120346226452194": {
+            "hash": 14788414103536512435,
+            "path": "assets/models/roads/road-roundabout.obj",
+            "type": "Mesh"
+        },
+        "12400165572998877584": {
+            "hash": 8132953121985292891,
+            "path": "assets/audio/step_b.ogg",
+            "type": "Audio"
+        },
+        "12481882248027844005": {
+            "hash": 11510243120207027940,
+            "path": "assets/models/cars/debris-plate-small-a.obj",
+            "type": "Mesh"
+        },
+        "12746009854912705785": {
+            "hash": 13416851437781305331,
+            "path": "scenes/city.scene",
+            "type": "Scene"
+        },
+        "12774314127122413526": {
+            "hash": 13607190830159699259,
+            "path": "assets/models/cars/kart-ooli.obj",
+            "type": "Mesh"
+        },
+        "12895241609867318061": {
+            "hash": 14612384733852783487,
+            "path": "assets/models/city/building-g.obj",
+            "type": "Mesh"
+        },
+        "12977972274248773500": {
+            "hash": 6352230138288383384,
+            "path": "assets/models/roads/road-straight-barrier.obj",
+            "type": "Mesh"
+        },
+        "12990013137036959374": {
+            "hash": 4704267929430152788,
+            "path": "assets/models/cars/delivery-flat.obj",
+            "type": "Mesh"
+        },
+        "13119618894139516216": {
+            "hash": 10539558081302629340,
+            "path": "assets/models/roads/sign-highway-detailed.obj",
+            "type": "Mesh"
+        },
+        "13157383226994749928": {
+            "hash": 4659677399014604761,
+            "path": "assets/models/roads/light-square-double.obj",
+            "type": "Mesh"
+        },
+        "13203029686595159017": {
+            "hash": 9766609527232081109,
+            "path": "assets/models/survival/tree-log-small.obj",
+            "type": "Mesh"
+        },
+        "13214063241617292430": {
+            "hash": 6273031882463224920,
+            "path": "assets/models/survival/structure-metal-wall.obj",
+            "type": "Mesh"
+        },
+        "13275063710975730206": {
+            "hash": 17986287472170179929,
+            "path": "assets/models/cars/truck-flat.obj",
+            "type": "Mesh"
+        },
+        "13336619108912983580": {
+            "hash": 9857363031345157541,
+            "path": "assets/models/suburb/fence-3x3.obj",
+            "type": "Mesh"
+        },
+        "13361924251913198636": {
+            "hash": 3166906544756814746,
+            "path": "assets/models/suburb/building-type-h.obj",
+            "type": "Mesh"
+        },
+        "13389856047143284765": {
+            "hash": 17892847307521029203,
+            "path": "assets/audio/target_break.ogg",
+            "type": "Audio"
+        },
+        "13394240930994658306": {
+            "hash": 5393845600626501084,
+            "path": "assets/models/roads/sign-highway.obj",
+            "type": "Mesh"
+        },
+        "13407037048875854063": {
+            "hash": 9063396894437353026,
+            "path": "assets/models/survival/workbench.obj",
+            "type": "Mesh"
+        },
+        "13411405023847301518": {
+            "hash": 7667178211117868293,
+            "path": "assets/models/roads/colormap.png",
+            "type": "Texture"
+        },
+        "13437266231809844331": {
+            "hash": 536311952510985449,
+            "path": "assets/models/blaster/crate-wide.obj",
+            "type": "Mesh"
+        },
+        "13463302467403683689": {
+            "hash": 16057629682858990918,
+            "path": "assets/models/blaster/bullet-foam-tip-thick.obj",
+            "type": "Mesh"
+        },
+        "13465857687414632563": {
+            "hash": 17812084979902158850,
+            "path": "assets/models/roads/road-bend-sidewalk.obj",
+            "type": "Mesh"
+        },
+        "13567746380806041129": {
+            "hash": 16303787984599194768,
+            "path": "assets/models/blaster/blaster-c.obj",
+            "type": "Mesh"
+        },
+        "13747716850376222389": {
+            "hash": 5599384949185889538,
+            "path": "assets/models/cars/debris-plate-b.obj",
+            "type": "Mesh"
+        },
+        "13761026768581745225": {
+            "hash": 6404799110057438199,
+            "path": "assets/models/survival/box.obj",
+            "type": "Mesh"
+        },
+        "1377047992899614397": {
+            "hash": 10511330929088113262,
+            "path": "assets/models/suburb/planter.obj",
+            "type": "Mesh"
+        },
+        "13793175735269026888": {
+            "hash": 8735875383133382685,
+            "path": "assets/models/survival/structure-metal-floor.obj",
+            "type": "Mesh"
+        },
+        "13852647691384041865": {
+            "hash": 2540098904092305527,
+            "path": "assets/models/survival/metal-panel-narrow.obj",
+            "type": "Mesh"
+        },
+        "13853618346374549843": {
+            "hash": 3793771962406687288,
+            "path": "assets/models/city/low-detail-building-d.obj",
+            "type": "Mesh"
+        },
+        "13868164253697110327": {
+            "hash": 8913508716175161289,
+            "path": "assets/models/roads/road-end-round.obj",
+            "type": "Mesh"
+        },
+        "13937871772446587254": {
+            "hash": 17772038450171585595,
+            "path": "assets/models/city/building-skyscraper-e.obj",
+            "type": "Mesh"
+        },
+        "13938670526756740389": {
+            "hash": 934705969920603258,
+            "path": "assets/audio/hurt.ogg",
+            "type": "Audio"
+        },
+        "14022035101434272470": {
+            "hash": 9409513976762275832,
+            "path": "assets/models/city/colormap.png",
+            "type": "Texture"
+        },
+        "14068198656955397554": {
+            "hash": 12673649207865599568,
+            "path": "assets/models/roads/road-bridge.obj",
+            "type": "Mesh"
+        },
+        "14101256737080176827": {
+            "hash": 9357020828682884027,
+            "path": "assets/models/city/detail-awning.obj",
+            "type": "Mesh"
+        },
+        "14129591148528334890": {
+            "hash": 13798689486717880599,
+            "path": "assets/models/survival/tree-autumn-trunk.obj",
+            "type": "Mesh"
+        },
+        "14158098775386855007": {
+            "hash": 11259534741808241236,
+            "path": "assets/models/roads/road-crossroad-barrier.obj",
+            "type": "Mesh"
+        },
+        "14238446923405188006": {
+            "hash": 2417068029714181097,
+            "path": "assets/models/suburb/building-type-s.obj",
+            "type": "Mesh"
+        },
+        "14407554736484000324": {
+            "hash": 16803751058593764299,
+            "path": "assets/models/roads/tile-slantHigh.obj",
+            "type": "Mesh"
+        },
+        "14433055776144711859": {
+            "hash": 16942720619294469554,
+            "path": "assets/models/characters/enemy_c.glb",
+            "type": "Mesh"
+        },
+        "14452770596847800161": {
+            "hash": 15216542978800194407,
+            "path": "assets/models/roads/road-straight-half.obj",
+            "type": "Mesh"
+        },
+        "14540588480063498368": {
+            "hash": 1190135146676310658,
+            "path": "assets/models/roads/road-curve.obj",
+            "type": "Mesh"
+        },
+        "14560486697616370423": {
+            "hash": 16934885956050281746,
+            "path": "assets/models/city/building-a.obj",
+            "type": "Mesh"
+        },
+        "14615855424974627491": {
+            "hash": 10311172967823986650,
+            "path": "assets/models/suburb/building-type-l.obj",
+            "type": "Mesh"
+        },
+        "14695311174320029295": {
+            "hash": 572803945597751137,
+            "path": "assets/models/survival/resource-planks.obj",
+            "type": "Mesh"
+        },
+        "14721021256423982497": {
+            "hash": 2119137141930319596,
+            "path": "assets/models/cars/race-future.obj",
+            "type": "Mesh"
+        },
+        "14734907377568428965": {
+            "hash": 12383206243071618185,
+            "path": "assets/models/roads/light-square.obj",
+            "type": "Mesh"
+        },
+        "14747997818635782384": {
+            "hash": 5524857538800965867,
+            "path": "assets/models/suburb/building-type-n.obj",
+            "type": "Mesh"
+        },
+        "14763824234956950276": {
+            "hash": 8835979811024050340,
+            "path": "assets/models/survival/colormap.png",
+            "type": "Texture"
+        },
+        "14765657008198105280": {
+            "hash": 10800688931781378773,
+            "path": "assets/models/survival/structure-metal-roof.obj",
+            "type": "Mesh"
+        },
+        "14858618781921589830": {
+            "hash": 10382720668723522678,
+            "path": "assets/models/survival/fence-fortified.obj",
+            "type": "Mesh"
+        },
+        "14931721843324782242": {
+            "hash": 15824100119355917736,
+            "path": "assets/models/cars/kart-oobi.obj",
+            "type": "Mesh"
+        },
+        "14960901885663102135": {
+            "hash": 685655910654814993,
+            "path": "assets/models/roads/road-slant-high-barrier.obj",
+            "type": "Mesh"
+        },
+        "14988479482867520457": {
+            "hash": 7974397343952778498,
+            "path": "assets/models/city/detail-parasol-a.obj",
+            "type": "Mesh"
+        },
+        "1510134634370472437": {
+            "hash": 3744837083716364423,
+            "path": "assets/models/roads/road-intersection-line.obj",
+            "type": "Mesh"
+        },
+        "15170694682050569549": {
+            "hash": 2912175831049757662,
+            "path": "assets/models/survival/tool-shovel-upgraded.obj",
+            "type": "Mesh"
+        },
+        "15209045648885957063": {
+            "hash": 4608085796673605917,
+            "path": "assets/models/cars/wheel-default.obj",
+            "type": "Mesh"
+        },
+        "15223339727328177533": {
+            "hash": 14904944643019299874,
+            "path": "assets/models/roads/construction-barrier.obj",
+            "type": "Mesh"
+        },
+        "15282893678623952079": {
+            "hash": 4339655096154052227,
+            "path": "assets/models/survival/grass.obj",
+            "type": "Mesh"
+        },
+        "15300885526556448369": {
+            "hash": 17671359047204803510,
+            "path": "assets/models/roads/road-crossroad-path.obj",
+            "type": "Mesh"
+        },
+        "15302348850827064953": {
+            "hash": 5432344477568980690,
+            "path": "assets/models/roads/road-split.obj",
+            "type": "Mesh"
+        },
+        "15319348384982605412": {
+            "hash": 7584586704238998202,
+            "path": "assets/models/roads/road-slant-flat-curve.obj",
+            "type": "Mesh"
+        },
+        "15344401470397654468": {
+            "hash": 14122462998514006907,
+            "path": "assets/models/blaster/blaster-q.obj",
+            "type": "Mesh"
+        },
+        "15454752149552541103": {
+            "hash": 13111349015080227284,
+            "path": "assets/models/roads/road-intersection.obj",
+            "type": "Mesh"
+        },
+        "15466355155094085230": {
+            "hash": 7649411996049343634,
+            "path": "assets/models/roads/construction-light.obj",
+            "type": "Mesh"
+        },
+        "15499119019478252653": {
+            "hash": 8660184586567392624,
+            "path": "assets/models/boats/boat-row-large.obj",
+            "type": "Mesh"
+        },
+        "15573191127648408073": {
+            "hash": 8420230466320087213,
+            "path": "assets/models/roads/road-split-barrier.obj",
+            "type": "Mesh"
+        },
+        "15583934876714342442": {
+            "hash": 16684327216246364791,
+            "path": "assets/models/suburb/fence.obj",
+            "type": "Mesh"
+        },
+        "15608333192006134138": {
+            "hash": 16893286196730278677,
+            "path": "assets/models/cars/tractor-shovel.obj",
+            "type": "Mesh"
+        },
+        "15727269981297011600": {
+            "hash": 1377682851960813721,
+            "path": "assets/models/survival/rock-c.obj",
+            "type": "Mesh"
+        },
+        "15740796696519963710": {
+            "hash": 5433584592915710992,
+            "path": "assets/models/city/building-skyscraper-a.obj",
+            "type": "Mesh"
+        },
+        "15760453839912428066": {
+            "hash": 6456089218375410290,
+            "path": "assets/models/survival/tree.obj",
+            "type": "Mesh"
+        },
+        "15769658052147155538": {
+            "hash": 14543787681144484301,
+            "path": "assets/models/city/building-c.obj",
+            "type": "Mesh"
+        },
+        "15770259638637641721": {
+            "hash": 13167431653331902912,
+            "path": "assets/models/roads/road-square.obj",
+            "type": "Mesh"
+        },
+        "15779089565315016322": {
+            "hash": 667817594094607648,
+            "path": "assets/models/city/detail-parasol-b.obj",
+            "type": "Mesh"
+        },
+        "15832191712422823686": {
+            "hash": 5493320494998638663,
+            "path": "assets/models/city/building-n.obj",
+            "type": "Mesh"
+        },
+        "15841350537291437928": {
+            "hash": 4032555068560718733,
+            "path": "assets/models/survival/metal-panel-screws.obj",
+            "type": "Mesh"
+        },
+        "15877308944015073275": {
+            "hash": 7244970606507651720,
+            "path": "assets/models/blaster/target-fragment-large.obj",
+            "type": "Mesh"
+        },
+        "15925852512715107340": {
+            "hash": 16469281305249740393,
+            "path": "assets/models/cars/cone-flat.obj",
+            "type": "Mesh"
+        },
+        "15942817850107181253": {
+            "hash": 15522096569153477910,
+            "path": "assets/models/suburb/tree-small.obj",
+            "type": "Mesh"
+        },
+        "15954827856816917973": {
+            "hash": 11427146718195893751,
+            "path": "assets/audio/spring.ogg",
+            "type": "Audio"
+        },
+        "16120439095271363418": {
+            "hash": 5809616691913400680,
+            "path": "assets/models/roads/road-side.obj",
+            "type": "Mesh"
+        },
+        "16206905175144475033": {
+            "hash": 10244870053516390255,
+            "path": "assets/models/survival/grass-large.obj",
+            "type": "Mesh"
+        },
+        "16252353942470736093": {
+            "hash": 854415954606108701,
+            "path": "assets/models/characters/enemy_b.glb",
+            "type": "Mesh"
+        },
+        "1626522994554381355": {
+            "hash": 2871779543757671986,
+            "path": "assets/models/blaster/target-fragment-small.obj",
+            "type": "Mesh"
+        },
+        "16371498066383289670": {
+            "hash": 15701038099519667813,
+            "path": "assets/models/blaster/target-small.obj",
+            "type": "Mesh"
+        },
+        "16376894586223515028": {
+            "hash": 9976418761744906691,
+            "path": "assets/models/roads/road-roundabout-barrier.obj",
+            "type": "Mesh"
+        },
+        "16388138383108147793": {
+            "hash": 15881672942652586377,
+            "path": "assets/models/survival/signpost.obj",
+            "type": "Mesh"
+        },
+        "16420219878605473358": {
+            "hash": 7965757095871751718,
+            "path": "assets/models/survival/rock-a.obj",
+            "type": "Mesh"
+        },
+        "1646365479896066802": {
+            "hash": 16107937741357135905,
+            "path": "assets/audio/step_a.ogg",
+            "type": "Audio"
+        },
+        "16606177865098678536": {
+            "hash": 13971171290145138360,
+            "path": "assets/models/city/low-detail-building-n.obj",
+            "type": "Mesh"
+        },
+        "16671913118543183655": {
+            "hash": 1789018743094410788,
+            "path": "assets/models/characters/ally_b.glb",
+            "type": "Mesh"
+        },
+        "1674282930741224467": {
+            "hash": 10536876753338392965,
+            "path": "assets/models/survival/tree-autumn.obj",
+            "type": "Mesh"
+        },
+        "16874150689283437996": {
+            "hash": 4463518756219459077,
+            "path": "assets/models/survival/rock-b.obj",
+            "type": "Mesh"
+        },
+        "16915330922776218377": {
+            "hash": 9049294236349176284,
+            "path": "assets/models/city/low-detail-building-m.obj",
+            "type": "Mesh"
+        },
+        "16926037765293736261": {
+            "hash": 3542985282986164693,
+            "path": "assets/audio/star.ogg",
+            "type": "Audio"
+        },
+        "16930136607992890304": {
+            "hash": 2357319588026690184,
+            "path": "assets/models/roads/road-curve-barrier.obj",
+            "type": "Mesh"
+        },
+        "1693968131362467316": {
+            "hash": 3512879495237641773,
+            "path": "assets/models/survival/tool-axe.obj",
+            "type": "Mesh"
+        },
+        "16941895201352233508": {
+            "hash": 8874351225606057789,
+            "path": "assets/models/blaster/scope-large-a.obj",
+            "type": "Mesh"
+        },
+        "16948909920809336068": {
+            "hash": 1049292397907821924,
+            "path": "assets/models/roads/road-slant.obj",
+            "type": "Mesh"
+        },
+        "16980164181312395720": {
+            "hash": 6876775571786882060,
+            "path": "assets/models/suburb/path-stones-short.obj",
+            "type": "Mesh"
+        },
+        "16981934335434284501": {
+            "hash": 2672638326792440567,
+            "path": "assets/models/cars/firetruck.obj",
+            "type": "Mesh"
+        },
+        "1703741070914539285": {
+            "hash": 594990013734281683,
+            "path": "assets/models/blaster/clip-small.obj",
+            "type": "Mesh"
+        },
+        "17061697777033130621": {
+            "hash": 16804583953580285755,
+            "path": "assets/models/survival/tree-trunk.obj",
+            "type": "Mesh"
+        },
+        "17152471909175985195": {
+            "hash": 1966993358402862620,
+            "path": "assets/models/city/low-detail-building-h.obj",
+            "type": "Mesh"
+        },
+        "17194576581421574567": {
+            "hash": 12291807563326453957,
+            "path": "assets/models/roads/road-intersection-path.obj",
+            "type": "Mesh"
+        },
+        "17206823601398112528": {
+            "hash": 477920644897543977,
+            "path": "assets/models/cars/debris-bolt.obj",
+            "type": "Mesh"
+        },
+        "17274194146851786549": {
+            "hash": 3623677386831056731,
+            "path": "assets/models/survival/tree-tall.obj",
+            "type": "Mesh"
+        },
+        "17278358915798240851": {
+            "hash": 6132597484979644521,
+            "path": "assets/models/cars/wheel-tractor-dark-back.obj",
+            "type": "Mesh"
+        },
+        "17437745063268051071": {
+            "hash": 2020728778179210887,
+            "path": "assets/models/roads/road-curve-intersection.obj",
+            "type": "Mesh"
+        },
+        "17465350556959235628": {
+            "hash": 542161162135160848,
+            "path": "assets/models/city/building-skyscraper-c.obj",
+            "type": "Mesh"
+        },
+        "17535111305310453158": {
+            "hash": 7061255162589410960,
+            "path": "assets/models/survival/tree-log.obj",
+            "type": "Mesh"
+        },
+        "17559043905838602125": {
+            "hash": 12746637689311512589,
+            "path": "assets/models/suburb/path-stones-long.obj",
+            "type": "Mesh"
+        },
+        "17567671890565069090": {
+            "hash": 7110981373163226833,
+            "path": "assets/audio/victory.ogg",
+            "type": "Audio"
+        },
+        "17605371150046247355": {
+            "hash": 17232500734696384270,
+            "path": "assets/models/survival/barrel.obj",
+            "type": "Mesh"
+        },
+        "17714311185452938030": {
+            "hash": 14758901373401373973,
+            "path": "assets/models/survival/workbench-grind.obj",
+            "type": "Mesh"
+        },
+        "17805282043189548050": {
+            "hash": 14960749395200580360,
+            "path": "assets/models/survival/tool-shovel.obj",
+            "type": "Mesh"
+        },
+        "17811764278606226448": {
+            "hash": 7336843615611287864,
+            "path": "assets/models/survival/structure-roof.obj",
+            "type": "Mesh"
+        },
+        "17816914183952561062": {
+            "hash": 2699172599202428329,
+            "path": "assets/audio/shoot_alt.ogg",
+            "type": "Audio"
+        },
+        "17925005476902821342": {
+            "hash": 6281096998634966192,
+            "path": "assets/models/blaster/scope-small.obj",
+            "type": "Mesh"
+        },
+        "18081520663467801413": {
+            "hash": 4354912412891760569,
+            "path": "assets/models/roads/road-side-entry.obj",
+            "type": "Mesh"
+        },
+        "18170548688377647699": {
+            "hash": 1471867819647575788,
+            "path": "assets/models/survival/metal-panel.obj",
+            "type": "Mesh"
+        },
+        "18204188004248873664": {
+            "hash": 2491023324945352966,
+            "path": "assets/models/blaster/blaster-g.obj",
+            "type": "Mesh"
+        },
+        "18218317722723933499": {
+            "hash": 16118615745861691347,
+            "path": "assets/models/roads/road-side-exit-barrier.obj",
+            "type": "Mesh"
+        },
+        "18289438819859121100": {
+            "hash": 14974002410908258238,
+            "path": "assets/models/roads/road-straight-barrier-end.obj",
+            "type": "Mesh"
+        },
+        "18304760391813599760": {
+            "hash": 9517067742967421614,
+            "path": "assets/models/survival/resource-stone-large.obj",
+            "type": "Mesh"
+        },
+        "18308466521707490099": {
+            "hash": 7494200587105328831,
+            "path": "assets/models/survival/structure-floor.obj",
+            "type": "Mesh"
+        },
+        "18358337836070180043": {
+            "hash": 9821231738336288071,
+            "path": "assets/models/roads/light-square-cross.obj",
+            "type": "Mesh"
+        },
+        "18442723445523158753": {
+            "hash": 6646707614115186362,
+            "path": "assets/models/suburb/driveway-short.obj",
+            "type": "Mesh"
+        },
+        "1916617835090043442": {
+            "hash": 4407735447450961763,
+            "path": "assets/models/suburb/building-type-c.obj",
+            "type": "Mesh"
+        },
+        "1971296357078414797": {
+            "hash": 4714141005276453751,
+            "path": "assets/models/roads/road-end-round-barrier.obj",
+            "type": "Mesh"
+        },
+        "199454763747685182": {
+            "hash": 4276475006230858895,
+            "path": "assets/models/cars/wheel-tractor-dark-front.obj",
+            "type": "Mesh"
+        },
+        "2061507572202407984": {
+            "hash": 17888967920087361242,
+            "path": "assets/models/suburb/building-type-r.obj",
+            "type": "Mesh"
+        },
+        "2116926872445473955": {
+            "hash": 2715096670767611479,
+            "path": "assets/models/city/low-detail-building-c.obj",
+            "type": "Mesh"
+        },
+        "2157622096978170597": {
+            "hash": 888992153409309759,
+            "path": "assets/audio/hit.ogg",
+            "type": "Audio"
+        },
+        "2187528984461078343": {
+            "hash": 13831039912604927653,
+            "path": "assets/models/suburb/building-type-i.obj",
+            "type": "Mesh"
+        },
+        "219089584039067926": {
+            "hash": 4711078136101790320,
+            "path": "assets/models/roads/road-side-entry-barrier.obj",
+            "type": "Mesh"
+        },
+        "2201743095485334626": {
+            "hash": 17615357227298228564,
+            "path": "assets/models/blaster/bullet-foam.obj",
+            "type": "Mesh"
+        },
+        "2213658189173828418": {
+            "hash": 14916889115815258670,
+            "path": "assets/models/roads/road-bend-square-barrier.obj",
+            "type": "Mesh"
+        },
+        "2240936113277543881": {
+            "hash": 4320874622414564977,
+            "path": "assets/models/roads/road-slant-barrier.obj",
+            "type": "Mesh"
+        },
+        "2315250795222476369": {
+            "hash": 5195164776653019780,
+            "path": "assets/models/boats/colormap.png",
+            "type": "Texture"
+        },
+        "2416738181482445119": {
+            "hash": 503963804156054844,
+            "path": "assets/models/suburb/path-long.obj",
+            "type": "Mesh"
+        },
+        "2579027610820303998": {
+            "hash": 10402094706935598922,
+            "path": "assets/models/survival/tree-autumn-tall.obj",
+            "type": "Mesh"
+        },
+        "2584583924230957843": {
+            "hash": 13119179718535759024,
+            "path": "assets/models/suburb/building-type-e.obj",
+            "type": "Mesh"
+        },
+        "2588289988607234791": {
+            "hash": 14547408487065862706,
+            "path": "assets/models/survival/box-large.obj",
+            "type": "Mesh"
+        },
+        "2600971124196915616": {
+            "hash": 11082972052771959904,
+            "path": "assets/models/blaster/blaster-i.obj",
+            "type": "Mesh"
+        },
+        "2684077703411101859": {
+            "hash": 6743961921116179545,
+            "path": "assets/models/suburb/building-type-d.obj",
+            "type": "Mesh"
+        },
+        "2721751878843306509": {
+            "hash": 16647765808818610882,
+            "path": "assets/models/suburb/fence-1x4.obj",
+            "type": "Mesh"
+        },
+        "2825704660074449376": {
+            "hash": 1607622167604194147,
+            "path": "assets/models/blaster/smoke.obj",
+            "type": "Mesh"
+        },
+        "2827788693258522643": {
+            "hash": 16542033554457417017,
+            "path": "assets/models/cars/debris-spoiler-b.obj",
+            "type": "Mesh"
+        },
+        "2900192543854475235": {
+            "hash": 17586087933039405245,
+            "path": "assets/models/suburb/driveway-long.obj",
+            "type": "Mesh"
+        },
+        "2961075924288453618": {
+            "hash": 179207419052519509,
+            "path": "assets/audio/shoot.ogg",
+            "type": "Audio"
+        },
+        "3008696643515065550": {
+            "hash": 17533335423511550482,
+            "path": "assets/models/blaster/grenade-b.obj",
+            "type": "Mesh"
+        },
+        "3056093089964972973": {
+            "hash": 4889236235176496793,
+            "path": "assets/models/blaster/silencer-larger.obj",
+            "type": "Mesh"
+        },
+        "309426711043581251": {
+            "hash": 17236109364179647793,
+            "path": "assets/models/cars/debris-bumper.obj",
+            "type": "Mesh"
+        },
+        "3118652093878758299": {
+            "hash": 12130923685654065742,
+            "path": "assets/models/city/building-b.obj",
+            "type": "Mesh"
+        },
+        "3164839073593790772": {
+            "hash": 15286323393962592773,
+            "path": "assets/models/roads/road-crossroad-line.obj",
+            "type": "Mesh"
+        },
+        "3213697960426671538": {
+            "hash": 13642811483303623159,
+            "path": "assets/models/survival/workbench-anvil.obj",
+            "type": "Mesh"
+        },
+        "3221795603577458165": {
+            "hash": 7421203050298681578,
+            "path": "assets/models/survival/box-open.obj",
+            "type": "Mesh"
+        },
+        "3284397452334678531": {
+            "hash": 9873060704898598979,
+            "path": "assets/models/cars/debris-drivetrain.obj",
+            "type": "Mesh"
+        },
+        "3287253472363357217": {
+            "hash": 8062779120684334862,
+            "path": "assets/models/survival/tool-hoe.obj",
+            "type": "Mesh"
+        },
+        "3298765799224387316": {
+            "hash": 14881553342832312636,
+            "path": "assets/models/survival/signpost-single.obj",
+            "type": "Mesh"
+        },
+        "3320607747709901278": {
+            "hash": 10896105824675960905,
+            "path": "assets/models/city/low-detail-building-b.obj",
+            "type": "Mesh"
+        },
+        "3322675421294344585": {
+            "hash": 13105284913025927190,
+            "path": "assets/models/cars/debris-plate-small-b.obj",
+            "type": "Mesh"
+        },
+        "333606163435335585": {
+            "hash": 8738665413730977678,
+            "path": "assets/models/blaster/target-large.obj",
+            "type": "Mesh"
+        },
+        "3374371480782881050": {
+            "hash": 16105095503815608205,
+            "path": "assets/models/city/detail-overhang-wide.obj",
+            "type": "Mesh"
+        },
+        "3441746779990592709": {
+            "hash": 6933939263300513442,
+            "path": "assets/models/roads/road-square-barrier.obj",
+            "type": "Mesh"
+        },
+        "3456135112783251648": {
+            "hash": 435852367720502846,
+            "path": "assets/models/roads/road-bend-square.obj",
+            "type": "Mesh"
+        },
+        "347672872809219609": {
+            "hash": 11290243064867632801,
+            "path": "assets/models/survival/tool-hammer-upgraded.obj",
+            "type": "Mesh"
+        },
+        "3508197226732682008": {
+            "hash": 16598027098219135938,
+            "path": "assets/models/city/detail-awning-wide.obj",
+            "type": "Mesh"
+        },
+        "3595354910138257325": {
+            "hash": 18426843135070704201,
+            "path": "assets/models/survival/tent.obj",
+            "type": "Mesh"
+        },
+        "3658491587814378404": {
+            "hash": 14519809681721544307,
+            "path": "assets/models/survival/bottle-large.obj",
+            "type": "Mesh"
+        },
+        "3704533247429089756": {
+            "hash": 17261253702867852976,
+            "path": "assets/models/survival/floor-hole.obj",
+            "type": "Mesh"
+        },
+        "3726526829590243612": {
+            "hash": 14145654647258579611,
+            "path": "assets/models/blaster/blaster-r.obj",
+            "type": "Mesh"
+        },
+        "3734123863696095323": {
+            "hash": 16371491391026123185,
+            "path": "assets/audio/jump.ogg",
+            "type": "Audio"
+        },
+        "373871094038109639": {
+            "hash": 16353385620540042066,
+            "path": "assets/models/roads/road-driveway-double.obj",
+            "type": "Mesh"
+        },
+        "3797966096480891320": {
+            "hash": 4058162507854081173,
+            "path": "assets/models/survival/bottle.obj",
+            "type": "Mesh"
+        },
+        "3811171670982667723": {
+            "hash": 7453338865544883350,
+            "path": "assets/models/blaster/blaster-b.obj",
+            "type": "Mesh"
+        },
+        "3894175389004078472": {
+            "hash": 13119144488969609503,
+            "path": "assets/models/survival/bedroll-frame.obj",
+            "type": "Mesh"
+        },
+        "3906965146674485214": {
+            "hash": 1617066975362429830,
+            "path": "assets/models/roads/tile-high.obj",
+            "type": "Mesh"
+        },
+        "3947698034543020741": {
+            "hash": 11390647631395167607,
+            "path": "assets/models/characters/player.glb",
+            "type": "Mesh"
+        },
+        "413852135641285427": {
+            "hash": 6790282390152949060,
+            "path": "assets/models/cars/debris-door-window.obj",
+            "type": "Mesh"
+        },
+        "4219510887172550069": {
+            "hash": 7257222318130645077,
+            "path": "assets/models/roads/sign-highway-wide.obj",
+            "type": "Mesh"
+        },
+        "4250850274463441476": {
+            "hash": 14900063975402317866,
+            "path": "assets/models/blaster/bullet-foam-thick.obj",
+            "type": "Mesh"
+        },
+        "4299458719331225717": {
+            "hash": 3312335252383864680,
+            "path": "assets/models/blaster/blaster-p.obj",
+            "type": "Mesh"
+        },
+        "4334294303407199002": {
+            "hash": 8855435649200179757,
+            "path": "assets/models/city/building-f.obj",
+            "type": "Mesh"
+        },
+        "4373298334498601337": {
+            "hash": 2575476052816544150,
+            "path": "assets/models/city/low-detail-building-j.obj",
+            "type": "Mesh"
+        },
+        "4393197034768933635": {
+            "hash": 2732050548514513051,
+            "path": "assets/models/roads/road-bend-barrier.obj",
+            "type": "Mesh"
+        },
+        "4423657601168076330": {
+            "hash": 2541169488990164630,
+            "path": "assets/models/cars/debris-nut.obj",
+            "type": "Mesh"
+        },
+        "450569439666419011": {
+            "hash": 6907136499660580832,
+            "path": "assets/models/survival/tool-axe-upgraded.obj",
+            "type": "Mesh"
+        },
+        "4652560556156933748": {
+            "hash": 14388389503431830944,
+            "path": "assets/models/survival/fence.obj",
+            "type": "Mesh"
+        },
+        "4659928718746851220": {
+            "hash": 9467471229449347640,
+            "path": "assets/models/cars/delivery.obj",
+            "type": "Mesh"
+        },
+        "4729256446812957240": {
+            "hash": 6161016095535026861,
+            "path": "assets/models/cars/ambulance.obj",
+            "type": "Mesh"
+        },
+        "4990130854792837433": {
+            "hash": 527116445529606541,
+            "path": "assets/models/cars/police.obj",
+            "type": "Mesh"
+        },
+        "5052812324442371820": {
+            "hash": 4348912247188022210,
+            "path": "assets/models/roads/construction-cone.obj",
+            "type": "Mesh"
+        },
+        "5134267870756278273": {
+            "hash": 11470914163006130421,
+            "path": "assets/models/cars/wheel-tractor-back.obj",
+            "type": "Mesh"
+        },
+        "5181481915904258193": {
+            "hash": 2425303509198821022,
+            "path": "assets/models/survival/metal-panel-screws-half.obj",
+            "type": "Mesh"
+        },
+        "5186385146302820154": {
+            "hash": 6244855542675533579,
+            "path": "assets/models/roads/tile-slant.obj",
+            "type": "Mesh"
+        },
+        "52863623774334511": {
+            "hash": 12791101518118268223,
+            "path": "assets/audio/defeat.ogg",
+            "type": "Audio"
+        },
+        "5289829028220338420": {
+            "hash": 18093241260899441777,
+            "path": "assets/models/roads/road-crossing.obj",
+            "type": "Mesh"
+        },
+        "5391353743478475151": {
+            "hash": 15054759790288226505,
+            "path": "assets/audio/coin.ogg",
+            "type": "Audio"
+        },
+        "5441557775120875619": {
+            "hash": 13907838917545178953,
+            "path": "assets/models/survival/tool-hoe-upgraded.obj",
+            "type": "Mesh"
+        },
+        "5469842503291036721": {
+            "hash": 14789437929882205110,
+            "path": "assets/models/survival/rock-sand-c.obj",
+            "type": "Mesh"
+        },
+        "5491494325918910251": {
+            "hash": 14150976550317073551,
+            "path": "assets/models/survival/campfire-pit.obj",
+            "type": "Mesh"
+        },
+        "5533324255547514758": {
+            "hash": 14679915335679807154,
+            "path": "assets/models/city/low-detail-building-f.obj",
+            "type": "Mesh"
+        },
+        "5538767218021136382": {
+            "hash": 4588556695393880897,
+            "path": "assets/models/city/building-e.obj",
+            "type": "Mesh"
+        },
+        "5590577437971433819": {
+            "hash": 3008853862123855453,
+            "path": "assets/models/blaster/blaster-l.obj",
+            "type": "Mesh"
+        },
+        "5671776777297438021": {
+            "hash": 12139557147118320240,
+            "path": "assets/models/survival/floor-old.obj",
+            "type": "Mesh"
+        },
+        "5682595138987192111": {
+            "hash": 11076092985799729448,
+            "path": "assets/models/blaster/blaster-n.obj",
+            "type": "Mesh"
+        },
+        "5701712512019188044": {
+            "hash": 5654343316601606913,
+            "path": "assets/models/city/building-l.obj",
+            "type": "Mesh"
+        },
+        "5750961971183437698": {
+            "hash": 10100224786356205931,
+            "path": "assets/models/roads/road-bend.obj",
+            "type": "Mesh"
+        },
+        "5774064244301953710": {
+            "hash": 15554550139543165747,
+            "path": "assets/models/city/building-j.obj",
+            "type": "Mesh"
+        },
+        "5794947854936869300": {
+            "hash": 3910846166624379368,
+            "path": "assets/audio/enemy_die.ogg",
+            "type": "Audio"
+        },
+        "5860923455882343847": {
+            "hash": 7810380469957065564,
+            "path": "assets/models/survival/rock-flat.obj",
+            "type": "Mesh"
+        },
+        "588086542373807497": {
+            "hash": 4484226837676397538,
+            "path": "assets/models/roads/light-curved.obj",
+            "type": "Mesh"
+        },
+        "592107449078458808": {
+            "hash": 899626498118966072,
+            "path": "assets/models/survival/resource-stone.obj",
+            "type": "Mesh"
+        },
+        "5935626543000204135": {
+            "hash": 13048789050630264397,
+            "path": "assets/models/city/low-detail-building-g.obj",
+            "type": "Mesh"
+        },
+        "5962191482716601600": {
+            "hash": 5605625360816381257,
+            "path": "assets/models/roads/road-curve-intersection-barrier.obj",
+            "type": "Mesh"
+        },
+        "5973084784669232138": {
+            "hash": 7772470366287545328,
+            "path": "assets/models/survival/structure.obj",
+            "type": "Mesh"
+        },
+        "6067846846295825525": {
+            "hash": 2294865900156928597,
+            "path": "assets/models/suburb/path-stones-messy.obj",
+            "type": "Mesh"
+        },
+        "6126349668668263336": {
+            "hash": 12156229413830503555,
+            "path": "assets/models/characters/ally.glb",
+            "type": "Mesh"
+        },
+        "6166834988971704086": {
+            "hash": 6120362767859798446,
+            "path": "assets/models/cars/debris-door.obj",
+            "type": "Mesh"
+        },
+        "6200391642088983312": {
+            "hash": 15976158302477822405,
+            "path": "assets/models/survival/bedroll-packed.obj",
+            "type": "Mesh"
+        },
+        "6208605460023586551": {
+            "hash": 1087875926736110462,
+            "path": "assets/models/city/detail-overhang.obj",
+            "type": "Mesh"
+        },
+        "622836765494572283": {
+            "hash": 18023214616484296895,
+            "path": "assets/models/city/low-detail-building-a.obj",
+            "type": "Mesh"
+        },
+        "6238127623716310638": {
+            "hash": 2214617022359441482,
+            "path": "assets/models/roads/road-end-barrier.obj",
+            "type": "Mesh"
+        },
+        "645077857082282717": {
+            "hash": 8968506455759984763,
+            "path": "assets/models/cars/box.obj",
+            "type": "Mesh"
+        },
+        "6489230666159169424": {
+            "hash": 2644571062520604342,
+            "path": "assets/models/city/building-i.obj",
+            "type": "Mesh"
+        },
+        "6547770323119266419": {
+            "hash": 8062667361940075991,
+            "path": "scenes/city.roadnet",
+            "type": "Unknown"
+        },
+        "6551543585883579551": {
+            "hash": 5268015963478687018,
+            "path": "assets/models/blaster/blaster-d.obj",
+            "type": "Mesh"
+        },
+        "6599946281460137426": {
+            "hash": 17918251575115925884,
+            "path": "assets/models/roads/road-end.obj",
+            "type": "Mesh"
+        },
+        "6659127662550478350": {
+            "hash": 1490888920519820274,
+            "path": "assets/models/survival/tool-pickaxe-upgraded.obj",
+            "type": "Mesh"
+        },
+        "6709818842146086589": {
+            "hash": 16042371689399462083,
+            "path": "assets/models/cars/suv-luxury.obj",
+            "type": "Mesh"
+        },
+        "6710102702473581467": {
+            "hash": 13148196519154269809,
+            "path": "assets/models/city/low-detail-building-k.obj",
+            "type": "Mesh"
+        },
+        "6790550297362514065": {
+            "hash": 7304734599410158164,
+            "path": "assets/models/roads/road-straight.obj",
+            "type": "Mesh"
+        },
+        "6812889292225248088": {
+            "hash": 5711430638203045659,
+            "path": "assets/models/survival/resource-wood.obj",
+            "type": "Mesh"
+        },
+        "6830259195119319572": {
+            "hash": 49922319262142698,
+            "path": "assets/models/roads/road-driveway-single.obj",
+            "type": "Mesh"
+        },
+        "6878731167622719888": {
+            "hash": 6604172278634771148,
+            "path": "assets/models/cars/sedan.obj",
+            "type": "Mesh"
+        },
+        "6911801389546451765": {
+            "hash": 17912776944120456974,
+            "path": "assets/models/survival/tent-canvas.obj",
+            "type": "Mesh"
+        },
+        "6980895712891016523": {
+            "hash": 12173835020542044824,
+            "path": "assets/models/survival/barrel-open.obj",
+            "type": "Mesh"
+        },
+        "6995128822182560254": {
+            "hash": 7545576890929940637,
+            "path": "assets/models/survival/campfire-stand.obj",
+            "type": "Mesh"
+        },
+        "7086970221623352800": {
+            "hash": 4378311118788891497,
+            "path": "assets/models/roads/road-straight-barrier-half.obj",
+            "type": "Mesh"
+        },
+        "7118031809116349775": {
+            "hash": 7003522831838038241,
+            "path": "assets/models/cars/hatchback-sports.obj",
+            "type": "Mesh"
+        },
+        "7232676691293561436": {
+            "hash": 10987938249637079783,
+            "path": "assets/models/blaster/scope-large-b.obj",
+            "type": "Mesh"
+        },
+        "7253227976482654758": {
+            "hash": 4662857012886782597,
+            "path": "assets/models/roads/bridge-pillar.obj",
+            "type": "Mesh"
+        },
+        "731711644580118919": {
+            "hash": 4687432118039219962,
+            "path": "assets/models/suburb/fence-2x3.obj",
+            "type": "Mesh"
+        },
+        "7356329293237589174": {
+            "hash": 8696099337815097542,
+            "path": "assets/models/roads/road-driveway-double-barrier.obj",
+            "type": "Mesh"
+        },
+        "7388034633499812030": {
+            "hash": 7232025161934875090,
+            "path": "assets/models/city/building-m.obj",
+            "type": "Mesh"
+        },
+        "7445149448998467332": {
+            "hash": 15704409069112669427,
+            "path": "assets/models/blaster/target-detail.obj",
+            "type": "Mesh"
+        },
+        "7510877476554847945": {
+            "hash": 9281890414289552437,
+            "path": "assets/models/cars/van.obj",
+            "type": "Mesh"
+        },
+        "7622399964329470000": {
+            "hash": 8686927467782649357,
+            "path": "assets/models/roads/road-slant-curve.obj",
+            "type": "Mesh"
+        },
+        "7685285690353981613": {
+            "hash": 7344881573200524275,
+            "path": "assets/models/blaster/bullet-foam-tip.obj",
+            "type": "Mesh"
+        },
+        "781004976103852506": {
+            "hash": 14986933365652286565,
+            "path": "assets/models/suburb/colormap.png",
+            "type": "Texture"
+        },
+        "7820564725050096043": {
+            "hash": 11479746233644978045,
+            "path": "assets/models/cars/kart-oodi.obj",
+            "type": "Mesh"
+        },
+        "7827420904650046305": {
+            "hash": 16408344004673368000,
+            "path": "assets/models/roads/bridge-pillar-wide.obj",
+            "type": "Mesh"
+        },
+        "7869208428248461769": {
+            "hash": 12807031268910054703,
+            "path": "assets/models/suburb/building-type-b.obj",
+            "type": "Mesh"
+        },
+        "78998236087126369": {
+            "hash": 18137894473598990316,
+            "path": "assets/models/survival/floor.obj",
+            "type": "Mesh"
+        },
+        "7959713227557666550": {
+            "hash": 18071026426040710706,
+            "path": "assets/models/survival/fish.obj",
+            "type": "Mesh"
+        },
+        "7988633723254884749": {
+            "hash": 12057174123227929364,
+            "path": "assets/models/city/low-detail-building-e.obj",
+            "type": "Mesh"
+        },
+        "7999435835570751652": {
+            "hash": 16903527484869096972,
+            "path": "assets/models/roads/road-slant-curve-barrier.obj",
+            "type": "Mesh"
+        },
+        "8083254282262573129": {
+            "hash": 14748184911608152194,
+            "path": "assets/models/suburb/building-type-t.obj",
+            "type": "Mesh"
+        },
+        "8092063551599759267": {
+            "hash": 15708850878955974191,
+            "path": "assets/models/roads/tile-low.obj",
+            "type": "Mesh"
+        },
+        "8120253427787110752": {
+            "hash": 1019139349345568177,
+            "path": "assets/models/cars/debris-drivetrain-axle.obj",
+            "type": "Mesh"
+        },
+        "8225886406654510635": {
+            "hash": 15471357344504313704,
+            "path": "assets/models/city/low-detail-building-l.obj",
+            "type": "Mesh"
+        },
+        "8270450423911641471": {
+            "hash": 5970796685654199881,
+            "path": "assets/models/suburb/building-type-q.obj",
+            "type": "Mesh"
+        },
+        "8338769687369857674": {
+            "hash": 958001567359581611,
+            "path": "assets/models/blaster/blaster-h.obj",
+            "type": "Mesh"
+        },
+        "8449784342122179021": {
+            "hash": 12130524521059199774,
+            "path": "assets/models/roads/road-crossroad.obj",
+            "type": "Mesh"
+        },
+        "8557692046704848047": {
+            "hash": 4158672574482129759,
+            "path": "assets/models/suburb/building-type-o.obj",
+            "type": "Mesh"
+        },
+        "8565576894909358063": {
+            "hash": 12971584958969839994,
+            "path": "assets/models/survival/chest.obj",
+            "type": "Mesh"
+        },
+        "8635395412576362256": {
+            "hash": 17197221093372275830,
+            "path": "assets/models/cars/wheel-tractor-front.obj",
+            "type": "Mesh"
+        },
+        "8669751076083731985": {
+            "hash": 2821557946661522519,
+            "path": "assets/models/survival/tool-pickaxe.obj",
+            "type": "Mesh"
+        },
+        "8710901210889723392": {
+            "hash": 10300783916732990112,
+            "path": "assets/models/suburb/building-type-k.obj",
+            "type": "Mesh"
+        },
+        "8718353630986270689": {
+            "hash": 16282971880427448035,
+            "path": "assets/models/suburb/building-type-g.obj",
+            "type": "Mesh"
+        },
+        "9055186291607776431": {
+            "hash": 1642208528537636589,
+            "path": "assets/models/survival/box-large-open.obj",
+            "type": "Mesh"
+        },
+        "9168227998511373395": {
+            "hash": 1238978435445232911,
+            "path": "assets/models/city/low-detail-building-wide-b.obj",
+            "type": "Mesh"
+        },
+        "9182422028542986318": {
+            "hash": 15247932551150129699,
+            "path": "assets/models/suburb/fence-3x2.obj",
+            "type": "Mesh"
+        },
+        "9236231785432725721": {
+            "hash": 3269536602127024635,
+            "path": "assets/models/survival/rock-sand-b.obj",
+            "type": "Mesh"
+        },
+        "9295289947832100671": {
+            "hash": 10330255200878640507,
+            "path": "assets/models/suburb/building-type-u.obj",
+            "type": "Mesh"
+        },
+        "9315558168071819897": {
+            "hash": 12939077665573766110,
+            "path": "assets/models/roads/road-driveway-single-barrier.obj",
+            "type": "Mesh"
+        },
+        "9323775290068087506": {
+            "hash": 1197658748267222393,
+            "path": "assets/models/suburb/fence-2x2.obj",
+            "type": "Mesh"
+        },
+        "9348380753434170383": {
+            "hash": 2158069327303661135,
+            "path": "assets/models/survival/patch-grass-large.obj",
+            "type": "Mesh"
+        },
+        "935884660037514589": {
+            "hash": 10774277041190395416,
+            "path": "assets/models/blaster/blaster-j.obj",
+            "type": "Mesh"
+        },
+        "9372812546991888983": {
+            "hash": 17679967565698292902,
+            "path": "assets/models/city/low-detail-building-wide-a.obj",
+            "type": "Mesh"
+        },
+        "9418478586444193313": {
+            "hash": 1565005793824907611,
+            "path": "assets/models/survival/campfire-fishing-stand.obj",
+            "type": "Mesh"
+        },
+        "9447954197883857634": {
+            "hash": 10497710138368187375,
+            "path": "assets/models/cars/kart-oopi.obj",
+            "type": "Mesh"
+        },
+        "9450782708873351845": {
+            "hash": 9312890327019521452,
+            "path": "assets/models/cars/wheel-racing.obj",
+            "type": "Mesh"
+        },
+        "9466977946702393294": {
+            "hash": 1256697553046578072,
+            "path": "assets/models/cars/debris-spoiler-a.obj",
+            "type": "Mesh"
+        },
+        "9601133666124815753": {
+            "hash": 83744680105968552,
+            "path": "assets/models/suburb/fence-1x3.obj",
+            "type": "Mesh"
+        },
+        "9619231600364703882": {
+            "hash": 13802298535107650609,
+            "path": "assets/skies/sky.hdr",
+            "type": "Texture"
+        },
+        "9619775635007912369": {
+            "hash": 2064243233072155695,
+            "path": "assets/models/cars/tractor-police.obj",
+            "type": "Mesh"
+        },
+        "9624313069076149041": {
+            "hash": 11895332727964795818,
+            "path": "assets/models/cars/cone.obj",
+            "type": "Mesh"
+        },
+        "9672379923720328614": {
+            "hash": 5116160601824169004,
+            "path": "assets/models/cars/debris-plate-a.obj",
+            "type": "Mesh"
+        },
+        "9685887525608947966": {
+            "hash": 1326697670224420248,
+            "path": "assets/models/roads/road-slant-high.obj",
+            "type": "Mesh"
+        },
+        "9698429890064225140": {
+            "hash": 9491037912257789700,
+            "path": "assets/models/cars/wheel-truck.obj",
+            "type": "Mesh"
+        },
+        "9788341507808738201": {
+            "hash": 7167365734608379050,
+            "path": "assets/models/blaster/blaster-m.obj",
+            "type": "Mesh"
+        },
+        "9818626469433539960": {
+            "hash": 11988567635820694943,
+            "path": "assets/models/roads/road-slant-flat-high.obj",
+            "type": "Mesh"
+        },
+        "9842218552580026728": {
+            "hash": 15109717586487706711,
+            "path": "assets/models/city/low-detail-building-i.obj",
+            "type": "Mesh"
+        },
+        "989813928755829900": {
+            "hash": 1539280934039791029,
+            "path": "assets/models/blaster/blaster-e.obj",
+            "type": "Mesh"
+        },
+        "9963959943729829730": {
+            "hash": 17225429744897377155,
+            "path": "assets/models/cars/race.obj",
+            "type": "Mesh"
+        }
+    },
+    "schema": 2,
+    "version": 2
+}

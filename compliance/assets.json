@@ -30,6 +30,3246 @@
       "provenance": "First-party BeachDemo sky asset introduced in repository commit a3b57fa5."
     },
     {
+      "path": "GTAClone/assets/audio/coin.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/defeat.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/enemy_die.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/explosion.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/hit.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/hurt.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/jump.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/land.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/shoot.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/shoot_alt.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/spring.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/star.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/step_a.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/step_b.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/target_break.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/audio/victory.ogg",
+      "kind": "audio",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Impact, Sci-Fi, Interface, RPG and Music Jingles audio packs."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-c.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-d.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-e.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-f.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-g.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-h.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-i.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-j.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-k.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-l.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-m.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-n.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-o.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-p.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-q.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/blaster-r.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/bullet-foam-thick.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/bullet-foam-tip-thick.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/bullet-foam-tip.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/bullet-foam.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/clip-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/clip-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/colormap.png",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/crate-medium.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/crate-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/crate-wide.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/grenade-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/grenade-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/scope-large-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/scope-large-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/scope-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/silencer-larger.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/silencer-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/smoke.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/target-detail.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/target-fragment-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/target-fragment-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/target-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/blaster/target-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Blaster Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/boats/boat-row-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Pirate Kit 2.1, the two rowing boats only, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/boats/boat-row-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Pirate Kit 2.1, the two rowing boats only, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/boats/colormap.png",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Pirate Kit 2.1, the two rowing boats only, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/ambulance-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/ambulance-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/ambulance.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/box.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/colormap.png",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/cone-flat.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/cone.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-bolt.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-bumper.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-door-window.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-door.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-drivetrain-axle.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-drivetrain.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-nut.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-plate-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-plate-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-plate-small-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-plate-small-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-spoiler-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-spoiler-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/debris-tire.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/delivery-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/delivery-flat-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/delivery-flat-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/delivery-flat.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/delivery-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/delivery.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/firetruck-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/firetruck-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/firetruck.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/garbage-truck-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/garbage-truck-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/garbage-truck.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/hatchback-sports-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/hatchback-sports-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/hatchback-sports.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oobi-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oobi-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oobi.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oodi-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oodi-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oodi.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-ooli-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-ooli-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-ooli.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oopi-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oopi-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oopi.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oozi-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oozi-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/kart-oozi.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/police-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/police-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/police.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/race-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/race-future-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/race-future-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/race-future.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/race-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/race.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/sedan-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/sedan-sports-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/sedan-sports-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/sedan-sports.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/sedan-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/sedan.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/suv-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/suv-luxury-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/suv-luxury-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/suv-luxury.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/suv-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/suv.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/taxi-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/taxi-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/taxi.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-police-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-police-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-police.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-shovel-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-shovel-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-shovel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/tractor.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/truck-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/truck-flat-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/truck-flat-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/truck-flat.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/truck-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/truck.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/van-body.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/van-wheel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, split into chassis and wheel by GTAClone/tools/split_car_wheels.py so a driven vehicle can steer and spin them; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/van.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-dark.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-default.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-racing.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-tractor-back.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-tractor-dark-back.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-tractor-dark-front.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-tractor-front.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/cars/wheel-truck.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Car Kit, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/characters/ally.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Animated Characters (Protagonists / Survivors / Retro). Rig and clips merged into one GLB by VerticalSlice/tools/convert_kenney_character.py; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/characters/ally_b.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Animated Characters (Protagonists / Survivors / Retro). Rig and clips merged into one GLB by VerticalSlice/tools/convert_kenney_character.py; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/characters/enemy_a.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Animated Characters (Protagonists / Survivors / Retro). Rig and clips merged into one GLB by VerticalSlice/tools/convert_kenney_character.py; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/characters/enemy_b.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Animated Characters (Protagonists / Survivors / Retro). Rig and clips merged into one GLB by VerticalSlice/tools/convert_kenney_character.py; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/characters/enemy_c.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Animated Characters (Protagonists / Survivors / Retro). Rig and clips merged into one GLB by VerticalSlice/tools/convert_kenney_character.py; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/characters/player.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Animated Characters (Protagonists / Survivors / Retro). Rig and clips merged into one GLB by VerticalSlice/tools/convert_kenney_character.py; CC0 permits the modification."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-c.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-d.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-e.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-f.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-g.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-h.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-i.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-j.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-k.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-l.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-m.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-n.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-skyscraper-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-skyscraper-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-skyscraper-c.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-skyscraper-d.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/building-skyscraper-e.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/colormap.png",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/detail-awning-wide.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/detail-awning.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/detail-overhang-wide.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/detail-overhang.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/detail-parasol-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/detail-parasol-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-c.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-d.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-e.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-f.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-g.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-h.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-i.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-j.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-k.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-l.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-m.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-n.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-wide-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/city/low-detail-building-wide-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Commercial) 2.1, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/bridge-pillar-wide.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/bridge-pillar.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/colormap.png",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/construction-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/construction-cone.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/construction-light.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/light-curved-cross.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/light-curved-double.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/light-curved.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/light-square-cross.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/light-square-double.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/light-square.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-bend-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-bend-sidewalk.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-bend-square-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-bend-square.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-bend.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-bridge.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-crossing.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-crossroad-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-crossroad-line.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-crossroad-path.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-crossroad.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-curve-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-curve-intersection-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-curve-intersection.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-curve-pavement.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-curve.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-driveway-double-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-driveway-double.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-driveway-single-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-driveway-single.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-end-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-end-round-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-end-round.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-end.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-intersection-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-intersection-line.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-intersection-path.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-intersection.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-roundabout-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-roundabout.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-side-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-side-entry-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-side-entry.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-side-exit-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-side-exit.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-side.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-curve-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-curve.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-flat-curve.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-flat-high.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-flat.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-high-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant-high.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-slant.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-split-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-split.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-square-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-square.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-straight-barrier-end.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-straight-barrier-half.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-straight-barrier.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-straight-half.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/road-straight.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/sign-highway-detailed.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/sign-highway-wide.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/sign-highway.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/tile-high.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/tile-low.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/tile-slant.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/roads/tile-slantHigh.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Roads), OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-c.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-d.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-e.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-f.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-g.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-h.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-i.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-j.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-k.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-l.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-m.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-n.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-o.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-p.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-q.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-r.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-s.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-t.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/building-type-u.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/colormap.png",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/driveway-long.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/driveway-short.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-1x2.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-1x3.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-1x4.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-2x2.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-2x3.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-3x2.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-3x3.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence-low.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/fence.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/path-long.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/path-short.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/path-stones-long.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/path-stones-messy.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/path-stones-short.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/planter.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/tree-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/suburb/tree-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney City Kit (Suburban) 20, OBJ variant used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/barrel-open.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/barrel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/bedroll-frame.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/bedroll-packed.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/bedroll.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/bottle-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/bottle.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/box-large-open.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/box-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/box-open.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/box.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/bucket.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/campfire-fishing-stand.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/campfire-pit.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/campfire-stand.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/chest.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/colormap.png",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/fence-doorway.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/fence-fortified.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/fence.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/fish-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/fish.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/floor-hole.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/floor-old.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/floor.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/grass-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/grass.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/metal-panel-narrow.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/metal-panel-screws-half.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/metal-panel-screws-narrow.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/metal-panel-screws.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/metal-panel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/patch-grass-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/patch-grass.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/resource-planks.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/resource-stone-large.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/resource-stone.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/resource-wood.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-c.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-flat-grass.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-flat.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-sand-a.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-sand-b.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/rock-sand-c.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/signpost-single.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/signpost.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-canvas.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-floor.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-metal-doorway.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-metal-floor.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-metal-roof.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-metal-wall.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-metal.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure-roof.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/structure.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tent-canvas-half.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tent-canvas.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tent.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-axe-upgraded.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-axe.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-hammer-upgraded.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-hammer.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-hoe-upgraded.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-hoe.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-pickaxe-upgraded.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-pickaxe.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-shovel-upgraded.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tool-shovel.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree-autumn-tall.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree-autumn-trunk.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree-autumn.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree-log-small.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree-log.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree-tall.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree-trunk.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/tree.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/workbench-anvil.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/workbench-grind.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/models/survival/workbench.obj",
+      "kind": "model",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Kenney (kenney.nl) - CC0 1.0, no rights reserved",
+      "provenance": "Kenney Survival Kit, used as-is with its shared colormap."
+    },
+    {
+      "path": "GTAClone/assets/skies/sky.hdr",
+      "kind": "image",
+      "distribution": true,
+      "license": "CC0-1.0",
+      "copyrightText": "Poly Haven (polyhaven.com) - CC0 1.0, no rights reserved",
+      "provenance": "Poly Haven 'Kloofendal 48d Partly Cloudy (Pure Sky)' 4K HDRI, used for the skybox and its IBL."
+    },
+    {
       "path": "VerticalSlice/assets/audio/coin.ogg",
       "kind": "audio",
       "distribution": true,
