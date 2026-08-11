@@ -73,7 +73,26 @@ The kit's car models **already contain their wheels**, as `body` and
 models are spares: dropping four of them onto a car puts a second, larger set of
 wheels over the first and makes the chassis look far too small. A driven vehicle
 needs the wheels split out of the body so the suspension can move them, which is
-a pipeline step on the model rather than extra nodes in the scene.
+`tools/split_car_wheels.py`: it writes `<name>-body.obj` and one recentred
+`<name>-wheel.obj` per car, and records every car's wheel anchors and radius —
+measured off the art, never typed in — into `assets/models/cars/vehicles.json`.
+`drivable_car` in the generator reads that manifest, so a car's suspension cannot
+quietly disagree with the model hanging off it.
+
+One car, `HeroCar`, actually drives: a `RigidBody` carrying the `Vehicle`
+behaviour, a chassis box **lifted clear of the road** — the wheels are rays and
+carry the car, so a chassis that reached the ground would rest on the asphalt and
+leave the suspension nothing to do — and four wheel meshes named `WheelFL`,
+`WheelFR`, `WheelRL`, `WheelRR` that the behaviour places, steers and spins. The
+other 32 are set dressing with no body at all.
+
+It is left at the kerb of the avenue the player spawns on, parked on the asphalt
+rather than the pavement: starting it astride a kerb settles it into a lean
+before anyone touches it.
+
+**There is no way in yet.** The character and the vehicle read the same movement
+actions, so driving it means disabling the player first — which is what the E2E
+harness does. An enter/exit interaction is the missing piece.
 
 Regenerate the world with:
 
@@ -102,7 +121,16 @@ chunkier than life (a sedan is 1.50 x 1.30 x 2.55), so `CAR = 1.25` puts it at
 SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_smoke.js"
 ```
 
-Prints `PASS` and must leave zero `[error]`/`[warn]` lines. The harness asserts
+```sh
+SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_drive.js"
+```
+
+Both print `PASS` and must leave zero `[error]`/`[warn]` lines. `e2e_drive.js`
+covers the hero car: that it settles on its springs rather than its chassis, that
+its four wheel meshes hang where the suspension says, that the throttle builds
+speed and moves it along its own heading, that steering turns it and the
+handbrake stops it. It drives through `input.inject`, the same actions a
+keyboard feeds, so what it exercises is the path a player takes. The harness asserts
 what the scene declares, that the player settles on the ground rather than
 falling through it, and that a street door actually moves them into its
 interior. A model that failed to load leaves its node in place, so the absence

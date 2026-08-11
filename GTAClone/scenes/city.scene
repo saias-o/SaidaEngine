@@ -89711,8 +89711,343 @@
     }
    },
    {
-    "type": "CharacterBody",
+    "type": "RigidBody",
     "id": 7400000000000002256,
+    "name": "HeroCar",
+    "enabled": true,
+    "behaviours": [
+     {
+      "type": "Vehicle",
+      "enabled": true,
+      "wheelHalfTrack": 0.5313,
+      "wheelBaseFront": 0.825,
+      "wheelBaseRear": 0.825,
+      "wheelRadius": 0.375,
+      "wheelAnchorHeight": 0.725,
+      "suspensionRest": 0.35,
+      "suspensionTravel": 0.22,
+      "suspensionStiffness": 14.0,
+      "suspensionDamping": 2.6,
+      "driveForce": 9000.0,
+      "brakeForce": 11000.0,
+      "handbrakeForce": 6000.0,
+      "maxSpeed": 26.0,
+      "reverseFactor": 0.4,
+      "rollingResistance": 0.012,
+      "airDrag": 0.42,
+      "maxSteerAngle": 34.0,
+      "steerSpeed": 5.0,
+      "steerSpeedFalloff": 0.6,
+      "steerReturnSpeed": 7.0,
+      "lateralGripFront": 0.92,
+      "lateralGripRear": 0.88,
+      "handbrakeGripRear": 0.3,
+      "tyreLoadSensitivity": 1.0,
+      "downforce": 0.0,
+      "antiRoll": 0.4,
+      "wheelNodePrefix": "Wheel",
+      "frontWheelDrive": false,
+      "rearWheelDrive": true,
+      "readsInput": true
+     }
+    ],
+    "children": [
+     {
+      "type": "CollisionShape",
+      "id": 7400000000000002257,
+      "name": "Shape",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ],
+       "scale": [
+        1.0,
+        1.0,
+        1.0
+       ]
+      },
+      "shapeType": 1,
+      "halfExtents": [
+       0.9375,
+       0.7188,
+       1.5938
+      ],
+      "offset": [
+       0.0,
+       0.9062,
+       0.0
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 7400000000000002258,
+      "name": "Body",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0.0,
+        0.0,
+        0.0
+       ],
+       "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ],
+       "scale": [
+        1.25,
+        1.25,
+        1.25
+       ]
+      },
+      "mesh": "assets/models/cars/sedan-body.obj",
+      "texture": "assets/models/cars/colormap.png",
+      "baseColor": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0,
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "castShadows": true
+     },
+     {
+      "type": "MeshNode",
+      "id": 7400000000000002259,
+      "name": "WheelFL",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0.5312500625000001,
+        0.375,
+        0.825
+       ],
+       "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ],
+       "scale": [
+        1.25,
+        1.25,
+        1.25
+       ]
+      },
+      "mesh": "assets/models/cars/sedan-wheel.obj",
+      "texture": "assets/models/cars/colormap.png",
+      "baseColor": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0,
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "castShadows": true,
+      "groups": [
+       "vehicle_wheel"
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 7400000000000002260,
+      "name": "WheelFR",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        -0.5312500625000001,
+        0.375,
+        0.825
+       ],
+       "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ],
+       "scale": [
+        1.25,
+        1.25,
+        1.25
+       ]
+      },
+      "mesh": "assets/models/cars/sedan-wheel.obj",
+      "texture": "assets/models/cars/colormap.png",
+      "baseColor": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0,
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "castShadows": true,
+      "groups": [
+       "vehicle_wheel"
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 7400000000000002261,
+      "name": "WheelRL",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        0.5312500625000001,
+        0.375,
+        -0.825
+       ],
+       "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ],
+       "scale": [
+        1.25,
+        1.25,
+        1.25
+       ]
+      },
+      "mesh": "assets/models/cars/sedan-wheel.obj",
+      "texture": "assets/models/cars/colormap.png",
+      "baseColor": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0,
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "castShadows": true,
+      "groups": [
+       "vehicle_wheel"
+      ]
+     },
+     {
+      "type": "MeshNode",
+      "id": 7400000000000002262,
+      "name": "WheelRR",
+      "enabled": true,
+      "behaviours": [],
+      "children": [],
+      "transform": {
+       "position": [
+        -0.5312500625000001,
+        0.375,
+        -0.825
+       ],
+       "rotation": [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+       ],
+       "scale": [
+        1.25,
+        1.25,
+        1.25
+       ]
+      },
+      "mesh": "assets/models/cars/sedan-wheel.obj",
+      "texture": "assets/models/cars/colormap.png",
+      "baseColor": [
+       1.0,
+       1.0,
+       1.0,
+       1.0
+      ],
+      "roughness": 0.85,
+      "metallic": 0.0,
+      "emissive": [
+       0,
+       0,
+       0,
+       0
+      ],
+      "castShadows": true,
+      "groups": [
+       "vehicle_wheel"
+      ]
+     }
+    ],
+    "transform": {
+     "position": [
+      6.4,
+      0.0,
+      -42.0
+     ],
+     "rotation": [
+      0.0,
+      1.0,
+      0.0,
+      6.123233995736766e-17
+     ],
+     "scale": [
+      1.0,
+      1.0,
+      1.0
+     ]
+    },
+    "groups": [
+     "vehicle",
+     "hero_car"
+    ],
+    "mass": 1200.0,
+    "gravityFactor": 1.0,
+    "linearDamping": 0.0,
+    "angularDamping": 0.35,
+    "kinematic": false
+   },
+   {
+    "type": "CharacterBody",
+    "id": 7400000000000002263,
     "name": "Player",
     "enabled": true,
     "behaviours": [
@@ -89743,7 +90078,7 @@
     "children": [
      {
       "type": "CollisionShape",
-      "id": 7400000000000002257,
+      "id": 7400000000000002264,
       "name": "Shape",
       "enabled": true,
       "behaviours": [],
@@ -89778,7 +90113,7 @@
      },
      {
       "type": "Node",
-      "id": 7400000000000002258,
+      "id": 7400000000000002265,
       "name": "Body",
       "enabled": true,
       "behaviours": [],
@@ -89828,7 +90163,7 @@
    },
    {
     "type": "Camera",
-    "id": 7400000000000002259,
+    "id": 7400000000000002266,
     "name": "MainCamera",
     "enabled": true,
     "behaviours": [

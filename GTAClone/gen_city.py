@@ -618,18 +618,122 @@ def build_interiors(street_points):
 
 
 def parked_car(name, pos, yaw, model="sedan"):
-    """Set dressing until the vehicle behaviour drives them.
+    """Set dressing: one mesh, no body, no wheels of its own.
 
     The kit's car models already contain their four wheels, as the groups
     `body` and `wheel-front-left` and so on inside the one mesh — adding the
     separate `wheel-*` models on top of them put a second, larger set of wheels
-    over the first and made the chassis look far too small for them. A driven
-    vehicle will need the wheels split out of the body so the suspension can
-    move them, which is a pipeline step on the model, not a second mesh here.
+    over the first and made the chassis look far too small for them. A car that
+    is only ever looked at wants exactly this; `drivable_car` below is the one
+    that pays for a body and four separate wheels.
     """
     car = node("Node", name, pos, 1.0, yaw, groups=["parked_car"])
     car["children"] = [kitmesh("Body", "cars", model, (0.0, 0.0, 0.0), CAR)]
     return car
+
+
+# ── driven cars ─────────────────────────────────────────────────────────────
+# Measured by tools/split_car_wheels.py off the art and written to vehicles.json,
+# so a car's suspension can never quietly disagree with the model hanging off it.
+# Everything in that file is in kit units; CAR converts to metres.
+_vehicles_cache = [None]
+
+
+def vehicle_specs():
+    if _vehicles_cache[0] is None:
+        path = os.path.join(HERE, KIT["cars"], "vehicles.json")
+        with open(path, encoding="utf-8") as f:
+            _vehicles_cache[0] = json.load(f)["vehicles"]
+    return _vehicles_cache[0]
+
+
+def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None):
+    """A car the Vehicle behaviour drives: a body, four wheels it moves, a box.
+
+    The collider is an explicit box lifted clear of the road, never the mesh.
+    That is not only the multi-mesh rule the rest of the city follows — a raycast
+    vehicle *requires* it. The wheels carry the car on four rays, so a chassis
+    that reached the ground would rest on the road itself and the suspension
+    would have nothing left to do.
+
+    The four wheel meshes must be direct children named <prefix>FL/FR/RL/RR:
+    that is what `VehicleBehaviour::layOutWheels` looks up, and a missing one is
+    simply not driven rather than reported. One wheel mesh serves all four — the
+    behaviour turns the right-hand pair about to mirror it.
+    """
+    spec = vehicles_spec_for(model)
+    lo, hi = spec["bodyMin"], spec["bodyMax"]
+    # Half-extents and centre of the body's own bounds, in metres.
+    half = [(hi[a] - lo[a]) * 0.5 * CAR for a in range(3)]
+    centre_y = (lo[1] + hi[1]) * 0.5 * CAR
+
+    front = spec["wheels"]["wheel-front-left"]
+    rear = spec["wheels"]["wheel-back-left"]
+    radius = spec["wheelRadius"] * CAR
+    # The kit rests its wheel centres exactly one radius up, so a car whose
+    # origin sits on the asphalt is already standing on its tyres. Hanging the
+    # suspension a rest-length above that keeps it there.
+    rest = 0.35
+    anchor_h = front[1] * CAR + rest
+
+    car = node("RigidBody", name, pos, 1.0, yaw, groups=groups or ["vehicle"],
+               mass=mass, gravityFactor=1.0, linearDamping=0.0, angularDamping=0.35,
+               kinematic=False)
+    car["behaviours"] = [{
+        "type": "Vehicle", "enabled": True,
+        "wheelHalfTrack": round(front[0] * CAR, 4),
+        "wheelBaseFront": round(front[2] * CAR, 4),
+        "wheelBaseRear": round(-rear[2] * CAR, 4),
+        "wheelRadius": round(radius, 4),
+        "wheelAnchorHeight": round(anchor_h, 4),
+        "suspensionRest": rest, "suspensionTravel": 0.22,
+        "suspensionStiffness": 14.0, "suspensionDamping": 2.6,
+        "driveForce": 9000.0, "brakeForce": 11000.0, "handbrakeForce": 6000.0,
+        "maxSpeed": 26.0, "reverseFactor": 0.4,
+        "rollingResistance": 0.012, "airDrag": 0.42,
+        "maxSteerAngle": 34.0, "steerSpeed": 5.0,
+        "steerSpeedFalloff": 0.6, "steerReturnSpeed": 7.0,
+        "lateralGripFront": 0.92, "lateralGripRear": 0.88,
+        "handbrakeGripRear": 0.30, "tyreLoadSensitivity": 1.0,
+        "downforce": 0.0, "antiRoll": 0.4,
+        "wheelNodePrefix": "Wheel",
+        "frontWheelDrive": False, "rearWheelDrive": True,
+        "readsInput": True,
+    }]
+    car["children"] = [
+        node("CollisionShape", "Shape", shapeType=1,
+             halfExtents=[round(v, 4) for v in half],
+             offset=[0.0, round(centre_y, 4), 0.0]),
+        kitmesh("Body", "cars", model + "-body", (0.0, 0.0, 0.0), CAR),
+    ]
+    # Placed at rest height; the behaviour overwrites position and rotation every
+    # frame from the suspension, and leaves the scale alone. Grouped because a
+    # wheel is otherwise unreachable from a script — nothing in the NodeRef API
+    # walks to a child by name — and the placement it is given is the only
+    # visible evidence that the suspension is doing anything.
+    for suffix, sx, sz in (("FL", 1.0, 1.0), ("FR", -1.0, 1.0),
+                           ("RL", 1.0, -1.0), ("RR", -1.0, -1.0)):
+        anchor = (front[0] * CAR * sx, radius,
+                  (front[2] if sz > 0 else rear[2]) * CAR * abs(sz))
+        car["children"].append(
+            kitmesh("Wheel" + suffix, "cars", model + "-wheel", anchor, CAR,
+                    groups=["vehicle_wheel"]))
+    return car
+
+
+def vehicles_spec_for(model):
+    specs = vehicle_specs()
+    if model not in specs:
+        raise SystemExit(
+            "drivable_car: '%s' has no entry in vehicles.json. Re-run "
+            "tools/split_car_wheels.py after adding a car." % model)
+    spec = specs[model]
+    missing = [w for w in ("wheel-front-left", "wheel-back-left")
+               if w not in spec["wheels"]]
+    if missing:
+        raise SystemExit("drivable_car: '%s' is missing %s in vehicles.json"
+                         % (model, ", ".join(missing)))
+    return spec
 
 
 # ── the city ────────────────────────────────────────────────────────────────
@@ -710,6 +814,13 @@ def build_city(net):
 
     # The player starts on a downtown pavement, facing the towers.
     spawn = (X(25) + 6.0, 1.4, Z(19) + 6.0)
+
+    # One car that actually drives, left at the kerb of the avenue the player
+    # spawns on, pointing up it. Parked on the asphalt rather than the pavement:
+    # its wheels are rays, and starting it astride a kerb would settle it into a
+    # lean before the player ever touches it.
+    world.append(drivable_car("HeroCar", (X(25) + 2.4, ASPHALT_Y, Z(19) + 2.0),
+                              180.0, "sedan", groups=["vehicle", "hero_car"]))
     player = node("CharacterBody", "Player", spawn, groups=["player"])
     player["behaviours"] = [
         {"type": "Character", "enabled": True,
@@ -791,7 +902,7 @@ def main():
         return hit + sum(group_count(c, name) for c in n.get("children", []))
 
     print("scenes/city.scene      %6d nodes" % count_nodes(scene))
-    for g in ("road", "building", "parked_car", "streetlight", "skyline"):
+    for g in ("road", "building", "parked_car", "vehicle", "streetlight", "skyline"):
         print("  %-12s %5d" % (g, group_count(scene, g)))
     print("scenes/city.roadnet    %6d lane nodes, %d edges"
           % (len(graph["nodes"]), len(graph["edges"])))
