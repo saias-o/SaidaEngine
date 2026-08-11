@@ -90,9 +90,19 @@ It is left at the kerb of the avenue the player spawns on, parked on the asphalt
 rather than the pavement: starting it astride a kerb settles it into a lean
 before anyone touches it.
 
-**There is no way in yet.** The character and the vehicle read the same movement
-actions, so driving it means disabling the player first — which is what the E2E
-harness does. An enter/exit interaction is the missing piece.
+**Getting in.** Walk up to it and press `F`. `scripts/car.js` runs on the car and
+owns the handover, because a character and a vehicle read the **same** movement
+actions and exactly one of them may be listening — a car left listening steers
+itself off the kerb whenever the player walks. So the car is authored with
+`readsInput` off and is only ever driven from that script, and the player is
+disabled while seated. The camera follows the `camera_target` group rather than a
+node, and getting in moves that membership from the player to the car, which is
+what carries the view across.
+
+Press `F` again to get out; it is refused above 2 m/s, and lands the player
+beside the driver's door rather than inside the shell the car collides with. The
+same script is the seam a traffic AI will plug into: `readsInput` off plus
+`vehicleDrive` is how something other than a keyboard steers.
 
 Regenerate the world with:
 
@@ -125,12 +135,26 @@ SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_smoke
 SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_drive.js"
 ```
 
-Both print `PASS` and must leave zero `[error]`/`[warn]` lines. `e2e_drive.js`
-covers the hero car: that it settles on its springs rather than its chassis, that
-its four wheel meshes hang where the suspension says, that the throttle builds
-speed and moves it along its own heading, that steering turns it and the
-handbrake stops it. It drives through `input.inject`, the same actions a
-keyboard feeds, so what it exercises is the path a player takes. The harness asserts
+```sh
+SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_enter_car.js"
+```
+
+All three print `PASS` and must leave zero `[error]`/`[warn]` lines.
+
+`e2e_drive.js` covers the car itself: that it settles on its springs rather than
+its chassis, that its four wheel meshes hang where the suspension says, that the
+throttle builds speed and moves it along its own heading, that steering turns it
+and the handbrake stops it.
+
+`e2e_enter_car.js` covers the handover, which is the part that can go wrong
+without anything looking broken: that a **parked car ignores the walk keys**,
+that getting in moves the camera, that the player does not walk while seated,
+that getting out puts them beside the car and leaves it parked, and that they
+walk again afterwards under the very same action.
+
+Both press the keys a player would through `input.inject`, and both get in the
+way a player does. Neither disables the player to reach the car: proving the
+physics against a rig nobody can reach would prove the wrong thing. The harness asserts
 what the scene declares, that the player settles on the ground rather than
 falling through it, and that a street door actually moves them into its
 interior. A model that failed to load leaves its node in place, so the absence

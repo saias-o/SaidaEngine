@@ -240,15 +240,15 @@ Post-V1 unless the scope changes explicitly.
   what is one static level. Fix by design: build a Jolt compound (or a merged
   `MeshShape`) from the whole subtree, and log when a body's geometry is only
   partially covered instead of succeeding quietly.
-- [ ] Vehicle: let the player get into the car. GTAClone's `HeroCar` drives —
-  `scripts/e2e_drive.js` settles it on its springs, accelerates it to 16 m/s,
-  proves it travels along its own forward, steers it 100 degrees and stops it —
-  but only because the harness disables the player first. Both the character and
-  the vehicle read the same movement actions, so with a player alive the throttle
-  also walks them across the city. Fix: an enter/exit interaction that transfers
-  control and the camera's `targetGroup` between the two, and one owner of the
-  movement actions at a time. Until then a car in a scene is a car nobody can
-  drive without a script.
+- [ ] Vehicle: only one car can be entered, and only on foot. `scripts/car.js`
+  runs on the car and owns the handover, so the mechanism generalises, but the
+  city authors it on `HeroCar` alone and the reach test is a plain distance to
+  the car's origin — a long vehicle is enterable from a point inside its own
+  bonnet and not from beside its boot. There is also no seated occupant: the
+  player is disabled rather than parented and posed, so nobody is visible behind
+  the wheel and a passenger is not expressible. Fix when the fleet becomes
+  driveable: reach measured against the door rather than the origin, an occupant
+  parented to a seat node, and the choice of which car when two overlap.
 
 - [ ] Vehicle: run one on Web. The Web player compiles the behaviour and
   `runtimeTypeMatrix` marks it `Required` there, so parity is asserted at boot,

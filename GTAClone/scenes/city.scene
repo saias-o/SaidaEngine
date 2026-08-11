@@ -89748,7 +89748,13 @@
       "wheelNodePrefix": "Wheel",
       "frontWheelDrive": false,
       "rearWheelDrive": true,
-      "readsInput": true
+      "readsInput": false
+     },
+     {
+      "type": "ScriptBehaviour",
+      "enabled": true,
+      "script": "scripts/car.js",
+      "hotReload": true
      }
     ],
     "children": [
@@ -90158,7 +90164,8 @@
      ]
     },
     "groups": [
-     "player"
+     "player",
+     "camera_target"
     ]
    },
    {
@@ -90170,7 +90177,7 @@
      {
       "type": "CameraFollow",
       "enabled": true,
-      "targetGroup": "player",
+      "targetGroup": "camera_target",
       "distance": 5.0,
       "height": 1.5,
       "initialPitch": 0.0,

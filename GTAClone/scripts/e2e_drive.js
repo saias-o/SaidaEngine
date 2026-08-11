@@ -68,13 +68,6 @@ function onUpdate() {
     }
     frames += 1;
 
-    // The player reads the same movement actions, so it would run off across the
-    // city while the car drives. Park it before injecting anything.
-    if (frames === 1) {
-        const player = tree.firstInGroup("player");
-        if (player !== null) player.setEnabled(false);
-    }
-
     if (frames > 60) peakSpeed = Math.max(peakSpeed, speedOf(c));
 
     // ---- settled on its springs ------------------------------------------
@@ -105,10 +98,26 @@ function onUpdate() {
         return;
     }
 
-    // ---- throttle ---------------------------------------------------------
-    if (frames === 130) { driveStart = c.getPosition(); drive(1.0, 0.0); return; }
+    // ---- get in -----------------------------------------------------------
+    // The car only listens to a driver, so the harness becomes one: walk up and
+    // press the same key a player would. Disabling the player and injecting past
+    // scripts/car.js would prove the physics against a rig no player can reach.
+    if (frames === 125) {
+        const cp = c.getPosition();
+        const player = tree.firstInGroup("player");
+        if (player !== null) {
+            player.setPosition(cp.x + 1.6, cp.y + 1.4, cp.z);
+            player.setVelocity(0.0, 0.0, 0.0);
+        }
+        input.inject("Interact", 1.0);
+        return;
+    }
+    if (frames === 128) { input.inject("Interact", 0.0); return; }
 
-    if (frames > 130 && frames < 340 && restY !== null) {
+    // ---- throttle ---------------------------------------------------------
+    if (frames === 145) { driveStart = c.getPosition(); drive(1.0, 0.0); return; }
+
+    if (frames > 145 && frames < 355 && restY !== null) {
         const w = wheels();
         // A live suspension keeps changing length under power; a wheel welded to
         // the scene would report the same y for the whole run.
@@ -116,7 +125,7 @@ function onUpdate() {
             if (Math.abs(w[i].getPosition().y - restY) > 0.01) suspensionMoved = true;
     }
 
-    if (frames === 340) {
+    if (frames === 355) {
         const p = c.getPosition();
         const f = forwardOf(c);
         const dx = p.x - driveStart.x, dz = p.z - driveStart.z;
@@ -138,19 +147,19 @@ function onUpdate() {
     }
 
     // ---- steering ---------------------------------------------------------
-    if (frames === 460) {
+    if (frames === 475) {
         let delta = headingDegrees(c) - headingAtSteer;
         while (delta > 180.0) delta -= 360.0;
         while (delta < -180.0) delta += 360.0;
         report("steering turns the car", Math.abs(delta) > 10.0,
                delta.toFixed(1) + " deg");
         drive(0.0, 0.0);
-        input.inject("Handbrake", 1.0);
+        input.inject("Jump", 1.0);
         return;
     }
 
     // ---- stopping ---------------------------------------------------------
-    if (frames === 700) {
+    if (frames === 715) {
         report("handbrake brings it to rest", speedOf(c) < 1.0,
                speedOf(c).toFixed(3) + " m/s");
         const p = c.getPosition();

@@ -647,7 +647,7 @@ def vehicle_specs():
     return _vehicles_cache[0]
 
 
-def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None):
+def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None, driver=None):
     """A car the Vehicle behaviour drives: a body, four wheels it moves, a box.
 
     The collider is an explicit box lifted clear of the road, never the mesh.
@@ -698,8 +698,14 @@ def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None):
         "downforce": 0.0, "antiRoll": 0.4,
         "wheelNodePrefix": "Wheel",
         "frontWheelDrive": False, "rearWheelDrive": True,
-        "readsInput": True,
+        # Off, always. A character and a vehicle read the SAME movement actions,
+        # so a car left listening steers itself off the kerb whenever the player
+        # walks. scripts/car.js hands it the wheel only while someone is sitting
+        # in it, and a traffic AI plugs into that same seam.
+        "readsInput": False,
     }]
+    if driver:
+        car["behaviours"].append(script(driver))
     car["children"] = [
         node("CollisionShape", "Shape", shapeType=1,
              halfExtents=[round(v, 4) for v in half],
@@ -820,8 +826,12 @@ def build_city(net):
     # its wheels are rays, and starting it astride a kerb would settle it into a
     # lean before the player ever touches it.
     world.append(drivable_car("HeroCar", (X(25) + 2.4, ASPHALT_Y, Z(19) + 2.0),
-                              180.0, "sedan", groups=["vehicle", "hero_car"]))
-    player = node("CharacterBody", "Player", spawn, groups=["player"])
+                              180.0, "sedan", groups=["vehicle", "hero_car"],
+                              driver="scripts/car.js"))
+    # `camera_target` is what the camera follows, and it moves to the car while
+    # the player is sitting in it. Kept separate from `player` so everything else
+    # can still find the character wherever the view happens to be.
+    player = node("CharacterBody", "Player", spawn, groups=["player", "camera_target"])
     player["behaviours"] = [
         {"type": "Character", "enabled": True,
          "moveSpeed": 5.2, "sprintMultiplier": 1.7,
@@ -845,7 +855,7 @@ def build_city(net):
     camera = node("Camera", "MainCamera", (spawn[0], spawn[1] + 2.0, spawn[2] + 6.0),
                   groups=["camera"], fov=64.0, nearPlane=0.1, farPlane=900.0, isMain=True)
     camera["behaviours"] = [{
-        "type": "CameraFollow", "enabled": True, "targetGroup": "player",
+        "type": "CameraFollow", "enabled": True, "targetGroup": "camera_target",
         "distance": 5.0, "height": 1.5,
         # A positive initialPitch drops the rig BELOW its target and aims it up;
         # 0 is the level, neutral start.
