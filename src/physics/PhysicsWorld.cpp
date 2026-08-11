@@ -307,6 +307,86 @@ void PhysicsWorld::setAngularVelocity(JPH::BodyID id, const glm::vec3& v) {
     bi.SetAngularVelocity(id, Vec3(v.x, v.y, v.z));
 }
 
+glm::vec3 PhysicsWorld::linearVelocity(JPH::BodyID id) const {
+    if (id.IsInvalid()) return glm::vec3(0.0f);
+    return toGlm(system_->GetBodyInterface().GetLinearVelocity(id));
+}
+
+glm::vec3 PhysicsWorld::angularVelocity(JPH::BodyID id) const {
+    if (id.IsInvalid()) return glm::vec3(0.0f);
+    return toGlm(system_->GetBodyInterface().GetAngularVelocity(id));
+}
+
+glm::vec3 PhysicsWorld::pointVelocity(JPH::BodyID id, const glm::vec3& worldPoint) const {
+    if (id.IsInvalid()) return glm::vec3(0.0f);
+    return toGlm(system_->GetBodyInterface().GetPointVelocity(
+        id, RVec3(worldPoint.x, worldPoint.y, worldPoint.z)));
+}
+
+float PhysicsWorld::effectiveMassAt(JPH::BodyID id, const glm::vec3& worldPoint,
+                                    const glm::vec3& direction) const {
+    if (id.IsInvalid()) return 0.0f;
+    const float length = glm::length(direction);
+    if (length < 1e-6f) return 0.0f;
+    const glm::vec3 d = direction / length;
+
+    JPH::BodyLockRead lock(system_->GetBodyLockInterface(), id);
+    if (!lock.Succeeded()) return 0.0f;
+    const JPH::Body& body = lock.GetBody();
+    if (!body.IsDynamic()) return 0.0f;
+    const JPH::MotionProperties* motion = body.GetMotionProperties();
+    if (!motion) return 0.0f;
+
+    const float invMass = motion->GetInverseMass();
+    if (invMass <= 0.0f) return 0.0f;
+
+    const Vec3 r = Vec3(worldPoint.x, worldPoint.y, worldPoint.z) -
+                   Vec3(body.GetCenterOfMassPosition());
+    const Vec3 dir(d.x, d.y, d.z);
+    const Vec3 rXd = r.Cross(dir);
+    const Mat44 invInertia = motion->GetInverseInertiaForRotation(
+        Mat44::sRotation(body.GetRotation()));
+    const float angular = rXd.Dot(invInertia * rXd);
+    return 1.0f / (invMass + angular);
+}
+
+// Jolt's AddImpulse/AddForce already ignore non-dynamic bodies and wake a
+// sleeping one, so these only have to guard the invalid id.
+void PhysicsWorld::applyImpulse(JPH::BodyID id, const glm::vec3& impulse) {
+    if (id.IsInvalid()) return;
+    system_->GetBodyInterface().AddImpulse(id, Vec3(impulse.x, impulse.y, impulse.z));
+}
+
+void PhysicsWorld::applyImpulse(JPH::BodyID id, const glm::vec3& impulse,
+                                const glm::vec3& worldPoint) {
+    if (id.IsInvalid()) return;
+    system_->GetBodyInterface().AddImpulse(id, Vec3(impulse.x, impulse.y, impulse.z),
+                                           RVec3(worldPoint.x, worldPoint.y, worldPoint.z));
+}
+
+void PhysicsWorld::applyAngularImpulse(JPH::BodyID id, const glm::vec3& angularImpulse) {
+    if (id.IsInvalid()) return;
+    system_->GetBodyInterface().AddAngularImpulse(
+        id, Vec3(angularImpulse.x, angularImpulse.y, angularImpulse.z));
+}
+
+void PhysicsWorld::applyForce(JPH::BodyID id, const glm::vec3& force) {
+    if (id.IsInvalid()) return;
+    system_->GetBodyInterface().AddForce(id, Vec3(force.x, force.y, force.z));
+}
+
+void PhysicsWorld::applyForce(JPH::BodyID id, const glm::vec3& force,
+                              const glm::vec3& worldPoint) {
+    if (id.IsInvalid()) return;
+    system_->GetBodyInterface().AddForce(id, Vec3(force.x, force.y, force.z),
+                                         RVec3(worldPoint.x, worldPoint.y, worldPoint.z));
+}
+
+void PhysicsWorld::applyTorque(JPH::BodyID id, const glm::vec3& torque) {
+    if (id.IsInvalid()) return;
+    system_->GetBodyInterface().AddTorque(id, Vec3(torque.x, torque.y, torque.z));
+}
+
 void PhysicsWorld::getBodyTransform(JPH::BodyID id, glm::vec3& position,
                                     glm::quat& rotation) const {
     if (id.IsInvalid()) return;

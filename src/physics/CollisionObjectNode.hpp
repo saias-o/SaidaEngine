@@ -37,6 +37,10 @@ public:
     void markDirty() { dirty_ = true; }
 
     JPH::BodyID bodyId() const { return bodyId_; }
+    // The world this body actually lives in, which is the one `bodyId()` is
+    // valid in. Prefer it over reaching through the SceneTree: a Scene stepped
+    // on its own — as every physics test does — has no tree to reach through.
+    PhysicsWorld* physicsWorld() const { return world_; }
 
     // Set this body's velocity (no-op until it has a live Jolt body). Used by grab
     // release to throw a freed object with the hand's motion.

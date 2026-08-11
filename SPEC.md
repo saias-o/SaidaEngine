@@ -401,6 +401,28 @@ a hitscan does not stop on an invisible trigger — and re-admitted via
 `hitSensors`; an explicit body can be ignored (the caster). Exposed in JS by the
 `physics` global (5.4) with the same semantics on desktop and Web player.
 
+**Impulses, forces and contact quantities.** `PhysicsWorld` exposes
+`linearVelocity`/`angularVelocity`, `applyImpulse` (at the centre of mass or at a
+world point), `applyAngularImpulse`, `applyForce` (same two forms) and
+`applyTorque`. An invalid id and a non-dynamic body absorb all of them without
+moving. The distinction is a contract, not a preference: an **impulse** is
+consumed whole when it is applied, whereas a **force** is accumulated and then
+cleared by the next step, so a force pushed on a frame that does not advance the
+fixed-timestep accumulator is silently lost. Per-frame gameplay code uses
+impulses.
+
+Two contact quantities come with them. `pointVelocity(id, p)` is the velocity of
+the material point currently at `p` — linear velocity plus the body's spin — which
+is what a wheel or hull patch actually moves at, and therefore what slip and drag
+must be measured against. `effectiveMassAt(id, p, d)` is the mass a contact
+resists with along `d`: at most the body's mass and usually well under it,
+because an impulse applied off-centre also spins the body instead of only
+shifting it. **Anything cancelling a velocity at a contact must divide by it.**
+Using the body mass over-corrects, the correction changes sign every step, and
+whatever clamp sits around it then rectifies the oscillation into a steady drift
+— a failure that looks like a tuning problem and is not one. Covered by
+`saida_physics_impulse_tests`.
+
 **Joints (V1: `FixedJoint`, `PointJoint`, `HingeJoint`).** Reflected nodes
 linking two bodies: `bodyA`/`bodyB` are *node paths* resolved from the joint
 (`Node::findByPath`: `..`, names, `/` = root) — stable across multiple spawns
@@ -448,6 +470,47 @@ its old behaviour was a bug rather than a feel: horizontal speed above the
 walking target now bleeds off at the braking rate instead of snapping down, so
 a `launch` — the thing every special move is built from — is spent rather than
 erased on the next frame. With no braking rate configured it still snaps.
+
+**Raycast vehicle.** The `Vehicle` behaviour (`VehicleBehaviour`, matrix
+`{R, R, A, R}`) attaches to a `RigidBody` whose collision box sits clear of the
+road: the chassis never touches it and the wheels carry the car. Each of the four
+wheels is a ray cast down from its anchor, and what the ray finds drives three
+impulses applied **at the contact point** — suspension along the contact normal,
+drive or brake along the wheel's heading, and a lateral impulse cancelling
+sideways slip. Applying them at the contact rather than at the centre of mass is
+what produces weight transfer: the nose dives under braking and the car leans in
+a turn without any of it being scripted. Forward is local `+Z`. It follows the
+same three-entry-point rule as the character controller: reflected properties for
+layout, suspension, drive, steering, tyres and stability; `setThrottle`/
+`setBrake`/`setSteer`/`setHandbrake` with `readsInput` off, which is how a traffic
+system drives a street full of them through one implementation; and
+`readDriveInput`/`readHandbrake` to override the input source.
+
+Three ordering rules are load-bearing rather than incidental, because each one
+was a defect that produced plausible motion and no diagnostic:
+
+- **Normal forces resolve in one pass, before any tyre is asked what it is
+  slipping at**, the way a contact solver resolves normals before friction. A
+  wheel that sampled its contact after only *some* of its neighbours had pushed
+  read their off-centre suspension impulses as slip of its own, and a car at rest
+  crawled sideways at a steady rate.
+- **Tyres resolve axle by axle, sequentially between axles and simultaneously
+  within one.** Solving all four against one state removes
+  `wheels x effectiveMass / mass` times too much — near 105% on a typical
+  saloon — which reverses the slip and grows it every step until the car throws
+  itself off the road. Letting one wheel of a symmetric pair act first is instead
+  a standing left/right bias that steers a car nobody is steering.
+- **The suspension damper is capped at the momentum the contact carries along
+  the normal.** A damper removes momentum and must never inject any; integrated
+  explicitly, `c x closingRate` outruns the momentum available once the damping
+  ratio is high, and the excess comes back out as a push that launches the
+  vehicle off its own springs.
+
+Covered by `saida_vehicle_tests` with no device: resting height and wheel count,
+throttle, braking to a standstill without creeping, bounded top speed, steering
+direction and self-centring, a wheel over a genuine gap in the floor, an
+over-damped suspension, an anti-roll bar that leans the car less rather than
+more, and a fall back onto four wheels.
 
 A screen-space `WebCanvasNode` that fills the viewport reconciles the size it
 was authored at with the window through `scaleMode` and

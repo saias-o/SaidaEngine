@@ -10,6 +10,7 @@
 #include "behaviours/CameraFollowBehaviour.hpp"
 #include "behaviours/AnimGraphBehaviour.hpp"
 #include "behaviours/CharacterBehaviour.hpp"
+#include "behaviours/VehicleBehaviour.hpp"
 #include "behaviours/HealthBehaviour.hpp"
 #include "behaviours/LODGroupBehaviour.hpp"
 #include "nodes/LightNode.hpp"
@@ -69,6 +70,7 @@ void registerReflectedTypes() {
     registerBehaviour<CameraFollowBehaviour>();
     registerBehaviour<AnimGraphBehaviour>();
     registerBehaviour<CharacterBehaviour>();
+    registerBehaviour<VehicleBehaviour>();
     registerBehaviour<HealthBehaviour>();
     registerBehaviour<SpawnerBehaviour>();
     registerBehaviour<Blackboard>();

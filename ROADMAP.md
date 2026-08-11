@@ -240,6 +240,22 @@ Post-V1 unless the scope changes explicitly.
   what is one static level. Fix by design: build a Jolt compound (or a merged
   `MeshShape`) from the whole subtree, and log when a body's geometry is only
   partially covered instead of succeeding quietly.
+- [ ] Vehicle: put the raycast vehicle in a real scene, and cover the half of it
+  that has no proof. `VehicleBehaviour` is solid headlessly (`saida_vehicle_tests`,
+  10 cases / 34 checks: rest, throttle, braking, top speed, steering, a wheel over
+  a gap, an over-damped suspension, the anti-roll bar, a landing), but no shipped
+  scene instantiates it, and `updateVisuals` — the half that places, steers and
+  spins the wheel meshes — is exercised by nothing at all, because the test rig
+  carries no `<prefix>FL/FR/RL/RR` children and `findByPath` simply returns null
+  for each. A wheel drawn in the wrong place, mirrored the wrong way or spinning
+  backwards would pass every test there is. GTAClone's art is already prepared for
+  it (`ambulance-body.obj` + `ambulance-wheel.obj`, split out by
+  `GTAClone/tools/split_car_wheels.py`), and its README already promises driving.
+  Fix: one drivable car in the city with an E2E harness beside `e2e_smoke.js`, and
+  a headless assertion that the four wheel nodes land where the suspension says.
+  Note while doing it that the Web player compiles the behaviour and the runtime
+  matrix marks it `Required` there, but nothing has ever *run* it on Web.
+
 - [ ] Animation: extended API (scrub, JS root motion) and BVH retargeting.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.

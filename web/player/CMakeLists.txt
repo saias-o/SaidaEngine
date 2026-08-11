@@ -99,6 +99,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/nodes/CameraNode.cpp
     ${SAIDA_ROOT}/src/behaviours/AnimGraphBehaviour.cpp
     ${SAIDA_ROOT}/src/behaviours/CharacterBehaviour.cpp
+    ${SAIDA_ROOT}/src/behaviours/VehicleBehaviour.cpp
     ${SAIDA_ROOT}/src/scene/GLTFLoader.cpp
     ${SAIDA_ROOT}/src/scene/GltfMeshopt.cpp
     ${SAIDA_ROOT}/src/nodes/LightNode.cpp

@@ -94,6 +94,38 @@ public:
     void setLinearVelocity(JPH::BodyID id, const glm::vec3& velocity);
     void setAngularVelocity(JPH::BodyID id, const glm::vec3& velocity);
 
+    glm::vec3 linearVelocity(JPH::BodyID id) const;
+    glm::vec3 angularVelocity(JPH::BodyID id) const;
+    // Velocity of the material point currently at `worldPoint` — linear plus the
+    // contribution of the body's spin. What a wheel or a hull patch actually
+    // moves at, which is what slip and drag must be computed against.
+    glm::vec3 pointVelocity(JPH::BodyID id, const glm::vec3& worldPoint) const;
+
+    // Mass a contact point actually resists with, along `direction`. Always at
+    // most the body's mass and usually well under it, because an impulse applied
+    // off-centre also spins the body instead of only shifting it. Anything
+    // cancelling a slip velocity at a contact must divide by this: using the
+    // body mass over-corrects, the correction flips sign every step, and the
+    // clamps around it rectify that oscillation into a steady drift. 0 for a
+    // non-dynamic body or a degenerate direction.
+    float effectiveMassAt(JPH::BodyID id, const glm::vec3& worldPoint,
+                          const glm::vec3& direction) const;
+
+    // Instantaneous change of momentum (N.s), applied at the centre of mass or
+    // at a world point — off-centre it also spins the body. Prefer these in
+    // per-frame gameplay code: an impulse is consumed whole, whereas a force is
+    // accumulated and then cleared by the next step, so a force pushed on a frame
+    // that does not advance the fixed-timestep accumulator is silently lost.
+    void applyImpulse(JPH::BodyID id, const glm::vec3& impulse);
+    void applyImpulse(JPH::BodyID id, const glm::vec3& impulse, const glm::vec3& worldPoint);
+    void applyAngularImpulse(JPH::BodyID id, const glm::vec3& angularImpulse);
+
+    // Continuous force (N) / torque (N.m) for the duration of one step. Both are
+    // no-ops on a non-dynamic body.
+    void applyForce(JPH::BodyID id, const glm::vec3& force);
+    void applyForce(JPH::BodyID id, const glm::vec3& force, const glm::vec3& worldPoint);
+    void applyTorque(JPH::BodyID id, const glm::vec3& torque);
+
     RaycastHit raycast(const glm::vec3& origin, const glm::vec3& direction,
                        float maxDistance, const QueryFilter& filter = {}) const;
 

@@ -506,6 +506,7 @@ add_library(saida_engine STATIC
     src/audio/AudioSourceBehaviour.cpp
     src/behaviours/AnimGraphBehaviour.cpp
     src/behaviours/CharacterBehaviour.cpp
+    src/behaviours/VehicleBehaviour.cpp
     src/behaviours/HealthBehaviour.cpp
     src/nodes/WaterNode.cpp
     src/behaviours/SpawnerBehaviour.cpp
@@ -1011,6 +1012,18 @@ if (BUILD_TESTING)
     target_link_libraries(saida_physics_query_joint_tests PRIVATE saida_engine)
     target_compile_options(saida_physics_query_joint_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_physics_query_joint_tests COMMAND $<TARGET_FILE:saida_physics_query_joint_tests>)
+
+    add_executable(saida_physics_impulse_tests tests/PhysicsImpulseTests.cpp)
+    saida_test_target(saida_physics_impulse_tests)
+    target_link_libraries(saida_physics_impulse_tests PRIVATE saida_engine)
+    target_compile_options(saida_physics_impulse_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_physics_impulse_tests COMMAND $<TARGET_FILE:saida_physics_impulse_tests>)
+
+    add_executable(saida_vehicle_tests tests/VehicleTests.cpp)
+    saida_test_target(saida_vehicle_tests)
+    target_link_libraries(saida_vehicle_tests PRIVATE saida_engine)
+    target_compile_options(saida_vehicle_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_vehicle_tests COMMAND $<TARGET_FILE:saida_vehicle_tests>)
 
     add_executable(saida_collision_auto_tests tests/CollisionAutoShapeTest.cpp)
     saida_test_target(saida_collision_auto_tests)
