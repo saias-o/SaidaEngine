@@ -736,7 +736,17 @@ globals the engine explicitly installs — `console` and the
   `jumpChainIndex`, `facingYaw`, and `wantedX`/`wantedZ`, the stick already
   resolved against the camera — or `null` when the node carries no controller.
   This is what lets a game keep a tuned solver and add only the moves that are
-  its own. Gameplay (the behaviour is
+  its own. The raycast vehicle is reached the same way and for the same reason:
+  `vehicleDrive(throttle, steer)`, `vehicleBrake(v)`, `vehicleHandbrake(on)`,
+  `vehicleInput(enabled)` and `vehicleState()` — the latter returning `speed`,
+  `forwardSpeed`, `grounded`, `wheelsOnGround`, `throttle`, `steer`, `handbrake`
+  and `readsInput`, or `null` when the node carries no vehicle. `vehicleInput`
+  exists because a character and a vehicle read the **same** movement actions,
+  so exactly one of them may be listening: a parked car left listening steers
+  itself off the kerb whenever the player walks. Turning it off also releases
+  whatever the keyboard was last holding, so a car cannot be handed over mid-
+  throttle. This is the seam a driver plugs into, whether it is a player getting
+  in or a traffic AI. Gameplay (the behaviour is
   resolved on the node, else the first descendant):
   `playClip(name, loop?, crossfade?)`/`currentClip()` (Animator),
   `setAnimFloat/setAnimBool/setAnimTrigger` (animation blackboard → drives a

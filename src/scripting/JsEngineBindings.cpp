@@ -12,6 +12,7 @@
 #include "core/Time.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "behaviours/CharacterBehaviour.hpp"
+#include "behaviours/VehicleBehaviour.hpp"
 #include "physics/CharacterBodyNode.hpp"
 #include "physics/CollisionObjectNode.hpp"
 #include "physics/PhysicsWorld.hpp"
@@ -804,6 +805,78 @@ JSValue jsNodeCharacterState(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     const glm::vec3 wanted = c->wantedDirection();
     JS_SetPropertyStr(ctx, out, "wantedX", JS_NewFloat64(ctx, wanted.x));
     JS_SetPropertyStr(ctx, out, "wantedZ", JS_NewFloat64(ctx, wanted.z));
+    return out;
+}
+
+// The raycast vehicle, reached the same way the character controller is: a
+// script drives the native solver rather than reimplementing it. A node without
+// one answers false/null, like the queries above.
+VehicleBehaviour* vehicleFor(Node* node) {
+    if (!node) return nullptr;
+    if (VehicleBehaviour* self = node->getBehaviour<VehicleBehaviour>()) return self;
+    for (const std::unique_ptr<Node>& child : node->children())
+        if (VehicleBehaviour* found = vehicleFor(child.get())) return found;
+    return nullptr;
+}
+
+// Throttle and steer together, because a driver sets both every frame.
+JSValue jsNodeVehicleDrive(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
+    if (!v || argc < 2) return JS_NewBool(ctx, false);
+    double throttle = 0.0, steer = 0.0;
+    if (JS_ToFloat64(ctx, &throttle, argv[0]) || JS_ToFloat64(ctx, &steer, argv[1]))
+        return JS_NewBool(ctx, false);
+    v->setThrottle(static_cast<float>(throttle));
+    v->setSteer(static_cast<float>(steer));
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeVehicleBrake(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
+    if (!v || argc < 1) return JS_NewBool(ctx, false);
+    double value = 0.0;
+    if (JS_ToFloat64(ctx, &value, argv[0])) return JS_NewBool(ctx, false);
+    v->setBrake(static_cast<float>(value));
+    return JS_NewBool(ctx, true);
+}
+
+JSValue jsNodeVehicleHandbrake(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
+    if (!v || argc < 1) return JS_NewBool(ctx, false);
+    v->setHandbrake(JS_ToBool(ctx, argv[0]) > 0);
+    return JS_NewBool(ctx, true);
+}
+
+// Hands the wheel between the shared movement actions and the script. Without
+// it a parked car steers itself off the kerb whenever the player walks, because
+// a character and a vehicle read the very same actions.
+JSValue jsNodeVehicleInput(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
+    if (!v || argc < 1) return JS_NewBool(ctx, false);
+    v->readsInput = JS_ToBool(ctx, argv[0]) > 0;
+    if (!v->readsInput) {
+        // Whatever the keyboard was last holding must not stay pressed.
+        v->setThrottle(0.0f);
+        v->setSteer(0.0f);
+        v->setBrake(0.0f);
+        v->setHandbrake(false);
+    }
+    return JS_NewBool(ctx, true);
+}
+
+// One object rather than seven calls, read once per frame.
+JSValue jsNodeVehicleState(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
+    if (!v) return JS_NULL;
+    JSValue out = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, out, "speed", JS_NewFloat64(ctx, v->speed()));
+    JS_SetPropertyStr(ctx, out, "forwardSpeed", JS_NewFloat64(ctx, v->forwardSpeed()));
+    JS_SetPropertyStr(ctx, out, "grounded", JS_NewBool(ctx, v->isGrounded()));
+    JS_SetPropertyStr(ctx, out, "wheelsOnGround", JS_NewInt32(ctx, v->wheelsOnGround()));
+    JS_SetPropertyStr(ctx, out, "throttle", JS_NewFloat64(ctx, v->throttle()));
+    JS_SetPropertyStr(ctx, out, "steer", JS_NewFloat64(ctx, v->steer()));
+    JS_SetPropertyStr(ctx, out, "handbrake", JS_NewBool(ctx, v->handbrake()));
+    JS_SetPropertyStr(ctx, out, "readsInput", JS_NewBool(ctx, v->readsInput));
     return out;
 }
 
@@ -2065,6 +2138,11 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JS_SetPropertyStr(ctx, node, "characterFace", JS_NewCFunction(ctx, jsNodeCharacterFace, "characterFace", 3));
     JS_SetPropertyStr(ctx, node, "characterSolver", JS_NewCFunction(ctx, jsNodeCharacterSolver, "characterSolver", 1));
     JS_SetPropertyStr(ctx, node, "characterState", JS_NewCFunction(ctx, jsNodeCharacterState, "characterState", 0));
+    JS_SetPropertyStr(ctx, node, "vehicleDrive", JS_NewCFunction(ctx, jsNodeVehicleDrive, "vehicleDrive", 2));
+    JS_SetPropertyStr(ctx, node, "vehicleBrake", JS_NewCFunction(ctx, jsNodeVehicleBrake, "vehicleBrake", 1));
+    JS_SetPropertyStr(ctx, node, "vehicleHandbrake", JS_NewCFunction(ctx, jsNodeVehicleHandbrake, "vehicleHandbrake", 1));
+    JS_SetPropertyStr(ctx, node, "vehicleInput", JS_NewCFunction(ctx, jsNodeVehicleInput, "vehicleInput", 1));
+    JS_SetPropertyStr(ctx, node, "vehicleState", JS_NewCFunction(ctx, jsNodeVehicleState, "vehicleState", 0));
     JS_SetPropertyStr(ctx, node, "setEnabled", JS_NewCFunction(ctx, jsNodeSetEnabled, "setEnabled", 1));
     JS_SetPropertyStr(ctx, node, "queueFree", JS_NewCFunction(ctx, jsNodeQueueFree, "queueFree", 0));
     JS_SetPropertyStr(ctx, node, "setText", JS_NewCFunction(ctx, jsNodeSetText, "setText", 1));
