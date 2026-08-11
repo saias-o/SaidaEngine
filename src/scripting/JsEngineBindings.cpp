@@ -588,6 +588,22 @@ CharacterBodyNode* characterFor(Node* node) {
     return nullptr;
 }
 
+// The body a velocity query should answer for when the node is not a character:
+// the node's own, or the first one under it, mirroring characterFor above.
+CollisionObjectNode* rigidBodyFor(Node* node) {
+    if (!node) return nullptr;
+    if (auto* self = dynamic_cast<CollisionObjectNode*>(node))
+        if (!self->bodyId().IsInvalid()) return self;
+    for (const std::unique_ptr<Node>& child : node->children())
+        if (CollisionObjectNode* found = rigidBodyFor(child.get())) return found;
+    return nullptr;
+}
+
+PhysicsWorld* rigidWorldFor(Node* node) {
+    CollisionObjectNode* body = rigidBodyFor(node);
+    return body ? body->physicsWorld() : nullptr;
+}
+
 JSValue makeVec2(JSContext* ctx, const glm::vec2& v) {
     JSValue obj = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, obj, "x", JS_NewFloat64(ctx, v.x));
@@ -1698,17 +1714,29 @@ JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
         return JS_NewBool(ctx, true);
     }
     case NodeRefSetVelocity: {
-        CharacterBodyNode* body = characterFor(target);
-        if (!body) return JS_NewBool(ctx, false);
         glm::vec3 value(0.0f);
         if (!readVec3Args(ctx, argc, argv, value))
             return JS_ThrowTypeError(ctx, "expected ({x,y,z}) or (x,y,z)");
-        body->velocity = value;
-        return JS_NewBool(ctx, true);
+        if (CharacterBodyNode* body = characterFor(target)) {
+            body->velocity = value;
+            return JS_NewBool(ctx, true);
+        }
+        if (PhysicsWorld* world = rigidWorldFor(target)) {
+            world->setLinearVelocity(rigidBodyFor(target)->bodyId(), value);
+            return JS_NewBool(ctx, true);
+        }
+        return JS_NewBool(ctx, false);
     }
     case NodeRefGetVelocity: {
-        CharacterBodyNode* body = characterFor(target);
-        return makeVec3(ctx, body ? body->velocity : glm::vec3(0.0f));
+        // A rigid body has a velocity too, and answering 0 for one is worse than
+        // answering nothing: a script asking how fast a car is going got a
+        // confident zero while it was doing 30 m/s. Characters keep their own
+        // field, which is the solver's input rather than Jolt's readback.
+        if (CharacterBodyNode* body = characterFor(target))
+            return makeVec3(ctx, body->velocity);
+        if (PhysicsWorld* world = rigidWorldFor(target))
+            return makeVec3(ctx, world->linearVelocity(rigidBodyFor(target)->bodyId()));
+        return makeVec3(ctx, glm::vec3(0.0f));
     }
     case NodeRefIsOnFloor: {
         CharacterBodyNode* body = characterFor(target);

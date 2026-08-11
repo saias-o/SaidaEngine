@@ -20,6 +20,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <string>
+
+#include <glm/gtc/epsilon.hpp>
 
 using namespace saida;
 
@@ -294,6 +297,60 @@ void testAntiRollReducesBodyRoll() {
     require(barred < loose, "an anti-roll bar leans the car less, not more");
 }
 
+// The visuals are the only half of this behaviour a player ever sees, and until
+// a rig carries wheel nodes nothing exercises them at all: findByPath returns
+// null for each, updateVisuals writes nowhere, and a wheel drawn in the wrong
+// place, mirrored the wrong way or spinning backwards passes every other test
+// here. This rig gives it four to move.
+void testWheelNodesFollowTheSuspension() {
+    Rig rig;
+    Node* wheels[4] = {nullptr, nullptr, nullptr, nullptr};
+    static const char* kSuffix[4] = {"FL", "FR", "RL", "RR"};
+    for (int i = 0; i < 4; ++i) {
+        auto child = std::make_unique<Node>();
+        child->setName(std::string("Wheel") + kSuffix[i]);
+        wheels[i] = child.get();
+        rig.body->addChild(std::move(child));
+    }
+    // onReady has already run without them, so re-resolve by re-readying.
+    rig.vehicle->onReady();
+    rig.step(2.0f);
+
+    const float anchorY = rig.vehicle->wheelAnchorHeight;
+    const float halfTrack = rig.vehicle->wheelHalfTrack;
+    const float base = rig.vehicle->wheelBaseFront;
+    for (int i = 0; i < 4; ++i) {
+        const glm::vec3 p = wheels[i]->transform().position;
+        require(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z),
+                "a wheel node is placed at a finite point");
+        // Left is +X and the front axle is +Z, matching how the kit names them.
+        requireNear(p.x, (i == 0 || i == 2) ? halfTrack : -halfTrack, 1e-3f,
+                    "a wheel sits on its own side of the car");
+        requireNear(p.z, (i < 2) ? base : -base, 1e-3f,
+                    "a wheel sits on its own axle");
+        // Hanging from the anchor by the length the spring settled to, which at
+        // equilibrium is rest minus rest/stiffness.
+        const float settled = rig.vehicle->suspensionRest *
+                              (1.0f - 1.0f / rig.vehicle->suspensionStiffness);
+        requireNear(p.y, anchorY - settled, 0.02f,
+                    "a wheel hangs where its suspension puts it");
+    }
+    std::printf("[vehicle]    wheel FL local: (%.3f, %.3f, %.3f)\n",
+                wheels[0]->transform().position.x, wheels[0]->transform().position.y,
+                wheels[0]->transform().position.z);
+
+    // Driving must spin them, and the right-hand pair is turned about to mirror
+    // one shared mesh, so its spin runs the other way.
+    const glm::quat before = wheels[0]->transform().rotation;
+    rig.vehicle->setThrottle(1.0f);
+    rig.step(1.5f);
+    require(glm::any(glm::epsilonNotEqual(
+                glm::vec4(wheels[0]->transform().rotation.x, wheels[0]->transform().rotation.y,
+                          wheels[0]->transform().rotation.z, wheels[0]->transform().rotation.w),
+                glm::vec4(before.x, before.y, before.z, before.w), 1e-4f)),
+            "a driven wheel spins");
+}
+
 void testAirborneVehicleFalls() {
     Rig rig;
     // Well above the road, so no ray reaches it.
@@ -325,6 +382,7 @@ int main() {
         {"wheel over a hole is airborne", testWheelOverAHoleIsAirborne},
         {"over-damped suspension stays put", testOverDampedSuspensionStaysPut},
         {"anti-roll reduces body roll", testAntiRollReducesBodyRoll},
+        {"wheel nodes follow the suspension", testWheelNodesFollowTheSuspension},
         {"airborne vehicle falls", testAirborneVehicleFalls},
     };
     for (const Case& c : cases) {

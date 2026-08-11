@@ -91,6 +91,18 @@ public:
 
     // Set a body's velocity (and activate it). Used e.g. to throw a released
     // grabbed object with the hand's motion.
+    // The simulation runs on a fixed step with a substep ceiling, so one step()
+    // call advances at most kMaxSimulatedStep of simulated time however long the
+    // frame actually took. Gameplay that turns a force into an impulse must
+    // scale by at most this rather than by the frame's wall-clock delta:
+    // anything past it is force paid for time the world never simulates. A
+    // half-second frame — a level load, a hitch, a breakpoint — otherwise
+    // applies half a second of suspension to a world that advanced a fraction of
+    // it, which is enough to throw a parked car tens of metres into the air.
+    static constexpr float kFixedStep = 1.0f / 60.0f;
+    static constexpr int kMaxSubSteps = 8;
+    static constexpr float kMaxSimulatedStep = kFixedStep * kMaxSubSteps;
+
     void setLinearVelocity(JPH::BodyID id, const glm::vec3& velocity);
     void setAngularVelocity(JPH::BodyID id, const glm::vec3& velocity);
 

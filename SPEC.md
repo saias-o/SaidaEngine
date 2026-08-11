@@ -506,11 +506,27 @@ was a defect that produced plausible motion and no diagnostic:
   ratio is high, and the excess comes back out as a push that launches the
   vehicle off its own springs.
 
+A fourth rule is about time rather than order. Every force the vehicle applies
+becomes an impulse by multiplying by the frame delta, so it clamps that delta to
+`PhysicsWorld::kMaxSimulatedStep` — the fixed step times the substep ceiling,
+which is the most simulated time one `step()` can advance however long the frame
+took. Past that the vehicle would be paying force for time the world never
+simulates: a 0.63 s frame while a city finished streaming turned a parked car's
+suspension into 89 kN.s and threw it 28 m into the air.
+
 Covered by `saida_vehicle_tests` with no device: resting height and wheel count,
 throttle, braking to a standstill without creeping, bounded top speed, steering
 direction and self-centring, a wheel over a genuine gap in the floor, an
 over-damped suspension, an anti-roll bar that leans the car less rather than
-more, and a fall back onto four wheels.
+more, wheel nodes placed and spun by the suspension, and a fall back onto four
+wheels. GTAClone's `scripts/e2e_drive.js` drives one in a real scene through
+`input.inject`, the same actions a keyboard feeds.
+
+A rigid body reports its velocity to scripts. `NodeRef.getVelocity`/`setVelocity`
+answered only for a `CharacterBody` and returned a confident zero for everything
+else, so a script asking a car how fast it was going was told nothing while it
+was doing 30 m/s. Both now fall back to the body's own physics world; a character
+still reads its solver's field rather than Jolt's readback.
 
 A screen-space `WebCanvasNode` that fills the viewport reconciles the size it
 was authored at with the window through `scaleMode` and

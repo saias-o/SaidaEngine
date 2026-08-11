@@ -32,7 +32,7 @@ public:
     ~VehicleBehaviour() override = default;
 
     void onReady() override;
-    void onUpdate(float dt) override;
+    void onUpdate(float frameDt) override;
 
     // ---- layout (metres, in the body's local frame) -------------------------
     // Measured off the art by tools/split_car_wheels.py rather than typed in.

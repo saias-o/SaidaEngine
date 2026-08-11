@@ -89,8 +89,16 @@ void VehicleBehaviour::setSteer(float value) { steerInput_ = std::clamp(value, -
 
 float VehicleBehaviour::speed() const { return std::abs(forwardSpeed_); }
 
-void VehicleBehaviour::onUpdate(float dt) {
-    if (dt <= 0.0f || !node()) return;
+void VehicleBehaviour::onUpdate(float frameDt) {
+    if (frameDt <= 0.0f || !node()) return;
+
+    // Every force below becomes an impulse by multiplying by dt, so an unbounded
+    // frame would apply an unbounded impulse — and the world would not advance
+    // far enough to spend it, because PhysicsWorld caps how much it simulates per
+    // call. Measured: a 0.63 s frame while the city finished streaming turned a
+    // parked car's suspension into 89 kN.s and threw it 28 m into the air. Coast
+    // through a hitch instead of being catapulted by it.
+    const float dt = std::min(frameDt, PhysicsWorld::kMaxSimulatedStep);
 
     // The body's own world, not the SceneTree's: they are the same world in a
     // running game, and this one is also there when a Scene is stepped alone.

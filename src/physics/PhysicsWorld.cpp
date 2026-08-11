@@ -207,12 +207,12 @@ void PhysicsWorld::step(float dt) {
     SAIDA_PROFILE_FUNCTION();
     if (dt <= 0.0f) return;
 
-    const float fixed = 1.0f / 60.0f;
+    const float fixed = kFixedStep;
     accumulator_ += dt;
     if (accumulator_ > 0.25f) accumulator_ = 0.25f;  // avoid spiral of death after a hitch
 
     int steps = 0;
-    while (accumulator_ >= fixed && steps < 8) {
+    while (accumulator_ >= fixed && steps < kMaxSubSteps) {
         SAIDA_PROFILE_SCOPE("Physics/JoltUpdate");
         system_->Update(fixed, 1, tempAllocator_.get(), jobSystem_.get());
         accumulator_ -= fixed;
