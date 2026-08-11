@@ -45,6 +45,11 @@
             "path": "assets/models/survival/bedroll.obj",
             "type": "Mesh"
         },
+        "10247062011888795938": {
+            "hash": 14794402606880816269,
+            "path": "assets/models/cars/sedan-sports-body.obj",
+            "type": "Mesh"
+        },
         "10360827292477633869": {
             "hash": 2593778228202845226,
             "path": "assets/models/suburb/building-type-a.obj",
@@ -135,9 +140,29 @@
             "path": "assets/models/cars/colormap.png",
             "type": "Texture"
         },
+        "10865323961758913518": {
+            "hash": 523574083467410282,
+            "path": "assets/models/cars/race-body.obj",
+            "type": "Mesh"
+        },
         "10900205601126333454": {
             "hash": 2689125175686839267,
             "path": "assets/models/blaster/silencer-small.obj",
+            "type": "Mesh"
+        },
+        "1090909685694890946": {
+            "hash": 3166962070725559138,
+            "path": "assets/models/cars/kart-oopi-wheel.obj",
+            "type": "Mesh"
+        },
+        "10918879163179870295": {
+            "hash": 3190971667048034769,
+            "path": "assets/models/cars/suv-wheel.obj",
+            "type": "Mesh"
+        },
+        "11004978764207302211": {
+            "hash": 17680051275144456325,
+            "path": "assets/models/cars/kart-oodi-body.obj",
             "type": "Mesh"
         },
         "11068907997358586680": {
@@ -215,6 +240,11 @@
             "path": "assets/models/cars/truck.obj",
             "type": "Mesh"
         },
+        "11762652015369010177": {
+            "hash": 15793435660563485005,
+            "path": "assets/models/cars/truck-flat-wheel.obj",
+            "type": "Mesh"
+        },
         "11794705372359907466": {
             "hash": 668550143774550329,
             "path": "assets/models/cars/suv.obj",
@@ -225,6 +255,11 @@
             "path": "assets/models/city/building-h.obj",
             "type": "Mesh"
         },
+        "11834342428944067268": {
+            "hash": 10257814319516682097,
+            "path": "assets/models/cars/kart-oozi-body.obj",
+            "type": "Mesh"
+        },
         "11847127130587191555": {
             "hash": 16560945615138758054,
             "path": "assets/models/suburb/building-type-p.obj",
@@ -233,6 +268,11 @@
         "11863615904152792003": {
             "hash": 12585071592357564798,
             "path": "assets/models/blaster/crate-medium.obj",
+            "type": "Mesh"
+        },
+        "11908586501960372133": {
+            "hash": 12482361521915161094,
+            "path": "assets/models/cars/race-future-wheel.obj",
             "type": "Mesh"
         },
         "11953475643983345170": {
@@ -305,8 +345,13 @@
             "path": "assets/models/cars/debris-plate-small-a.obj",
             "type": "Mesh"
         },
+        "1266678032465414267": {
+            "hash": 17562451135660356317,
+            "path": "assets/models/cars/vehicles.json",
+            "type": "Unknown"
+        },
         "12746009854912705785": {
-            "hash": 13416851437781305331,
+            "hash": 1828570306928695691,
             "path": "scenes/city.scene",
             "type": "Scene"
         },
@@ -333,6 +378,11 @@
         "13119618894139516216": {
             "hash": 10539558081302629340,
             "path": "assets/models/roads/sign-highway-detailed.obj",
+            "type": "Mesh"
+        },
+        "13146389499258829998": {
+            "hash": 16479233843373714153,
+            "path": "assets/models/cars/suv-luxury-wheel.obj",
             "type": "Mesh"
         },
         "13157383226994749928": {
@@ -400,9 +450,24 @@
             "path": "assets/models/roads/road-bend-sidewalk.obj",
             "type": "Mesh"
         },
+        "13548118514267972596": {
+            "hash": 18186238487029805343,
+            "path": "assets/models/cars/sedan-sports-wheel.obj",
+            "type": "Mesh"
+        },
         "13567746380806041129": {
             "hash": 16303787984599194768,
             "path": "assets/models/blaster/blaster-c.obj",
+            "type": "Mesh"
+        },
+        "13692205504827676834": {
+            "hash": 573464265865359200,
+            "path": "assets/models/cars/tractor-body.obj",
+            "type": "Mesh"
+        },
+        "13706373182449874142": {
+            "hash": 18004272805012383657,
+            "path": "assets/models/cars/delivery-wheel.obj",
             "type": "Mesh"
         },
         "13747716850376222389": {
@@ -450,6 +515,11 @@
             "path": "assets/audio/hurt.ogg",
             "type": "Audio"
         },
+        "13960953930127144203": {
+            "hash": 2871130017042108202,
+            "path": "assets/models/cars/delivery-body.obj",
+            "type": "Mesh"
+        },
         "14022035101434272470": {
             "hash": 9409513976762275832,
             "path": "assets/models/city/colormap.png",
@@ -473,6 +543,11 @@
         "14158098775386855007": {
             "hash": 11259534741808241236,
             "path": "assets/models/roads/road-crossroad-barrier.obj",
+            "type": "Mesh"
+        },
+        "14202525055885200847": {
+            "hash": 7127750139245628822,
+            "path": "assets/models/cars/kart-ooli-wheel.obj",
             "type": "Mesh"
         },
         "14238446923405188006": {
@@ -515,6 +590,11 @@
             "path": "assets/models/survival/resource-planks.obj",
             "type": "Mesh"
         },
+        "14714376034451520996": {
+            "hash": 1228831546857174152,
+            "path": "assets/models/cars/delivery-flat-wheel.obj",
+            "type": "Mesh"
+        },
         "14721021256423982497": {
             "hash": 2119137141930319596,
             "path": "assets/models/cars/race-future.obj",
@@ -555,6 +635,16 @@
             "path": "assets/models/roads/road-slant-high-barrier.obj",
             "type": "Mesh"
         },
+        "14964364043771243432": {
+            "hash": 3997742285560735383,
+            "path": "assets/models/cars/kart-ooli-body.obj",
+            "type": "Mesh"
+        },
+        "1498552273153418260": {
+            "hash": 2656323367376984530,
+            "path": "assets/models/cars/garbage-truck-wheel.obj",
+            "type": "Mesh"
+        },
         "14988479482867520457": {
             "hash": 7974397343952778498,
             "path": "assets/models/city/detail-parasol-a.obj",
@@ -580,6 +670,11 @@
             "path": "assets/models/roads/construction-barrier.obj",
             "type": "Mesh"
         },
+        "15225654320404767109": {
+            "hash": 16590969677279511824,
+            "path": "assets/models/cars/kart-oobi-body.obj",
+            "type": "Mesh"
+        },
         "15282893678623952079": {
             "hash": 4339655096154052227,
             "path": "assets/models/survival/grass.obj",
@@ -593,6 +688,11 @@
         "15302348850827064953": {
             "hash": 5432344477568980690,
             "path": "assets/models/roads/road-split.obj",
+            "type": "Mesh"
+        },
+        "15302536946524407608": {
+            "hash": 1967104347910873005,
+            "path": "assets/models/cars/truck-body.obj",
             "type": "Mesh"
         },
         "15319348384982605412": {
@@ -650,6 +750,11 @@
             "path": "assets/models/survival/tree.obj",
             "type": "Mesh"
         },
+        "15768360883004294231": {
+            "hash": 8208353572789054992,
+            "path": "assets/models/cars/truck-wheel.obj",
+            "type": "Mesh"
+        },
         "15769658052147155538": {
             "hash": 14543787681144484301,
             "path": "assets/models/city/building-c.obj",
@@ -670,6 +775,11 @@
             "path": "assets/models/city/building-n.obj",
             "type": "Mesh"
         },
+        "15837633060867794916": {
+            "hash": 7569780746418872955,
+            "path": "assets/models/cars/hatchback-sports-body.obj",
+            "type": "Mesh"
+        },
         "15841350537291437928": {
             "hash": 4032555068560718733,
             "path": "assets/models/survival/metal-panel-screws.obj",
@@ -680,9 +790,19 @@
             "path": "assets/models/blaster/target-fragment-large.obj",
             "type": "Mesh"
         },
+        "15924418108135275574": {
+            "hash": 13353970602226763499,
+            "path": "assets/models/cars/firetruck-body.obj",
+            "type": "Mesh"
+        },
         "15925852512715107340": {
             "hash": 16469281305249740393,
             "path": "assets/models/cars/cone-flat.obj",
+            "type": "Mesh"
+        },
+        "15927931084513660559": {
+            "hash": 7113544768460796974,
+            "path": "assets/models/cars/ambulance-body.obj",
             "type": "Mesh"
         },
         "15942817850107181253": {
@@ -703,6 +823,11 @@
         "16206905175144475033": {
             "hash": 10244870053516390255,
             "path": "assets/models/survival/grass-large.obj",
+            "type": "Mesh"
+        },
+        "16231198029155823884": {
+            "hash": 15137303030912572125,
+            "path": "assets/models/cars/hatchback-sports-wheel.obj",
             "type": "Mesh"
         },
         "16252353942470736093": {
@@ -730,6 +855,11 @@
             "path": "assets/models/survival/signpost.obj",
             "type": "Mesh"
         },
+        "16406253848309494399": {
+            "hash": 14360163267881775699,
+            "path": "assets/models/cars/ambulance-wheel.obj",
+            "type": "Mesh"
+        },
         "16420219878605473358": {
             "hash": 7965757095871751718,
             "path": "assets/models/survival/rock-a.obj",
@@ -739,6 +869,16 @@
             "hash": 16107937741357135905,
             "path": "assets/audio/step_a.ogg",
             "type": "Audio"
+        },
+        "16471679155040909137": {
+            "hash": 18170111631020550142,
+            "path": "assets/models/cars/kart-oodi-wheel.obj",
+            "type": "Mesh"
+        },
+        "16579060235859826273": {
+            "hash": 4307280752192090035,
+            "path": "assets/models/cars/firetruck-wheel.obj",
+            "type": "Mesh"
         },
         "16606177865098678536": {
             "hash": 13971171290145138360,
@@ -753,6 +893,11 @@
         "1674282930741224467": {
             "hash": 10536876753338392965,
             "path": "assets/models/survival/tree-autumn.obj",
+            "type": "Mesh"
+        },
+        "16863867916392272020": {
+            "hash": 4625032693915415623,
+            "path": "assets/models/cars/police-body.obj",
             "type": "Mesh"
         },
         "16874150689283437996": {
@@ -788,6 +933,11 @@
         "16948909920809336068": {
             "hash": 1049292397907821924,
             "path": "assets/models/roads/road-slant.obj",
+            "type": "Mesh"
+        },
+        "16969393785087125552": {
+            "hash": 3701612751928652685,
+            "path": "assets/models/cars/kart-oopi-body.obj",
             "type": "Mesh"
         },
         "16980164181312395720": {
@@ -835,6 +985,11 @@
             "path": "assets/models/cars/wheel-tractor-dark-back.obj",
             "type": "Mesh"
         },
+        "17389420287888969505": {
+            "hash": 2504103189500813505,
+            "path": "assets/models/cars/sedan-body.obj",
+            "type": "Mesh"
+        },
         "17437745063268051071": {
             "hash": 2020728778179210887,
             "path": "assets/models/roads/road-curve-intersection.obj",
@@ -870,6 +1025,11 @@
             "path": "assets/models/survival/workbench-grind.obj",
             "type": "Mesh"
         },
+        "17753990191433576137": {
+            "hash": 8019761892650800015,
+            "path": "assets/models/cars/sedan-wheel.obj",
+            "type": "Mesh"
+        },
         "17805282043189548050": {
             "hash": 14960749395200580360,
             "path": "assets/models/survival/tool-shovel.obj",
@@ -884,6 +1044,21 @@
             "hash": 2699172599202428329,
             "path": "assets/audio/shoot_alt.ogg",
             "type": "Audio"
+        },
+        "1786492739443708660": {
+            "hash": 10515672374771910610,
+            "path": "assets/models/cars/tractor-police-wheel.obj",
+            "type": "Mesh"
+        },
+        "17914412455647979894": {
+            "hash": 18223607356427608265,
+            "path": "assets/models/cars/garbage-truck-body.obj",
+            "type": "Mesh"
+        },
+        "17917427336431409551": {
+            "hash": 17317158388483184605,
+            "path": "assets/models/cars/race-future-body.obj",
+            "type": "Mesh"
         },
         "17925005476902821342": {
             "hash": 6281096998634966192,
@@ -928,6 +1103,11 @@
         "18358337836070180043": {
             "hash": 9821231738336288071,
             "path": "assets/models/roads/light-square-cross.obj",
+            "type": "Mesh"
+        },
+        "1843409487409377257": {
+            "hash": 2657314656716120852,
+            "path": "assets/models/cars/suv-body.obj",
             "type": "Mesh"
         },
         "18442723445523158753": {
@@ -1175,6 +1355,11 @@
             "path": "assets/models/survival/bottle.obj",
             "type": "Mesh"
         },
+        "3798831043499243776": {
+            "hash": 10745495301060395902,
+            "path": "assets/models/cars/race-wheel.obj",
+            "type": "Mesh"
+        },
         "3811171670982667723": {
             "hash": 7453338865544883350,
             "path": "assets/models/blaster/blaster-b.obj",
@@ -1213,6 +1398,11 @@
         "4299458719331225717": {
             "hash": 3312335252383864680,
             "path": "assets/models/blaster/blaster-p.obj",
+            "type": "Mesh"
+        },
+        "4330196209182300574": {
+            "hash": 2008439446578834513,
+            "path": "assets/models/cars/police-wheel.obj",
             "type": "Mesh"
         },
         "4334294303407199002": {
@@ -1255,9 +1445,24 @@
             "path": "assets/models/cars/ambulance.obj",
             "type": "Mesh"
         },
+        "4883437153946639273": {
+            "hash": 16337114609570702148,
+            "path": "assets/models/cars/van-body.obj",
+            "type": "Mesh"
+        },
+        "4982816630103922444": {
+            "hash": 3579589057082249920,
+            "path": "assets/models/cars/kart-oobi-wheel.obj",
+            "type": "Mesh"
+        },
         "4990130854792837433": {
             "hash": 527116445529606541,
             "path": "assets/models/cars/police.obj",
+            "type": "Mesh"
+        },
+        "5036817723523983865": {
+            "hash": 15603340851446828478,
+            "path": "assets/models/cars/delivery-flat-body.obj",
             "type": "Mesh"
         },
         "5052812324442371820": {
@@ -1268,6 +1473,11 @@
         "5134267870756278273": {
             "hash": 11470914163006130421,
             "path": "assets/models/cars/wheel-tractor-back.obj",
+            "type": "Mesh"
+        },
+        "5135289446770887357": {
+            "hash": 7984127500311077610,
+            "path": "assets/models/cars/tractor-wheel.obj",
             "type": "Mesh"
         },
         "5181481915904258193": {
@@ -1340,6 +1550,11 @@
             "path": "assets/models/city/building-l.obj",
             "type": "Mesh"
         },
+        "5724021329395555135": {
+            "hash": 18184275154814339309,
+            "path": "assets/models/cars/tractor-shovel-wheel.obj",
+            "type": "Mesh"
+        },
         "5750961971183437698": {
             "hash": 10100224786356205931,
             "path": "assets/models/roads/road-bend.obj",
@@ -1390,9 +1605,19 @@
             "path": "assets/models/suburb/path-stones-messy.obj",
             "type": "Mesh"
         },
+        "6120664538017127439": {
+            "hash": 3556783851697065031,
+            "path": "assets/models/cars/truck-flat-body.obj",
+            "type": "Mesh"
+        },
         "6126349668668263336": {
             "hash": 12156229413830503555,
             "path": "assets/models/characters/ally.glb",
+            "type": "Mesh"
+        },
+        "6153430345675323105": {
+            "hash": 9500581574183834774,
+            "path": "assets/models/cars/van-wheel.obj",
             "type": "Mesh"
         },
         "6166834988971704086": {
@@ -1460,6 +1685,11 @@
             "path": "assets/models/city/low-detail-building-k.obj",
             "type": "Mesh"
         },
+        "6742492281428451756": {
+            "hash": 8897110883209154170,
+            "path": "assets/models/cars/suv-luxury-body.obj",
+            "type": "Mesh"
+        },
         "6790550297362514065": {
             "hash": 7304734599410158164,
             "path": "assets/models/roads/road-straight.obj",
@@ -1493,6 +1723,11 @@
         "6995128822182560254": {
             "hash": 7545576890929940637,
             "path": "assets/models/survival/campfire-stand.obj",
+            "type": "Mesh"
+        },
+        "7030236870320294329": {
+            "hash": 12485103335839998091,
+            "path": "assets/models/cars/taxi-body.obj",
             "type": "Mesh"
         },
         "7086970221623352800": {
@@ -1655,6 +1890,11 @@
             "path": "assets/models/suburb/building-type-g.obj",
             "type": "Mesh"
         },
+        "8892230828846284391": {
+            "hash": 10435660988452363176,
+            "path": "assets/models/cars/kart-oozi-wheel.obj",
+            "type": "Mesh"
+        },
         "9055186291607776431": {
             "hash": 1642208528537636589,
             "path": "assets/models/survival/box-large-open.obj",
@@ -1695,6 +1935,11 @@
             "path": "assets/models/survival/patch-grass-large.obj",
             "type": "Mesh"
         },
+        "9353380844784171763": {
+            "hash": 6162148664570756261,
+            "path": "assets/models/cars/tractor-shovel-body.obj",
+            "type": "Mesh"
+        },
         "935884660037514589": {
             "hash": 10774277041190395416,
             "path": "assets/models/blaster/blaster-j.obj",
@@ -1703,6 +1948,11 @@
         "9372812546991888983": {
             "hash": 17679967565698292902,
             "path": "assets/models/city/low-detail-building-wide-a.obj",
+            "type": "Mesh"
+        },
+        "9399968829059375416": {
+            "hash": 15955949034428140743,
+            "path": "assets/models/cars/tractor-police-body.obj",
             "type": "Mesh"
         },
         "9418478586444193313": {
@@ -1778,6 +2028,11 @@
         "989813928755829900": {
             "hash": 1539280934039791029,
             "path": "assets/models/blaster/blaster-e.obj",
+            "type": "Mesh"
+        },
+        "9906532402016632131": {
+            "hash": 10093830358063324716,
+            "path": "assets/models/cars/taxi-wheel.obj",
             "type": "Mesh"
         },
         "9963959943729829730": {
