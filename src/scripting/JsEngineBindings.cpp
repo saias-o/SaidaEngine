@@ -820,6 +820,15 @@ VehicleBehaviour* vehicleFor(Node* node) {
 }
 
 // Throttle and steer together, because a driver sets both every frame.
+// Releasing whatever the keyboard was last holding, so a car cannot change hands
+// mid-throttle. Shared by both forms for the same reason as the state object.
+void releaseVehicleControls(VehicleBehaviour* v) {
+    v->setThrottle(0.0f);
+    v->setSteer(0.0f);
+    v->setBrake(0.0f);
+    v->setHandbrake(false);
+}
+
 JSValue jsNodeVehicleDrive(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
     VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
     if (!v || argc < 2) return JS_NewBool(ctx, false);
@@ -854,19 +863,13 @@ JSValue jsNodeVehicleInput(JSContext* ctx, JSValueConst, int argc, JSValueConst*
     VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
     if (!v || argc < 1) return JS_NewBool(ctx, false);
     v->readsInput = JS_ToBool(ctx, argv[0]) > 0;
-    if (!v->readsInput) {
-        // Whatever the keyboard was last holding must not stay pressed.
-        v->setThrottle(0.0f);
-        v->setSteer(0.0f);
-        v->setBrake(0.0f);
-        v->setHandbrake(false);
-    }
+    if (!v->readsInput) releaseVehicleControls(v);
     return JS_NewBool(ctx, true);
 }
 
-// One object rather than seven calls, read once per frame.
-JSValue jsNodeVehicleState(JSContext* ctx, JSValueConst, int, JSValueConst*) {
-    VehicleBehaviour* v = vehicleFor(nodeFromJs(ctx));
+// One object rather than seven calls, read once per frame. Shared by the `node`
+// form and the NodeRef one so the two can never drift apart.
+JSValue makeVehicleState(JSContext* ctx, VehicleBehaviour* v) {
     if (!v) return JS_NULL;
     JSValue out = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, out, "speed", JS_NewFloat64(ctx, v->speed()));
@@ -878,6 +881,10 @@ JSValue jsNodeVehicleState(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     JS_SetPropertyStr(ctx, out, "handbrake", JS_NewBool(ctx, v->handbrake()));
     JS_SetPropertyStr(ctx, out, "readsInput", JS_NewBool(ctx, v->readsInput));
     return out;
+}
+
+JSValue jsNodeVehicleState(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    return makeVehicleState(ctx, vehicleFor(nodeFromJs(ctx)));
 }
 
 JSValue jsNodeSetEnabled(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
@@ -1756,6 +1763,14 @@ enum NodeRefMethod {
     NodeRefIsOnFloor,
     NodeRefIsOnSteepSlope,
     NodeRefGroundNormal,
+    // A driver is not always the vehicle's own script: a player picks a car out
+    // of the several within reach and drives that one, so the same surface has
+    // to be reachable through a reference as well as on `node`.
+    NodeRefVehicleDrive,
+    NodeRefVehicleBrake,
+    NodeRefVehicleHandbrake,
+    NodeRefVehicleInput,
+    NodeRefVehicleState,
 };
 
 JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
@@ -1819,6 +1834,39 @@ JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
         CharacterBodyNode* body = characterFor(target);
         return JS_NewBool(ctx, body && body->isOnSteepSlope());
     }
+    case NodeRefVehicleDrive: {
+        VehicleBehaviour* v = vehicleFor(target);
+        if (!v || argc < 2) return JS_NewBool(ctx, false);
+        double throttle = 0.0, steer = 0.0;
+        if (JS_ToFloat64(ctx, &throttle, argv[0]) || JS_ToFloat64(ctx, &steer, argv[1]))
+            return JS_NewBool(ctx, false);
+        v->setThrottle(static_cast<float>(throttle));
+        v->setSteer(static_cast<float>(steer));
+        return JS_NewBool(ctx, true);
+    }
+    case NodeRefVehicleBrake: {
+        VehicleBehaviour* v = vehicleFor(target);
+        if (!v || argc < 1) return JS_NewBool(ctx, false);
+        double value = 0.0;
+        if (JS_ToFloat64(ctx, &value, argv[0])) return JS_NewBool(ctx, false);
+        v->setBrake(static_cast<float>(value));
+        return JS_NewBool(ctx, true);
+    }
+    case NodeRefVehicleHandbrake: {
+        VehicleBehaviour* v = vehicleFor(target);
+        if (!v || argc < 1) return JS_NewBool(ctx, false);
+        v->setHandbrake(JS_ToBool(ctx, argv[0]) > 0);
+        return JS_NewBool(ctx, true);
+    }
+    case NodeRefVehicleInput: {
+        VehicleBehaviour* v = vehicleFor(target);
+        if (!v || argc < 1) return JS_NewBool(ctx, false);
+        v->readsInput = JS_ToBool(ctx, argv[0]) > 0;
+        if (!v->readsInput) releaseVehicleControls(v);
+        return JS_NewBool(ctx, true);
+    }
+    case NodeRefVehicleState:
+        return makeVehicleState(ctx, vehicleFor(target));
     case NodeRefGroundNormal: {
         CharacterBodyNode* body = characterFor(target);
         return makeVec3(ctx, body ? body->groundNormal() : glm::vec3(0.0f, 1.0f, 0.0f));
@@ -2084,6 +2132,11 @@ JSValue makeNodeRef(JSContext* ctx, Node* target) {
     setNodeRefMethod(ctx, object, target->id(), "isOnFloor", jsNodeRefMethod, 0, NodeRefIsOnFloor);
     setNodeRefMethod(ctx, object, target->id(), "isOnSteepSlope", jsNodeRefMethod, 0, NodeRefIsOnSteepSlope);
     setNodeRefMethod(ctx, object, target->id(), "groundNormal", jsNodeRefMethod, 0, NodeRefGroundNormal);
+    setNodeRefMethod(ctx, object, target->id(), "vehicleDrive", jsNodeRefMethod, 2, NodeRefVehicleDrive);
+    setNodeRefMethod(ctx, object, target->id(), "vehicleBrake", jsNodeRefMethod, 1, NodeRefVehicleBrake);
+    setNodeRefMethod(ctx, object, target->id(), "vehicleHandbrake", jsNodeRefMethod, 1, NodeRefVehicleHandbrake);
+    setNodeRefMethod(ctx, object, target->id(), "vehicleInput", jsNodeRefMethod, 1, NodeRefVehicleInput);
+    setNodeRefMethod(ctx, object, target->id(), "vehicleState", jsNodeRefMethod, 0, NodeRefVehicleState);
     setNodeRefMethod(ctx, object, target->id(), "setEnabled", jsNodeRefMethod, 1, NodeRefSetEnabled);
     setNodeRefMethod(ctx, object, target->id(), "queueFree", jsNodeRefMethod, 0, NodeRefQueueFree);
     setNodeRefMethod(ctx, object, target->id(), "setText", jsNodeRefMethod, 1, NodeRefSetText);

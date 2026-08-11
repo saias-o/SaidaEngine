@@ -746,7 +746,11 @@ globals the engine explicitly installs — `console` and the
   itself off the kerb whenever the player walks. Turning it off also releases
   whatever the keyboard was last holding, so a car cannot be handed over mid-
   throttle. This is the seam a driver plugs into, whether it is a player getting
-  in or a traffic AI. Gameplay (the behaviour is
+  in or a traffic AI. The same five are on `NodeRef` as well as on `node`,
+  because a driver is not always the vehicle's own script: a player picks one car
+  out of the several within reach and drives *that* one, and a script per car
+  would put every parked car in the city in a race to answer the same key press.
+  Gameplay (the behaviour is
   resolved on the node, else the first descendant):
   `playClip(name, loop?, crossfade?)`/`currentClip()` (Animator),
   `setAnimFloat/setAnimBool/setAnimTrigger` (animation blackboard → drives a
