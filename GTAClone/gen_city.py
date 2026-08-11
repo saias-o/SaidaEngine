@@ -47,6 +47,11 @@ BOAT = 1.0
 
 CHARACTER_HEIGHT = 1.75  # the character kit's own height, at scale 1.0
 
+# Where the player and their car start, and how much of that avenue stays clear
+# of parked cars so the car has somewhere to pull out to.
+HERO_CELL = (25, 19)
+HERO_CLEAR_TILES = 8
+
 SIDEWALK_W = 2.2   # metres between the kerb and a building's facade
 BLOCK_GAP = 0.6    # metres left between neighbouring buildings
 CORNER_KEEP = 7.0  # metres kept clear at each end of a block edge, so that
@@ -647,7 +652,7 @@ def vehicle_specs():
     return _vehicles_cache[0]
 
 
-def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None, driver=None):
+def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None):
     """A car the Vehicle behaviour drives: a body, four wheels it moves, a box.
 
     The collider is an explicit box lifted clear of the road, never the mesh.
@@ -704,8 +709,6 @@ def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None, driver
         # in it, and a traffic AI plugs into that same seam.
         "readsInput": False,
     }]
-    if driver:
-        car["behaviours"].append(script(driver))
     car["children"] = [
         node("CollisionShape", "Shape", shapeType=1,
              halfExtents=[round(v, 4) for v in half],
@@ -723,7 +726,7 @@ def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None, driver
                   (front[2] if sz > 0 else rear[2]) * CAR * abs(sz))
         car["children"].append(
             kitmesh("Wheel" + suffix, "cars", model + "-wheel", anchor, CAR,
-                    groups=["vehicle_wheel"]))
+                    groups=["vehicle_wheel", name + "_wheel"]))
     return car
 
 
@@ -781,8 +784,11 @@ def build_city(net):
     world.append(beach_and_sea())
     world.append(water("Sea", (0.0, SEA_Y, SEA_CENTRE_Z), SEA_HALF))
 
-    # A few cars standing at the kerb, so the streets are not bare before the
-    # traffic system populates them.
+    # Cars standing at the kerb. Every one of them drives: a city where one car
+    # in thirty-three opens is worse than one where none do, because nothing
+    # tells the player which. The cost is four raycasts and a body each, which is
+    # why they are counted rather than assumed — see the triangle and body
+    # budget in README.
     cars = node("Node", "ParkedCars")
     fleet = ("sedan", "suv", "taxi", "van", "hatchback-sports", "police", "delivery")
     for k in range(34):
@@ -790,10 +796,18 @@ def build_city(net):
         j = RNG.randrange(STREETS[0] + 1, BOULEVARD - 1)
         if (i, j) not in net.cells or net.is_junction((i, j)):
             continue
+        # Nothing parks in the player's own lane for the length of street either
+        # side of their car. A car parks at X(i) +/- 2.4, which is exactly the
+        # lane the hero car sits in, so without this the first car anyone opens
+        # is boxed in nose to tail and driving it away is a collision rather
+        # than a drive.
+        if i == HERO_CELL[0] and abs(j - HERO_CELL[1]) <= HERO_CLEAR_TILES:
+            continue
         side = RNG.choice((-1, 1))
-        cars["children"].append(parked_car(
+        cars["children"].append(drivable_car(
             "Car%d" % k, (X(i) + side * 2.4, ASPHALT_Y, Z(j) + RNG.uniform(-2.0, 2.0)),
-            0.0 if side < 0 else 180.0, RNG.choice(fleet)))
+            0.0 if side < 0 else 180.0, RNG.choice(fleet),
+            groups=["vehicle", "parked_car"]))
     world.append(cars)
 
     # Four enterable buildings. Each door sits on the pavement of a named
@@ -825,9 +839,9 @@ def build_city(net):
     # spawns on, pointing up it. Parked on the asphalt rather than the pavement:
     # its wheels are rays, and starting it astride a kerb would settle it into a
     # lean before the player ever touches it.
-    world.append(drivable_car("HeroCar", (X(25) + 2.4, ASPHALT_Y, Z(19) + 2.0),
-                              180.0, "sedan", groups=["vehicle", "hero_car"],
-                              driver="scripts/car.js"))
+    world.append(drivable_car(
+        "HeroCar", (X(HERO_CELL[0]) + 2.4, ASPHALT_Y, Z(HERO_CELL[1]) + 2.0),
+        180.0, "sedan", groups=["vehicle", "hero_car"]))
     # `camera_target` is what the camera follows, and it moves to the car while
     # the player is sitting in it. Kept separate from `player` so everything else
     # can still find the character wherever the view happens to be.
@@ -865,6 +879,14 @@ def build_city(net):
         "collisionMargin": 0.35, "minDistance": 1.1,
     }]
     world.append(camera)
+
+    # The driver owns the handover between walking and driving. It gets a node of
+    # its own because seating someone disables the player's node, and a disabled
+    # node stops running its behaviours — a driver riding on the player would
+    # switch itself off the moment it got in.
+    control = node("Node", "DriverControl", groups=["control"])
+    control["behaviours"] = [script("scripts/driver.js")]
+    world.append(control)
 
     scene["settings"] = {
         "ambient": [0.014, 0.019, 0.032],

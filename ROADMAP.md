@@ -240,26 +240,28 @@ Post-V1 unless the scope changes explicitly.
   what is one static level. Fix by design: build a Jolt compound (or a merged
   `MeshShape`) from the whole subtree, and log when a body's geometry is only
   partially covered instead of succeeding quietly.
-- [ ] Vehicle: only one car can be entered, and only on foot. `scripts/car.js`
-  runs on the car and owns the handover, so the mechanism generalises, but the
-  city authors it on `HeroCar` alone and the reach test is a plain distance to
-  the car's origin — a long vehicle is enterable from a point inside its own
-  bonnet and not from beside its boot. There is also no seated occupant: the
-  player is disabled rather than parented and posed, so nobody is visible behind
-  the wheel and a passenger is not expressible. Fix when the fleet becomes
-  driveable: reach measured against the door rather than the origin, an occupant
-  parented to a seat node, and the choice of which car when two overlap.
+
+- [ ] Vehicle: nobody is visible behind the wheel. Seating a player disables
+  their node, so a driven car is empty to look at and a passenger cannot be
+  expressed at all. The honest fix is to parent the character to a seat node on
+  the car and pose it, which needs two things the engine does not have: a
+  reparenting call on the script surface, and a decision about what happens to a
+  `CharacterBody`'s live Jolt body when its parent starts moving under it.
+  Neither is cosmetic, which is why the car is emptied rather than half-filled.
 
 - [ ] Vehicle: run one on Web. The Web player compiles the behaviour and
   `runtimeTypeMatrix` marks it `Required` there, so parity is asserted at boot,
   but nothing has ever *executed* it on Web — the raycasts, the impulse API and
   the fixed-step interaction are all unproven on that backend.
 
-- [ ] Vehicle: a second car is set dressing. `drivable_car` is general and reads
-  its geometry from `vehicles.json`, but the city places exactly one; the other
-  32 are `parked_car` mesh nodes with no body. Populating the streets is the
-  traffic system's job (`readsInput=false` plus `setThrottle`/`setSteer` is the
-  seam it plugs into), and it has to come out of the 1.34 M triangle budget.
+- [ ] Vehicle: nothing drives itself. All 32 cars are driveable and none is
+  driven — the streets are still. The seam is already the right shape
+  (`readsInput` off plus `vehicleDrive` through a `NodeRef`, which is what
+  `scripts/driver.js` uses), so a traffic system is a script holding a car and a
+  lane graph rather than a second vehicle implementation; `scenes/city.roadnet`
+  already carries 568 lane nodes and 609 edges for it. Budget note: 32 dynamic
+  vehicles cost less than the run-to-run variance of the frame time here, so what
+  constrains traffic is triangles and bodies, not the vehicle solver.
 
 - [ ] Animation: extended API (scrub, JS root motion) and BVH retargeting.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,

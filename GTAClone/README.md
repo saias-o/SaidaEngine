@@ -79,30 +79,50 @@ measured off the art, never typed in — into `assets/models/cars/vehicles.json`
 `drivable_car` in the generator reads that manifest, so a car's suspension cannot
 quietly disagree with the model hanging off it.
 
-One car, `HeroCar`, actually drives: a `RigidBody` carrying the `Vehicle`
-behaviour, a chassis box **lifted clear of the road** — the wheels are rays and
-carry the car, so a chassis that reached the ground would rest on the asphalt and
-leave the suspension nothing to do — and four wheel meshes named `WheelFL`,
-`WheelFR`, `WheelRL`, `WheelRR` that the behaviour places, steers and spins. The
-other 32 are set dressing with no body at all.
+**Every car in the street drives.** All 32 are a `RigidBody` carrying the
+`Vehicle` behaviour, a chassis box **lifted clear of the road** — the wheels are
+rays and carry the car, so a chassis that reached the ground would rest on the
+asphalt and leave the suspension nothing to do — and four wheel meshes named
+`WheelFL`, `WheelFR`, `WheelRL`, `WheelRR` that the behaviour places, steers and
+spins. A city where one car in thirty-two opens is worse than one where none do,
+because nothing tells the player which.
 
-It is left at the kerb of the avenue the player spawns on, parked on the asphalt
-rather than the pavement: starting it astride a kerb settles it into a lean
-before anyone touches it.
+They are parked on the asphalt rather than the pavement: a car started astride a
+kerb settles into a lean before anyone touches it. The single wreck inside one of
+the interiors stays a plain mesh with no body — it is a prop in a room, not a
+car.
 
-**Getting in.** Walk up to it and press `F`. `scripts/car.js` runs on the car and
-owns the handover, because a character and a vehicle read the **same** movement
-actions and exactly one of them may be listening — a car left listening steers
-itself off the kerb whenever the player walks. So the car is authored with
-`readsInput` off and is only ever driven from that script, and the player is
-disabled while seated. The camera follows the `camera_target` group rather than a
-node, and getting in moves that membership from the player to the car, which is
-what carries the view across.
+Cost: 32 dynamic vehicles measured **below the run-to-run variance** of the frame
+time here (6.8 ms and 8.7 ms uncapped for 32 cars and for one, which is the noise
+floor, not a saving). What will constrain traffic is triangles and bodies, not
+the vehicle solver.
 
-Press `F` again to get out; it is refused above 2 m/s, and lands the player
-beside the driver's door rather than inside the shell the car collides with. The
-same script is the seam a traffic AI will plug into: `readsInput` off plus
-`vehicleDrive` is how something other than a keyboard steers.
+**Getting in.** Walk up to any of them and press `F`. Press it again to get out;
+that is refused above 2 m/s, and lands the player beside the car rather than
+inside the shell it collides with.
+
+`scripts/driver.js` owns the handover, and it runs on **its own node** —
+`DriverControl` — for two reasons worth stating because both were learned the
+hard way:
+
+- A character and a vehicle read the **same** movement actions, so exactly one
+  thing may be listening. Every car is authored with `readsInput` off and is
+  only ever moved from that script; one driver holding at most one car makes the
+  conflict impossible by construction, where a script per car would put 32 of
+  them in a race to answer the same key press.
+- It cannot ride on the player, because seating someone disables the player's
+  node and a disabled node stops running its behaviours. A driver that lived
+  there would switch itself off the instant it got in, and stay in the car for
+  ever.
+
+Which car opens is decided by `physics.overlapSphere` against the real
+colliders, not by distance to an origin: a van is four metres long, and measuring
+to its centre would open it from inside its own bonnet while refusing the same
+player at its back doors. When several overlap, the nearest wins.
+
+The camera follows the `camera_target` group rather than a node, and getting in
+moves that membership from the player to the car — that is what carries the view
+across, with no camera code at all.
 
 Regenerate the world with:
 
@@ -139,7 +159,11 @@ SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_drive
 SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_enter_car.js"
 ```
 
-All three print `PASS` and must leave zero `[error]`/`[warn]` lines.
+```sh
+SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_car_reach.js"
+```
+
+All four print `PASS` and must leave zero `[error]`/`[warn]` lines.
 
 `e2e_drive.js` covers the car itself: that it settles on its springs rather than
 its chassis, that its four wheel meshes hang where the suspension says, that the
@@ -152,8 +176,14 @@ that getting in moves the camera, that the player does not walk while seated,
 that getting out puts them beside the car and leaves it parked, and that they
 walk again afterwards under the very same action.
 
-Both press the keys a player would through `input.inject`, and both get in the
-way a player does. Neither disables the player to reach the car: proving the
+`e2e_car_reach.js` covers which car opens and from where: that one opens from
+2.6 m beyond its own origin — past the reach radius, so this can only pass if
+reach is measured against the collider — that standing at two different cars in
+turn opens each of them rather than a fixed favourite, and that pressing the key
+in the open street does nothing.
+
+All of them press the keys a player would through `input.inject`, and all get in
+the way a player does. None disables the player to reach a car: proving the
 physics against a rig nobody can reach would prove the wrong thing. The harness asserts
 what the scene declares, that the player settles on the ground rather than
 falling through it, and that a street door actually moves them into its

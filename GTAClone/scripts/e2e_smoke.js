@@ -43,7 +43,7 @@ function structure() {
     };
     report("road tiles", counts.road === 568, String(counts.road));
     report("buildings", counts.building === 390, String(counts.building));
-    report("parked cars", counts.car === 32, String(counts.car));
+    report("parked cars", counts.car === 30, String(counts.car));
     report("street lights", counts.lamp === 98, String(counts.lamp));
     report("skyline", counts.skyline === 86, String(counts.skyline));
     report("interiors", counts.interior === 4, String(counts.interior));

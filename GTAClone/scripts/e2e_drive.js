@@ -50,7 +50,7 @@ function speedOf(n) {
     return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 }
 
-function wheels() { return tree.nodesInGroup("vehicle_wheel"); }
+function wheels() { return tree.nodesInGroup("HeroCar_wheel"); }
 
 function drive(throttle, steer) {
     input.inject("MoveForward", throttle > 0 ? throttle : 0.0);
