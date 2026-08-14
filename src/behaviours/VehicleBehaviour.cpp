@@ -29,7 +29,18 @@ constexpr float kFallbackMass = 1200.0f;
 constexpr float kMinGroundDot = 0.35f;
 // Tyres in a driving game are allowed to out-grip physical rubber; this scales
 // the Coulomb limit that caps the lateral impulse.
-constexpr float kFrictionHeadroom = 2.0f;
+//
+// It cannot be raised freely. A car tips when lateral acceleration passes
+// g * halfTrack / comHeight — about 1.2 g for a saloon whose mass sits where a
+// saloon's does — so a tyre allowed more than that rolls the car over instead of
+// sliding it, on flat ground, every time. At 2.0 it did exactly that. Kept below
+// the tipping threshold on purpose: a slide is recoverable and fun, a rollover
+// is neither. Raise this only together with a lower `centerOfMass`.
+constexpr float kFrictionHeadroom = 1.1f;
+// The bump stop, as a multiple of the load a wheel carries standing still. Two
+// wheels need 2x between them to hold a car up, so this leaves room to corner
+// and to land without leaving room to launch.
+constexpr float kMaxWheelLoad = 2.5f;
 
 float moveToward(float current, float target, float rate, float dt) {
     // Exponential approach, clamped so a long frame cannot overshoot.
@@ -211,16 +222,29 @@ void VehicleBehaviour::onUpdate(float frameDt) {
         const float damping =
             std::clamp(damperC * closingRate, -dampingCeiling, dampingCeiling);
         float load = springK * w.compression + damping;
-        // A spring can only push, and a hard landing must not fire the car into
-        // orbit.
-        load = std::clamp(load, 0.0f, restLoad * 12.0f);
+        // A spring can only push, and it must not push harder than a suspension
+        // can. This is the bump stop, and it is the difference between a car
+        // that leans in a corner and one that pole-vaults out of it: as the body
+        // rolls, the outer springs compress, and a linear spring answers a deep
+        // compression with whatever force the maths gives. Measured at 12x
+        // static load, a corner ran the total ground reaction up to 1.56x the
+        // car's weight while the inner wheels hung in the air, and the excess
+        // went straight into launching it — 1.9 m up, upside down. Real
+        // suspension travel ends against a stop long before that.
+        load = std::clamp(load, 0.0f, restLoad * kMaxWheelLoad);
         w.load = load;
         contacts[i].load = load;
 
         // The wheel's heading, steered and then laid flat on the contact plane.
+        // NEGATED because the vehicle's +X is its LEFT — that is how the kit
+        // names its wheels, and layOutWheels follows it — so a rotation about
+        // the vehicle's up by a positive angle swings the nose to the LEFT. A
+        // positive steer input means right, so the two have to disagree in sign
+        // exactly here. Without it the controls are mirrored, and every test
+        // that only checks "the two inputs turn it opposite ways" still passes.
         glm::vec3 heading = forward;
         if (w.steered) {
-            const glm::mat4 turn = glm::rotate(glm::mat4(1.0f), glm::radians(steerAngle_), up);
+            const glm::mat4 turn = glm::rotate(glm::mat4(1.0f), glm::radians(-steerAngle_), up);
             heading = glm::vec3(turn * glm::vec4(forward, 0.0f));
         }
         glm::vec3 f = heading - contacts[i].normal * glm::dot(heading, contacts[i].normal);
@@ -347,6 +371,54 @@ void VehicleBehaviour::onUpdate(float frameDt) {
         }
     }
 
+    // ---- roll stability ----------------------------------------------------
+    // Springs alone cannot hold a car up once it leans far enough: the outer
+    // pair is at full compression and the inner pair carries nothing, so the
+    // restoring couple stops growing exactly when it is most needed and the car
+    // goes over. This is the stabiliser bar the model does not otherwise have.
+    // It only acts while a wheel is down, so a jump or a ramp is left alone, and
+    // it pulls toward the surface the car is standing on rather than toward
+    // world up — on a banked road those are not the same thing.
+    if ((rollStability > 0.0f || rollDamping > 0.0f) && wheelsOnGround_ > 0) {
+        glm::vec3 groundUp(0.0f);
+        for (int i = 0; i < 4; ++i)
+            if (wheels_[i].grounded) groundUp += contacts[i].normal;
+        if (glm::dot(groundUp, groundUp) > 1e-6f) {
+            groundUp = glm::normalize(groundUp);
+            // up x groundUp is the axis that rotates the car back onto the
+            // surface, and its length is the sine of the lean.
+            const glm::vec3 axis = glm::cross(up, groundUp);
+            const float lean = glm::length(axis);
+            const float tonnes = mass / 1000.0f;
+            glm::vec3 torque(0.0f);
+            if (lean > 1e-4f) torque += (axis / lean) * (rollStability * tonnes * lean);
+            // Damped about the car's own length, which is the axis it rolls on.
+            const glm::vec3 spin = physics->angularVelocity(body);
+            torque -= forward * (glm::dot(spin, forward) * rollDamping * tonnes);
+            physics->applyAngularImpulse(body, torque * dt);
+        }
+    }
+
+    // ---- righting an overturned car ----------------------------------------
+    // A raycast vehicle on its roof has nothing under its wheels to push
+    // against, so it stays there for ever and the only way out is to reload.
+    // Holding a steering direction rolls it back about its own length, the way
+    // every open-world driving game does it. Gated on being genuinely overturned
+    // AND off its wheels, so this can never help a car that is merely leaning.
+    const float uprightness = glm::dot(up, glm::vec3(0.0f, 1.0f, 0.0f));
+    if (selfRightTorque > 0.0f && wheelsOnGround_ == 0 &&
+        uprightness < selfRightThreshold && std::abs(steerInput_) > 0.01f) {
+        const glm::vec3 spin = physics->angularVelocity(body);
+        // Capped so it rocks back rather than winding up into a spin the player
+        // then has to wait out.
+        if (glm::dot(spin, forward) * -steerInput_ < selfRightMaxSpin) {
+            const float torque = selfRightTorque * (mass / 1000.0f) * steerInput_;
+            // Negative for the same reason the steering is: +X is the car's
+            // left, so a positive roll about its forward drops the left side.
+            physics->applyAngularImpulse(body, forward * (-torque * dt));
+        }
+    }
+
     // ---- body forces -------------------------------------------------------
     const float speedNow = glm::length(velocity);
     // Drag is airDrag * v^2 against the direction of travel, so the impulse is
@@ -370,8 +442,11 @@ void VehicleBehaviour::updateVisuals() {
             glm::vec3(w.anchor.x, w.anchor.y - w.suspensionLength, w.anchor.z);
 
         // One mesh serves both sides, so the right-hand wheels are turned about
-        // to mirror it — which also reverses the axis they roll about.
-        const float yaw = (w.steered ? steerAngle_ : 0.0f) + (kMirrored[i] ? 180.0f : 0.0f);
+        // to mirror it — which also reverses the axis they roll about. The
+        // steering angle is negated for the same reason as in onUpdate: the
+        // vehicle's +X is its left, so the drawn wheels must point the way the
+        // car actually goes rather than mirroring it.
+        const float yaw = (w.steered ? -steerAngle_ : 0.0f) + (kMirrored[i] ? 180.0f : 0.0f);
         const float spin = kMirrored[i] ? -w.spin : w.spin;
         w.visual->transform().rotation =
             glm::angleAxis(glm::radians(yaw), glm::vec3(0.0f, 1.0f, 0.0f)) *
@@ -419,6 +494,16 @@ void VehicleBehaviour::describe(reflect::TypeBuilder<VehicleBehaviour>& t) {
 
     t.property("downforce", &VehicleBehaviour::downforce).range(0.0, 20.0);
     t.property("antiRoll", &VehicleBehaviour::antiRoll).range(0.0, 1.0);
+    t.property("rollStability", &VehicleBehaviour::rollStability).range(0.0, 30000.0)
+        .tooltip("N.m per tonne pulling the car back onto the surface it stands on; 0 disables");
+    t.property("rollDamping", &VehicleBehaviour::rollDamping).range(0.0, 10000.0)
+        .tooltip("N.m per tonne per (rad/s), bleeding off roll rate while grounded");
+
+    t.property("selfRightTorque", &VehicleBehaviour::selfRightTorque).range(0.0, 40000.0)
+        .tooltip("N.m per tonne when steering is held and the car is on its roof; 0 disables");
+    t.property("selfRightThreshold", &VehicleBehaviour::selfRightThreshold).range(-1.0, 1.0)
+        .tooltip("cosine of the tilt that counts as overturned; 0.35 is about 70 degrees");
+    t.property("selfRightMaxSpin", &VehicleBehaviour::selfRightMaxSpin).range(0.1, 10.0);
 
     t.property("wheelNodePrefix", &VehicleBehaviour::wheelNodePrefix)
         .tooltip("child nodes <prefix>FL/FR/RL/RR are placed, steered and spun");

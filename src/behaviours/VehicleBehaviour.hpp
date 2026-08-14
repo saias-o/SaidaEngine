@@ -77,6 +77,28 @@ public:
     // ---- stability ---------------------------------------------------------
     float downforce = 0.0f;         // N per (m/s)^2 pressed into the road
     float antiRoll = 0.4f;          // 0..1, evens out load across each axle
+    // Keeps the car on its wheels. A raycast vehicle has nothing damping roll
+    // except its own springs, and at the limit those are already at full
+    // compression on one side and carrying nothing on the other — so past a
+    // point there is no restoring force left at all and the car simply goes
+    // over. This is the stabiliser the model otherwise lacks: a torque toward
+    // the surface it is standing on, applied only while a wheel is down, so it
+    // never fights a jump or a ramp. Quoted per tonne. 0 disables it.
+    float rollStability = 13000.0f;   // N.m per 1000 kg at 90 degrees of lean
+    float rollDamping = 1400.0f;     // N.m per 1000 kg per (rad/s) of roll rate
+
+    // ---- righting an overturned car ----------------------------------------
+    // On its roof with no wheels down, a raycast vehicle has nothing to push
+    // against and stays there for ever: without this the only way out of a roll
+    // is to reload. Holding a steering direction rocks it back, which is the
+    // convention every open-world driving game uses.
+    // Torque is quoted per tonne so a lorry rights as readily as a hatchback.
+    float selfRightTorque = 22000.0f;  // N.m per 1000 kg, at full lock
+    // How far from upright counts as overturned: the cosine of the angle
+    // between the car's up and the world's. 0.35 is about 70 degrees, so a car
+    // merely leaning on a kerb is left alone.
+    float selfRightThreshold = 0.35f;
+    float selfRightMaxSpin = 2.5f;    // rad/s cap, so it rocks rather than spins
 
     // ---- visuals -----------------------------------------------------------
     // Child nodes named <prefix>FL, FR, RL, RR are moved onto their wheels, then

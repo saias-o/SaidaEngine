@@ -24,6 +24,7 @@
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
 #include <Jolt/Physics/Collision/ContactListener.h>
+#include <Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Constraints/TwoBodyConstraint.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
@@ -225,7 +226,24 @@ JPH::BodyID PhysicsWorld::createBody(const BodyDesc& d) {
     if (!d.shape) return BodyID();
 
     ObjectLayer layer = (d.motion == BodyMotion::Static) ? Layers::NON_MOVING : Layers::MOVING;
-    BodyCreationSettings settings(d.shape, RVec3(d.position.x, d.position.y, d.position.z),
+    // Moving the centre of mass wraps the shape rather than editing it, so the
+    // caller's shape is untouched and the geometry it collides with is exactly
+    // the geometry it declared. The Ref keeps the wrapper alive until the body
+    // has taken its own reference.
+    Ref<Shape> shape(const_cast<Shape*>(d.shape));
+    if (d.motion == BodyMotion::Dynamic && glm::dot(d.centerOfMass, d.centerOfMass) > 0.0f) {
+        OffsetCenterOfMassShapeSettings offset(
+            Vec3(d.centerOfMass.x, d.centerOfMass.y, d.centerOfMass.z), d.shape);
+        Shape::ShapeResult result = offset.Create();
+        if (result.IsValid()) {
+            shape = result.Get();
+        } else {
+            Log::warn("PhysicsWorld: centre-of-mass offset rejected: ",
+                      result.GetError().c_str());
+        }
+    }
+
+    BodyCreationSettings settings(shape, RVec3(d.position.x, d.position.y, d.position.z),
                                   toJolt(d.rotation), toMotionType(d.motion), layer);
     settings.mIsSensor = d.isSensor;
     settings.mFriction = d.friction;

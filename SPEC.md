@@ -506,6 +506,44 @@ was a defect that produced plausible motion and no diagnostic:
   ratio is high, and the excess comes back out as a push that launches the
   vehicle off its own springs.
 
+**Which way is right.** The vehicle's forward is local `+Z` and its `+X` is its
+**left**, matching how the kits name their wheels, so a positive steer input
+turns the nose toward `-X` and the steering angle is applied as a *negative*
+rotation about the vehicle's up. Both the tyre heading and the drawn wheels
+follow that one convention. This is stated because a test that only asks whether
+opposite inputs turn the car opposite ways passes just as happily on mirrored
+controls — which is how they shipped inverted.
+
+**Staying on its wheels.** Three things keep a car from rolling over, and only
+one of them is a tuning value:
+
+- `RigidBody::centerOfMass` moves the mass off the shape's own centroid. Jolt
+  derives the centre of mass from geometry, which is right for a crate and wrong
+  for a car: its mass is along the axle line while its collision box has to cover
+  the roof. Left at the box centre a saloon tips at 0.59 g — under what its own
+  tyres pull — so it rolls in any hard corner. Implemented by wrapping the shape
+  in an offset-centre-of-mass shape, so the geometry it collides with is
+  untouched.
+- `rollStability`/`rollDamping` are the stabiliser the model does not otherwise
+  have. Springs alone cannot hold a leaning car up: past a point the outer pair
+  is at full compression and the inner pair carries nothing, so the restoring
+  couple stops growing exactly when it is needed. The torque pulls toward the
+  surface the car is standing on rather than world up — a banked road is not a
+  fault — and acts only while a wheel is down, so a jump is left alone. Measured
+  on full throttle at full lock: peak lean fell from 89 degrees, on its roof, to
+  25 degrees with the car sliding and recovering onto four wheels.
+- The tyre friction ceiling is held below the tipping threshold on purpose. A
+  tyre allowed more lateral force than `g * halfTrack / comHeight` rolls the car
+  instead of sliding it; a slide is recoverable and a rollover is not.
+
+**Getting back up.** `selfRightTorque` lets a player rock an overturned car back
+onto its wheels by holding a steering direction, the convention every open-world
+driving game uses. Gated on being genuinely overturned *and* off its wheels, and
+capped by `selfRightMaxSpin` so it rocks rather than spins. Without it a raycast
+vehicle on its roof has nothing to push against and stays there: the only way out
+of a roll is to reload. The torque must exceed `weight * halfWidth` or nothing
+happens at all — it has to lift the car onto an edge before gravity can help.
+
 A fourth rule is about time rather than order. Every force the vehicle applies
 becomes an impulse by multiplying by the frame delta, so it clamps that delta to
 `PhysicsWorld::kMaxSimulatedStep` — the fixed step times the substep ceiling,
@@ -518,8 +556,9 @@ Covered by `saida_vehicle_tests` with no device: resting height and wheel count,
 throttle, braking to a standstill without creeping, bounded top speed, steering
 direction and self-centring, a wheel over a genuine gap in the floor, an
 over-damped suspension, an anti-roll bar that leans the car less rather than
-more, wheel nodes placed and spun by the suspension, and a fall back onto four
-wheels. GTAClone's `scripts/e2e_drive.js` drives one in a real scene through
+more, a hard corner that slides rather than rolls, an overturned car righted by
+holding a direction, wheel nodes placed and spun by the suspension, and a fall
+back onto four wheels. Steering is asserted by direction, not merely by motion. GTAClone's `scripts/e2e_drive.js` drives one in a real scene through
 `input.inject`, the same actions a keyboard feeds.
 
 A rigid body reports its velocity to scripts. `NodeRef.getVelocity`/`setVelocity`

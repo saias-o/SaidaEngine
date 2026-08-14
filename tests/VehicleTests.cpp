@@ -71,17 +71,21 @@ struct Rig {
 
     explicit Rig(bool withHole = false) {
         if (!withHole) {
-            addSlab("Floor", -200.0f, 200.0f, -200.0f, 200.0f);
+            // Big enough that a car cannot drive off it. Forty seconds at full
+            // throttle covers well over a kilometre, and a car that reaches the
+            // edge falls, tumbles, and reports a speed with its fall in it —
+            // which reads exactly like a top speed that was never capped.
+            addSlab("Floor", -2000.0f, 2000.0f, -2000.0f, 2000.0f);
         } else {
             // A hole is an ABSENCE of floor. A body added under a solid floor
             // changes nothing a downward ray can see — it stops on the floor
             // above it — so the gap is left by the slabs themselves. 0.70 m
             // square, centred under the front-left wheel at (+0.53, +0.825),
             // which leaves the other three carrying the car level.
-            addSlab("FloorLeft", -200.0f, 0.18f, -200.0f, 200.0f);
-            addSlab("FloorRight", 0.88f, 200.0f, -200.0f, 200.0f);
-            addSlab("FloorNear", 0.18f, 0.88f, -200.0f, 0.475f);
-            addSlab("FloorFar", 0.18f, 0.88f, 1.175f, 200.0f);
+            addSlab("FloorLeft", -2000.0f, 0.18f, -2000.0f, 2000.0f);
+            addSlab("FloorRight", 0.88f, 2000.0f, -2000.0f, 2000.0f);
+            addSlab("FloorNear", 0.18f, 0.88f, -2000.0f, 0.475f);
+            addSlab("FloorFar", 0.18f, 0.88f, 1.175f, 2000.0f);
         }
 
         body = scene.createChild<RigidBodyNode>();
@@ -98,6 +102,11 @@ struct Rig {
         // Lifted so the box never reaches the road: the wheels carry the car.
         chassis->offset = {0.0f, 0.91f, 0.0f};
         body->addChild(std::move(chassis));
+        // A car's mass is in its floorpan, engine and occupants, not spread
+        // through the box that has to cover its roof. Left at the box centre
+        // (0.91 m) it tips at 0.59 g, under what its own tyres pull, so it rolls
+        // over in any hard corner. This puts it at 0.50 m, where a saloon's is.
+        body->centerOfMass = {0.0f, -0.556f, 0.0f};
 
         vehicle = body->addBehaviour<VehicleBehaviour>();
         vehicle->readsInput = false;
@@ -123,6 +132,11 @@ struct Rig {
     float rollDegrees() const {
         const glm::mat4 m = body->worldTransform();
         return glm::degrees(std::asin(std::clamp(glm::vec3(m[0]).y, -1.0f, 1.0f)));
+    }
+    // How upright the car is: +1 on its wheels, 0 on its side, -1 on its roof.
+    float uprightness() const {
+        const glm::mat4 m = body->worldTransform();
+        return glm::normalize(glm::vec3(m[1])).y;
     }
     // Heading in the XZ plane, in degrees, from the body's own forward (+Z).
     float headingDegrees() const {
@@ -192,6 +206,9 @@ void testTopSpeedIsBounded() {
     rig.step(1.0f);
     rig.vehicle->setThrottle(1.0f);
     rig.step(40.0f);
+    std::printf("[vehicle]    after 40 s: %.2f m/s (max %.1f) y=%.3f up=%.3f wheels=%d\n",
+                rig.vehicle->speed(), rig.vehicle->maxSpeed, rig.position().y,
+                rig.uprightness(), rig.vehicle->wheelsOnGround());
     require(rig.vehicle->speed() <= rig.vehicle->maxSpeed + 1.0f,
             "drive tapers off rather than accelerating without limit");
     require(finite(rig.position()), "a long run stays finite");
@@ -199,25 +216,104 @@ void testTopSpeedIsBounded() {
 
 // ---- steering --------------------------------------------------------------
 
+// Which way is which, not merely that the two differ. Asserting only that
+// opposite inputs give opposite turns is what let the controls ship inverted:
+// the car turned, it turned both ways, and every check passed.
+//
+// The convention: forward is local +Z and +X is the car's LEFT, which is how the
+// kit names its wheels (wheel-front-left sits at +x). So the car's right is -X,
+// and steering right must swing the nose toward -X — a falling headingDegrees,
+// since that is atan2(forward.x, forward.z).
+// Accumulated frame by frame rather than as a difference of two headings:
+// headingDegrees is an atan2 and wraps at 180, so a car that turns further than
+// a half-circle — which one on grippy tyres does in three seconds — reports a
+// turn of the wrong sign. Measuring the total this way survives any number of
+// full turns.
+float turnWhileSteering(Rig& rig, float steer, float seconds) {
+    rig.step(1.0f);
+    rig.vehicle->setThrottle(1.0f);
+    rig.vehicle->setSteer(steer);
+    float previous = rig.headingDegrees();
+    float total = 0.0f;
+    const int frames = static_cast<int>(seconds * 60.0f);
+    for (int i = 0; i < frames; ++i) {
+        rig.step(1.0f / 60.0f);
+        float delta = rig.headingDegrees() - previous;
+        while (delta > 180.0f) delta -= 360.0f;
+        while (delta < -180.0f) delta += 360.0f;
+        total += delta;
+        previous = rig.headingDegrees();
+    }
+    return total;
+}
+
 void testSteeringTurnsTheCar() {
-    Rig left;
-    left.step(1.0f);
-    const float heading0 = left.headingDegrees();
-    left.vehicle->setThrottle(1.0f);
-    left.vehicle->setSteer(-1.0f);
-    left.step(3.0f);
-    const float leftTurn = left.headingDegrees() - heading0;
+    Rig leftRig;
+    const float leftTurn = turnWhileSteering(leftRig, -1.0f, 3.0f);
+    Rig rightRig;
+    const float rightTurn = turnWhileSteering(rightRig, 1.0f, 3.0f);
 
-    Rig right;
-    right.step(1.0f);
-    right.vehicle->setThrottle(1.0f);
-    right.vehicle->setSteer(1.0f);
-    right.step(3.0f);
-    const float rightTurn = right.headingDegrees() - heading0;
-
+    std::printf("[vehicle]    steer -1 turns %+.1f deg, steer +1 turns %+.1f deg\n",
+                leftTurn, rightTurn);
     require(std::fabs(leftTurn) > 5.0f, "steering actually turns the car");
     require(leftTurn * rightTurn < 0.0f,
             "opposite steering turns the car in opposite directions");
+    require(rightTurn < 0.0f, "steering right takes the nose to the car's right");
+    require(leftTurn > 0.0f, "steering left takes the nose to the car's left");
+}
+
+// A car may slide, and a car may be tipped by a kerb or a ramp. What it must not
+// do is roll over because a tyre gripped: with the centre of mass at the middle
+// of the body box the tipping threshold was 0.59 g while the tyres were allowed
+// 2 g, so a hard corner on flat ground put it on its roof every time.
+void testHardCorneringDoesNotRollTheCar() {
+    Rig rig;
+    rig.step(1.0f);
+    rig.vehicle->setThrottle(1.0f);
+    rig.step(3.0f);              // up to speed first
+    rig.vehicle->setSteer(1.0f); // then everything the wheel has
+
+    float peak = 0.0f;
+    for (int i = 0; i < 300; ++i) {
+        rig.step(1.0f / 60.0f);
+        peak = std::max(peak, std::fabs(rig.rollDegrees()));
+    }
+    std::printf("[vehicle]    peak roll at full lock and full throttle: %.1f deg\n", peak);
+    require(std::isfinite(peak), "a hard corner stays finite");
+    require(peak < 35.0f, "a hard corner slides the car rather than rolling it");
+    require(rig.vehicle->wheelsOnGround() >= 2,
+            "it keeps wheels on the road through the corner");
+}
+
+// Being upside down must not be a dead end. GTA lets a player rock a car back
+// onto its wheels by holding a direction; without it the only way out of a roll
+// is to reload.
+void testAnOverturnedCarCanBeRighted() {
+    Rig rig;
+    // Dropped in on its roof, which is where a player ends up.
+    rig.body->transform().position = {0.0f, 1.2f, 0.0f};
+    rig.body->transform().rotation = glm::angleAxis(glm::radians(180.0f),
+                                                   glm::vec3(0.0f, 0.0f, 1.0f));
+    rig.step(2.0f);
+    const float upsideDown = rig.uprightness();
+    std::printf("[vehicle]    dropped on its roof: uprightness %.2f, wheels %d\n",
+                upsideDown, rig.vehicle->wheelsOnGround());
+    require(upsideDown < 0.0f, "the car really is upside down to begin with");
+
+    // Hold a direction, as a player would.
+    rig.vehicle->setSteer(1.0f);
+    for (int i = 0; i < 600 && rig.uprightness() < 0.7f; ++i)
+        rig.step(1.0f / 60.0f);
+
+    std::printf("[vehicle]    after holding a direction: uprightness %.2f, wheels %d\n",
+                rig.uprightness(), rig.vehicle->wheelsOnGround());
+    require(rig.uprightness() > 0.7f, "holding a direction rights an overturned car");
+    require(finite(rig.position()), "righting itself stays finite");
+
+    // And once back on its wheels it must settle rather than keep spinning.
+    rig.vehicle->setSteer(0.0f);
+    rig.step(2.0f);
+    require(rig.uprightness() > 0.7f, "it stays upright once it is");
 }
 
 void testSteeringSelfCentres() {
@@ -378,6 +474,8 @@ int main() {
         {"brake stops", testBrakeStops},
         {"top speed is bounded", testTopSpeedIsBounded},
         {"steering turns the car", testSteeringTurnsTheCar},
+        {"hard cornering does not roll the car", testHardCorneringDoesNotRollTheCar},
+        {"an overturned car can be righted", testAnOverturnedCarCanBeRighted},
         {"steering self-centres", testSteeringSelfCentres},
         {"wheel over a hole is airborne", testWheelOverAHoleIsAirborne},
         {"over-damped suspension stays put", testOverDampedSuspensionStaysPut},

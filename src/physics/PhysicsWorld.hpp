@@ -59,6 +59,14 @@ struct BodyDesc {
     float gravityFactor = 1.0f;
     float linearDamping = 0.05f;
     float angularDamping = 0.05f;
+    // Where the mass actually sits, relative to where the shape says it does.
+    // Jolt derives the centre of mass from the geometry, which is right for a
+    // crate and wrong for anything whose mass is not spread through its own
+    // bounding volume: a car keeps its engine, floorpan and occupants low, while
+    // its collision box has to cover the roof. Left at the box centre, a car
+    // tips at 0.6 g — under what its own tyres can pull — so it rolls over
+    // instead of sliding. Zero keeps Jolt's own answer.
+    glm::vec3 centerOfMass{0.0f};
     void* userData = nullptr;       // stored on the body (we map it to the owning node)
 };
 

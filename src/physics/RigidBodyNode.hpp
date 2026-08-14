@@ -23,6 +23,13 @@ public:
     float gravityFactor = 1.0f;   // 0 = floats, 1 = normal gravity
     float linearDamping = 0.05f;
     float angularDamping = 0.05f;
+    // Where the mass sits, relative to where the collision shape puts it. Jolt
+    // derives the centre of mass from the geometry, which is right for a crate
+    // and wrong for anything whose mass is not spread through its own bounding
+    // volume: a car keeps its engine, floorpan and occupants low while its box
+    // has to cover the roof, and left at the box centre it tips at less than
+    // its own tyres can pull. Zero keeps Jolt's answer.
+    glm::vec3 centerOfMass{0.0f};
 
 protected:
     void describeBody(BodyDesc& desc) const override {
@@ -30,6 +37,7 @@ protected:
         desc.gravityFactor = gravityFactor;
         desc.linearDamping = linearDamping;
         desc.angularDamping = angularDamping;
+        desc.centerOfMass = centerOfMass;
     }
 };
 
