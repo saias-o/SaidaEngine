@@ -41,6 +41,9 @@ plugins/python-tools/dist/
 plugins/python-tools/src/*.egg-info/
 # Packaged game build output (artifacts, never source)
 MyGame/build/
+# saida_tool export-game resolves --out against the PROJECT, so a web export
+# lands under <project>/build/ rather than the repo's own build tree.
+GTAClone/build/
 **/build/export/
 build-web/
 build-web-player/

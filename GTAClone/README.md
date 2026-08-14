@@ -177,6 +177,25 @@ SaidaEngine.exe --project GTAClone --play --test-autoload "E2E=scripts/e2e_car_r
 
 All four print `PASS` and must leave zero `[error]`/`[warn]` lines.
 
+`e2e_drive.js` also runs in the **Web player**, which is the only proof that the
+raycast vehicle executes on that backend at all:
+
+```sh
+build/bin/saida_tool.exe export-game GTAClone/GTAClone.saidaproj --platform web --out build/gta-web-export
+```
+
+Serve `GTAClone/build/gta-web-export/web` with the `serve.py` beside it — the
+COOP/COEP headers it sets are required — then open
+`/?smoke&report&test-autoload=E2E%3Dscripts%2Fe2e_drive.js`. Read the verdict
+from `/__saida_e2e`, not the console: the renderer logs a push-ring warning every
+frame on a scene this size and floods it. Resting wheel height comes out at 0.403
+on Web against 0.398 on desktop.
+
+Every harness is keyed on **elapsed time, never a frame count**. The two backends
+run this city at frame rates an order of magnitude apart, and counting frames
+measured a settled car on one and a mid-bounce one on the other — then reported
+the difference as a suspension defect.
+
 `e2e_drive.js` covers the car itself: that it settles on its springs rather than
 its chassis, that its four wheel meshes hang where the suspension says, that the
 throttle builds speed and moves it along its own heading, that steering turns it

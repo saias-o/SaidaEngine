@@ -241,13 +241,6 @@ Post-V1 unless the scope changes explicitly.
   `MeshShape`) from the whole subtree, and log when a body's geometry is only
   partially covered instead of succeeding quietly.
 
-- [ ] Vehicle: a car on its side is harder to right than one on its roof. The
-  self-righting torque is applied about the car's length, which is the axis it
-  rolled over on, so it works from the roof and from a lean; a car balanced on
-  its nose or wedged against a wall has no such axis and stays put. Fix when it
-  matters: pick the axis from the shortest rotation back to the surface normal
-  rather than assuming roll.
-
 - [ ] Vehicle: nobody is visible behind the wheel. Seating a player disables
   their node, so a driven car is empty to look at and a passenger cannot be
   expressed at all. The honest fix is to parent the character to a seat node on
@@ -256,17 +249,33 @@ Post-V1 unless the scope changes explicitly.
   `CharacterBody`'s live Jolt body when its parent starts moving under it.
   Neither is cosmetic, which is why the car is emptied rather than half-filled.
 
-- [ ] Vehicle: run one on Web. The Web player compiles the behaviour and
-  `runtimeTypeMatrix` marks it `Required` there, so parity is asserted at boot,
-  but nothing has ever *executed* it on Web — the raycasts, the impulse API and
-  the fixed-step interaction are all unproven on that backend.
+- [ ] Rendering: a texture allocation failure crashes instead of degrading.
+  Observed intermittently while launching the engine on GTAClone dozens of times
+  back to back: `[error] failed to create texture image`, then a crash report.
+  The same command passed on the two following attempts, so this is resource
+  pressure across repeated processes rather than anything in the scene — the
+  cause is not isolated and should not be guessed at. What is worth fixing
+  regardless is the response: running out of a GPU resource is a condition the
+  engine can be handed at any time, and it should name what it could not allocate
+  and how much was asked for, then fail the load, rather than take the process
+  with it.
 
-- [ ] Vehicle: nothing drives itself. All 32 cars are driveable and none is
+- [ ] Rendering: the Web backend's push-constant ring is too small for a city.
+  Driving GTAClone in the Web player logs `rhi::webgpu: push ring exhausted
+  (frame uses > 262144 bytes)` every frame — 2266 nodes overrun a 256 KiB ring.
+  The scene still draws and the gameplay is unaffected, but the message is
+  emitted per frame rather than once, which floods the console ring buffer and
+  cost real time during this session: it pushed every `[E2E]` line out of reach
+  and made a passing run unreadable. Fix by design: size the ring from the draw
+  count rather than a constant, and report an overrun once per swapchain
+  lifetime with the number that would have sufficed.
+
+- [ ] Vehicle: nothing drives itself. All 30 cars are driveable and none is
   driven — the streets are still. The seam is already the right shape
   (`readsInput` off plus `vehicleDrive` through a `NodeRef`, which is what
   `scripts/driver.js` uses), so a traffic system is a script holding a car and a
   lane graph rather than a second vehicle implementation; `scenes/city.roadnet`
-  already carries 568 lane nodes and 609 edges for it. Budget note: 32 dynamic
+  already carries 568 lane nodes and 609 edges for it. Budget note: 30 dynamic
   vehicles cost less than the run-to-run variance of the frame time here, so what
   constrains traffic is triangles and bodies, not the vehicle solver.
 
