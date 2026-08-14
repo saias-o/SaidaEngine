@@ -17,9 +17,13 @@ let ok = true;
 let restY = null;
 let restPos = null;
 let driveStart = null;
-let headingAtSteer = null;
 let suspensionMoved = false;
 let peakSpeed = 0.0;
+// Accumulated frame by frame: headingDegrees is an atan2 and wraps at 180, so a
+// difference of two absolute headings reports the wrong sign as soon as the car
+// turns further than a half-circle.
+let turnTotal = 0.0;
+let lastHeading = null;
 
 function report(label, pass, detail) {
     console.log("[E2E] " + (pass ? "ok  " : "FAIL") + " " + label +
@@ -141,25 +145,33 @@ function onUpdate() {
                "y=" + p.y.toFixed(3));
         report("suspension moves under power", suspensionMoved);
 
-        headingAtSteer = headingDegrees(c);
+        lastHeading = headingDegrees(c);
         drive(1.0, 1.0);
         return;
     }
 
     // ---- steering ---------------------------------------------------------
-    if (frames === 475) {
-        let delta = headingDegrees(c) - headingAtSteer;
-        while (delta > 180.0) delta -= 360.0;
-        while (delta < -180.0) delta += 360.0;
-        report("steering turns the car", Math.abs(delta) > 10.0,
-               delta.toFixed(1) + " deg");
+    if (frames > 355 && frames <= 595 && lastHeading !== null) {
+        let d = headingDegrees(c) - lastHeading;
+        while (d > 180.0) d -= 360.0;
+        while (d < -180.0) d += 360.0;
+        turnTotal += d;
+        lastHeading = headingDegrees(c);
+    }
+
+    if (frames === 595) {
+        // Negative because the car's +X is its left, so steering right takes the
+        // nose toward -X and headingDegrees falls. Direction, not just movement:
+        // a check that only asks whether it turned passes on mirrored controls.
+        report("steering turns the car to the right", turnTotal < -10.0,
+               turnTotal.toFixed(1) + " deg");
         drive(0.0, 0.0);
         input.inject("Jump", 1.0);
         return;
     }
 
     // ---- stopping ---------------------------------------------------------
-    if (frames === 715) {
+    if (frames === 835) {
         report("handbrake brings it to rest", speedOf(c) < 1.0,
                speedOf(c).toFixed(3) + " m/s");
         const p = c.getPosition();

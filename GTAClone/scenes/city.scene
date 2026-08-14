@@ -83086,7 +83086,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5542,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -83425,7 +83430,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.4062,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -83764,7 +83774,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.75,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -84103,7 +84118,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -84442,7 +84462,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.75,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -84781,7 +84806,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.75,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -85120,7 +85150,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.75,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -85459,7 +85494,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5312,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -85798,7 +85838,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5312,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -86137,7 +86182,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -86476,7 +86526,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.75,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -86815,7 +86870,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -87154,7 +87214,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.4062,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -87493,7 +87558,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5312,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -87832,7 +87902,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -88171,7 +88246,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.6562,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -88510,7 +88590,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -88849,7 +88934,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.6562,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -89188,7 +89278,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5312,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -89527,7 +89622,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -89866,7 +89966,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -90205,7 +90310,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5542,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -90544,7 +90654,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.75,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -90883,7 +90998,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5542,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -91222,7 +91342,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -91561,7 +91686,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.6562,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -91900,7 +92030,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5625,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -92239,7 +92374,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.6562,
+       0.0
+      ]
      },
      {
       "type": "RigidBody",
@@ -92578,7 +92718,12 @@
       "gravityFactor": 1.0,
       "linearDamping": 0.0,
       "angularDamping": 0.35,
-      "kinematic": false
+      "kinematic": false,
+      "centerOfMass": [
+       0.0,
+       -0.5312,
+       0.0
+      ]
      }
     ],
     "transform": {
@@ -97615,7 +97760,12 @@
     "gravityFactor": 1.0,
     "linearDamping": 0.0,
     "angularDamping": 0.35,
-    "kinematic": false
+    "kinematic": false,
+    "centerOfMass": [
+     0.0,
+     -0.5312,
+     0.0
+    ]
    },
    {
     "type": "CharacterBody",

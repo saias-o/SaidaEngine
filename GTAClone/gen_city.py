@@ -681,9 +681,16 @@ def drivable_car(name, pos, yaw, model="sedan", mass=1200.0, groups=None):
     rest = 0.35
     anchor_h = front[1] * CAR + rest
 
+    # A car's mass sits along its axle line — engine, floorpan, occupants — not
+    # at the middle of the box that has to cover its roof. Jolt takes the centre
+    # of mass from the geometry, and left there the car tips at less than its own
+    # tyres can pull and rolls over in any hard corner. Measured off the art like
+    # everything else here: the wheel centre height.
+    com_offset = front[1] * CAR - centre_y
+
     car = node("RigidBody", name, pos, 1.0, yaw, groups=groups or ["vehicle"],
                mass=mass, gravityFactor=1.0, linearDamping=0.0, angularDamping=0.35,
-               kinematic=False)
+               kinematic=False, centerOfMass=[0.0, round(com_offset, 4), 0.0])
     car["behaviours"] = [{
         "type": "Vehicle", "enabled": True,
         "wheelHalfTrack": round(front[0] * CAR, 4),

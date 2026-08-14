@@ -11,6 +11,9 @@ scenario systems the way the vertical slice exercises its renderer.
 ```
 
 **Controls** — `ZQSD`/`WASD` move, mouse looks, `Space` jumps, `Shift` sprints.
+`F` gets in and out of any car; at the wheel the same keys drive, `Space` is the
+handbrake, and holding a direction while upside down rocks the car back onto its
+wheels.
 
 ## Layout
 
@@ -79,22 +82,31 @@ measured off the art, never typed in — into `assets/models/cars/vehicles.json`
 `drivable_car` in the generator reads that manifest, so a car's suspension cannot
 quietly disagree with the model hanging off it.
 
-**Every car in the street drives.** All 32 are a `RigidBody` carrying the
+**Every car in the street drives.** All 30 are a `RigidBody` carrying the
 `Vehicle` behaviour, a chassis box **lifted clear of the road** — the wheels are
 rays and carry the car, so a chassis that reached the ground would rest on the
 asphalt and leave the suspension nothing to do — and four wheel meshes named
 `WheelFL`, `WheelFR`, `WheelRL`, `WheelRR` that the behaviour places, steers and
-spins. A city where one car in thirty-two opens is worse than one where none do,
+spins. A city where one car in thirty opens is worse than one where none do,
 because nothing tells the player which.
 
 They are parked on the asphalt rather than the pavement: a car started astride a
-kerb settles into a lean before anyone touches it. The single wreck inside one of
+kerb settles into a lean before anyone touches it. Nothing parks in the player's
+own lane for eight tiles either side of their car — cars park at `X(i) +/- 2.4`,
+which is exactly that lane, so without it the first car anyone opens is boxed in
+nose to tail. The single wreck inside one of
 the interiors stays a plain mesh with no body — it is a prop in a room, not a
 car.
 
-Cost: 32 dynamic vehicles measured **below the run-to-run variance** of the frame
-time here (6.8 ms and 8.7 ms uncapped for 32 cars and for one, which is the noise
-floor, not a saving). What will constrain traffic is triangles and bodies, not
+Their mass is placed on the axle line rather than at the centre of the collision
+box (`centerOfMass`, measured off the art like everything else). Jolt takes the
+centre of mass from the geometry, and a box that has to cover the roof puts it
+far too high: left there a car tips at less than its own tyres can pull and rolls
+over in any hard corner.
+
+Cost: 30 dynamic vehicles measured **below the run-to-run variance** of the frame
+time here (6.8 ms and 8.7 ms uncapped for the full fleet and for one car, which
+is the noise floor, not a saving). What will constrain traffic is triangles and bodies, not
 the vehicle solver.
 
 **Getting in.** Walk up to any of them and press `F`. Press it again to get out;
@@ -108,8 +120,8 @@ hard way:
 - A character and a vehicle read the **same** movement actions, so exactly one
   thing may be listening. Every car is authored with `readsInput` off and is
   only ever moved from that script; one driver holding at most one car makes the
-  conflict impossible by construction, where a script per car would put 32 of
-  them in a race to answer the same key press.
+  conflict impossible by construction, where a script per car would put all 30
+  of them in a race to answer the same key press.
 - It cannot ride on the player, because seating someone disables the player's
   node and a disabled node stops running its behaviours. A driver that lived
   there would switch itself off the instant it got in, and stay in the car for

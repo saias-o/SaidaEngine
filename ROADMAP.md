@@ -241,6 +241,13 @@ Post-V1 unless the scope changes explicitly.
   `MeshShape`) from the whole subtree, and log when a body's geometry is only
   partially covered instead of succeeding quietly.
 
+- [ ] Vehicle: a car on its side is harder to right than one on its roof. The
+  self-righting torque is applied about the car's length, which is the axis it
+  rolled over on, so it works from the roof and from a lean; a car balanced on
+  its nose or wedged against a wall has no such axis and stays put. Fix when it
+  matters: pick the axis from the shortest rotation back to the surface normal
+  rather than assuming roll.
+
 - [ ] Vehicle: nobody is visible behind the wheel. Seating a player disables
   their node, so a driven car is empty to look at and a passenger cannot be
   expressed at all. The honest fix is to parent the character to a seat node on
