@@ -557,9 +557,23 @@ throttle, braking to a standstill without creeping, bounded top speed, steering
 direction and self-centring, a wheel over a genuine gap in the floor, an
 over-damped suspension, an anti-roll bar that leans the car less rather than
 more, a hard corner that slides rather than rolls, an overturned car righted by
-holding a direction, wheel nodes placed and spun by the suspension, and a fall
-back onto four wheels. Steering is asserted by direction, not merely by motion. GTAClone's `scripts/e2e_drive.js` drives one in a real scene through
-`input.inject`, the same actions a keyboard feeds.
+holding a direction from four different stranded attitudes, wheel nodes placed
+and spun by the suspension, and a fall back onto four wheels. Steering is
+asserted by direction, not merely by motion.
+
+Righting turns about `up x worldUp` — whatever axis takes the car back onto its
+wheels soonest — rather than about its own length. Rolling is only the commonest
+way to end up stranded, and a torque about the car's length cannot undo an
+attitude that is not a roll. When the car is exactly inverted there is no
+shortest way, and the steering direction picks which way it rocks.
+
+GTAClone's `scripts/e2e_drive.js` drives one in a real scene through
+`input.inject`, the same actions a keyboard feeds, and **the same harness passes
+on desktop and in the Web player** — resting wheel height 0.398 against 0.403,
+throttle, steering direction and the handbrake. It is keyed on elapsed time
+rather than a frame count for exactly that reason: the two backends run this city
+at frame rates an order of magnitude apart, and a harness that counted frames
+measured a settled car on one and a mid-bounce one on the other.
 
 A rigid body reports its velocity to scripts. `NodeRef.getVelocity`/`setVelocity`
 answered only for a `CharacterBody` and returned a confident zero for everything

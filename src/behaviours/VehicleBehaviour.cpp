@@ -405,18 +405,31 @@ void VehicleBehaviour::onUpdate(float frameDt) {
     // Holding a steering direction rolls it back about its own length, the way
     // every open-world driving game does it. Gated on being genuinely overturned
     // AND off its wheels, so this can never help a car that is merely leaning.
-    const float uprightness = glm::dot(up, glm::vec3(0.0f, 1.0f, 0.0f));
+    const glm::vec3 worldUp(0.0f, 1.0f, 0.0f);
+    const float uprightness = glm::dot(up, worldUp);
     if (selfRightTorque > 0.0f && wheelsOnGround_ == 0 &&
         uprightness < selfRightThreshold && std::abs(steerInput_) > 0.01f) {
-        const glm::vec3 spin = physics->angularVelocity(body);
+        // Turn about whatever axis takes the car back onto its wheels soonest,
+        // rather than about its length. Rolling is only the commonest way to end
+        // up stranded: a car stopped nose-down against a wall has no roll to
+        // undo, and a torque about its length would grind it against the wall
+        // for ever. `up x worldUp` is that axis, and its length is the sine of
+        // how far over the car is.
+        glm::vec3 axis = glm::cross(up, worldUp);
+        const float lean = glm::length(axis);
+        if (lean > 0.05f) {
+            axis /= lean;
+        } else {
+            // Exactly inverted: every axis is equally short, so there is no
+            // shortest way and the player's steering picks which way it rocks.
+            axis = forward * -(steerInput_ > 0.0f ? 1.0f : -1.0f);
+        }
         // Capped so it rocks back rather than winding up into a spin the player
         // then has to wait out.
-        if (glm::dot(spin, forward) * -steerInput_ < selfRightMaxSpin) {
-            const float torque = selfRightTorque * (mass / 1000.0f) * steerInput_;
-            // Negative for the same reason the steering is: +X is the car's
-            // left, so a positive roll about its forward drops the left side.
-            physics->applyAngularImpulse(body, forward * (-torque * dt));
-        }
+        const glm::vec3 spin = physics->angularVelocity(body);
+        if (glm::dot(spin, axis) < selfRightMaxSpin)
+            physics->applyAngularImpulse(
+                body, axis * (selfRightTorque * (mass / 1000.0f) * dt));
     }
 
     // ---- body forces -------------------------------------------------------

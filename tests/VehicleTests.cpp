@@ -447,6 +447,44 @@ void testWheelNodesFollowTheSuspension() {
             "a driven wheel spins");
 }
 
+// Rolling is only the commonest way to end up stranded. A car left on its side,
+// or nose-down against something, has no roll to undo, and a torque about its
+// own length would grind it there for ever — the axis has to be whichever one
+// takes it back onto its wheels soonest.
+void testRightingWorksFromAnyAttitude() {
+    // Only attitudes a flat floor actually holds. A car tipped nose-down simply
+    // falls back onto its wheels within a second, so asserting that it "rights
+    // itself" from there proves nothing — each case is checked to be genuinely
+    // stranded before the steering is touched. The mixed one is the point: its
+    // shortest way back is neither pure roll nor pure pitch, which is exactly
+    // what a torque about the car's own length cannot deliver.
+    struct Case { const char* what; glm::quat attitude; };
+    const Case cases[] = {
+        {"on its left side", glm::angleAxis(glm::radians(90.0f), glm::vec3(0, 0, 1))},
+        {"on its right side", glm::angleAxis(glm::radians(-90.0f), glm::vec3(0, 0, 1))},
+        {"on its roof", glm::angleAxis(glm::radians(180.0f), glm::vec3(0, 0, 1))},
+        {"roof, slewed", glm::angleAxis(glm::radians(160.0f), glm::vec3(0, 0, 1)) *
+                         glm::angleAxis(glm::radians(35.0f), glm::vec3(1, 0, 0))},
+    };
+    for (const Case& c : cases) {
+        Rig rig;
+        rig.body->transform().position = {0.0f, 1.2f, 0.0f};
+        rig.body->transform().rotation = c.attitude;
+        rig.step(1.5f);
+        const float before = rig.uprightness();
+        require(before < 0.3f, "the case really does start stranded");
+
+        rig.vehicle->setSteer(1.0f);
+        for (int i = 0; i < 900 && rig.uprightness() < 0.7f; ++i)
+            rig.step(1.0f / 60.0f);
+
+        std::printf("[vehicle]    %-16s uprightness %+.2f -> %+.2f\n",
+                    c.what, before, rig.uprightness());
+        require(finite(rig.position()), "righting from any attitude stays finite");
+        require(rig.uprightness() > 0.7f, "it gets back onto its wheels");
+    }
+}
+
 void testAirborneVehicleFalls() {
     Rig rig;
     // Well above the road, so no ray reaches it.
@@ -476,6 +514,7 @@ int main() {
         {"steering turns the car", testSteeringTurnsTheCar},
         {"hard cornering does not roll the car", testHardCorneringDoesNotRollTheCar},
         {"an overturned car can be righted", testAnOverturnedCarCanBeRighted},
+        {"righting works from any attitude", testRightingWorksFromAnyAttitude},
         {"steering self-centres", testSteeringSelfCentres},
         {"wheel over a hole is airborne", testWheelOverAHoleIsAirborne},
         {"over-damped suspension stays put", testOverDampedSuspensionStaysPut},
