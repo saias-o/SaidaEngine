@@ -408,6 +408,7 @@ add_library(saida_engine STATIC
     src/render/CameraDirector.cpp
     src/behaviours/CameraFollowBehaviour.cpp
     src/scene/Scene.cpp
+    src/scene/SceneMeasure.cpp
     src/scene/SceneSettingsSerialization.cpp
     src/scene/SceneTree.cpp
     src/scene/SceneTimerQueue.cpp

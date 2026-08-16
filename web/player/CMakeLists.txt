@@ -112,6 +112,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/scene/ReflectedTypesPlayer.cpp
     ${SAIDA_ROOT}/src/behaviours/RotatorBehaviour.cpp
     ${SAIDA_ROOT}/src/scene/Scene.cpp
+    ${SAIDA_ROOT}/src/scene/SceneMeasure.cpp
     ${SAIDA_ROOT}/src/scene/SceneSettingsSerialization.cpp
     ${SAIDA_ROOT}/src/scene/SceneSerializer.cpp
     ${SAIDA_ROOT}/src/scene/SceneTree.cpp

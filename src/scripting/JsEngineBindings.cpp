@@ -22,6 +22,7 @@
 #include "scene/Blackboard.hpp"
 #include "scene/Node.hpp"
 #include "scene/Scene.hpp"
+#include "scene/SceneMeasure.hpp"
 #include "scene/SceneTree.hpp"
 #include "nodes/UITextNode.hpp"
 #include "scene/animation/Animator.hpp"
@@ -640,6 +641,32 @@ JSValue jsNodeSetName(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv
 JSValue jsNodeGetPosition(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     Node* node = nodeFromJs(ctx);
     return makeVec3(ctx, node ? node->transform().position : glm::vec3(0.0f));
+}
+
+// Null rather than an empty box when nothing is drawn: a harness that reads
+// `.size.y` off the result must fail loudly on a node that renders nothing,
+// not read a plausible zero.
+JSValue makeBounds(JSContext* ctx, const measure::WorldBounds& bounds) {
+    if (!bounds.valid) return JS_NULL;
+    JSValue obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, obj, "min", makeVec3(ctx, bounds.min));
+    JS_SetPropertyStr(ctx, obj, "max", makeVec3(ctx, bounds.max));
+    JS_SetPropertyStr(ctx, obj, "size", makeVec3(ctx, bounds.size()));
+    JS_SetPropertyStr(ctx, obj, "center", makeVec3(ctx, bounds.center()));
+    JS_SetPropertyStr(ctx, obj, "meshes", JS_NewInt32(ctx, bounds.meshCount));
+    JS_SetPropertyStr(ctx, obj, "triangles",
+                      JS_NewFloat64(ctx, static_cast<double>(bounds.triangles)));
+    return obj;
+}
+
+JSValue jsNodeWorldBounds(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    Node* node = nodeFromJs(ctx);
+    return node ? makeBounds(ctx, measure::measureSubtree(*node)) : JS_NULL;
+}
+
+JSValue jsNodeMeshBounds(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    Node* node = nodeFromJs(ctx);
+    return node ? makeBounds(ctx, measure::measureOwnMesh(*node)) : JS_NULL;
 }
 
 JSValue jsNodeSetPosition(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
@@ -1763,6 +1790,11 @@ enum NodeRefMethod {
     NodeRefIsOnFloor,
     NodeRefIsOnSteepSlope,
     NodeRefGroundNormal,
+    // What the node is actually the size of. A harness holds the thing it is
+    // checking through a reference, so measuring it must not require being its
+    // own script.
+    NodeRefWorldBounds,
+    NodeRefMeshBounds,
     // A driver is not always the vehicle's own script: a player picks a car out
     // of the several within reach and drives that one, so the same surface has
     // to be reachable through a reference as well as on `node`.
@@ -1792,6 +1824,10 @@ JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
     }
     case NodeRefGetPosition:
         return makeVec3(ctx, target->transform().position);
+    case NodeRefWorldBounds:
+        return makeBounds(ctx, measure::measureSubtree(*target));
+    case NodeRefMeshBounds:
+        return makeBounds(ctx, measure::measureOwnMesh(*target));
     case NodeRefGetRotation:
         return makeQuat(ctx, target->transform().rotation);
     case NodeRefSetRotation: {
@@ -2132,6 +2168,8 @@ JSValue makeNodeRef(JSContext* ctx, Node* target) {
     setNodeRefMethod(ctx, object, target->id(), "isOnFloor", jsNodeRefMethod, 0, NodeRefIsOnFloor);
     setNodeRefMethod(ctx, object, target->id(), "isOnSteepSlope", jsNodeRefMethod, 0, NodeRefIsOnSteepSlope);
     setNodeRefMethod(ctx, object, target->id(), "groundNormal", jsNodeRefMethod, 0, NodeRefGroundNormal);
+    setNodeRefMethod(ctx, object, target->id(), "worldBounds", jsNodeRefMethod, 0, NodeRefWorldBounds);
+    setNodeRefMethod(ctx, object, target->id(), "meshBounds", jsNodeRefMethod, 0, NodeRefMeshBounds);
     setNodeRefMethod(ctx, object, target->id(), "vehicleDrive", jsNodeRefMethod, 2, NodeRefVehicleDrive);
     setNodeRefMethod(ctx, object, target->id(), "vehicleBrake", jsNodeRefMethod, 1, NodeRefVehicleBrake);
     setNodeRefMethod(ctx, object, target->id(), "vehicleHandbrake", jsNodeRefMethod, 1, NodeRefVehicleHandbrake);
@@ -2182,6 +2220,8 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JS_SetPropertyStr(ctx, node, "isOnFloor", JS_NewCFunction(ctx, jsNodeIsOnFloor, "isOnFloor", 0));
     JS_SetPropertyStr(ctx, node, "isOnSteepSlope", JS_NewCFunction(ctx, jsNodeIsOnSteepSlope, "isOnSteepSlope", 0));
     JS_SetPropertyStr(ctx, node, "groundNormal", JS_NewCFunction(ctx, jsNodeGroundNormal, "groundNormal", 0));
+    JS_SetPropertyStr(ctx, node, "worldBounds", JS_NewCFunction(ctx, jsNodeWorldBounds, "worldBounds", 0));
+    JS_SetPropertyStr(ctx, node, "meshBounds", JS_NewCFunction(ctx, jsNodeMeshBounds, "meshBounds", 0));
     JS_SetPropertyStr(ctx, node, "characterMove", JS_NewCFunction(ctx, jsNodeCharacterMove, "characterMove", 2));
     JS_SetPropertyStr(ctx, node, "characterSprint", JS_NewCFunction(ctx, jsNodeCharacterSprint, "characterSprint", 1));
     JS_SetPropertyStr(ctx, node, "characterJump", JS_NewCFunction(ctx, jsNodeCharacterJump, "characterJump", 0));
