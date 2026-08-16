@@ -688,13 +688,19 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   letterbox bar missing the canvas while the image's top-left maps to the
   document origin.
 
-- [ ] UI: wrap texture coordinates in the CPU RmlUi backend.
-  `decorator: image(x.png repeat)` does not tile: the backend clamps instead of
-  wrapping, so a tiled surface draws one copy and then smears its edge texels
-  across the rest of the element. `tiled-box` and `ninepatch` — the decorators
-  a framed panel actually wants — rest on the same mechanism. Fix: implement
-  wrapping in the sampler; if it is declined, reject the `repeat` keyword with
-  a diagnostic instead of drawing something plausible and wrong.
+- [x] UI: wrap texture coordinates in the CPU RmlUi backend. The sampler wraps
+  when the geometry asks for it, so `decorator: image(x.png repeat)` tiles and
+  `tiled-box`/`ninepatch` rest on a mechanism that works. Whether to wrap is
+  decided once per compiled geometry, from whether any of its texture
+  coordinates leaves [0,1]: the same test applied per sample cannot tell a
+  glyph's right edge at exactly 1.0 from the start of a second tile, and
+  wrapping that edge to 0 tears every piece of text on screen. Clamped
+  geometry keeps addressing texel centres exactly as before; wrapped geometry
+  addresses whole texels and takes its neighbour round the edge, so the seam
+  between two tiles filters like the inside of one. Proved by
+  `testRepeatDecoratorTiles` in `saida_ui_corpus_tests`, which fails without
+  the change with the row it renders in the diagnostic — one tile, then its
+  last texel smeared to the far edge.
 
 - [x] Tooling: lint a UI document. `saida_tool validate-ui <document> --project
   <dir>` reports four kinds, each of them silent today: `rejected-declaration`,

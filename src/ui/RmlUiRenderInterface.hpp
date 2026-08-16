@@ -33,6 +33,12 @@ private:
     struct Geometry {
         std::vector<Rml::Vertex> vertices;
         std::vector<int> indices;
+        // A tiled decorator asks for repetition by emitting texture coordinates
+        // past [0,1] and expecting the sampler to wrap. Decided once here rather
+        // than per pixel, because the same test applied per sample cannot tell a
+        // glyph's right edge at exactly 1.0 from the start of a second tile, and
+        // wrapping that edge to 0 tears every piece of text on screen.
+        bool wrapTexCoords = false;
     };
 
     struct TextureData {
@@ -47,10 +53,10 @@ private:
         uint8_t a = 0;
     };
 
-    Pixel sampleTexture(Rml::TextureHandle texture, float u, float v) const;
+    Pixel sampleTexture(Rml::TextureHandle texture, float u, float v, bool wrap) const;
     Rml::Vector2f transformPoint(Rml::Vector2f point) const;
     void drawTriangle(const Rml::Vertex& a, const Rml::Vertex& b, const Rml::Vertex& c,
-                      Rml::Vector2f translation, Rml::TextureHandle texture);
+                      Rml::Vector2f translation, Rml::TextureHandle texture, bool wrap);
     void blendPixel(int x, int y, Pixel src);
     Rml::TextureHandle addMissingTexturePlaceholder(Rml::Vector2i& textureDimensions);
     Rml::TextureHandle addTexture(Rml::Vector2i size, std::vector<uint8_t> pixels, bool premultiplied);

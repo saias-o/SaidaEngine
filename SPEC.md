@@ -594,6 +594,13 @@ decision: rendering and pointer input read the same placement, so a click inside
 a letterboxed image lands where it looks like it should and one on a bar misses
 the canvas.
 
+The CPU RmlUi sampler wraps texture coordinates when a compiled geometry leaves
+[0,1], which is how a tiled decorator asks for repetition, and clamps otherwise.
+`decorator: image(x.png repeat)`, `tiled-box` and `ninepatch` therefore tile.
+The choice is per geometry rather than per sample on purpose: per sample nothing
+distinguishes a glyph's right edge at exactly 1.0 from the start of a second
+tile, and wrapping that edge to 0 tears text.
+
 The right stick is bound by default to `LookLeft`/`LookRight`/`LookUp`/
 `LookDown`, which `CameraFollow` reads as a rate in degrees per second on top of
 the mouse's degrees per pixel. Scripts gain `input.bindKey`,

@@ -85,6 +85,13 @@ Rml::CompiledGeometryHandle RmlUiRenderInterface::CompileGeometry(Rml::Span<cons
     Geometry geometry;
     geometry.vertices.assign(vertices.begin(), vertices.end());
     geometry.indices.assign(indices.begin(), indices.end());
+    for (const Rml::Vertex& vertex : geometry.vertices) {
+        if (vertex.tex_coord.x < 0.0f || vertex.tex_coord.x > 1.0f ||
+            vertex.tex_coord.y < 0.0f || vertex.tex_coord.y > 1.0f) {
+            geometry.wrapTexCoords = true;
+            break;
+        }
+    }
     geometries_[handle] = std::move(geometry);
     return handle;
 }
@@ -106,7 +113,8 @@ void RmlUiRenderInterface::RenderGeometry(Rml::CompiledGeometryHandle geometryHa
             static_cast<size_t>(ic) >= geometry.vertices.size()) {
             continue;
         }
-        drawTriangle(geometry.vertices[ia], geometry.vertices[ib], geometry.vertices[ic], translation, texture);
+        drawTriangle(geometry.vertices[ia], geometry.vertices[ib], geometry.vertices[ic],
+                     translation, texture, geometry.wrapTexCoords);
     }
 }
 
@@ -157,7 +165,7 @@ void RmlUiRenderInterface::SetTransform(const Rml::Matrix4f* transform) {
     transform_ = transform ? *transform : Rml::Matrix4f::Identity();
 }
 
-RmlUiRenderInterface::Pixel RmlUiRenderInterface::sampleTexture(Rml::TextureHandle texture, float u, float v) const {
+RmlUiRenderInterface::Pixel RmlUiRenderInterface::sampleTexture(Rml::TextureHandle texture, float u, float v, bool wrap) const {
     if (texture == 0) return {kOpaque, kOpaque, kOpaque, kOpaque};
 
     auto it = textures_.find(texture);
@@ -166,12 +174,29 @@ RmlUiRenderInterface::Pixel RmlUiRenderInterface::sampleTexture(Rml::TextureHand
     }
 
     const TextureData& data = it->second;
-    float px = std::clamp(u, 0.0f, 1.0f) * static_cast<float>(data.size.x - 1);
-    float py = std::clamp(v, 0.0f, 1.0f) * static_cast<float>(data.size.y - 1);
-    int x0 = static_cast<int>(std::floor(px));
-    int y0 = static_cast<int>(std::floor(py));
-    int x1 = std::min(x0 + 1, data.size.x - 1);
-    int y1 = std::min(y0 + 1, data.size.y - 1);
+    // Wrapping addresses whole texels, so it maps [0,1) across the full width
+    // and takes its right-hand neighbour round the edge. Clamping addresses the
+    // texel centres it always has, which is what keeps glyph and image edges
+    // exactly where they were.
+    float px, py;
+    int x0, y0, x1, y1;
+    if (wrap) {
+        const float wu = u - std::floor(u);
+        const float wv = v - std::floor(v);
+        px = wu * static_cast<float>(data.size.x);
+        py = wv * static_cast<float>(data.size.y);
+        x0 = std::min(static_cast<int>(px), data.size.x - 1);
+        y0 = std::min(static_cast<int>(py), data.size.y - 1);
+        x1 = (x0 + 1) % data.size.x;
+        y1 = (y0 + 1) % data.size.y;
+    } else {
+        px = std::clamp(u, 0.0f, 1.0f) * static_cast<float>(data.size.x - 1);
+        py = std::clamp(v, 0.0f, 1.0f) * static_cast<float>(data.size.y - 1);
+        x0 = static_cast<int>(std::floor(px));
+        y0 = static_cast<int>(std::floor(py));
+        x1 = std::min(x0 + 1, data.size.x - 1);
+        y1 = std::min(y0 + 1, data.size.y - 1);
+    }
     float tx = px - static_cast<float>(x0);
     float ty = py - static_cast<float>(y0);
 
@@ -200,7 +225,7 @@ Rml::Vector2f RmlUiRenderInterface::transformPoint(Rml::Vector2f point) const {
 }
 
 void RmlUiRenderInterface::drawTriangle(const Rml::Vertex& a, const Rml::Vertex& b, const Rml::Vertex& c,
-                                        Rml::Vector2f translation, Rml::TextureHandle texture) {
+                                        Rml::Vector2f translation, Rml::TextureHandle texture, bool wrap) {
     Rml::Vector2f p0 = transformPoint(translated(a, translation));
     Rml::Vector2f p1 = transformPoint(translated(b, translation));
     Rml::Vector2f p2 = transformPoint(translated(c, translation));
@@ -241,7 +266,7 @@ void RmlUiRenderInterface::drawTriangle(const Rml::Vertex& a, const Rml::Vertex&
             if (textured) {
                 texel = sampleTexture(texture,
                     a.tex_coord.x * w0 + b.tex_coord.x * w1 + c.tex_coord.x * w2,
-                    a.tex_coord.y * w0 + b.tex_coord.y * w1 + c.tex_coord.y * w2);
+                    a.tex_coord.y * w0 + b.tex_coord.y * w1 + c.tex_coord.y * w2, wrap);
             }
 
             Pixel color;

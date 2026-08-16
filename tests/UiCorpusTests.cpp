@@ -163,6 +163,19 @@ void writeSolidPpm(const fs::path& path, int width, int height,
     }
 }
 
+// An 8x1 image, red then blue in four-texel halves. Wide enough that bilinear
+// filtering leaves the middle of each half pure, so a tiled draw is legible.
+void writeTwoTonePpm(const fs::path& path) {
+    std::ofstream file(path, std::ios::binary);
+    file << "P6\n8 1\n255\n";
+    for (int x = 0; x < 8; ++x) {
+        const bool red = x < 4;
+        file.put(static_cast<char>(red ? 255 : 0));
+        file.put(static_cast<char>(0));
+        file.put(static_cast<char>(red ? 0 : 255));
+    }
+}
+
 const char* kDocumentShell =
     "<rml><head><style>"
     "body { margin: 0; width: 100%; height: 100%; }"
@@ -245,6 +258,55 @@ void testStylesheetFromFile() {
 }
 
 // -- Project image decoded and sampled; missing image is non-fatal ----------
+
+// -- A tiled decorator repeats instead of smearing its last texel -----------
+
+void testRepeatDecoratorTiles() {
+    // A tiled decorator asks for repetition by emitting texture coordinates past
+    // [0,1]. A sampler that clamps them draws the first tile and then stretches
+    // its edge texel across the rest, which looks like a plausible gradient
+    // rather than a defect.
+    const fs::path sandbox = freshSandbox("repeat");
+    writeTwoTonePpm(sandbox / "stripe.ppm");
+    writeFile(sandbox / "hud.rml",
+              "<rml><head><style>"
+              "body { margin: 0; width: 100%; height: 100%; }"
+              "#tiled { display: block; position: absolute; left: 0px; top: 0px;"
+              " width: 64px; height: 16px;"
+              " decorator: image(stripe.ppm repeat); }"
+              "</style></head><body><div id=\"tiled\"/></body></rml>");
+
+    ContextFixture ctx("corpus-repeat", 64, 16);
+    Rml::ElementDocument* doc = ctx->LoadDocument((sandbox / "hud.rml").generic_string());
+    require(doc != nullptr, "document with a tiled decorator loads");
+    doc->Show();
+
+    Raster raster = renderContext(*ctx, 64, 16);
+    // The tile is two texels wide, so the element carries 32 stripes: sampling
+    // the middle row must find red and blue many times over, never one band.
+    size_t reds = 0, blues = 0, transitions = 0;
+    bool lastWasRed = false;
+    for (uint32_t x = 0; x < 64; ++x) {
+        const Raster::Rgba p = raster.at(x, 8);
+        const bool red = p.r > 160 && p.b < 96;
+        const bool blue = p.b > 160 && p.r < 96;
+        if (red) ++reds;
+        if (blue) ++blues;
+        if ((red || blue) && x > 0 && red != lastWasRed) ++transitions;
+        if (red || blue) lastWasRed = red;
+    }
+    if (!(reds > 8 && blues > 8 && transitions > 2)) {
+        std::fprintf(stderr, "[ui-corpus] tiled row:");
+        for (uint32_t x = 0; x < 64; x += 2) {
+            const Raster::Rgba p = raster.at(x, 8);
+            std::fprintf(stderr, " %02x%02x%02x", p.r, p.g, p.b);
+        }
+        std::fprintf(stderr, "\n");
+    }
+    require(reds > 8, "the tiled decorator keeps drawing its first texel");
+    require(blues > 8, "the tiled decorator keeps drawing its second texel");
+    require(transitions > 2, "the tile repeats across the element instead of smearing");
+}
 
 void testImageTexture() {
     const fs::path sandbox = freshSandbox("image");
@@ -545,6 +607,7 @@ int main() {
     testTextRendersGlyphs();
     testStylesheetFromFile();
     testImageTexture();
+    testRepeatDecoratorTiles();
     testOverflowClipsChildren();
     testTransformTranslatesGeometry();
     testResizeRelayouts();
