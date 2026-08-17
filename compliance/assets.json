@@ -8812,6 +8812,14 @@
       "license": "GPL-3.0-only",
       "copyrightText": "Copyright Saida Engine contributors",
       "provenance": "First-party generated glTF compatibility fixture."
+    },
+    {
+      "path": "tests/fixtures/golden/witness-hub.lavapipe.png",
+      "kind": "test-fixture",
+      "distribution": true,
+      "license": "GPL-3.0-only",
+      "copyrightText": "Copyright Saida Engine contributors",
+      "provenance": "First-party golden-image reference: a frame of WitnessGame rendered by the engine under Lavapipe, recorded by tools/witness_golden_image.sh --record."
     }
   ]
 }
