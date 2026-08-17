@@ -1,6 +1,7 @@
 // Headless tool entry point. Keep machine output on stdout and diagnostics on stderr.
 
 #include "authoring/EngineManifest.hpp"
+#include "cli/ComparePngCommand.hpp"
 #include "cli/RenderUiCommand.hpp"
 #include "cli/ValidateUiCommand.hpp"
 #include "core/CrashReporter.hpp"
@@ -46,8 +47,8 @@ namespace {
 using json = nlohmann::json;
 
 constexpr int kExitOk = 0;
-constexpr int kExitInvalid = 1;  // input traite mais invalide (validation)
-constexpr int kExitUsage = 2;    // mauvaise invocation / I/O
+constexpr int kExitInvalid = 1;  // input processed but invalid (validation)
+constexpr int kExitUsage = 2;    // bad invocation / I/O
 
 int usage(std::ostream& out) {
     out << "saida_tool — SaidaEngine headless tooling\n"
@@ -69,6 +70,8 @@ int usage(std::ostream& out) {
            "                    [--out <png>] [--layout-json <file|->] [--pretty]\n"
            "                    [--allow-warnings]\n"
            "  saida_tool validate-ui <document> --project <dir> [--size WxH] [--pretty]\n"
+           "  saida_tool compare-png <actual.png> <expected.png> [--tolerance N]\n"
+           "                    [--max-different N] [--diff <png>] [--json] [--pretty]\n"
            "  saida_tool export-game <project.saidaproj> [--platform windows|web]\n"
            "                    [--out <dir>] [--main-scene <rel>] [--version a.b.c]\n"
            "                    [--company <name>] [--icon <ico>]\n"
@@ -141,6 +144,13 @@ int usage(std::ostream& out) {
            "                    0-255, so it parses as nothing and the whole\n"
            "                    declaration vanishes unreported). Prints a JSON\n"
            "                    report; exit 0 if clean, 1 if any issue.\n"
+           "  compare-png       Compare a captured frame against a golden image.\n"
+           "                    Reports the number of differing pixels, the worst\n"
+           "                    per-channel delta and the bounding box holding the\n"
+           "                    difference; --diff writes the reference in grey with\n"
+           "                    those pixels in magenta. Exact by default; a size\n"
+           "                    mismatch is its own verdict and no tolerance hides\n"
+           "                    it. exit 0 if within bounds, 1 if it differs.\n"
            "  export-game       Package a project exactly like the editor's Build\n"
            "                    button (same BuildExporter): runtime exe + shaders +\n"
            "                    project data + boot manifest. --platform web emits the\n"
@@ -1144,6 +1154,9 @@ int main(int argc, char** argv) {
     }
     if (command == "validate-ui") {
         return saida::runValidateUiCommand(rest);
+    }
+    if (command == "compare-png") {
+        return saida::runComparePngCommand(rest);
     }
     if (command == "export-game") {
         return cmdExportGame(rest);

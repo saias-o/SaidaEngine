@@ -72,6 +72,9 @@ public:
         return {};
     }
 
+    // True while at least one handle is in flight and has not been drained.
+    bool hasPending() const { return !pending_.empty(); }
+
     // Drains finished handles: Ready -> resident (via the extractor), otherwise
     // record the error. Still-loading handles are left untouched.
     void finalize(AssetRegistry* registry) {

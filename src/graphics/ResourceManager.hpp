@@ -146,6 +146,14 @@ public:
     // rebinding), then pumps the AssetLoader.
     void pumpAssetLoads();
 
+    // True when nothing is queued, in flight, or waiting to be finalized into a
+    // cache. A deterministic frame capture counts frames only from this point:
+    // an asset that lands on frame 3 in one run and frame 4 in the next changes
+    // what frame 3 shows, which would make a golden image compare a race rather
+    // than the change under test. Failed loads count as settled — they will
+    // never arrive, and waiting for them would hang instead of reporting.
+    bool assetLoadsSettled() const;
+
     // GPU bytes of resident asset-loaded resources (textures, meshes) —
     // leak diagnostics for the GPU resource accounting, exposed via assets.stats().
     uint64_t gpuResidentBytes() const;

@@ -15,6 +15,7 @@
 #include "core/PlatformCaps.hpp"
 #include "core/Time.hpp"
 #include "runtime/BootManifest.hpp"
+#include "runtime/CaptureArgs.hpp"
 #include "runtime/TestAutoload.hpp"
 #include "scene/SceneSerializer.hpp"
 
@@ -52,6 +53,15 @@ int main(int argc, char** argv) {
             if (std::string(argv[i]) == "--test-autoload" && i + 1 < argc)
                 testAutoloads.emplace_back(argv[++i]);
         }
+
+        // The player draws the game and nothing else — no editor chrome, no
+        // live FPS or camera overlay — so its capture is the one a golden image
+        // is taken from. The editor's differs between two runs of the same
+        // command by exactly those overlays.
+        saida::CaptureRequest capture;
+        std::string captureError;
+        if (!saida::runtime::parseCaptureArgs(argc, argv, capture, captureError))
+            throw std::runtime_error(captureError);
 
         const fs::path root = executableDir();
 
@@ -93,7 +103,9 @@ int main(int argc, char** argv) {
             throw std::runtime_error("failed to load main scene: " + sceneAbs);
         engine.mountWorld();
         saida::Time::setScale(1.0f);
+        if (!capture.pngPath.empty()) engine.captureFrameThenExit(capture);
         engine.run();
+        if (engine.captureFailed()) return EXIT_FAILURE;
     } catch (const std::exception& e) {
         const auto report =
             saida::crash::writeFatalReport(std::string("fatal exception: ") + e.what());

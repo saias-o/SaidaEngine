@@ -2,6 +2,7 @@
 
 #include "core/Camera.hpp"
 #include "render/CameraDirector.hpp"
+#include "render/CaptureScheduler.hpp"
 #include "ui/UIInteractionSystem.hpp"
 
 #include <functional>
@@ -52,14 +53,22 @@ public:
     void mountWorld();
     void unmountWorld();
 
-    // Write the composite frame (3D + UI) to `pngPath` once frame `afterFrames`
-    // has been drawn (1-based: frame N is captured), then close the window. The
-    // frame number is what makes a capture reproducible: the caller names the
-    // frame it wants rather than racing the loop. A failure is reported and
-    // closes the window too, so the process never hangs waiting for an image
-    // that will not come.
-    void captureFrameThenExit(const std::string& pngPath, uint32_t afterFrames);
+    // Write the composite frame (3D + UI) to the request's path once its frame
+    // has been drawn, then close the window. The frame number is what makes a
+    // capture reproducible: the caller names the frame it wants rather than
+    // racing the loop. A failure is reported and closes the window too, so the
+    // process never hangs waiting for an image that will not come.
+    //
+    // `fixedStep` on the request also pins the frame clock for the whole run
+    // (see CaptureRequest): a golden image needs the world to have advanced by
+    // the same amount, not merely to have been photographed on the same frame.
+    void captureFrameThenExit(CaptureRequest request);
     bool captureFailed() const { return captureFailed_; }
+
+    // Hand every frame the same delta instead of the measured one, and stop
+    // throttling to maxFps (there is nothing to pace when time is fictional).
+    // 0 restores the real clock.
+    void setFixedTimestep(float seconds) { fixedTimestep_ = seconds; }
 
 #ifdef SAIDA_ENABLE_XR
     // XR preview is isolated so the editor never owns OpenXR presentation.
@@ -78,16 +87,17 @@ private:
     double tickLastTime_ = 0.0;
     bool tickWasLeftDown_ = false;
 
-    // Deterministic frame capture (--screenshot). `capturePath_` empty means no
-    // capture was asked for. Armed before the target frame is drawn, resolved
-    // after, so the requested frame number is the one actually captured.
+    // Deterministic frame capture (--screenshot). The scheduler owns the policy
+    // (settle, then count); the Engine only asks it once per frame, before the
+    // frame is drawn, and resolves the image after.
     void armFrameCapture();
     void serviceFrameCapture();
+    CaptureScheduler captureScheduler_;
     std::string capturePath_;
-    uint32_t captureAfterFrames_ = 0;
     uint32_t framesDrawn_ = 0;
     bool captureRequested_ = false;
     bool captureFailed_ = false;
+    float fixedTimestep_ = 0.0f;
 #ifdef SAIDA_ENABLE_XR
     void runXr();
 #endif

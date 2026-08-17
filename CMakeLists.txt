@@ -482,6 +482,9 @@ add_library(saida_engine STATIC
     src/graphics/ResourceManager.cpp
     src/render/Renderer.cpp
     src/render/FrameCapture.cpp
+    # Which frame a capture lands on — no GPU, so it is also compiled straight
+    # into saida_capture_scheduler_tests and proven without a device.
+    src/render/CaptureScheduler.cpp
     src/render/EnvironmentSH.cpp
     src/render/PostProcessor.cpp
     src/render/RenderFeatureRegistry.cpp
@@ -694,6 +697,17 @@ if (BUILD_TESTING)
     target_include_directories(saida_png_writer_tests PRIVATE src third_party/stb)
     target_compile_options(saida_png_writer_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_png_writer_tests COMMAND $<TARGET_FILE:saida_png_writer_tests>)
+
+    # Which frame a --screenshot lands on is a policy, not a rendering concern:
+    # it decides whether two captures of the same scene are comparable at all.
+    # CaptureScheduler holds it away from Vulkan so it is proven without a GPU.
+    add_executable(saida_capture_scheduler_tests
+        tests/CaptureSchedulerTests.cpp src/render/CaptureScheduler.cpp)
+    saida_test_target(saida_capture_scheduler_tests)
+    target_include_directories(saida_capture_scheduler_tests PRIVATE src)
+    target_compile_options(saida_capture_scheduler_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_capture_scheduler_tests
+        COMMAND $<TARGET_FILE:saida_capture_scheduler_tests>)
 
     add_executable(saida_crash_reporter_tests tests/CrashReporterTests.cpp)
     saida_test_target(saida_crash_reporter_tests)
@@ -1125,6 +1139,9 @@ add_executable(saida_tool
     # so a UI document is renderable without a GPU or a window.
     src/cli/RenderUiCommand.cpp
     src/cli/ValidateUiCommand.cpp
+    # compare-png closes the visual net: a capture proves nothing until
+    # something can say whether it changed, by how much and where.
+    src/cli/ComparePngCommand.cpp
     src/cli/UiCommandSupport.cpp
     src/cli/UiDocumentSession.cpp
     # export-game reuses the Build button's exporter (no UI dependency).

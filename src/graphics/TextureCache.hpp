@@ -49,6 +49,8 @@ public:
     // Appends every completed ID (ready or failed) so the owner can rebind
     // materials without the cache depending on Material or ResourceManager.
     void finalizePending(std::vector<AssetID>& completed);
+    // True while at least one texture is in flight and has not been finalized.
+    bool hasPendingLoads() const { return !pending_.empty(); }
 
     AssetID registerMemory(const uint8_t* data, size_t size, bool srgb,
                            rhi::AddressMode address = rhi::AddressMode::Repeat);

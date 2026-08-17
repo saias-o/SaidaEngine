@@ -3,6 +3,7 @@
 #include "core/Log.hpp"
 #include "editor/EditorApp.hpp"
 #include "core/Time.hpp"
+#include "runtime/CaptureArgs.hpp"
 #include "runtime/TestAutoload.hpp"
 #include "runtime/RuntimeRoundTripContract.hpp"
 #include "scene/SceneSerializer.hpp"
@@ -27,9 +28,13 @@ int main(int argc, char** argv) {
         bool buildWeb = false;
         bool playRequested = false;
         bool verifyRuntimeContract = false;
-        std::string screenshotPath;
-        uint32_t screenshotAfterFrames = 2;
         std::vector<std::string> testAutoloads;
+
+        saida::CaptureRequest capture;
+        std::string captureError;
+        if (!saida::runtime::parseCaptureArgs(argc, argv, capture, captureError))
+            throw std::runtime_error(captureError);
+
         for (int i = 1; i < argc; ++i) {
             std::string arg = argv[i];
             if (arg == "--project" && i + 1 < argc)
@@ -47,10 +52,6 @@ int main(int argc, char** argv) {
                 testAutoloads.emplace_back(argv[++i]);
             else if (arg == "--verify-runtime-contract")
                 verifyRuntimeContract = true;
-            else if (arg == "--screenshot" && i + 1 < argc)
-                screenshotPath = argv[++i];
-            else if (arg == "--after-frames" && i + 1 < argc)
-                screenshotAfterFrames = static_cast<uint32_t>(std::stoul(argv[++i]));
             else if (arg == "--xr")
                 xrPreview = true;
             else if (arg == "--xr-preview") {
@@ -119,11 +120,11 @@ int main(int argc, char** argv) {
         // ends the process itself via tree.quit().
         if (playRequested) editor.setPlayMode(true);
 
-        // --screenshot: draw a fixed number of frames, write the composite the
-        // player sees, then exit. Deterministic by frame count, so it is usable
-        // as a golden image and from CI.
-        if (!screenshotPath.empty())
-            engine.captureFrameThenExit(screenshotPath, screenshotAfterFrames);
+        // --screenshot: wait for the world to load, draw a fixed number of
+        // frames on a pinned clock, write the composite, then exit. The editor's
+        // capture still includes its live overlays, so a golden image is taken
+        // from SaidaEngineRuntime; this one is for looking at the editor itself.
+        if (!capture.pngPath.empty()) engine.captureFrameThenExit(capture);
 
         engine.setOnFrame([&editor](float dt) { editor.update(dt); });
         engine.run();

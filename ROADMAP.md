@@ -165,15 +165,12 @@ taken out of the V1 refactor because it is not safe to do mechanically.
    (`saida_ui_corpus_tests`) — extend that idea to a full scene frame
    (mesh + light + shadow + tonemap).
 
-   The **capture half is now built** (§6.3.1): `SaidaEngine --screenshot <png>
-   --after-frames N` writes the presented composite, and `core/PngWriter`
-   encodes it deterministically with no third-party dependency, so a golden
-   image is byte-comparable. What remains is the **deterministic content**:
-   two runs of the editor differ by 25 pixels out of 230 400, all of them in
-   the live FPS/camera overlay. The net needs a fixed scene captured with the
-   overlays off and time pinned, plus the comparison harness and its CI wiring.
-   That is a bounded task now, not a missing capability — but it is not done,
-   and §3 stays closed until it is.
+   Capture and comparison both exist (§6.3.1, contract in SPEC §6.3) and are
+   deterministic: two runs of the exported WitnessGame are byte-identical. What
+   remains is the **wiring**: a committed reference frame per fixture scene, the
+   same run on Lavapipe (software, in CI) as on a real GPU, and a failing job
+   that publishes the diff image. §3 stays closed until a refactor can actually
+   be gated on it.
 2. **Extract one unit at a time, leaf-first order**, one commit + one visual
    check per unit: `TonemapPass` (clean boundary: input = HDR target,
    output = swapchain) → `GpuDrivenCuller` (behind its flag) → `XrRenderer`
@@ -520,33 +517,25 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   RCSS's silent property drops (`rgba()` with a 0-1 alpha) produce no
   diagnostic at all, confirming that item stays open for `validate-ui`.
 
-- [x] Tooling: capture a real frame from the engine.
-  `SaidaEngine --screenshot <png> [--after-frames N]` writes the presented
-  composite (3D + editor chrome + UI). `--after-frames N` captures **frame N**
-  exactly: the request is armed before that frame is drawn, not after, so the
-  flag means what it says. `src/render/FrameCapture.cpp` owns its staging
-  buffer and exposes only record/resolve, following the §3 anti-spaghetti rules
-  so it does not become another thing to untangle later.
+- [x] Tooling: capture a frame, reproducibly, and give it a verdict.
+  `--screenshot <png>` on the editor and the exported player writes the
+  presented composite; `saida_tool compare-png` says whether two such images
+  differ, by how much and where. Contract in SPEC §6.3.
 
-  Required three enabling changes: the swapchain now requests
-  `TRANSFER_SRC` (guarded by `supportedUsageFlags`, `Swapchain::supportsCapture`
-  reports its absence so capture refuses instead of writing nothing), the RHI
-  gained `copyTextureToBuffer` (it had no image→buffer copy at all), and the
-  channel order is resolved from the actual swapchain format rather than
-  assumed.
+  What made it usable as a golden image rather than a photograph: the capture
+  waits for assets to settle before it counts frames, pins the frame clock, and
+  is taken from the player (no live FPS/camera overlay). `CaptureScheduler`
+  holds that policy away from Vulkan, so `saida_capture_scheduler_tests` proves
+  it without a device.
 
-  Proof: the VerticalSlice editor captured at frames 1, 5 and 10 headless
-  (`SAIDA_WINDOW_HIDDEN=1`), each PNG decoded by an independent decoder; an
-  unwritable target exits 1 with a named diagnostic. Native 76/76, Web player
-  rebuilt (`Renderer.cpp` is in its source list and the unit is
-  `SAIDA_RHI_WEBGPU`-guarded).
+  Proof: two independent runs of the exported WitnessGame at `--after-frames 30`
+  are byte-identical (`MATCH 0/230400 pixels, max channel delta 0`); frame 1 vs
+  frame 10 reports 131 277 pixels in a 640x231 box and writes its diff image; a
+  size mismatch exits 1 before any pixel is examined. Native build clean,
+  `ctest` 82/82.
 
-  **What this does not yet give the §3 golden-image net**: two runs of the same
-  command differ by 25 pixels out of 230 400, all in the editor's live FPS and
-  camera overlay. The capture path is reproducible; the *content* is not. A
-  golden-image comparison needs a capture of a scene with the overlays off and
-  time pinned — that is the remaining half, and it is now a small step rather
-  than a missing capability.
+  Capture resolution follows the window, so a committed reference is taken
+  headless (`SAIDA_WINDOW_HIDDEN=1`).
 
 - [ ] MCP: no UI tools at all. The catalog is 45 tools over animation, assets,
   nodes, scenes and scenarios; an agent driving a live editor can move a node

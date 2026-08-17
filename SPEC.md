@@ -1018,19 +1018,60 @@ stderr, diagnostics and file dependencies recorded. The two must agree on what
 opening a document means, or their verdicts would not be comparable.
 
 The engine itself captures the composite the player sees — 3D, editor chrome
-and UI in one image — with `SaidaEngine --screenshot <png> [--after-frames N]`,
-which writes frame N (1-based; the request is armed before that frame is drawn)
-and then exits. `render/FrameCapture` owns the staging buffer and exposes only
-record/resolve; the copy is recorded while the swapchain image is still a colour
-attachment, just before it transitions to Present. This requires
+and UI in one image — with `--screenshot <png>`, accepted by both `SaidaEngine`
+and the exported player. `render/FrameCapture` owns the staging buffer and
+exposes only record/resolve; the copy is recorded while the swapchain image is
+still a colour attachment, just before it transitions to Present. This requires
 `VK_IMAGE_USAGE_TRANSFER_SRC_BIT` on the swapchain images, which the spec does
 not guarantee: it is requested when `supportedUsageFlags` offers it, and
 `Swapchain::supportsCapture()` reports its absence so a capture refuses instead
 of writing an empty file. The channel order comes from the actual swapchain
 format, and a format outside R8G8B8A8/B8G8R8A8 is refused rather than written
-with swapped channels. The capture *path* is reproducible by frame number; the
-captured *content* is only as deterministic as the frame itself — the editor's
-live FPS and camera overlays still vary between runs.
+with swapped channels.
+
+**Which frame is captured** is a separate concern, owned by
+`render/CaptureScheduler` — no Vulkan, no window, no renderer, so the rule that
+makes a capture reproducible is proven headlessly
+(`saida_capture_scheduler_tests`). Two things decide it, and neither is visible
+in the resulting PNG:
+
+- `--after-frames N` counts frame N **of the settled sequence**, not of the
+  process. The scheduler first waits until `ResourceManager::assetLoadsSettled()`
+  reports nothing queued, in flight or waiting to be finalized into a cache; an
+  asset landing on frame 3 in one run and frame 4 in the next would otherwise
+  change what frame 3 shows. The wait is one-way — a load requested *by* the
+  settled frames does not restart the count — and bounded by
+  `--settle-timeout N` (default 600 frames), which abandons the capture with a
+  diagnostic and exit 1 rather than photographing a half-loaded world.
+  `--no-wait-assets` opts out, for an interactive screenshot that is explicitly
+  not a golden image.
+- `--fixed-step <seconds>` (default 1/60) hands every frame the same delta
+  instead of the measured one, for `Time` *and* the application callback, and
+  disables the `maxFps` throttle — pacing a fictional clock only makes the
+  capture slower. `--fixed-step 0` restores the real clock.
+
+Because both defaults are the reproducible ones, `--screenshot` alone produces a
+golden image. Its **resolution follows the window**, so a committed reference is
+taken headless (`SAIDA_WINDOW_HIDDEN=1`); a capture from a visible window is a
+different image size and compares as a size mismatch.
+
+The comparison half is `saida_tool compare-png <actual.png> <expected.png>`:
+exit 0 when the images match within the stated bounds, 1 when they differ, 2 on
+bad invocation or I/O. It reports the number of differing pixels, the worst
+per-channel delta and the bounding box holding the difference — that box is what
+separates "the tonemap moved" from "one glyph changed" — and `--diff <png>`
+writes the reference in grey with the differing pixels in magenta. Comparison is
+exact by default; `--tolerance N` (per-channel) and `--max-different N` exist
+because a GPU may differ from a software rasterizer in the last bit of a
+channel, and both are echoed in the report so a permissive run cannot be
+mistaken for a strict one. A size mismatch is its own verdict, reported before
+any pixel is examined, so no tolerance can hide it.
+
+A golden image is taken from the **exported player**, not the editor: the
+player draws the game and nothing else, while the editor's live FPS and camera
+overlays differ between two runs of the same command. Both surfaces accept the
+same flags through one parser (`runtime/CaptureArgs.hpp`) — an image captured
+from one and compared against the other would otherwise compare two policies.
 
 The `render-ui` command is **fail-closed**, which is a deliberate divergence from RmlUi's own
 behavior: RmlUi warns about a malformed document or a refused declaration and

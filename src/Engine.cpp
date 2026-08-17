@@ -386,20 +386,34 @@ void Engine::clearRenderViewport() {
     if (renderer_) renderer_->clearViewportRect();
 }
 
-void Engine::captureFrameThenExit(const std::string& pngPath, uint32_t afterFrames) {
-    capturePath_ = pngPath;
-    // Frames are 1-based: --after-frames N captures frame N, and frame 0 is
-    // nothing, so N is clamped up rather than silently skipping the capture.
-    captureAfterFrames_ = afterFrames == 0 ? 1 : afterFrames;
+void Engine::captureFrameThenExit(CaptureRequest request) {
+    if (request.fixedStep > 0.0f) setFixedTimestep(request.fixedStep);
+
+    std::string error;
+    if (!captureScheduler_.arm(std::move(request), error)) {
+        Log::error("[capture] ", error);
+        captureFailed_ = true;
+    }
 }
 
 // Called immediately before the frame is drawn. The request must be in place
 // while the target frame is recorded, which is what makes "--after-frames N
 // captures frame N" true rather than approximately true.
 void Engine::armFrameCapture() {
-    if (capturePath_.empty() || captureRequested_) return;
-    if (framesDrawn_ + 1 < captureAfterFrames_) return;
+    if (!captureScheduler_.armed()) return;
 
+    const CaptureScheduler::Decision decision =
+        captureScheduler_.beforeFrame(resources_->assetLoadsSettled());
+    if (decision == CaptureScheduler::Decision::Wait) return;
+
+    if (decision == CaptureScheduler::Decision::Abandon) {
+        Log::error("[capture] ", captureScheduler_.abandonReason());
+        captureFailed_ = true;
+        window_->close();
+        return;
+    }
+
+    capturePath_ = captureScheduler_.request().pngPath;
     std::string error;
     if (!renderer_->requestCapture(capturePath_, error)) {
         Log::error("[capture] ", error);
@@ -420,7 +434,10 @@ void Engine::serviceFrameCapture() {
 
     std::string error;
     if (renderer_->resolveCapture(error)) {
-        Log::info("[capture] wrote ", capturePath_, " (frame ", framesDrawn_, ")");
+        Log::info("[capture] wrote ", capturePath_, " (frame ",
+                  captureScheduler_.framesCounted(), " after ",
+                  captureScheduler_.framesWaited(), " settle frames, ",
+                  framesDrawn_, " drawn)");
     } else {
         Log::error("[capture] ", error);
         captureFailed_ = true;
@@ -451,6 +468,11 @@ bool Engine::tick() {
         const double frameStart = glfwGetTime();
         float realDt = static_cast<float>(frameStart - tickLastTime_);
         tickLastTime_ = frameStart;
+
+        // A pinned clock replaces the measured frame time everywhere, including
+        // the application callback: an editor camera easing on real time would
+        // otherwise reintroduce the very variation the pin removes.
+        if (fixedTimestep_ > 0.0f) realDt = fixedTimestep_;
 
         Time::update(realDt);  // sets scaled delta + elapsed
         resources_->pumpAssetLoads();
@@ -536,7 +558,11 @@ bool Engine::tick() {
         ++framesDrawn_;
         serviceFrameCapture();
 
-        const int maxFps = project_ ? project_->maxFps() : Project::kDefaultMaxFps;
+        // Pacing a fictional clock only makes a capture slower: the frame time
+        // it would preserve is no longer what the world advances by.
+        const int maxFps = fixedTimestep_ > 0.0f
+                               ? 0
+                               : (project_ ? project_->maxFps() : Project::kDefaultMaxFps);
         if (maxFps > 0) {
             SAIDA_PROFILE_SCOPE("Frame/Throttle");
             sleepUntil(frameStart + 1.0 / static_cast<double>(maxFps));

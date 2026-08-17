@@ -35,6 +35,8 @@ public:
     Mesh* get(AssetID id, AssetRegistry* registry, AssetLoader& loader, uint64_t frameClock);
     Mesh* load(AssetID id, AssetRegistry* registry, AssetLoader& loader);
     void finalizePending(AssetRegistry* registry);
+    // True while at least one mesh is in flight and has not been finalized.
+    bool hasPendingLoads() const { return !pending_.empty(); }
 
     AssetID registerMemory(const std::vector<Vertex>& vertices,
                            const std::vector<uint32_t>& indices);

@@ -286,6 +286,17 @@ void ResourceManager::pumpAssetLoads() {
     SAIDA_PROFILE_COUNTER("Assets/GpuEvictions", gpuEvictedCount());
 }
 
+bool ResourceManager::assetLoadsSettled() const {
+    const AssetLoadStats stats = assetLoader_->stats();
+    if (stats.queued != 0 || stats.loading != 0) return false;
+    // A handle can be Ready while its GPU object does not exist yet: the caches
+    // create it in finalizePending, one pump later. Asking the loader alone
+    // would report a settled world one frame before it draws like one.
+    if (textureCache_->hasPendingLoads() || meshCache_->hasPendingLoads()) return false;
+    return !rigAssetCache_.hasPending() && !clipViewCache_.hasPending() &&
+           !animGraphCache_.hasPending();
+}
+
 Material* ResourceManager::getMaterial(const MaterialDesc& desc) {
     if (auto it = materials_.find(desc); it != materials_.end())
         return it->second.get();
