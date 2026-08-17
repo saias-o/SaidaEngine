@@ -92,10 +92,18 @@ Use the dedicated Witness harnesses for end-to-end work:
 ./tools/witness_editor_play.sh
 ./tools/witness_editor_build.sh
 ./tools/witness_web_stage.sh
+./tools/witness_golden_image.sh   # renderer/shader/HUD changes; needs Lavapipe
 ```
 
 The desktop and Web restart checks must restore the saved progression and reach
 their explicit PASS verdict.
+
+`witness_golden_image.sh` compares a captured frame of the WitnessGame hub scene
+against a committed reference, byte for byte. The reference is a Lavapipe image
+and the gate refuses any other backend — two rasterizers disagree on every lit
+surface, and no tolerance separates that disagreement from a regression.
+`--record` rewrites the reference for an intended visual change; look at the new
+image before committing it.
 
 ## Web verification
 

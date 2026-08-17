@@ -102,6 +102,30 @@ jobs:
           export VK_ICD_FILENAMES="$VK_DRIVER_FILES"
           ./tools/witness_editor_build.sh build/witness-editor-build-ci
 
+      # The §3 visual net. Everything above proves the engine still RUNS; this
+      # is the only step that proves it still LOOKS the same. Keyed to Lavapipe:
+      # two rasterizers disagree on every lit surface, so the reference is a
+      # software image and the gate is exact.
+      - name: Golden image (hub scene, software Vulkan)
+        env:
+          SAIDA_WINDOW_HIDDEN: "1"
+        run: |
+          export VK_DRIVER_FILES="$(cygpath -w /ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json)"
+          export VK_ICD_FILENAMES="$VK_DRIVER_FILES"
+          ./tools/witness_golden_image.sh
+
+      # Only on failure, and only these three files: the diff is the artefact
+      # that makes a red run diagnosable without reproducing it locally.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: golden-image-diff-${{ github.sha }}
+          path: |
+            build/golden-image-diff.png
+            build/golden-image-run/frame.png
+            tests/fixtures/golden/witness-hub.lavapipe.png
+          if-no-files-found: ignore
+
       - name: Reproducible Windows installer (install + run + restart + uninstall)
         shell: pwsh
         env:

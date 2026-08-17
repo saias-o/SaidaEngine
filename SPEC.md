@@ -1073,6 +1073,24 @@ overlays differ between two runs of the same command. Both surfaces accept the
 same flags through one parser (`runtime/CaptureArgs.hpp`) — an image captured
 from one and compared against the other would otherwise compare two policies.
 
+`tools/witness_golden_image.sh` is the gate built on all of the above, and runs
+in CI on every push and pull request: export WitnessGame, capture frame 30 of
+the hub scene, compare byte for byte against
+`tests/fixtures/golden/witness-hub.lavapipe.png`. On failure the diff image, the
+capture and the reference are uploaded as an artefact, so a red run is
+diagnosable without reproducing it.
+
+The reference is keyed to **Lavapipe**, and the gate refuses any other backend
+rather than comparing across two. Lavapipe is byte-identical run to run, but the
+same build on an Intel Iris Xe differs from it by 69 268 of 230 400 pixels —
+a banding pattern over every lit surface, worst channel delta 90, i.e. ordinary
+floating-point divergence between two rasterizers. A tolerance wide enough to
+absorb that would hide any regression worth catching, so the gate is exact
+against a deterministic software rasterizer and a real GPU is not gated at all.
+`--record` rewrites the reference for an intended visual change; the gate proves
+a frame did not *change*, never that it is *right*, so a re-recorded image must
+be looked at before it is committed.
+
 The `render-ui` command is **fail-closed**, which is a deliberate divergence from RmlUi's own
 behavior: RmlUi warns about a malformed document or a refused declaration and
 then renders whatever survived, so a broken document otherwise yields exit 0 and

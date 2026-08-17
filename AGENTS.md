@@ -87,6 +87,22 @@ gameplay, UI, persistence or restart:
 ./tools/witness_web_stage.sh
 ```
 
+For changes affecting what is drawn — renderer, shaders, materials, lighting,
+shadows, tonemap, HUD — also run the golden-image gate. It is the only check
+that proves the engine still *looks* the same rather than merely still runs:
+
+```sh
+export VK_DRIVER_FILES="$(cygpath -w /c/msys64/ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json)"
+export VK_ICD_FILENAMES="$VK_DRIVER_FILES"
+./tools/witness_golden_image.sh
+```
+
+It refuses to run outside Lavapipe: the reference is a software-rasterizer
+image, and a real GPU differs from it across every lit surface. Re-record with
+`--record` only for an intended visual change, and **look at the capture before
+committing it** — the gate proves the frame did not change, never that it is
+right.
+
 Do not leave GUI applications or local servers running after verification.
 
 ## Release handling

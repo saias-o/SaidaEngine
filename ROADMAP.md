@@ -140,11 +140,14 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 
 ### Why it is risky (do not do it blindly)
 
-1. **No automatic check of rendering correctness.** Witness E2E confirms that
-   the HUD and the scene *display* (non-zero pixels, no crash), but NOT
-   colorimetric/geometric correctness. A subtle error — wrong descriptor,
-   inverted pass order, changed shadow bias, wrong blend — would pass the net
-   and break rendering **silently**.
+1. **The rendering check is narrow.** The golden-image gate (§3.1) now catches
+   a wrong descriptor, an inverted pass order, a changed shadow bias or a wrong
+   blend — but only where the WitnessGame hub frame shows it. That frame
+   exercises meshes, one light, shadows, tonemap and the HUD; it does **not**
+   exercise GI, GPU-driven culling, XR, transparency or any material the scene
+   does not use, and those paths still break silently. Extending the fixture set
+   is the cheapest way to widen the net before touching a unit that the hub
+   scene does not draw.
 2. **Per-platform/feature `#ifdef` branches** (`SAIDA_RHI_WEBGPU`,
    `SAIDA_ENABLE_XR`). The native build exercises only one branch; the web build
    compiles the other but does not run it on this machine.
@@ -157,20 +160,22 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 
 ### What must be done FIRST
 
-1. **Establish a visual verification net. Absolute prerequisite.** Without it,
-   refactor nothing in the Renderer. A deterministic rendering harness that
-   captures a reference frame (*golden image*) of a fixed scene and compares it
-   pixel-by-pixel (bounded tolerance), run on Lavapipe in CI **and** on a real
-   GPU. The HUD already has computed-pixel assertions
-   (`saida_ui_corpus_tests`) — extend that idea to a full scene frame
-   (mesh + light + shadow + tonemap).
+1. ~~**Establish a visual verification net. Absolute prerequisite.**~~ **Done.**
+   `tools/witness_golden_image.sh` captures frame 30 of the WitnessGame hub
+   scene — mesh, light, shadow, tonemap and HUD in one image — and compares it
+   byte for byte against a committed reference. It runs in CI on every push and
+   pull request, and uploads the diff image on failure. Contract in SPEC §6.3.
 
-   Capture and comparison both exist (§6.3.1, contract in SPEC §6.3) and are
-   deterministic: two runs of the exported WitnessGame are byte-identical. What
-   remains is the **wiring**: a committed reference frame per fixture scene, the
-   same run on Lavapipe (software, in CI) as on a real GPU, and a failing job
-   that publishes the diff image. §3 stays closed until a refactor can actually
-   be gated on it.
+   One deliberate narrowing of the original plan: the gate runs on **Lavapipe
+   only**, not "on Lavapipe *and* a real GPU". Measured, the same build differs
+   between llvmpipe and an Intel Iris Xe by 69 268 of 230 400 pixels — ordinary
+   floating-point divergence spread over every lit surface. A tolerance wide
+   enough to absorb it would hide any regression worth catching, so a real GPU
+   is not gated. Per-GPU references would be gating the driver, not the engine.
+
+   What this net does **not** do, and no pixel comparison can: say the frame is
+   *right*. It proves the frame did not change. A re-recorded reference must be
+   looked at before it is committed.
 2. **Extract one unit at a time, leaf-first order**, one commit + one visual
    check per unit: `TonemapPass` (clean boundary: input = HDR target,
    output = swapchain) → `GpuDrivenCuller` (behind its flag) → `XrRenderer`
@@ -190,8 +195,10 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 ## 4. Manual checks still useful
 
 The automatic net covers: compilation (native + web), headless logic, gameplay,
-HUD rendering. It **does not cover**: pixel-accurate rendering, editor GUI, XR,
-the semantics of MCP mutations. Any session touching these areas must be
+HUD rendering, and — for the hub scene on Lavapipe only — that the rendered
+frame has not changed. It **does not cover**: whether that frame is *correct*,
+any rendering path the hub scene does not draw, real-GPU output, the editor GUI,
+XR, or the semantics of MCP mutations. Any session touching these areas must be
 supervised, not autonomous.
 
 - **Editor** — `witness_editor_play` and `witness_editor_build` cover the
