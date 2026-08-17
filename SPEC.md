@@ -1107,14 +1107,22 @@ two rasterizers. A tolerance wide enough to absorb that would hide any
 regression worth catching, so a real GPU is not gated at all.
 
 Within Lavapipe the capture is byte-identical across runs, but **not across Mesa
-versions**: the committed reference and a capture from the CI runner's Mesa
-differ on 5 634 pixels with a worst channel delta of 1 — two builds of the same
-rasterizer rounding the last bit differently. The gate therefore runs at
-`--tolerance 1 --max-different 0`: the narrowest setting that survives a Mesa
-bump, and still strict enough that a single pixel off by 2 fails. The cost is
-named rather than hidden — a change shifting every channel by exactly one would
-pass — and it buys a reference that can be reproduced on a developer machine,
-without which the gate would only ever run in CI.
+builds**: two Mesa versions rounding the last bit differently move 5 634 pixels
+by a delta of 1. A tolerance of 1 absorbs exactly that, and it is not defensible
+— multiplying the AO exponent by 1.01, a real renderer change, moves 2 175
+pixels by a delta of 1. *Fewer* pixels than the cross-Mesa noise, at the same
+magnitude. Neither the delta nor the pixel count separates a subtle regression
+from a Mesa mismatch, so no threshold on a cross-build comparison catches one; a
+tolerance of 1 was measured passing a deliberately changed renderer.
+
+The comparison is therefore **exact**, and the reference is recorded on the CI
+runner rather than a developer machine: **the CI run is the authoritative one**.
+A local run on a different Mesa fails with every difference at delta 1, and the
+script names that signature — it is what a Mesa mismatch looks like, and also
+what a genuinely subtle change looks like, which is why it cannot be waved
+through locally. When Mesa moves on the runner the gate goes red the same way,
+and the reference is re-recorded from the failing run's uploaded frame,
+deliberately.
 
 `--record` rewrites the reference for an intended visual change; the gate proves
 a frame did not *change*, never that it is *right*, so a re-recorded image must

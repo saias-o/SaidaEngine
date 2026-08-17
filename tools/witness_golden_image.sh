@@ -18,17 +18,20 @@
 # would make every CI run fail for a reason that is not a bug.
 #
 # Within Lavapipe the capture is byte-identical across runs, but NOT across Mesa
-# versions: this reference, recorded against a local Mesa, differs from the CI
-# runner's (mesa 26.1.7) on 5 634 pixels with a worst channel delta of 1 — two
-# builds of the same rasterizer rounding the last bit differently. Hence
-# TOLERANCE=1, the narrowest value that survives a Mesa bump.
+# builds: two Mesa versions rounding the last bit differently move 5 634 pixels
+# by a delta of 1. A tolerance of 1 absorbs that — and it was tried, and it was
+# WRONG. Multiplying the AO exponent by 1.01, a real renderer change, moves
+# 2 175 pixels by a delta of 1: fewer pixels than the cross-Mesa noise, at the
+# same magnitude. Neither the delta nor the pixel count separates a subtle
+# regression from a Mesa mismatch, so no threshold on a cross-build comparison
+# can catch one. A tolerance of 1 measurably passed a changed renderer.
 #
-# What that costs, stated plainly: a real change that shifts every channel by
-# exactly one — a tonemap constant nudged by a hair — now passes. Anything
-# larger does not, and MAX_DIFFERENT stays 0, so a SINGLE pixel off by 2 still
-# fails the gate. The alternative was a reference nobody could reproduce
-# locally, which is a worse trade: a gate only its author can run is a gate
-# nobody runs.
+# The comparison is therefore EXACT, and the reference is recorded on the CI
+# runner rather than a developer machine — CI is the authoritative run. A local
+# run on a different Mesa fails with every difference at delta 1, and the script
+# says so explicitly rather than leaving that signature to be misread as a
+# regression. When Mesa moves on the runner the gate goes red the same way:
+# re-record from the failing run's uploaded frame, deliberately.
 set -e
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -47,8 +50,8 @@ LOG="$ROOT/build/golden_image.log"
 # than their first tick.
 FRAME=30
 
-# See the header: absorbs cross-Mesa last-bit rounding, nothing wider.
-TOLERANCE=1
+# Exact. See the header for why no tolerance is defensible here.
+TOLERANCE=0
 MAX_DIFFERENT=0
 
 TOOL="$ROOT/build/bin/saida_tool.exe"
@@ -100,8 +103,11 @@ if [ ! -f "$REFERENCE" ]; then
     exit 1
 fi
 
-if "$TOOL" compare-png "$ACTUAL" "$REFERENCE" --tolerance "$TOLERANCE" \
-        --max-different "$MAX_DIFFERENT" --diff "$DIFF"; then
+REPORT="$("$TOOL" compare-png "$ACTUAL" "$REFERENCE" --tolerance "$TOLERANCE" \
+        --max-different "$MAX_DIFFERENT" --diff "$DIFF" --json)" && COMPARED=0 || COMPARED=$?
+echo "$REPORT"
+
+if [ "$COMPARED" = "0" ]; then
     # The export carries a full runtime executable; only a failure needs it kept
     # (the captured frame is half of what makes a red run diagnosable).
     rm -rf "$OUT"
@@ -114,6 +120,22 @@ echo "GOLDEN IMAGE: FAIL (the hub scene no longer renders identically)"
 echo "  reference: ${REFERENCE#$ROOT/}"
 echo "  captured:  ${ACTUAL#$ROOT/}"
 echo "  diff:      ${DIFF#$ROOT/} (reference in grey, changed pixels in magenta)"
-echo "  If the change is intended, look at the capture, then re-record with"
-echo "  tools/witness_golden_image.sh --record"
+
+# Every difference at delta 1 is the signature of a different Mesa build, not of
+# a regression -- but it is ALSO what a genuinely subtle change looks like, so
+# this names the ambiguity instead of resolving it. Only the CI run is
+# authoritative, because the reference was recorded there.
+if [ "${REPORT#*\"maxChannelDelta\":1,}" != "$REPORT" ]; then
+    echo
+    echo "  Every difference is a single level. On a developer machine that"
+    echo "  usually means your Mesa differs from the CI runner's, not that you"
+    echo "  broke something — but a subtle renderer change looks identical, so"
+    echo "  it cannot be waved through. Trust the CI run: the reference was"
+    echo "  recorded there."
+fi
+
+echo
+echo "  If the change is intended, look at the capture, then re-record — from"
+echo "  the CI artefact if you are not on the runner's Mesa:"
+echo "    tools/witness_golden_image.sh --record"
 exit 1

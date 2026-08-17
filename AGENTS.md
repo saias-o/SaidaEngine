@@ -98,7 +98,11 @@ export VK_ICD_FILENAMES="$VK_DRIVER_FILES"
 ```
 
 It refuses to run outside Lavapipe: the reference is a software-rasterizer
-image, and a real GPU differs from it across every lit surface. Re-record with
+image, and a real GPU differs from it across every lit surface. The comparison
+is exact and the reference was recorded on the CI runner, so **CI is the
+authoritative run**. If your local Mesa differs, the gate fails with every
+difference at a single level and says so; do not add a tolerance to silence it —
+that was tried and measurably passed a changed renderer. Re-record with
 `--record` only for an intended visual change, and **look at the capture before
 committing it** — the gate proves the frame did not change, never that it is
 right.
