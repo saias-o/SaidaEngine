@@ -1095,18 +1095,27 @@ from one and compared against the other would otherwise compare two policies.
 
 `tools/witness_golden_image.sh` is the gate built on all of the above, and runs
 in CI on every push and pull request: export WitnessGame, capture frame 30 of
-the hub scene, compare byte for byte against
-`tests/fixtures/golden/witness-hub.lavapipe.png`. On failure the diff image, the
-capture and the reference are uploaded as an artefact, so a red run is
-diagnosable without reproducing it.
+the hub scene, compare against `tests/fixtures/golden/witness-hub.lavapipe.png`.
+On failure the diff image, the capture and the reference are uploaded as an
+artefact, so a red run is diagnosable without reproducing it.
 
 The reference is keyed to **Lavapipe**, and the gate refuses any other backend
-rather than comparing across two. Lavapipe is byte-identical run to run, but the
-same build on an Intel Iris Xe differs from it by 69 268 of 230 400 pixels —
-a banding pattern over every lit surface, worst channel delta 90, i.e. ordinary
-floating-point divergence between two rasterizers. A tolerance wide enough to
-absorb that would hide any regression worth catching, so the gate is exact
-against a deterministic software rasterizer and a real GPU is not gated at all.
+rather than comparing across two. The same build on an Intel Iris Xe differs
+from llvmpipe by 69 268 of 230 400 pixels — a banding pattern over every lit
+surface, worst channel delta 90, i.e. ordinary floating-point divergence between
+two rasterizers. A tolerance wide enough to absorb that would hide any
+regression worth catching, so a real GPU is not gated at all.
+
+Within Lavapipe the capture is byte-identical across runs, but **not across Mesa
+versions**: the committed reference and a capture from the CI runner's Mesa
+differ on 5 634 pixels with a worst channel delta of 1 — two builds of the same
+rasterizer rounding the last bit differently. The gate therefore runs at
+`--tolerance 1 --max-different 0`: the narrowest setting that survives a Mesa
+bump, and still strict enough that a single pixel off by 2 fails. The cost is
+named rather than hidden — a change shifting every channel by exactly one would
+pass — and it buys a reference that can be reproduced on a developer machine,
+without which the gate would only ever run in CI.
+
 `--record` rewrites the reference for an intended visual change; the gate proves
 a frame did not *change*, never that it is *right*, so a re-recorded image must
 be looked at before it is committed.

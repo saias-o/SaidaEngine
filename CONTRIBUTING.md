@@ -99,11 +99,13 @@ The desktop and Web restart checks must restore the saved progression and reach
 their explicit PASS verdict.
 
 `witness_golden_image.sh` compares a captured frame of the WitnessGame hub scene
-against a committed reference, byte for byte. The reference is a Lavapipe image
-and the gate refuses any other backend — two rasterizers disagree on every lit
-surface, and no tolerance separates that disagreement from a regression.
-`--record` rewrites the reference for an intended visual change; look at the new
-image before committing it.
+against a committed reference. The reference is a Lavapipe image and the gate
+refuses any other backend — two rasterizers disagree on every lit surface, and
+no tolerance separates that disagreement from a regression. It runs at
+`--tolerance 1`, which absorbs the last-bit rounding difference between two Mesa
+versions and nothing wider; a single pixel off by 2 still fails. `--record`
+rewrites the reference for an intended visual change; look at the new image
+before committing it.
 
 ## Web verification
 

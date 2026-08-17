@@ -13,10 +13,22 @@
 # else. Two rasterizers do not agree on a lit surface: the same build on this
 # repo's CI (llvmpipe) and on an Intel Iris Xe differs by 69 268 of 230 400
 # pixels — a banding pattern across every lit surface, worst channel delta 90.
-# No tolerance separates that from a real regression, so the gate uses exact
-# equality against a software rasterizer that IS deterministic, and a real GPU
-# is simply not gated. Refusing beats gating the wrong backend: a reference
-# recorded on a GPU would make every CI run fail for a reason that is not a bug.
+# No tolerance separates that from a real regression, so a real GPU is simply not
+# gated. Refusing beats gating the wrong backend: a reference recorded on a GPU
+# would make every CI run fail for a reason that is not a bug.
+#
+# Within Lavapipe the capture is byte-identical across runs, but NOT across Mesa
+# versions: this reference, recorded against a local Mesa, differs from the CI
+# runner's (mesa 26.1.7) on 5 634 pixels with a worst channel delta of 1 — two
+# builds of the same rasterizer rounding the last bit differently. Hence
+# TOLERANCE=1, the narrowest value that survives a Mesa bump.
+#
+# What that costs, stated plainly: a real change that shifts every channel by
+# exactly one — a tonemap constant nudged by a hair — now passes. Anything
+# larger does not, and MAX_DIFFERENT stays 0, so a SINGLE pixel off by 2 still
+# fails the gate. The alternative was a reference nobody could reproduce
+# locally, which is a worse trade: a gate only its author can run is a gate
+# nobody runs.
 set -e
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -34,6 +46,10 @@ LOG="$ROOT/build/golden_image.log"
 # far enough in that animation and physics have reached a defined state rather
 # than their first tick.
 FRAME=30
+
+# See the header: absorbs cross-Mesa last-bit rounding, nothing wider.
+TOLERANCE=1
+MAX_DIFFERENT=0
 
 TOOL="$ROOT/build/bin/saida_tool.exe"
 [ -x "$TOOL" ] || TOOL="$ROOT/build/bin/saida_tool"
@@ -84,7 +100,8 @@ if [ ! -f "$REFERENCE" ]; then
     exit 1
 fi
 
-if "$TOOL" compare-png "$ACTUAL" "$REFERENCE" --diff "$DIFF"; then
+if "$TOOL" compare-png "$ACTUAL" "$REFERENCE" --tolerance "$TOLERANCE" \
+        --max-different "$MAX_DIFFERENT" --diff "$DIFF"; then
     # The export carries a full runtime executable; only a failure needs it kept
     # (the captured frame is half of what makes a red run diagnosable).
     rm -rf "$OUT"

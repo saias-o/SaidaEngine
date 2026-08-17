@@ -163,8 +163,9 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 1. ~~**Establish a visual verification net. Absolute prerequisite.**~~ **Done.**
    `tools/witness_golden_image.sh` captures frame 30 of the WitnessGame hub
    scene — mesh, light, shadow, tonemap and HUD in one image — and compares it
-   byte for byte against a committed reference. It runs in CI on every push and
-   pull request, and uploads the diff image on failure. Contract in SPEC §6.3.
+   against a committed reference at `--tolerance 1 --max-different 0`. It runs
+   in CI on every push and pull request, and uploads the diff image on failure.
+   Contract in SPEC §6.3.
 
    One deliberate narrowing of the original plan: the gate runs on **Lavapipe
    only**, not "on Lavapipe *and* a real GPU". Measured, the same build differs
