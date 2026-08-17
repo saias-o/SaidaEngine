@@ -709,6 +709,16 @@ if (BUILD_TESTING)
     add_test(NAME saida_capture_scheduler_tests
         COMMAND $<TARGET_FILE:saida_capture_scheduler_tests>)
 
+    # The same flags are obeyed by the editor and the player; a divergence would
+    # compare two differently-configured runs. Header-only parser, so the test
+    # needs nothing but the header.
+    add_executable(saida_capture_args_tests tests/CaptureArgsTests.cpp)
+    saida_test_target(saida_capture_args_tests)
+    target_include_directories(saida_capture_args_tests PRIVATE src)
+    target_compile_options(saida_capture_args_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_capture_args_tests
+        COMMAND $<TARGET_FILE:saida_capture_args_tests>)
+
     add_executable(saida_crash_reporter_tests tests/CrashReporterTests.cpp)
     saida_test_target(saida_crash_reporter_tests)
     target_link_libraries(saida_crash_reporter_tests PRIVATE saida_engine)

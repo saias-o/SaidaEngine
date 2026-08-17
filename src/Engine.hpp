@@ -70,6 +70,13 @@ public:
     // 0 restores the real clock.
     void setFixedTimestep(float seconds) { fixedTimestep_ = seconds; }
 
+    // Park the camera at `position` looking at `target`, overriding whatever the
+    // scene's own cameras decide, for the whole run. Applied every frame just
+    // before the scene is drawn — after the CameraDirector, which would
+    // otherwise win — so the world also streams for the viewpoint that will be
+    // photographed rather than for one nobody sees.
+    void setCameraOverride(const glm::vec3& position, const glm::vec3& target);
+
 #ifdef SAIDA_ENABLE_XR
     // XR preview is isolated so the editor never owns OpenXR presentation.
     bool launchExternalPreviewIfNeeded();
@@ -98,6 +105,9 @@ private:
     bool captureRequested_ = false;
     bool captureFailed_ = false;
     float fixedTimestep_ = 0.0f;
+    bool cameraOverride_ = false;
+    glm::vec3 cameraOverridePosition_{0.0f};
+    glm::vec3 cameraOverrideTarget_{0.0f};
 #ifdef SAIDA_ENABLE_XR
     void runXr();
 #endif

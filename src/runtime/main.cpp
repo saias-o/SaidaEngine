@@ -59,9 +59,16 @@ int main(int argc, char** argv) {
         // is taken from. The editor's differs between two runs of the same
         // command by exactly those overlays.
         saida::CaptureRequest capture;
+        saida::runtime::CaptureViewpoint viewpoint;
         std::string captureError;
-        if (!saida::runtime::parseCaptureArgs(argc, argv, capture, captureError))
-            throw std::runtime_error(captureError);
+        if (!saida::runtime::parseCaptureArgs(argc, argv, capture, viewpoint,
+                                              captureError)) {
+            // A mistyped flag is a usage error, not a crash: writing a crash
+            // report for it buries real reports under typos and tells the caller
+            // to file a bug against the engine instead of fixing the command.
+            saida::Log::error(captureError);
+            return EXIT_FAILURE;
+        }
 
         const fs::path root = executableDir();
 
@@ -103,6 +110,16 @@ int main(int argc, char** argv) {
             throw std::runtime_error("failed to load main scene: " + sceneAbs);
         engine.mountWorld();
         saida::Time::setScale(1.0f);
+        if (viewpoint.set)
+            engine.setCameraOverride({viewpoint.position[0], viewpoint.position[1],
+                                      viewpoint.position[2]},
+                                     {viewpoint.target[0], viewpoint.target[1],
+                                      viewpoint.target[2]});
+        // A rejected viewpoint must stop the run here. Entering the loop with no
+        // capture armed would never close the window: the process would hang
+        // instead of reporting, which is the one outcome worse than a bad image.
+        if (engine.captureFailed()) return EXIT_FAILURE;
+
         if (!capture.pngPath.empty()) engine.captureFrameThenExit(capture);
         engine.run();
         if (engine.captureFailed()) return EXIT_FAILURE;

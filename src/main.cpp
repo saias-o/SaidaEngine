@@ -31,9 +31,14 @@ int main(int argc, char** argv) {
         std::vector<std::string> testAutoloads;
 
         saida::CaptureRequest capture;
+        saida::runtime::CaptureViewpoint viewpoint;
         std::string captureError;
-        if (!saida::runtime::parseCaptureArgs(argc, argv, capture, captureError))
-            throw std::runtime_error(captureError);
+        if (!saida::runtime::parseCaptureArgs(argc, argv, capture, viewpoint,
+                                              captureError)) {
+            // A mistyped flag is a usage error, not a crash (see runtime/main.cpp).
+            saida::Log::error(captureError);
+            return EXIT_FAILURE;
+        }
 
         for (int i = 1; i < argc; ++i) {
             std::string arg = argv[i];
@@ -124,6 +129,14 @@ int main(int argc, char** argv) {
         // frames on a pinned clock, write the composite, then exit. The editor's
         // capture still includes its live overlays, so a golden image is taken
         // from SaidaEngineRuntime; this one is for looking at the editor itself.
+        if (viewpoint.set)
+            engine.setCameraOverride({viewpoint.position[0], viewpoint.position[1],
+                                      viewpoint.position[2]},
+                                     {viewpoint.target[0], viewpoint.target[1],
+                                      viewpoint.target[2]});
+        // A rejected viewpoint stops the run before the loop (see runtime/main.cpp).
+        if (engine.captureFailed()) return EXIT_FAILURE;
+
         if (!capture.pngPath.empty()) engine.captureFrameThenExit(capture);
 
         engine.setOnFrame([&editor](float dt) { editor.update(dt); });

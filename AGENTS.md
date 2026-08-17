@@ -103,6 +103,20 @@ image, and a real GPU differs from it across every lit surface. Re-record with
 committing it** — the gate proves the frame did not change, never that it is
 right.
 
+To inspect the scene rather than gate it, aim the camera yourself. An exported
+player accepts, on top of `--screenshot`:
+
+```sh
+"./Game.exe" --screenshot look.png --after-frames 30 \
+    --camera-pos 3,0.25,3 --camera-look 0,0.3,0
+```
+
+Read the resulting PNG directly. This is the answer to defects that pass every
+structural check — geometry not meeting the ground, wrong scale, a surface
+floating — because they are invisible from the gameplay camera and obvious from
+a grazing angle two metres away. Both flags are required together and the two
+points must differ; a rejected viewpoint exits non-zero and writes no image.
+
 Do not leave GUI applications or local servers running after verification.
 
 ## Release handling

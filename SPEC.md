@@ -1050,6 +1050,26 @@ in the resulting PNG:
   disables the `maxFps` throttle — pacing a fictional clock only makes the
   capture slower. `--fixed-step 0` restores the real clock.
 
+**Where the capture is taken from** is the third flag pair, and it is what makes
+a screenshot an instrument rather than a souvenir: `--camera-pos x,y,z` with
+`--camera-look x,y,z` parks the camera and aims it, overriding the scene's own
+cameras for the whole run. The defects that survive a structural check — a wheel
+sunk into the road, a wall not meeting the floor — are visible only from
+somewhere the gameplay camera never goes. The override is applied every frame
+immediately before the scene is drawn, after the `CameraDirector` and the editor
+have had their say, so nothing can win it back and the world streams for the
+viewpoint that will actually be photographed.
+
+Both flags are required together, each must parse as exactly three numbers, and
+the two points must differ. Every one of those refusals replaces an image that
+would look like a rendering bug: half a viewpoint aims a placed camera wherever
+the scene happened to look, a short vector puts it at a partly-default position
+(usually inside the floor), and a zero-length direction makes `lookAt` produce a
+NaN orientation and a black frame. A rejected viewpoint fails before the loop is
+entered, so nothing is drawn and no image is left behind — a run that exits
+non-zero must not leave a plausible PNG a caller might read instead of the exit
+code.
+
 Because both defaults are the reproducible ones, `--screenshot` alone produces a
 golden image. Its **resolution follows the window**, so a committed reference is
 taken headless (`SAIDA_WINDOW_HIDDEN=1`); a capture from a visible window is a

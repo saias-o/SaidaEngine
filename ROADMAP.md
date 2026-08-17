@@ -544,6 +544,17 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   Capture resolution follows the window, so a committed reference is taken
   headless (`SAIDA_WINDOW_HIDDEN=1`).
 
+- [x] Tooling: aim the capture. `--camera-pos x,y,z --camera-look x,y,z` parks
+  the camera anywhere for the run, overriding the scene's cameras. Agents read
+  images directly, so the useful thing to build was not a measurement layer over
+  what looking already gives — it was the ability to choose where to look from.
+  The defects that pass a structural check (geometry not meeting the ground,
+  wrong scale, a floating surface) are invisible from the gameplay camera and
+  obvious from a grazing angle; until now reaching such a viewpoint meant
+  writing a JS harness. Refusals are covered by `saida_capture_args_tests`, and
+  a rejected viewpoint exits non-zero before the loop rather than leaving a
+  plausible PNG behind.
+
 - [ ] MCP: no UI tools at all. The catalog is 45 tools over animation, assets,
   nodes, scenes and scenarios; an agent driving a live editor can move a node
   but cannot see or inspect a document, while `hotReload` on `WebCanvasNode`

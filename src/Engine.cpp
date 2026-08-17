@@ -386,7 +386,27 @@ void Engine::clearRenderViewport() {
     if (renderer_) renderer_->clearViewportRect();
 }
 
+void Engine::setCameraOverride(const glm::vec3& position, const glm::vec3& target) {
+    if (position == target) {
+        // lookAt on a zero-length direction yields a NaN orientation and a black
+        // frame — a failure that reads as a rendering bug, so it is refused here.
+        Log::error("[capture] --camera-pos and --camera-look are the same point; "
+                   "the camera has nothing to aim at");
+        captureFailed_ = true;
+        return;
+    }
+    cameraOverridePosition_ = position;
+    cameraOverrideTarget_ = target;
+    cameraOverride_ = true;
+}
+
 void Engine::captureFrameThenExit(CaptureRequest request) {
+    // Something already went wrong setting this run up (a degenerate viewpoint,
+    // say). Arming anyway would leave a plausible PNG next to a non-zero exit
+    // code, and a caller that checks the file rather than the code would take it
+    // for the image it asked for.
+    if (captureFailed_) return;
+
     if (request.fixedStep > 0.0f) setFixedTimestep(request.fixedStep);
 
     std::string error;
@@ -549,6 +569,12 @@ bool Engine::tick() {
 
         if (Profiler::instance().enabled()) {
             MemoryProfiler::publish(*device_);
+        }
+        // Last word on the camera, after the director and the editor have had
+        // theirs: an inspection viewpoint is only useful if nothing overrides it.
+        if (cameraOverride_) {
+            camera_.position = cameraOverridePosition_;
+            camera_.lookAt(cameraOverrideTarget_);
         }
         armFrameCapture();
         {
