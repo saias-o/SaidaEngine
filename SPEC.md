@@ -1,16 +1,8 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-07-24. This document is the engine's technical truth. It describes
+Updated: 2026-08-18. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
-
-All documentation and all code comments must be written in English. A comment or
-document in any other language is a defect to fix.
-
-Automated agents must never add themselves, their vendor or their tooling as
-commit co-authors. Agent-assisted commits must not contain `Co-authored-by`
-trailers for an AI agent; authorship remains with the human or service account
-that owns the change.
 
 ## 1. Product and invariants
 
@@ -126,6 +118,14 @@ touch. The Web player announces only the backends actually linked.
 
 ### 3.1 Project
 
+A `.saidaproj` is JSON, with the schema-1 envelope and the project fields
+`name`, `engineVersion`, optional `mainScene`, `runtime`, `rendering`, `audio`
+and `autoloads`. `name` and `engineVersion` are required. There is no INI
+fallback: `[SaidaEngine Project]` and `main_scene=` are not project syntax.
+`main_scene=` belongs to the separate line-oriented runtime boot manifest
+`game.saida`. `Project::load` accepts either the JSON file or a directory that
+contains exactly one `.saidaproj` directly inside it.
+
 A `.saidaproj` describes, among other things, the name, the main scene, the
 autoloads, the audio aliases and the project files. The AssetRegistry associates
 a stable AssetID with a relative path. Since schema 2 an entry may carry an
@@ -189,6 +189,17 @@ Rules:
   generates the ID and returns it in its diff.
 
 ### 3.3 Snapshots and registries
+
+Runtime scene documents and authoring snapshots are separate formats. A runtime
+`.scene` is loaded by `SceneSerializer`, carries the scene schema/version
+(currently 2) and encodes node `id` values as JSON numbers. A `SceneSnapshot`,
+used by the SaidaOps fold, encodes stable node ids as decimal strings so
+JavaScript does not lose 64-bit precision. `saida_tool validate-scene` validates
+only the authoring snapshot format; it is not a validator for runtime `.scene`
+files. Until the runtime-scene command tracked in the roadmap exists, a runtime
+scene is verified by loading the project with `SaidaEngine --project <path>
+--play` and checking that it logs the successful scene load without a
+`loadIntoScene` error.
 
 Every durable format writes equal `schema` and `version` and delegates their
 check to the single guard `format::schemaEnvelopeError`: `schema`/`version` must
@@ -277,6 +288,15 @@ diagnostics.
 `AssetRegistry` is the only base of identities. `AssetLoader` exposes
 asynchronous handles with states `queued`, `loading`, `ready`, `failed`,
 priorities `low`, `normal`, `high`, `critical`, error, size, id and `release()`.
+
+An AssetID is generated randomly when a path is first registered, then persists
+in `asset_registry.json`; it is not derived from the content hash. `sync()` uses
+the hash to preserve that existing id when a missing path and a new path contain
+the same asset, and assigns a new id only to a genuinely new file. A registry
+that cannot be loaded is the known exception: `Project::load` currently ignores
+the failure and rewrites it after a fresh scan, as specified in §13 and tracked
+for correction in the roadmap. Durable references should use project-relative
+paths wherever their format permits it.
 
 Textures and `.obj` meshes follow this path: worker read/decode on desktop,
 `pump()` on Web, then GPU creation on the main thread. During loading, a fallback
@@ -471,6 +491,20 @@ walking target now bleeds off at the braking rate instead of snapping down, so
 a `launch` — the thing every special move is built from — is spent rather than
 erased on the next frame. With no braking rate configured it still snaps.
 
+The authored setup follows from those contracts. `Character` must be attached
+to a `CharacterBody`; gravity requires collidable ground. Its default input is
+WASD/ZQSD, arrows, Space and left Shift. Movement uses the horizontal basis of
+the first node in group `camera`, falling back to world `-Z`/`+X` when no usable
+camera exists. `CameraFollow` independently follows the first node in its
+`targetGroup` (default `player`). A capsule's reflected `height` is its full
+height including both caps; Jolt receives a half-cylinder height of
+`height / 2 - radius`.
+
+`faceMovement` turns the character node so local `-Z` faces travel. A visible
+model authored facing local `+Z` must therefore be corrected on its imported
+model container, normally by a 180-degree Y rotation (quaternion `[0,1,0,0]`),
+instead of reversing the controller's input or shared facing rule.
+
 **Raycast vehicle.** The `Vehicle` behaviour (`VehicleBehaviour`, matrix
 `{R, R, A, R}`) attaches to a `RigidBody` whose collision box sits clear of the
 road: the chassis never touches it and the wheels carry the car. Each of the four
@@ -617,6 +651,22 @@ velocity, auto-recentring behind its heading gated on delay and speed, and a
 field of view that opens with speed. Occlusion is applied **after** smoothing,
 not to the point it eases toward: pulling in has to be immediate or the camera
 spends the easing frames inside the wall.
+
+The follow camera expects a top-level `Camera` and a target in `targetGroup`.
+Its pitch convention follows `pivot - forward * distance`: a negative pitch
+raises the rig, a positive pitch drops it below the target, and
+`initialPitch = 0` preserves the camera node's authored orientation. A non-zero
+`shoulderOffset` moves the camera sideways while it still looks at the pivot, so
+a centre-screen weapon needs a camera ray to establish the aim point before a
+muzzle ray or projectile converges on it.
+
+Two stability rules are part of the implementation. Target velocity is
+low-pass filtered before look-ahead, recentring and speed-driven FOV consume it,
+so a variable frame delta is not amplified into camera shake. De-occlusion
+probes the desired pivot-to-camera segment and keeps the collision correction
+out of the smoothed camera position; only the available free distance snaps
+inward and damps outward. `VerticalSlice/scripts/e2e_run_jitter.js` and
+`VerticalSlice/scripts/e2e_camera.js` measure these invariants.
 
 ### 5.2 Input
 
@@ -823,11 +873,18 @@ globals the engine explicitly installs — `console` and the
 - `input`: actions, forces, axes, vectors, mouse and test injection.
 - `audio`: `play(alias)`.
 - `tree`: scene change/reload, quit, pause, `autoload`, `firstInGroup`,
-  `nodesInGroup` and `nodeById`.
+  `nodesInGroup` and `nodeById`. `changeScene(path)` returns `true` when the
+  deferred request has been queued, not when the destination has resolved or
+  loaded; failure is reported later. Gameplay must retain a retry path for an
+  irreplaceable transition until completion/failure becomes observable.
 - `NodeRef`: weak reference resolved by NodeId, usual node operations — rotation
   and character control included, at parity with `node` — `on/emit` cross-node
   signals and `call(exportName, ...args)` JSON-compatible to a `ScriptBehaviour`
-  in another QuickJS context.
+  in another QuickJS context. `valid()` is the sole operation that safely
+  answers `false` after the target is freed; every other operation throws
+  `ReferenceError`. `queueFree()` invalidates references to the entire removed
+  subtree, so callbacks and timers must call `valid()` before using a captured
+  reference.
 - `assets`: `load(path, priority)` and `stats()`; never a blocking load promise.
 - `storage`: opaque progression slots (`save/load/has/remove/info/list`, `save`
   accepts an optional `dataVersion`), `storage.prefs` sub-object for preferences
@@ -867,6 +924,16 @@ The engine supports glTF/BVH, rigs, clips, cubic-spline interpolation,
 retargeting, GPU skinning, animation graph/state machine, blend nodes,
 blackboard, clip views, timelines and `.sseq` sequences. Timeline properties use
 reflection and interpolate float, int, vec3, vec4 and quat.
+
+A node carrying `importedFrom: "model.glb"` re-imports that file when the scene
+loads; the imported hierarchy is reconstructed instead of serialized as child
+nodes. Animation clips available to an imported Animator come only from that
+same glTF/GLB. A `.sgraph` may strip a `file#` prefix while resolving a clip name,
+but it does not load a second animation file. Separately exported clips must be
+merged into a compatible model GLB before import. The loader attaches one
+Animator to each skinned mesh, so a controller or `AnimGraph` drives all
+Animators below the character rather than assuming there is one. Clip names and
+durations are inspectable with `saida_tool inspect-anim <file.glb>`.
 
 Formats: `.sclip`, `.sgraph`, `.sretarget`, `.srig`, `.sseq`; the `.sanimc` cache
 is internal. The reflected behaviour `SequenceDirector` plays a `.sseq` at
@@ -1106,23 +1173,21 @@ surface, worst channel delta 90, i.e. ordinary floating-point divergence between
 two rasterizers. A tolerance wide enough to absorb that would hide any
 regression worth catching, so a real GPU is not gated at all.
 
-Within Lavapipe the capture is byte-identical across runs, but **not across Mesa
-builds**: two Mesa versions rounding the last bit differently move 5 634 pixels
-by a delta of 1. A tolerance of 1 absorbs exactly that, and it is not defensible
-— multiplying the AO exponent by 1.01, a real renderer change, moves 2 175
-pixels by a delta of 1. *Fewer* pixels than the cross-Mesa noise, at the same
-magnitude. Neither the delta nor the pixel count separates a subtle regression
-from a Mesa mismatch, so no threshold on a cross-build comparison catches one; a
-tolerance of 1 was measured passing a deliberately changed renderer.
+The comparison is **exact**, and a tolerance was tried and rejected on evidence:
+multiplying the AO exponent by 1.01 — a real renderer change — moves 2 175
+pixels by a channel delta of 1, so `--tolerance 1` was measured passing a
+deliberately changed renderer. Subtle is precisely what this net exists to
+catch, so nothing above 0 is defensible.
 
-The comparison is therefore **exact**, and the reference is recorded on the CI
-runner rather than a developer machine: **the CI run is the authoritative one**.
-A local run on a different Mesa fails with every difference at delta 1, and the
-script names that signature — it is what a Mesa mismatch looks like, and also
-what a genuinely subtle change looks like, which is why it cannot be waved
-through locally. When Mesa moves on the runner the gate goes red the same way,
-and the reference is re-recorded from the failing run's uploaded frame,
-deliberately.
+Exactness is achievable because Lavapipe is deterministic **for a given
+toolchain**: the capture is byte-identical run to run, and identical between the
+CI runner and a developer machine on the same Mesa/LLVM. It does not survive a
+toolchain bump — msys2 is a rolling distribution and CI installs it fresh — and
+one such bump was observed moving 5 634 pixels by a delta of 1. When that
+happens the gate goes red with every difference at a single level, and the
+reference is re-recorded deliberately. That maintenance cost is the price of a
+gate that is not blind to a 1% change, and the failure message names the
+signature so a toolchain bump is not mistaken for a regression, nor the reverse.
 
 `--record` rewrites the reference for an intended visual change; the gate proves
 a frame did not *change*, never that it is *right*, so a re-recorded image must
@@ -1170,6 +1235,14 @@ lack of a V1 surface — the Web player HUD is display-only
 (`UICanvasNode`/`UITextNode` only, §8.3) and the interactive canvas UI is driven
 with the mouse on desktop. Rich keyboard, scroll and touch already exist on
 `WebCanvasNode` for desktop panels.
+
+For a `WebCanvasNode`, pointer movement is routed by canvas geometry and always
+reaches RmlUi while the pointer is inside the canvas; `hitTest()` decides click,
+scroll and capture policy only. `UIInteractionSystem` currently stores raw
+hovered, pressed, focused and touch targets across frames and revalidates them
+when the global hierarchy version changes before dispatching more input. The
+roadmap retains the stronger lifetime-checked-handle contract and the missing
+re-entrancy corpus.
 
 World Space (3D panel `WebCanvasNode`) intersects a ray with the panel's local
 z=0 plane, bounded by its world dimensions, and maps the point into pixel space
@@ -1304,6 +1377,16 @@ project folder (resolution of the single `.saidaproj`) — the path the Hub stor
 and passes to `--project`. The "Project Name" field in the editor settings is
 read-only and refers to the Hub: a consistent rename requires the project closed
 (renaming of the folder held open by the editor).
+
+The editor's Open Project dialog does not consume the Hub registry. It
+recursively scans the path shown in its `Search root` field for `.saidaproj`
+files; the default is the configure-time `SAIDA_PROJECT_ROOT`, normally the
+engine checkout. The scan prunes `build`, `third_party`, `.git`, `node_modules`
+and dot-directories. A project outside that root must be found by changing the
+field or opened directly with `--project <file-or-folder>`. The Hub separately
+reads `%APPDATA%/SaidaEngine/hub.json`; each entry's `path` is the project
+folder, which `Project::load` resolves to its single project file. Distribution
+must replace the editor's configure-time default, as tracked in the roadmap.
 
 The native MCP exposes tools to agents. The target contract requires per-tool
 permissions, validation, dry-run/diff, grouped transactions, snapshot/rollback

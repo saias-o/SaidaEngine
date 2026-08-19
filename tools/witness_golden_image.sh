@@ -17,21 +17,21 @@
 # gated. Refusing beats gating the wrong backend: a reference recorded on a GPU
 # would make every CI run fail for a reason that is not a bug.
 #
-# Within Lavapipe the capture is byte-identical across runs, but NOT across Mesa
-# builds: two Mesa versions rounding the last bit differently move 5 634 pixels
-# by a delta of 1. A tolerance of 1 absorbs that — and it was tried, and it was
-# WRONG. Multiplying the AO exponent by 1.01, a real renderer change, moves
-# 2 175 pixels by a delta of 1: fewer pixels than the cross-Mesa noise, at the
-# same magnitude. Neither the delta nor the pixel count separates a subtle
-# regression from a Mesa mismatch, so no threshold on a cross-build comparison
-# can catch one. A tolerance of 1 measurably passed a changed renderer.
+# The comparison is EXACT, and a tolerance was tried and rejected on evidence.
+# Multiplying the AO exponent by 1.01 — a real renderer change — moves 2 175
+# pixels by a channel delta of 1. A tolerance of 1 therefore passed a
+# deliberately changed renderer, which is the failure this gate exists to
+# prevent. Nothing above 0 is defensible.
 #
-# The comparison is therefore EXACT, and the reference is recorded on the CI
-# runner rather than a developer machine — CI is the authoritative run. A local
-# run on a different Mesa fails with every difference at delta 1, and the script
-# says so explicitly rather than leaving that signature to be misread as a
-# regression. When Mesa moves on the runner the gate goes red the same way:
-# re-record from the failing run's uploaded frame, deliberately.
+# Exactness holds because Lavapipe is deterministic for a given toolchain: the
+# same capture is byte-identical run to run, and on this repo's CI runner and a
+# developer machine alike. It does NOT hold across a Mesa/LLVM bump — msys2 is a
+# rolling distribution and CI installs it fresh, and one such bump was observed
+# moving 5 634 pixels by a delta of 1. That is the accepted maintenance cost:
+# when the toolchain moves, this gate goes red with every difference at a single
+# level, and the reference is re-recorded deliberately after looking at the new
+# frame. The alternative — a tolerance wide enough to ride out toolchain drift —
+# is measurably blind to real changes.
 set -e
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -121,21 +121,20 @@ echo "  reference: ${REFERENCE#$ROOT/}"
 echo "  captured:  ${ACTUAL#$ROOT/}"
 echo "  diff:      ${DIFF#$ROOT/} (reference in grey, changed pixels in magenta)"
 
-# Every difference at delta 1 is the signature of a different Mesa build, not of
-# a regression -- but it is ALSO what a genuinely subtle change looks like, so
-# this names the ambiguity instead of resolving it. Only the CI run is
-# authoritative, because the reference was recorded there.
+# Every difference at a single level is the signature of a Mesa/LLVM bump rather
+# than of a code change -- but it is ALSO what a genuinely subtle regression
+# looks like, so this names the ambiguity instead of resolving it. Deciding
+# between the two means looking at what actually changed in the tree.
 if [ "${REPORT#*\"maxChannelDelta\":1,}" != "$REPORT" ]; then
     echo
-    echo "  Every difference is a single level. On a developer machine that"
-    echo "  usually means your Mesa differs from the CI runner's, not that you"
-    echo "  broke something — but a subtle renderer change looks identical, so"
-    echo "  it cannot be waved through. Trust the CI run: the reference was"
-    echo "  recorded there."
+    echo "  Every difference is a single level. That is what a Mesa/LLVM bump"
+    echo "  looks like — msys2 rolls, and CI installs it fresh. It is also what"
+    echo "  a subtle renderer change looks like, so it is not self-evidently"
+    echo "  harmless: check whether anything under src/render or shaders/ moved"
+    echo "  before concluding it was the toolchain."
 fi
 
 echo
-echo "  If the change is intended, look at the capture, then re-record — from"
-echo "  the CI artefact if you are not on the runner's Mesa:"
+echo "  If the change is intended, look at the capture, then re-record:"
 echo "    tools/witness_golden_image.sh --record"
 exit 1

@@ -167,11 +167,12 @@ taken out of the V1 refactor because it is not safe to do mechanically.
    request, and uploads the diff image on failure. Contract in SPEC §6.3.
 
    The exactness is load-bearing and was arrived at the hard way. A tolerance of
-   1 was tried first, to absorb the last-bit difference between two Mesa builds
+   1 was tried first, to ride out the last-bit shift a Mesa/LLVM bump produces
    (5 634 pixels). Perturbing the AO exponent by 1% then moved 2 175 pixels at
-   the same delta — fewer than the noise — so the tolerance passed a changed
-   renderer. Subtle is exactly the failure mode this net exists to catch, so the
-   reference is now recorded on the CI runner and CI is the authoritative run.
+   that same delta, so the tolerance reported PASS on a changed renderer. Subtle
+   is exactly the failure mode this net exists to catch, so the gate is exact
+   and a toolchain bump is absorbed by re-recording deliberately, not by
+   widening the comparison.
 
    One deliberate narrowing of the original plan: the gate runs on **Lavapipe
    only**, not "on Lavapipe *and* a real GPU". Measured, the same build differs
