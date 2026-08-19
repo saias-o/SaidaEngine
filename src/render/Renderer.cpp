@@ -201,10 +201,19 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, Window& window,
     }
     uiRenderer_ = std::make_unique<UIRenderer>(device_, resources_, rhi::vulkan::fromVk(swapchain_->colorFormat()));
 #endif
+    // Before createHdrResources(): that is what hands the pass its views, and
+    // a pass created afterwards would never receive them — it would sit
+    // permanently not-ready and draw nothing, which reads as a black scene
+    // with the HUD still on top.
+    tonemapPass_ = std::make_unique<TonemapPass>(device_,
+#ifdef SAIDA_RHI_WEBGPU
+        swapchain_->colorFormat());
+#else
+        rhi::vulkan::fromVk(swapchain_->colorFormat()));
+#endif
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
-    createTonemapPipeline();
 #ifdef SAIDA_RHI_WEBGPU
     buildFeatures(0, swapchain_->depthFormat(), swapchain_->samples());
 #else
@@ -223,10 +232,19 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, ResourceManager
     : device_(device), swapchain_(&swapchain), resources_(resources) {
     createGlobalSetLayout();
     uiRenderer_ = std::make_unique<UIRenderer>(device_, resources_, swapchain_->colorFormat());
+    // Before createHdrResources(): that is what hands the pass its views, and
+    // a pass created afterwards would never receive them — it would sit
+    // permanently not-ready and draw nothing, which reads as a black scene
+    // with the HUD still on top.
+    tonemapPass_ = std::make_unique<TonemapPass>(device_,
+#ifdef SAIDA_RHI_WEBGPU
+        swapchain_->colorFormat());
+#else
+        rhi::vulkan::fromVk(swapchain_->colorFormat()));
+#endif
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
-    createTonemapPipeline();
     buildFeatures(0, swapchain_->depthFormat(), swapchain_->samples());
     createUniformBuffers();
     shadowMap_ = std::make_unique<ShadowMap>(device_, globalSetLayout_.get());
@@ -707,33 +725,6 @@ uint64_t Renderer::giDirtySignature(const Scene& scene) const {
     return h;
 }
 
-Renderer::TonemapPushConstants Renderer::tonemapPushConstants(
-    const SceneSettings& settings, const glm::mat4& projection) const {
-    TonemapPushConstants push{};
-    push.invProjection = glm::inverse(projection);
-    push.aoParams = glm::vec4(settings.aoEnabled ? 1.0f : 0.0f,
-                              std::max(settings.aoRadius, 0.0f),
-                              std::max(settings.aoIntensity, 0.0f),
-                              std::max(settings.aoPower, kMinAoPower));
-    push.fogColor = settings.fogColor;
-    push.fogParams = glm::vec4(settings.fogEnabled ? 1.0f : 0.0f,
-                               std::max(settings.fogStart, 0.0f),
-                               std::max(settings.fogDensity, 0.0f), exposure_);
-    push.bloomParams = glm::vec4(settings.bloomEnabled ? 1.0f : 0.0f,
-                                 std::max(settings.bloomThreshold, 0.0f),
-                                 std::max(settings.bloomIntensity, 0.0f),
-                                 std::max(settings.bloomRadius, 0.0f));
-    push.sourceRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-    push.projectionParams = glm::vec4(push.invProjection[0][0],
-                                      push.invProjection[1][1],
-                                      push.invProjection[2][3],
-                                      push.invProjection[3][3]);
-    push.projectionParams2 = glm::vec4(push.invProjection[2][2],
-                                       push.invProjection[3][2],
-                                       0.0f, 0.0f);
-    return push;
-}
-
 void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& cameraPos,
                            const Frustum* cullFrustum, Project* project,
                            const glm::mat4* view, const glm::mat4* proj) {
@@ -1031,7 +1022,12 @@ void Renderer::createHdrResources() {
 
     postProcessor_ = std::make_unique<PostProcessor>(device_, extent,
         rhi::Format::RGBA16Float, hdrTexture_->view());
-    updateTonemapDescriptorSet();
+    if (tonemapPass_) {
+        tonemapPass_->setInputs(
+            hdrTexture_->view(),
+            depthResolveTexture_ ? depthResolveTexture_->view() : swapchain_->depthView(),
+            postProcessor_->bloomView(), postProcessor_->bloomSampler());
+    }
 }
 
 void Renderer::cleanupHdrResources() {
@@ -1039,115 +1035,6 @@ void Renderer::cleanupHdrResources() {
     depthResolveTexture_.reset();
     hdrMsaaTexture_.reset();
     hdrTexture_.reset();
-}
-
-void Renderer::createTonemapPipeline() {
-#ifdef SAIDA_RHI_WEBGPU
-    using WE = rhi::webgpu::BindGroupLayoutEntry;
-    const auto F = rhi::ShaderStages::Fragment;
-    std::vector<WE> tonemapEntries;
-    WE e{};
-    e.binding = 0; e.type = rhi::BindingType::SampledTexture; e.visibility = F;
-    tonemapEntries.push_back(e);
-    e = {}; e.binding = 1; e.type = rhi::BindingType::SampledTexture; e.visibility = F;
-    e.unfilterable = true;
-    tonemapEntries.push_back(e);
-    e = {}; e.binding = 2; e.type = rhi::BindingType::SampledTexture; e.visibility = F;
-    tonemapEntries.push_back(e);
-    e = {}; e.binding = 3; e.type = rhi::BindingType::Sampler; e.visibility = F;
-    tonemapEntries.push_back(e);
-    e = {}; e.binding = 4; e.type = rhi::BindingType::Sampler; e.visibility = F;
-    e.nonFilteringSampler = true;
-    tonemapEntries.push_back(e);
-    e = {}; e.binding = 5; e.type = rhi::BindingType::Sampler; e.visibility = F;
-    tonemapEntries.push_back(e);
-    tonemapSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_, tonemapEntries);
-#else
-    tonemapSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
-        std::vector<rhi::BindGroupLayoutEntry>{
-            {0, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // HDR
-            {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // depth (AO)
-            {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // bloom
-        });
-#endif
-
-    rhi::SamplerDesc linearDesc;
-    linearDesc.mipFilter = rhi::FilterMode::Linear;
-    tonemapSampler_ = std::make_unique<rhi::Sampler>(device_, linearDesc);
-
-    rhi::SamplerDesc nearestDesc;
-    nearestDesc.magFilter = rhi::FilterMode::Nearest;
-    nearestDesc.minFilter = rhi::FilterMode::Nearest;
-    tonemapDepthSampler_ = std::make_unique<rhi::Sampler>(device_, nearestDesc);
-
-    rhi::Pipeline::Desc tonemapDesc;
-    tonemapDesc.vertPath = shaderPath("tonemap.vert.spv");
-    tonemapDesc.fragPath = shaderPath("tonemap.frag.spv");
-#ifdef SAIDA_RHI_WEBGPU
-    tonemapDesc.colorFormats = {swapchain_->colorFormat()};
-#else
-    tonemapDesc.colorFormats = {rhi::vulkan::fromVk(swapchain_->colorFormat())};
-#endif
-    tonemapDesc.bindGroupLayouts = {tonemapSetLayout_.get()};
-    tonemapDesc.vertexInput = false;
-    tonemapDesc.depthTest = false;
-    // Fullscreen triangle: never cull. On web the naga SPIR-V→WGSL pass flips
-    // clip-space Y, which inverts the winding of raw-clip-coord triangles (the
-    // scene is unaffected: its projection flip cancels naga's) — with the
-    // default Back cull the tonemap triangle disappears entirely.
-    tonemapDesc.cullMode = rhi::CullMode::None;
-    tonemapDesc.pushConstantSize = sizeof(TonemapPushConstants);
-    tonemapPipeline_ = std::make_unique<rhi::Pipeline>(device_, tonemapDesc);
-
-    updateTonemapDescriptorSet();
-}
-
-void Renderer::updateTonemapDescriptorSet() {
-    if (!tonemapSetLayout_ || !hdrTexture_ || !swapchain_ || !tonemapSampler_ || !tonemapDepthSampler_ || !postProcessor_) {
-        return;
-    }
-
-    rhi::BindGroupEntry hdrEntry;
-    hdrEntry.binding = 0;
-    hdrEntry.view = hdrTexture_->view();
-#ifndef SAIDA_RHI_WEBGPU
-    hdrEntry.sampler = tonemapSampler_->handle();
-#endif
-
-    rhi::BindGroupEntry depthEntry;
-    depthEntry.binding = 1;
-    depthEntry.view = depthResolveTexture_ ? depthResolveTexture_->view() : swapchain_->depthView();
-#ifndef SAIDA_RHI_WEBGPU
-    depthEntry.sampler = tonemapDepthSampler_->handle();
-#endif
-
-    rhi::BindGroupEntry bloomEntry;
-    bloomEntry.binding = 2;
-    bloomEntry.view = postProcessor_->bloomView();
-#ifndef SAIDA_RHI_WEBGPU
-    bloomEntry.sampler = postProcessor_->bloomSampler();
-#endif
-
-#ifdef SAIDA_RHI_WEBGPU
-    rhi::BindGroupEntry hdrSamplerEntry;
-    hdrSamplerEntry.binding = 3;
-    hdrSamplerEntry.sampler = tonemapSampler_->handle();
-
-    rhi::BindGroupEntry depthSamplerEntry;
-    depthSamplerEntry.binding = 4;
-    depthSamplerEntry.sampler = tonemapDepthSampler_->handle();
-
-    rhi::BindGroupEntry bloomSamplerEntry;
-    bloomSamplerEntry.binding = 5;
-    bloomSamplerEntry.sampler = postProcessor_->bloomSampler();
-
-    tonemapSet_ = std::make_unique<rhi::BindGroup>(*tonemapSetLayout_,
-        std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry,
-            hdrSamplerEntry, depthSamplerEntry, bloomSamplerEntry});
-#else
-    tonemapSet_ = std::make_unique<rhi::BindGroup>(*tonemapSetLayout_,
-        std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry});
-#endif
 }
 
 void Renderer::recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageIndex,
@@ -1194,19 +1081,10 @@ void Renderer::recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageInd
     pass.defaultViewportScissor = false;  // tonemap draws into the viewport rect only
 
     rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
-    rp.setPipeline(*tonemapPipeline_);
-    rp.setViewport(static_cast<float>(renderRect.offset.x), static_cast<float>(renderRect.offset.y),
-                   static_cast<float>(renderRect.extent.width), static_cast<float>(renderRect.extent.height));
-    rp.setScissor(renderRect.offset.x, renderRect.offset.y,
-                  renderRect.extent.width, renderRect.extent.height);
-    rp.setBindGroup(0, *tonemapSet_);
-
-    TonemapPushConstants push = tonemapPushConstants(scene.settings(), camera.projection());
-    push.sourceRect = sourceRect;
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
-        rp.setPushConstants(&push, sizeof(TonemapPushConstants));
-        rp.draw(3);
+        tonemapPass_->record(rp, scene.settings(), camera.projection(), renderRect,
+                             sourceRect, exposure_);
     }
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/UI");
@@ -1741,7 +1619,7 @@ void Renderer::createXrPipelines() {
     buildFeatures(viewMask, rhi::vulkan::fromVk(depthFormat), VK_SAMPLE_COUNT_1_BIT);
 
     {
-        tonemapSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
+        xrTonemapSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
             std::vector<rhi::BindGroupLayoutEntry>{
                 {0, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // HDR
                 {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // depth (AO)
@@ -1750,12 +1628,12 @@ void Renderer::createXrPipelines() {
 
         rhi::SamplerDesc linearDesc;
         linearDesc.mipFilter = rhi::FilterMode::Linear;
-        tonemapSampler_ = std::make_unique<rhi::Sampler>(device_, linearDesc);
+        xrTonemapSampler_ = std::make_unique<rhi::Sampler>(device_, linearDesc);
 
         rhi::SamplerDesc nearestDesc;
         nearestDesc.magFilter = rhi::FilterMode::Nearest;
         nearestDesc.minFilter = rhi::FilterMode::Nearest;
-        tonemapDepthSampler_ = std::make_unique<rhi::Sampler>(device_, nearestDesc);
+        xrTonemapDepthSampler_ = std::make_unique<rhi::Sampler>(device_, nearestDesc);
 
         updateXrTonemapDescriptorSets();
 
@@ -1763,16 +1641,16 @@ void Renderer::createXrPipelines() {
         xrTonemapDesc.vertPath = shaderPath("tonemap.vert.spv");
         xrTonemapDesc.fragPath = shaderPath("tonemap.frag.spv");
         xrTonemapDesc.colorFormats = {rhi::vulkan::fromVk(xrColorFormat_)};
-        xrTonemapDesc.bindGroupLayouts = {tonemapSetLayout_.get()};
+        xrTonemapDesc.bindGroupLayouts = {xrTonemapSetLayout_.get()};
         xrTonemapDesc.vertexInput = false;
         xrTonemapDesc.depthTest = false;
-        xrTonemapDesc.pushConstantSize = sizeof(TonemapPushConstants);
+        xrTonemapDesc.pushConstantSize = sizeof(TonemapPass::PushConstants);
         xrTonemapPipeline_ = std::make_unique<rhi::Pipeline>(device_, xrTonemapDesc);
     }
 }
 
 void Renderer::updateXrTonemapDescriptorSets() {
-    if (!tonemapSetLayout_ || !tonemapSampler_ || !tonemapDepthSampler_) return;
+    if (!xrTonemapSetLayout_ || !xrTonemapSampler_ || !xrTonemapDepthSampler_) return;
     const uint32_t n = std::min<uint32_t>(xrViewCount_, 2);
     for (uint32_t i = 0; i < n; ++i) {
         if (!xrPostProcessors_[i]) continue;
@@ -1780,19 +1658,19 @@ void Renderer::updateXrTonemapDescriptorSets() {
         rhi::BindGroupEntry hdrEntry;
         hdrEntry.binding = 0;
         hdrEntry.view = xrHdrTexture_->layerView(i);
-        hdrEntry.sampler = tonemapSampler_->handle();
+        hdrEntry.sampler = xrTonemapSampler_->handle();
 
         rhi::BindGroupEntry depthEntry;
         depthEntry.binding = 1;
         depthEntry.view = xrDepthTexture_->layerView(i);
-        depthEntry.sampler = tonemapDepthSampler_->handle();
+        depthEntry.sampler = xrTonemapDepthSampler_->handle();
 
         rhi::BindGroupEntry bloomEntry;
         bloomEntry.binding = 2;
         bloomEntry.view = xrPostProcessors_[i]->bloomView();
         bloomEntry.sampler = xrPostProcessors_[i]->bloomSampler();
 
-        xrTonemapSets_[i] = std::make_unique<rhi::BindGroup>(*tonemapSetLayout_,
+        xrTonemapSets_[i] = std::make_unique<rhi::BindGroup>(*xrTonemapSetLayout_,
             std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry});
     }
 }
@@ -1939,10 +1817,11 @@ void Renderer::recordXrTonemap(rhi::CommandEncoder& encoder, Scene& scene,
         rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
         rp.setPipeline(*xrTonemapPipeline_);
         rp.setBindGroup(0, *xrTonemapSets_[i]);
-        TonemapPushConstants push = tonemapPushConstants(scene.settings(), eye.projection);
+        TonemapPass::PushConstants push =
+            TonemapPass::pushConstants(scene.settings(), eye.projection, exposure_);
         {
             SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
-            rp.setPushConstants(&push, sizeof(TonemapPushConstants));
+            rp.setPushConstants(&push, sizeof(TonemapPass::PushConstants));
             rp.draw(3);
         }
         rp.end();

@@ -73,7 +73,7 @@ rendering are precisely blocked behind the first line of the table.
 
 | File | Lines | Mixed domains |
 |---|---|---|
-| `src/render/Renderer.cpp` | 1975 | pipelines, descriptors, GI, tonemap, GPU-culling, shadows, XR, frame — see §3 |
+| `src/render/Renderer.cpp` | 1894 | pipelines, descriptors, GI, tonemap, GPU-culling, shadows, XR, frame — see §3 |
 | `src/scripting/JsEngineBindings.cpp` | 1853 | all JS globals (`node`/`time`/`input`/`tree`/`assets`/`audio`/`physics`/`storage`) → one module per namespace |
 | `src/editor/panels/InspectorPanel.cpp` | 1336 | inspector for all node types → one section per node family |
 | `src/scene/WebCanvasNode.cpp` | 1280 | a single node: RmlUi + world panel + scripts + hot-reload + placeholder |
@@ -104,8 +104,8 @@ they have proven themselves):
 
 Beyond ~80 lines a function becomes hard to test and reason about. The longest
 known ones are in `Renderer.cpp` and are handled with §3: `gatherScene`
-(213 lines, `src/render/Renderer.cpp:704`), `recordCommandBuffer`
-(164, `:1328`), `drawFrame` (118, `:1492`), `rebuildGlobalSet` (108, `:477`).
+(`src/render/Renderer.cpp:720`), `recordCommandBuffer` (`:1232`),
+`drawFrame` (`:1403`), `rebuildGlobalSet` (`:499`).
 `InspectorPanel` holds the maximum measured by the heuristic (483 lines).
 
 ### 2.3 Hygiene
@@ -120,7 +120,7 @@ known ones are in `Renderer.cpp` and are handled with §3: `gatherScene`
 
 ## 3. Renderer — deferred decomposition (blocking prerequisite)
 
-`src/render/Renderer.cpp` (1975 lines) is the largest god class and the
+`src/render/Renderer.cpp` (1894 lines) is the largest god class and the
 highest-value decomposition: it unblocks XR, the GPU-driven flag and lightmaps
 by making them testable in isolation. It is **deliberately deferred** — it was
 taken out of the V1 refactor because it is not safe to do mechanically.
@@ -132,7 +132,7 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 | **PipelineCache** — pipelines & layouts; rebuilt on format/swapchain change | `createGlobalSetLayout`, `createPipeline`, `createWebCanvasWorldPipeline`, `createCullingPipeline`, `createTonemapPipeline`, `createXrPipelines` |
 | **FrameDescriptors** — global descriptor sets + per-frame-in-flight UBO | `createUniformBuffers`, `createGlobalDescriptorSets`, `rebuildGlobalSet`, `updateGlobalShadowDescriptor`, `updateUniformBuffer` |
 | **GIRenderer** — GI descriptors + dirty cadence/signature | `shouldUpdateRealtimeGI`, `giDirtySignature`, `updateGIDescriptors`, `updateEnvironmentDescriptor` |
-| **TonemapPass** — HDR targets + tonemap pipeline/descriptors | `createHdrResources`, `cleanupHdrResources`, `createTonemapPipeline`, `updateTonemapDescriptorSet`, `tonemapPushConstants`, `recordTonemapPass` |
+| **TonemapPass** — ✅ *extracted* — tonemap pipeline/layout/samplers/set | `createTonemapPipeline`, `updateTonemapDescriptorSet`, `tonemapPushConstants` (now `TonemapPass::record`/`setInputs`/`pushConstants`) |
 | **GpuDrivenCuller** — indirect draw buffers + culling pipeline (behind the flag) | `createGpuDrivenBuffers`, `uploadGpuDrivenDraws`, `featureDraws`, `buildFeatures`, `recordFeatures` |
 | **XrRenderer** — XR targets/pipelines + multiview UBO | `createXrTargets`, `cleanupXrTargets`, `updateXrTonemapDescriptorSets`, `updateUniformBufferXr`, `recordXrScenePass`, `recordXrWorldWebCanvases` |
 | **SceneGatherer** — draw-list + lighting UBO from the scene | `gatherScene` (split), `recordMeshDraws`, `recordWorldWebCanvases`, `recordShadowPasses` |
@@ -199,10 +199,34 @@ taken out of the V1 refactor because it is not safe to do mechanically.
    *right*. It proves the frame did not change. A re-recorded reference must be
    looked at before it is committed.
 2. **Extract one unit at a time, leaf-first order**, one commit + one visual
-   check per unit: `TonemapPass` (clean boundary: input = HDR target,
-   output = swapchain) → `GpuDrivenCuller` (behind its flag) → `XrRenderer`
-   (guarded) → `GIRenderer` → `PipelineCache`/`FrameDescriptors` → thin
-   `Renderer` last.
+   check per unit: ~~`TonemapPass`~~ **done** → `GpuDrivenCuller` (behind its
+   flag) → `XrRenderer` (guarded) → `GIRenderer` →
+   `PipelineCache`/`FrameDescriptors` → thin `Renderer` last.
+
+   `TonemapPass` (`src/render/TonemapPass.{hpp,cpp}`) owns the tonemap
+   pipeline, its bind-group layout, its two samplers and its descriptor set,
+   and exposes `setInputs` / `record` / a static `pushConstants`. Renderer went
+   from 2 020 to 1 894 lines.
+
+   Two deliberate deviations from the table above, both to keep the boundary
+   clean rather than to save work:
+
+   - **The HDR targets stay in Renderer.** `createHdrResources` allocates what
+     the *scene pass* draws into, and `PostProcessor` samples it too. Moving it
+     into the tonemap unit would make the scene pass ask the tonemap for its
+     render target — a worse coupling than the one being removed. TonemapPass
+     receives views through `setInputs` instead.
+   - **`recordTonemapPass` stays in Renderer.** It also records bloom, the UI
+     and the editor overlay into the same render pass, and rule #1 below says
+     only `Renderer::drawFrame` sequences passes. The unit draws its fullscreen
+     triangle into a pass the caller has already begun; it never opens one.
+
+   It also removed shared mutable state that was not in the plan: the XR path
+   was overwriting the desktop tonemap's layout and samplers. XR now owns
+   `xrTonemapSetLayout_`/`xrTonemapSampler_`/`xrTonemapDepthSampler_`, and both
+   paths build their constants through the same static `TonemapPass::
+   pushConstants`, so one shader keeps one interpretation. Folding the XR
+   tonemap into the unit is `XrRenderer`'s job.
 3. **Anti-spaghetti rule #1: passes never call each other.** Only
    `Renderer::drawFrame` sequences the passes. Each unit owns its GPU objects
    (pipelines, descriptors, targets) with a create/destroy cycle tied to

@@ -182,6 +182,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/render/CameraDirector.cpp
     ${SAIDA_ROOT}/src/render/GIVolume.cpp
     ${SAIDA_ROOT}/src/render/PostProcessor.cpp
+    ${SAIDA_ROOT}/src/render/TonemapPass.cpp
     ${SAIDA_ROOT}/src/render/RenderFeatureRegistry.cpp
     ${SAIDA_ROOT}/src/render/Renderer.cpp
     ${SAIDA_ROOT}/src/render/EnvironmentSH.cpp

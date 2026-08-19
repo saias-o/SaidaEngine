@@ -487,6 +487,7 @@ add_library(saida_engine STATIC
     src/render/CaptureScheduler.cpp
     src/render/EnvironmentSH.cpp
     src/render/PostProcessor.cpp
+    src/render/TonemapPass.cpp
     src/render/RenderFeatureRegistry.cpp
     src/fx/ParticleRuntime.cpp
     src/render/features/WaterFeature.cpp

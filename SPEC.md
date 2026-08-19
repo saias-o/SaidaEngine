@@ -1370,6 +1370,18 @@ replaying a state that enters Auto re-arms the detection (`resetAuto`), whereas
 undo restores the parameters without re-arming it — the still-valid detection
 cache keeps them frozen. Proven headless by `saida_editor_command_tests`.
 
+The drawable scene rectangle — the area the 3D view, picking, gizmos and
+screen-space UI input all resolve against — has exactly one source: the ImGui
+dockspace **central node**. `EditorUI::drawDockspace` reads it into
+`viewportPos_`/`viewportSize_`, and `EditorApp` hands it to
+`Engine::setRenderViewport`. It is the single definition of where the scene
+is, and `ImGui::GetMainViewport()->WorkPos/WorkSize` is not an equivalent: the
+main viewport spans the docked panels too, so substituting it draws the scene
+and any `WebCanvas` behind the Scene Tree and Inspector while input lands
+offset from what is visible. The symptom to recognise is a full-screen
+`WebCanvas` clipped under a panel; the fix is to carry the central-node
+rectangle through, never to compensate mouse or CSS coordinates downstream.
+
 Project renaming goes through `renameProjectDirectory`
 (`src/project/ProjectRename.*`): the folder, the `.saidaproj` file (name and
 `name` field) and the `hub.json` entry are modified together, each intermediate

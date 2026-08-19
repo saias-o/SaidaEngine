@@ -13,6 +13,7 @@
 #include "render/EnvironmentSH.hpp"
 #include "render/GpuDrivenLayout.hpp"
 #include "render/RenderFeature.hpp"  // EyeRenderInfo, RenderContext, FrameContext, ScenePassFeature
+#include "render/TonemapPass.hpp"
 #include "rhi/Rhi.hpp"
 
 namespace saida {
@@ -118,17 +119,6 @@ public:
 #endif
 
 private:
-    struct TonemapPushConstants {
-        glm::mat4 invProjection{1.0f};
-        glm::vec4 aoParams{0.0f};        // x enabled, y radius, z intensity, w power
-        glm::vec4 fogColor{0.0f};
-        glm::vec4 fogParams{0.0f};       // x enabled, y start, z density, w exposure
-        glm::vec4 bloomParams{0.0f};     // x enabled, y threshold, z intensity, w radius px
-        glm::vec4 sourceRect{0.0f, 0.0f, 1.0f, 1.0f};
-        glm::vec4 projectionParams{0.0f};
-        glm::vec4 projectionParams2{0.0f};
-    };
-
     struct WebCanvasWorldPushConstants {
         glm::mat4 model{1.0f};
         glm::vec4 params{0.0f};  // x width, y height, z bindless texture index, w alpha
@@ -139,8 +129,6 @@ private:
     void updateEnvironmentDescriptor(Scene& scene);
     bool shouldUpdateRealtimeGI(bool dirty) const;
     uint64_t giDirtySignature(const Scene& scene) const;
-    TonemapPushConstants tonemapPushConstants(const SceneSettings& settings,
-                                              const glm::mat4& projection) const;
     void createGlobalSetLayout();
     void createPipeline(rhi::BindGroupLayout& materialSetLayout);
     void createWebCanvasWorldPipeline();
@@ -152,8 +140,6 @@ private:
     const std::vector<SceneDraw>& featureDraws() const;
     void createHdrResources();
     void cleanupHdrResources();
-    void createTonemapPipeline();
-    void updateTonemapDescriptorSet();
     void recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageIndex,
                            Scene& scene, const Camera& camera);
     void createUniformBuffers();
@@ -206,11 +192,10 @@ private:
     std::unique_ptr<rhi::RenderTexture> depthResolveTexture_;  // single-sample depth for AO when MSAA on
     std::unique_ptr<PostProcessor> postProcessor_;
 
-    std::unique_ptr<rhi::Pipeline> tonemapPipeline_;
-    std::unique_ptr<rhi::BindGroupLayout> tonemapSetLayout_;
-    std::unique_ptr<rhi::BindGroup> tonemapSet_;
-    std::unique_ptr<rhi::Sampler> tonemapSampler_;         // linear (HDR + bloom)
-    std::unique_ptr<rhi::Sampler> tonemapDepthSampler_;    // nearest (AO depth)
+    // Resolves HDR -> swapchain. Owns its pipeline, layout, samplers and
+    // descriptor set; Renderer still sequences the pass around it (bloom,
+    // then the tonemap draw, then UI and the editor overlay).
+    std::unique_ptr<TonemapPass> tonemapPass_;
     float exposure_ = 1.0f;
 
     // Registration order is draw order.
@@ -318,6 +303,13 @@ private:
     std::unique_ptr<rhi::Pipeline> xrUnlitPipeline_;    // multiview scene: MaterialType::Unlit
     std::unique_ptr<rhi::Pipeline> xrWebCanvasWorldPipeline_;
     std::unique_ptr<rhi::Pipeline> xrTonemapPipeline_;  // per-eye tonemap → XR image
+    // The XR tonemap is the same shader at a different output format and with
+    // one set per eye, so it keeps its own layout and samplers rather than
+    // writing into TonemapPass's. Folding the two together is what extracting
+    // XrRenderer does (ROADMAP §3); sharing mutable state was not.
+    std::unique_ptr<rhi::BindGroupLayout> xrTonemapSetLayout_;
+    std::unique_ptr<rhi::Sampler> xrTonemapSampler_;
+    std::unique_ptr<rhi::Sampler> xrTonemapDepthSampler_;
     rhi::Pipeline* xrScenePipelineFor(MaterialType type) const {
         return (type == MaterialType::Unlit && xrUnlitPipeline_) ? xrUnlitPipeline_.get()
                                                                  : xrScenePipeline_.get();
