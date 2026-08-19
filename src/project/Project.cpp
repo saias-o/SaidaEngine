@@ -199,6 +199,23 @@ bool Project::load(const std::string& neprojPath) {
         return false;
     }
 
+    // Read the registry before committing any of this project's state, so a
+    // refusal leaves the Project untouched rather than half-loaded.
+    //
+    // The verdict has to be honoured here: sync() below re-registers every
+    // asset it finds with a brand new id, and save() writes that over the file.
+    // Run on a registry the schema guard refused, the pair silently replaces
+    // every AssetID a scene stored -- meshes, textures, prefabs all resolve to
+    // nothing -- and the only document that could still be repaired is gone.
+    // AssetRegistry::load names the exact complaint and the file it came from;
+    // a missing registry is not a failure, it returns true and is created below.
+    const fs::path loadedRoot = path.parent_path();
+    if (!assetRegistry_.load(loadedRoot.string())) {
+        Log::error("Project::load: refusing to overwrite an unreadable asset "
+                   "registry with a fresh scan: ", neprojPath);
+        return false;
+    }
+
     name_          = loadedName;
     if (loadedEngineVersion.empty()) {
         Log::error("Project::load: missing 'engineVersion' in project file: ", neprojPath);
@@ -226,7 +243,6 @@ bool Project::load(const std::string& neprojPath) {
     for (const auto& [aliasName, aliasPath] : audioAliases_)
         AudioManager::get().setAlias(aliasName, aliasPath);
 
-    assetRegistry_.load(rootPath_);
     assetRegistry_.sync(rootPath_);
     assetRegistry_.save(rootPath_);
 

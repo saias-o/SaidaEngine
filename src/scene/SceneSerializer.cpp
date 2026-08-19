@@ -123,9 +123,16 @@ json serializeNode(Node& node, ResourceManager& resources) {
     return j;
 }
 
+// `ancestry` is the chain of node names from the document root down to this
+// node's parent. It exists only so a refusal is actionable: "unsupported node
+// type" carries nowhere to look in a scene of several hundred nodes.
 std::unique_ptr<Node> deserializeNode(const json& j, ResourceManager& resources,
-                                      NodeIdPolicy idPolicy) {
+                                      NodeIdPolicy idPolicy,
+                                      const std::string& ancestry = {}) {
     const std::string type = j.value("type", "Node");
+    const std::string here =
+        ancestry.empty() ? j.value("name", std::string("<root>"))
+                         : ancestry + "/" + j.value("name", std::string("<unnamed>"));
 
     // Special case for scene prefabs
     if (type == "Scene" && j.contains("prefabAssetId")) {
@@ -148,7 +155,7 @@ std::unique_ptr<Node> deserializeNode(const json& j, ResourceManager& resources,
 
     std::unique_ptr<Node> node = NodeRegistry::instance().create(type);
     if (!node) {
-        Log::error("SceneSerializer: unsupported node type '", type, "'.");
+        Log::error("SceneSerializer: unsupported node type '", type, "' at ", here, ".");
         return nullptr;
     }
 
@@ -171,9 +178,23 @@ std::unique_ptr<Node> deserializeNode(const json& j, ResourceManager& resources,
     if (!childrenLoadedFromImport) {
         if (auto it = j.find("children"); it != j.end() && it->is_array()) {
             for (const json& cj : *it) {
-                if (auto child = deserializeNode(cj, resources, idPolicy)) {
-                    node->addChild(std::move(child));
+                auto child = deserializeNode(cj, resources, idPolicy, here);
+                if (!child) {
+                    // Skipping the child would take its entire subtree with it
+                    // and still report success -- a typo in a "type" deleting
+                    // content while the game boots normally.
+                    //
+                    // Every public entry point validates the type contract over
+                    // the whole tree first, so this is not the load's only
+                    // defence and should be unreachable through them. It is
+                    // here so that the guarantee belongs to this function rather
+                    // than to every caller remembering to validate: the next
+                    // caller is the one that forgets.
+                    Log::error("SceneSerializer: refusing the load rather than "
+                               "dropping the subtree under ", here, ".");
+                    return nullptr;
                 }
+                node->addChild(std::move(child));
             }
         }
     }

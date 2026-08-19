@@ -953,6 +953,12 @@ if (BUILD_TESTING)
     target_compile_options(saida_player_storage_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_player_storage_tests COMMAND $<TARGET_FILE:saida_player_storage_tests>)
 
+    add_executable(saida_durable_load_tests tests/DurableLoadRefusalTests.cpp)
+    saida_test_target(saida_durable_load_tests)
+    target_link_libraries(saida_durable_load_tests PRIVATE saida_engine)
+    target_compile_options(saida_durable_load_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_durable_load_tests COMMAND $<TARGET_FILE:saida_durable_load_tests>)
+
     add_executable(saida_project_rename_tests tests/ProjectRenameTests.cpp)
     saida_test_target(saida_project_rename_tests)
     target_link_libraries(saida_project_rename_tests PRIVATE saida_engine)

@@ -271,16 +271,9 @@ Post-V1 unless the scope changes explicitly.
 
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and
   diagnostics.
-- [ ] Formats: stop rewriting a rejected `asset_registry.json`. `Project::load`
-  ignores the loader's verdict and runs `sync()` + `save()` anyway, so a registry
-  the schema guard refused is replaced by a fresh scan with brand new random
-  ids — every AssetID stored in a scene (mesh references) is left dangling,
-  silently. Fix by design: honour the failure, refuse to overwrite a document the
-  engine could not read, and either migrate the entry ids or stop the load with a
-  diagnostic naming the documents that reference them. SPEC section 13 documents
-  the divergence meanwhile. A scene's `skyboxTexture` is no longer exposed to it:
-  both scene readers now accept a project-relative path, which the registry
-  re-resolves after any rescan (SPEC 3.1).
+- A scene's `skyboxTexture` is no longer exposed to a registry rescan: both
+  scene readers accept a project-relative path, which the registry re-resolves
+  afterwards (SPEC 3.1).
 
 - [ ] Physics: make a body collide with **every** mesh under it, not just the
   first. `CollisionShapeNode`'s `findMesh` picks a single mesh, so an imported
@@ -457,17 +450,23 @@ What is missing:
   mapped to `text-align` in the emitted markup, so pivot keeps meaning "where the
   box sits" and alignment means "where the text sits inside it".
 
-- [ ] Scene loading: stop dropping a subtree on an unknown node type.
-  `SceneSerializer::deserializeNode` logs an error and returns `nullptr` for an
-  unregistered type; the children loop simply does not add it, and the load still
-  reports success. One typo in a `"type"` therefore deletes the node **and every
-  descendant** while the game boots normally. Same family: `ensureUniqueIds`
-  regenerates a duplicate or invalid id in silence rather than refusing the
-  document. Both contradict the rule the repository imposes on itself — *no
-  silent fallbacks for invalid durable content* — which the schema envelope
-  already honours a few lines away. Fix by design: fail the load with a
-  diagnostic naming the offending type and path, as `acceptSceneDocumentVersion`
-  does.
+- [ ] Scene loading: stop regenerating a duplicate id in silence.
+  `ensureUniqueIds` replaces a duplicate or invalid `NodeId` rather than refusing
+  the document, which contradicts the rule the repository imposes on itself —
+  *no silent fallbacks for invalid durable content* — that the schema envelope
+  honours a few lines away. It is not a straight refusal to write: the same
+  function serves prefab instantiation under `NodeIdPolicy::Regenerate`, where
+  fresh ids are the point, so the fix has to separate "these ids are meant to be
+  new" from "this document contradicts itself" before it can refuse anything.
+
+  The subtree half of this item is **closed**. It read as if a typo in a `"type"`
+  silently deleted a node and its descendants; measured, every public entry point
+  (`nodeFromJson`, `loadNodeFromSceneFile`, `loadIntoScene`) runs
+  `validateTypeContract` over the *whole* tree before deserializing anything, so
+  an unknown type at any depth is already refused with its path. What was missing
+  was that `deserializeNode` itself relied on its callers having done that; it
+  now refuses rather than skipping, and names the ancestry. Pinned by
+  `saida_durable_load_tests`.
 
 - [ ] Tooling: make a runtime `.scene` checkable headlessly.
   `saida_tool validate-scene` validates the **authoring snapshot** (string ids);
