@@ -4,6 +4,154 @@ All notable changes to SaidaEngine. Versions follow the scheme described in
 [CONTRIBUTING.md](CONTRIBUTING.md#versioning): each manual test and correction
 cycle receives its own immutable beta tag.
 
+## v1.0.0-beta.3
+
+34 commits since `v1.0.0-beta.2`. Two themes dominate: a vehicle stack built by
+driving it in a real city rather than by reading it, and the first machine-checked
+way to look at what the engine draws. As in the previous cycle, most entries are
+defects that produced a wrong picture or a wrong motion with no error attached.
+
+### Vehicles
+
+- **A raycast vehicle.** A `Vehicle` behaviour on a `RigidBody`: each wheel is a
+  ray, and suspension, drive and grip are applied *at the contact*, so weight
+  transfer falls out of the physics instead of being scripted on top of it.
+  `PhysicsWorld` gained what that needs and could not express — impulses and
+  forces at the centre of mass or at a world point, angular impulse and torque,
+  plus `pointVelocity` and `effectiveMassAt`, the two contact quantities a
+  correction has to divide by if it is not to over-correct.
+- **Steering was mirrored.** The vehicle's local +X is its left, so a positive
+  steer input and a positive heading rotation had to disagree in sign, and did
+  not: steer -1 turned -152.9 degrees, steer +1 turned +152.8. The drawn wheels
+  carried the same error and pointed away from where the car went. The test that
+  should have caught it asserted only that opposite inputs turn opposite ways.
+- **A long frame no longer launches a car.** The vehicle turns force into impulse
+  by multiplying by the frame delta; while the city streamed, that delta reached
+  0.63 s and the suspension became 89 kN.s over four wheels — 74 m/s upward on
+  1200 kg, and a parked car climbed to 28 m on its own. `PhysicsWorld` never
+  advances more than its fixed step times its substep ceiling, so the excess was
+  force paid for time the world does not simulate. That bound is now one named
+  constant the two share, and the vehicle clamps to it.
+- **Cars sit on their axle line.** `centerOfMass` comes from the wheel manifest,
+  at wheel-centre height. Left at the centre of a collision box that has to cover
+  the roof, every car in the city tipped below the grip its own tyres could pull
+  and rolled over in any hard corner.
+- **Self-righting works from any attitude.** The righting torque turned about the
+  car's length — the axis it rolled over on — which covers the commonest way to
+  strand a car and nothing else; any other attitude just ground the car where it
+  lay. It now turns about `up x worldUp`, falling back to the length only when
+  the car is exactly inverted and there is no shortest way back.
+- **Getting in and out.** `vehicleDrive`, `vehicleBrake`, `vehicleHandbrake`,
+  `vehicleInput` and `vehicleState` on both `node` and `NodeRef`, so a driver
+  need not be the vehicle's own script. `vehicleInput` exists because a character
+  and a vehicle read the *same* movement actions and exactly one may be
+  listening: a parked car left listening steers itself off the kerb whenever the
+  player walks past. Turning it off also releases whatever the keyboard was
+  holding, so a car cannot be handed over mid-throttle. Exit is refused above
+  2 m/s and leaves the handbrake on.
+- **All 32 cars in the city open**, driven by one `driver.js` on a node of its
+  own rather than a script per car — 32 scripts would race to answer one key
+  press, whereas one driver holding at most one car cannot race anything.
+- **The Web player drives too.** The runtime matrix marked the vehicle Required
+  on Web and the player compiled it, but nothing had ever executed one there:
+  the raycasts, the impulse API and the fixed-step interaction were unproven.
+  `e2e_drive.js` now passes in the Web player as on desktop (resting wheel
+  height 0.403 against 0.398).
+
+### Seeing what the engine draws
+
+- **`SaidaEngine --screenshot <png> [--after-frames N]`** writes frame N and
+  exits. Three things had to exist first: the swapchain never requested
+  `TRANSFER_SRC`, so the presented image was not copyable at all; the RHI had no
+  image-to-buffer copy; and the channel order is now resolved from the actual
+  swapchain format, with anything outside R8G8B8A8/B8G8R8A8 refused rather than
+  written with swapped channels.
+- **The same command twice gives the same pixels.** A capture was reproducible by
+  frame *number* but not by frame *content*: an asset finishing on frame 3 in one
+  run landed on frame 4 in the next, and the frame clock read the wall clock.
+  Both produce a plausible image of the wrong instant — exactly what a pixel
+  comparison cannot diagnose. `CaptureScheduler` now waits until nothing is
+  queued, in flight or awaiting finalization, then counts frames from there.
+- **A golden-image gate**, `tools/witness_golden_image.sh`: frame 30 of the
+  WitnessGame hub scene compared against a committed reference, exactly. It is a
+  **local** check and deliberately not in CI — llvmpipe generates code for the
+  CPU it runs on, and three CI runs of identical software produced two distinct
+  frames 5 634 pixels apart at a single level. A tolerance of 1 would absorb that
+  and also absorb a 1% change to the AO exponent, so it would pass a genuinely
+  changed renderer. CONTRIBUTING requires the gate locally for renderer, shader
+  and HUD work; ROADMAP section 3 records what would close the CI gap.
+- **`SceneMeasure`** exposes the world-space extent of what a node actually
+  draws — the mesh's own bounds scaled by its transform — and returns null rather
+  than an empty box when a node draws nothing, so a harness reading `.size.y`
+  fails loudly instead of reading a plausible zero.
+
+### User interface
+
+- **A user-agent stylesheet under every engine document.** RmlUi ships no default
+  stylesheet and RCSS defaults `display` to inline, so a `<div>` that did not
+  declare its display was an inline box that silently dropped width, height,
+  padding and text-align — markup written the way HTML is normally written
+  collapsed into a left-aligned run of text with nothing logged. The baseline is
+  embedded rather than shipped as a file so it cannot go missing from a package,
+  sets `display` and nothing else, and is merged *under* the document so an
+  author can still opt out.
+- **`saida_tool render-ui`** renders a document without a GPU, writing the frame
+  as a PNG and, with `--layout-json`, what the layout engine actually computed
+  per element plus every diagnostic RmlUi raised — assertable and diffable, which
+  an image is not. It is fail-closed on purpose: RmlUi renders whatever survived a
+  malformed document, which would report a broken document as a successful
+  render, so any load diagnostic now rejects it (`--allow-warnings` opts out).
+- **`saida_tool validate-ui`** makes four silent defects mechanical. The worst:
+  `rgba()` written with a 0-1 alpha parses as nothing and the *whole declaration*
+  vanishes with no diagnostic at all — reported with file:line and the 0-255 value
+  that was meant. The other three are rejected declarations, unresolved assets,
+  and an element computing to `display:inline` while carrying width, height or its
+  own text-align.
+- **A screen-space canvas has a resolution to be authored at.** A canvas filling
+  the viewport was resized to the real window while the scene kept declaring
+  1920x1080, so absolute pixel geometry landed off-centre on every other window
+  with anything past the window height silently clipped — a menu looked right only
+  on the machine it was written on. `WebCanvasNode` now carries
+  `referenceWidth`/`referenceHeight` and a `scaleMode` (Stretch, the default, plus
+  Fit and Expand). The policy lives on the node because rendering and pointer
+  input both read placement through it: a rig that drew letterboxed while
+  hit-testing full-screen would put every click in the wrong place.
+- **A tiled decorator tiles.** The CPU backend clamped texture coordinates past
+  [0,1] instead of wrapping, so a tiled surface drew one copy and stretched its
+  edge texels across the rest — plausible enough to read as a gradient rather than
+  a defect. Wrapping is decided once per compiled geometry.
+
+### Rendering
+
+- **Bloom no longer fringes the editor viewport.** `bloom_downsample` mapped its
+  centre into the rendered rectangle but then moved a texel away for each of its
+  four taps with nothing bringing them back, so on the viewport edge those taps
+  read the undefined area behind the editor panels — GPU-dependent magenta, cyan
+  and green fringes. The clamp now covers the complete linear-filter footprint.
+- **`TonemapPass` is extracted** from `Renderer.cpp` (2020 to 1894 lines), the
+  first unit of the ROADMAP section 3 decomposition, with the local golden-image
+  gate proving the frame did not change.
+
+### Content
+
+- **Sunset Strip**, an open-world slice exercising physics, traffic and scenario
+  the way the vertical slice exercises the renderer: 400 m square, 568 road tiles
+  across 42 blocks and 56 junctions, three districts and a beach. The layout is
+  searched for rather than typed — each tile is described by the edges a road
+  continues through, read out of the meshes by rasterising their kerbs, and a
+  wrong reading fails loudly instead of quietly laying roads that do not join up.
+
+### Known limitations
+
+This is a beta, not a release candidate. The editor is still a developer
+artifact rather than a portable distribution: it resolves shaders, fonts and
+assets through configure-time absolute paths, and its Open Project dialog scans
+the engine checkout, so a copied editor lists no projects. Windows installers
+remain unsigned. ROADMAP section 1 tracks the distribution work, and sections 5
+and 6 the known engine defects — among them a rejected `asset_registry.json`
+being overwritten by a fresh scan, and a scene node of unknown type dropping its
+whole subtree while the load still reports success.
+
 ## v1.0.0-beta.2
 
 32 commits since `v1.0.0-beta.1`. Most of what follows was found by authoring

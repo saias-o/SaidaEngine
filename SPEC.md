@@ -1763,7 +1763,7 @@ declared in [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md). The SignPath
 release integration and publicly trusted certificate are not provisioned yet;
 until they are, Windows installers remain explicitly unsigned and unqualified.
 
-The raw `v1.0.0-beta.2` `SaidaEngine.exe` is a developer artifact rather than a
+The raw `v1.0.0-beta.3` `SaidaEngine.exe` is a developer artifact rather than a
 portable distribution: the editor build resolves shaders, fonts and branding
 through absolute configure-time source/build paths, and the executable has no
 Windows VERSIONINFO resource. The Open Project dialog inherits the same flaw: it
