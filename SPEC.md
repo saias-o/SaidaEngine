@@ -271,6 +271,13 @@ and be benchmarked against the classic path on heavy scenes. Performance claims
 require reproducible scenes, published GPU/driver, resolution, number of
 lights/draws/particles and CPU/GPU frame times.
 
+When the editor renders into its docked viewport, only that rectangle of the
+full-size HDR and depth targets is valid. Every post-process sample is confined
+to it. In particular, the bloom downsample clamps the complete linear-filter
+footprint (the centre and all blur taps) to half a texel inside the source
+rectangle; it never reads the undefined target area behind the editor panels.
+This prevents GPU-dependent magenta/cyan/green fringes around a busy viewport.
+
 The desktop editor profiler exposes indexed mesh geometry as
 `Renderer/FrustumTriangles` and `Scene/TotalTriangles`, displayed together as
 camera/scene triangles. The scene value sums every active renderable mesh
@@ -1536,8 +1543,8 @@ a hidden tab, WASM 4 MiB/QuickJS 256 KiB stack, Windows copy, QuickJS sandbox,
 glTF into a scene without invalidating the rigs/clips of already-attached
 Animators, automated editor Build click (`--build`) and progression restored after
 restart (second editor/desktop process on `saves/`, browser reload on IDBFS), as
-well as automated editor Play (`--play`). To watch: unreproduced viewport halos and
-autoload dispatch still duplicated between `Engine::mountWorld` and the Web player.
+well as automated editor Play (`--play`). To watch: autoload dispatch still
+duplicated between `Engine::mountWorld` and the Web player.
 
 A release still requires the Authenticode signature of the installer with the
 publishing key. The reproducible archive and installer, the DLL closure, the crash

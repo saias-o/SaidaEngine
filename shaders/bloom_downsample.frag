@@ -15,8 +15,22 @@ layout(location = 0) out vec4 outColor;
 
 const float BLOOM_SOFT_KNEE = 0.35;
 
-vec2 sourceUV(vec2 uv) {
-    return push.sourceRect.xy + clamp(uv, vec2(0.0), vec2(1.0)) * push.sourceRect.zw;
+vec2 clampSourceUV(vec2 uv, vec2 texel) {
+    // Only sourceRect was rendered when the editor docks the scene into its
+    // viewport. The rest of the full-size HDR target is undefined, so every
+    // linear-filter footprint must stay at least half a texel inside the valid
+    // rectangle. Clamping just fragUV is insufficient: the blur taps below
+    // deliberately move one texel away from their centre.
+    vec2 inset = min(texel * 0.5, push.sourceRect.zw * 0.5);
+    vec2 sourceMin = push.sourceRect.xy + inset;
+    vec2 sourceMax = push.sourceRect.xy + push.sourceRect.zw - inset;
+    return clamp(uv, sourceMin, sourceMax);
+}
+
+vec2 sourceUV(vec2 uv, vec2 texel) {
+    vec2 mapped = push.sourceRect.xy
+                + clamp(uv, vec2(0.0), vec2(1.0)) * push.sourceRect.zw;
+    return clampSourceUV(mapped, texel);
 }
 
 vec3 brightPass(vec3 color) {
@@ -34,13 +48,17 @@ void main() {
     }
 
     vec2 texel = 1.0 / vec2(textureSize(TEX2D(sourceInput), 0));
-    vec2 uv = sourceUV(fragUV);
+    vec2 uv = sourceUV(fragUV, texel);
 
     vec3 color = texture(TEX2D(sourceInput), uv).rgb * 0.40;
-    color += texture(TEX2D(sourceInput), uv + texel * vec2( 1.0,  0.0)).rgb * 0.15;
-    color += texture(TEX2D(sourceInput), uv + texel * vec2(-1.0,  0.0)).rgb * 0.15;
-    color += texture(TEX2D(sourceInput), uv + texel * vec2( 0.0,  1.0)).rgb * 0.15;
-    color += texture(TEX2D(sourceInput), uv + texel * vec2( 0.0, -1.0)).rgb * 0.15;
+    color += texture(TEX2D(sourceInput),
+                     clampSourceUV(uv + texel * vec2( 1.0,  0.0), texel)).rgb * 0.15;
+    color += texture(TEX2D(sourceInput),
+                     clampSourceUV(uv + texel * vec2(-1.0,  0.0), texel)).rgb * 0.15;
+    color += texture(TEX2D(sourceInput),
+                     clampSourceUV(uv + texel * vec2( 0.0,  1.0), texel)).rgb * 0.15;
+    color += texture(TEX2D(sourceInput),
+                     clampSourceUV(uv + texel * vec2( 0.0, -1.0), texel)).rgb * 0.15;
 
     if (push.params.y > 0.5) color = brightPass(color);
     outColor = vec4(color, 1.0);
