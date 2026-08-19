@@ -1,6 +1,6 @@
 # Contributing to SaidaEngine
 
-Thank you for contributing to SaidaEngine. This document describes the human
+Thank you for contributing to SaidaEngine. This document describes the shared
 development workflow. Automated coding agents must also follow
 [AGENTS.md](AGENTS.md).
 
@@ -14,6 +14,20 @@ development workflow. Automated coding agents must also follow
    blocker is proven.
 4. Keep documentation and code comments in English.
 
+## Working tree and generated content
+
+- Inspect the worktree before editing and preserve unrelated changes already in
+  progress.
+- Keep each change focused; do not perform unrelated refactors.
+- Do not weaken, delete or bypass a test merely to make a change pass.
+- Do not edit vendored sources under `third_party`.
+- Modify Witness generators rather than generated Witness output when the
+  generator is the source of truth.
+- Never regenerate a frozen fixture merely to hide a divergence. A format
+  change updates its producers, loaders, fixtures and tests together.
+- Do not commit build directories, generated packages, caches, crash reports,
+  credentials or signing material.
+
 ## Design and implementation rules
 
 - Give every module and class a clear responsibility.
@@ -25,8 +39,6 @@ development workflow. Automated coding agents must also follow
   implementations or long functions as permanent solutions.
 - Add a code comment only for an invariant, external constraint or non-obvious
   decision. Do not use comments as a substitute for clear code.
-- Do not edit vendored sources under `third_party` to work around a local
-  toolchain problem.
 - Do not announce a capability as supported without a real backend and an
   associated test.
 - Missing capabilities must fail or degrade explicitly; durable content must
@@ -60,7 +72,7 @@ inside the workspace:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path build\tmp, build\msys_home | Out-Null
-$env:PATH = 'C:\msys64\usr\bin;C:\msys64\ucrt64\bin;' + $env:PATH
+$env:PATH = 'C:\msys64\ucrt64\bin;C:\msys64\usr\bin;' + $env:PATH
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
@@ -69,9 +81,23 @@ Errors such as `Cannot create temporary file`, a silent `cc1plus`, or
 `pylauncher: CreateProcess failed` usually mean that `PATH`, `HOME` or `TEMP`
 points at an incompatible environment.
 
+Git Bash is not an MSYS2 UCRT64 shell. Compilation can succeed there while the
+link step fails with `collect2.exe: error: ld returned 116 exit status` because
+`ld` found incompatible runtime DLLs. Put the UCRT64 binaries first before
+building:
+
+```sh
+export PATH="/c/msys64/ucrt64/bin:$PATH"
+cmake --build build --parallel
+```
+
+The same error does not indicate a source defect when the build succeeds from a
+native UCRT64 shell.
+
 ## Required verification
 
-The baseline verification is:
+Run checks proportional to the change and report exactly which commands were
+run. The baseline verification is:
 
 ```sh
 cmake --build build --parallel
@@ -101,14 +127,32 @@ their explicit PASS verdict.
 `witness_golden_image.sh` compares a captured frame of the WitnessGame hub scene
 against a committed reference, exactly. The reference is a Lavapipe image and
 the gate refuses any other backend — two rasterizers disagree on every lit
-surface. It was recorded on the CI runner, so **the CI run is the authoritative
-one**: locally, a different Mesa build makes the gate fail with every difference
-at a single level, and the script says so. That signature cannot be waved
-through, because a subtle renderer regression looks exactly the same (measured:
-a 1% AO exponent change moves fewer pixels than the cross-Mesa noise does, at
-the same magnitude). `--record` rewrites the reference for an intended visual
-change — from the CI artefact when you are not on the runner's Mesa; look at the
-new image before committing it.
+surface. The comparison carries no tolerance because one was measured letting a
+changed renderer through: a 1% change to the AO exponent moves 2 175 pixels by a
+single level, so `--tolerance 1` reported PASS on it.
+
+Lavapipe is deterministic for a given toolchain, so the same capture is
+byte-identical on CI and locally. A Mesa or LLVM bump does shift it — msys2
+rolls — and then the gate fails with every difference at a single level. The
+message says so; check whether anything under `src/render` or `shaders/` moved
+before concluding it was the toolchain. `--record` rewrites the reference for an
+intended change; look at the new image before committing it.
+
+For a visual defect outside the gameplay camera, capture an exported player
+from an explicit viewpoint:
+
+```sh
+"./Game.exe" --screenshot look.png --after-frames 30 \
+    --camera-pos 3,0.25,3 --camera-look 0,0.3,0
+```
+
+Both camera flags are required, and the two points must differ. A rejected
+viewpoint exits non-zero and writes no image. Inspect the PNG itself: geometry
+that is floating, sunk into the ground or scaled incorrectly can pass every
+structural test while remaining obvious from a grazing angle.
+
+Do not leave GUI applications or local verification servers running after the
+check.
 
 ## Web verification
 
@@ -218,14 +262,17 @@ hard-code a version string anywhere else.
 
 ## Pull requests
 
-- Keep each change focused.
 - Include tests proportional to the changed contract.
 - Describe known limitations and unverified surfaces honestly.
-- Do not mix generated build output with source changes.
-- Do not commit credentials, signing keys, local caches or crash dumps.
 
 ## License and assets
 
 All contributions are distributed under GPL-3.0. New dependencies and assets
 must have explicit license, provenance and distribution entries. Compliance
 generation intentionally fails when an entry is missing.
+
+Binary assets are tracked through Git LFS, not ignored. The repository's
+`.gitattributes` routes formats including GLB, glTF, PNG, FBX and TGA through
+LFS. Commit such files through LFS; if an asset must stay outside the repository,
+leave it untracked instead of changing the repository-wide ignore or LFS policy
+without an explicit decision.
