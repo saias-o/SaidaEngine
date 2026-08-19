@@ -9,29 +9,27 @@
 #   tools/witness_golden_image.sh            gate: exit 1 if the frame changed
 #   tools/witness_golden_image.sh --record   rewrite the reference deliberately
 #
+# This is a LOCAL check. It is not in CI, and that is not an oversight — see
+# "why not CI" below. Record the reference on the machine that will check it.
+#
 # The reference is keyed to LAVAPIPE, and the script refuses to run on anything
-# else. Two rasterizers do not agree on a lit surface: the same build on this
-# repo's CI (llvmpipe) and on an Intel Iris Xe differs by 69 268 of 230 400
-# pixels — a banding pattern across every lit surface, worst channel delta 90.
-# No tolerance separates that from a real regression, so a real GPU is simply not
-# gated. Refusing beats gating the wrong backend: a reference recorded on a GPU
-# would make every CI run fail for a reason that is not a bug.
+# else. Two rasterizers do not agree on a lit surface: the same build under
+# llvmpipe and on an Intel Iris Xe differs by 69 268 of 230 400 pixels — a
+# banding pattern across every lit surface, worst channel delta 90. Refusing
+# beats silently comparing across backends.
 #
 # The comparison is EXACT, and a tolerance was tried and rejected on evidence.
 # Multiplying the AO exponent by 1.01 — a real renderer change — moves 2 175
-# pixels by a channel delta of 1. A tolerance of 1 therefore passed a
-# deliberately changed renderer, which is the failure this gate exists to
-# prevent. Nothing above 0 is defensible.
+# pixels by a channel delta of 1, so a tolerance of 1 reported PASS on a
+# deliberately changed renderer. Nothing above 0 is defensible.
 #
-# Exactness holds because Lavapipe is deterministic for a given toolchain: the
-# same capture is byte-identical run to run, and on this repo's CI runner and a
-# developer machine alike. It does NOT hold across a Mesa/LLVM bump — msys2 is a
-# rolling distribution and CI installs it fresh, and one such bump was observed
-# moving 5 634 pixels by a delta of 1. That is the accepted maintenance cost:
-# when the toolchain moves, this gate goes red with every difference at a single
-# level, and the reference is re-recorded deliberately after looking at the new
-# frame. The alternative — a tolerance wide enough to ride out toolchain drift —
-# is measurably blind to real changes.
+# Why not CI: Lavapipe is byte-reproducible on ONE machine, not across GitHub's
+# hosted runners. With mesa 26.1.7 and llvm-libs 22.1.8 identical on all three,
+# three CI runs produced two different frames, 5 634 pixels apart at a delta of
+# 1. LP_NUM_THREADS and LP_NATIVE_VECTOR_WIDTH were each measured to change
+# nothing, which leaves llvmpipe's host-dependent JIT codegen — not pinnable on
+# a hosted runner. Exact would be red at random; tolerant would be blind. So the
+# check runs where it is meaningful: on the machine doing the renderer work.
 set -e
 cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
@@ -127,11 +125,12 @@ echo "  diff:      ${DIFF#$ROOT/} (reference in grey, changed pixels in magenta)
 # between the two means looking at what actually changed in the tree.
 if [ "${REPORT#*\"maxChannelDelta\":1,}" != "$REPORT" ]; then
     echo
-    echo "  Every difference is a single level. That is what a Mesa/LLVM bump"
-    echo "  looks like — msys2 rolls, and CI installs it fresh. It is also what"
-    echo "  a subtle renderer change looks like, so it is not self-evidently"
+    echo "  Every difference is a single level. That is what a DIFFERENT HOST"
+    echo "  looks like — llvmpipe generates code for the CPU it runs on, and a"
+    echo "  reference recorded elsewhere will not match here. It is also what a"
+    echo "  subtle renderer change looks like, so it is not self-evidently"
     echo "  harmless: check whether anything under src/render or shaders/ moved"
-    echo "  before concluding it was the toolchain."
+    echo "  before concluding it was the machine."
 fi
 
 echo

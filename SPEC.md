@@ -1160,11 +1160,13 @@ overlays differ between two runs of the same command. Both surfaces accept the
 same flags through one parser (`runtime/CaptureArgs.hpp`) — an image captured
 from one and compared against the other would otherwise compare two policies.
 
-`tools/witness_golden_image.sh` is the gate built on all of the above, and runs
-in CI on every push and pull request: export WitnessGame, capture frame 30 of
-the hub scene, compare against `tests/fixtures/golden/witness-hub.lavapipe.png`.
-On failure the diff image, the capture and the reference are uploaded as an
-artefact, so a red run is diagnosable without reproducing it.
+`tools/witness_golden_image.sh` is the gate built on all of the above: export
+WitnessGame, capture frame 30 of the hub scene, compare against
+`tests/fixtures/golden/witness-hub.lavapipe.png`, and write a diff image on
+failure. It is a **local** check, required for renderer, shader and HUD changes
+(see CONTRIBUTING), and it is deliberately not wired into CI — pixel equality is
+not reproducible across GitHub's hosted runners, which ROADMAP §3 records with
+the measurements.
 
 The reference is keyed to **Lavapipe**, and the gate refuses any other backend
 rather than comparing across two. The same build on an Intel Iris Xe differs
@@ -1179,15 +1181,16 @@ pixels by a channel delta of 1, so `--tolerance 1` was measured passing a
 deliberately changed renderer. Subtle is precisely what this net exists to
 catch, so nothing above 0 is defensible.
 
-Exactness is achievable because Lavapipe is deterministic **for a given
-toolchain**: the capture is byte-identical run to run, and identical between the
-CI runner and a developer machine on the same Mesa/LLVM. It does not survive a
-toolchain bump — msys2 is a rolling distribution and CI installs it fresh — and
-one such bump was observed moving 5 634 pixels by a delta of 1. When that
-happens the gate goes red with every difference at a single level, and the
-reference is re-recorded deliberately. That maintenance cost is the price of a
-gate that is not blind to a 1% change, and the failure message names the
-signature so a toolchain bump is not mistaken for a regression, nor the reverse.
+Exactness is achievable **on one machine**: the capture is byte-identical run to
+run, so a developer can prove a refactor changed nothing. It is not achievable
+across machines. With `mesa 26.1.7` and `llvm-libs 22.1.8` identical, three CI
+runs produced two different frames, 5 634 pixels apart at a channel delta of 1;
+`LP_NUM_THREADS` and `LP_NATIVE_VECTOR_WIDTH` were each measured to change
+nothing, leaving llvmpipe's host-dependent JIT codegen. The reference is
+therefore recorded on the machine that will check it, and a difference at a
+single level across every affected pixel is the signature of a different host
+rather than of a code change — which is also what a subtle regression looks
+like, so the failure message points at the ambiguity instead of resolving it.
 
 `--record` rewrites the reference for an intended visual change; the gate proves
 a frame did not *change*, never that it is *right*, so a re-recorded image must

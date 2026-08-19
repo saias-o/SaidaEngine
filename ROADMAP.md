@@ -160,19 +160,33 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 
 ### What must be done FIRST
 
-1. ~~**Establish a visual verification net. Absolute prerequisite.**~~ **Done.**
-   `tools/witness_golden_image.sh` captures frame 30 of the WitnessGame hub
-   scene — mesh, light, shadow, tonemap and HUD in one image — and compares it
-   against a committed reference, exactly. It runs in CI on every push and pull
-   request, and uploads the diff image on failure. Contract in SPEC §6.3.
+1. **Establish a visual verification net. Absolute prerequisite.** The harness
+   exists and works — **as a local check.** `tools/witness_golden_image.sh`
+   captures frame 30 of the WitnessGame hub scene (mesh, light, shadow, tonemap
+   and HUD in one image) and compares it against a committed reference,
+   exactly. Contract in SPEC §6.3. What is **not** achieved is running it in CI,
+   which is what this item asked for.
 
-   The exactness is load-bearing and was arrived at the hard way. A tolerance of
-   1 was tried first, to ride out the last-bit shift a Mesa/LLVM bump produces
-   (5 634 pixels). Perturbing the AO exponent by 1% then moved 2 175 pixels at
-   that same delta, so the tolerance reported PASS on a changed renderer. Subtle
-   is exactly the failure mode this net exists to catch, so the gate is exact
-   and a toolchain bump is absorbed by re-recording deliberately, not by
-   widening the comparison.
+   **Proven blocker: pixel equality is not reproducible across GitHub-hosted
+   runners.** On one machine the capture is byte-identical run to run. Across
+   the hosted runners it is not: with `mesa 26.1.7` and `llvm-libs 22.1.8`
+   identical on all three, three CI runs produced **two** different frames,
+   differing on 5 634 of 230 400 pixels at a channel delta of 1. Thread count
+   (`LP_NUM_THREADS`) and vector width (`LP_NATIVE_VECTOR_WIDTH`) were each
+   measured to change nothing, which leaves CPU-dependent JIT codegen in
+   llvmpipe — and a hosted runner does not let us pin the CPU.
+
+   The obvious escape is closed too: a tolerance of 1 absorbs that difference,
+   and also absorbs a 1% change to the AO exponent (2 175 pixels at the same
+   delta), so it reports PASS on a genuinely changed renderer. The gate cannot
+   be both reliable and sensitive on this infrastructure, so it is not wired
+   into CI — a permanently red check is one everybody learns to ignore.
+
+   To close this item, one of: a runner with a pinned CPU (self-hosted, or a
+   fixed instance type); a software rasterizer whose output does not depend on
+   host codegen; or a verdict that is not pixel equality and is still sensitive
+   below the noise. Until then a renderer change is gated by running the
+   harness locally, which CONTRIBUTING requires.
 
    One deliberate narrowing of the original plan: the gate runs on **Lavapipe
    only**, not "on Lavapipe *and* a real GPU". Measured, the same build differs

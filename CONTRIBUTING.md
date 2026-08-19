@@ -131,12 +131,15 @@ surface. The comparison carries no tolerance because one was measured letting a
 changed renderer through: a 1% change to the AO exponent moves 2 175 pixels by a
 single level, so `--tolerance 1` reported PASS on it.
 
-Lavapipe is deterministic for a given toolchain, so the same capture is
-byte-identical on CI and locally. A Mesa or LLVM bump does shift it — msys2
-rolls — and then the gate fails with every difference at a single level. The
-message says so; check whether anything under `src/render` or `shaders/` moved
-before concluding it was the toolchain. `--record` rewrites the reference for an
-intended change; look at the new image before committing it.
+This check is local and is not run by CI: llvmpipe generates code for the CPU it
+runs on, so the same commit renders differently on different machines (measured
+across GitHub's hosted runners: two distinct frames, 5 634 pixels apart at a
+single level, with Mesa and LLVM identical). Record the reference on the machine
+that will check it, where the capture is byte-identical run to run. A failure
+where every difference is a single level means a different host — or a subtle
+renderer change, which looks the same; check whether `src/render` or `shaders/`
+actually moved. `--record` rewrites the reference for an intended change; look
+at the new image before committing it.
 
 For a visual defect outside the gameplay camera, capture an exported player
 from an explicit viewpoint:
