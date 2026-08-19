@@ -37,16 +37,31 @@ namespace {
 // Smallest half-extent / radius we let through so Jolt's convex radius is valid.
 constexpr float kMinHalf = 0.02f;
 
-// Find the first drawable mesh in a subtree, returning it and its world matrix.
-Mesh* findMesh(Node& n, glm::mat4& outWorld) {
-    if (Mesh* m = n.mesh()) {
-        outWorld = n.worldTransform();
-        return m;
-    }
-    for (const auto& c : n.children()) {
-        if (Mesh* m = findMesh(*c, outWorld)) return m;
-    }
-    return nullptr;
+// One drawn mesh under a body, with the world transform it is drawn at.
+struct MeshInstance {
+    Mesh* mesh = nullptr;
+    glm::mat4 world{1.0f};
+};
+
+// EVERY mesh under the body, not the first one found.
+//
+// An imported level is one node carrying dozens of meshes. Taking only the
+// first gave that whole level a body covering one piece, and the player fell
+// through the rest — silently, because a body was created and looked fine. The
+// workaround was one glTF and one body per piece, which pushes level authoring
+// into the asset pipeline and multiplies bodies for what is one static level.
+//
+// A node with a mesh may still have children with meshes, so the walk does not
+// stop at the first hit.
+void collectMeshes(Node& n, std::vector<MeshInstance>& out) {
+    if (Mesh* m = n.mesh()) out.push_back({m, n.worldTransform()});
+    for (const auto& c : n.children()) collectMeshes(*c, out);
+}
+
+std::vector<MeshInstance> meshesUnder(Node& bodyNode) {
+    std::vector<MeshInstance> found;
+    collectMeshes(bodyNode, found);
+    return found;
 }
 
 // Transform a mesh-local AABB by `m` and return the enclosing axis-aligned box.
@@ -77,17 +92,23 @@ JPH::Quat capsuleAxisRotation(int axis) {
 // Dynamic-capable. Null if there is no CPU mesh data.
 JPH::Ref<JPH::Shape> buildConvexHull(Node& bodyNode, const glm::mat4& invBodyTR) {
     using namespace JPH;
-    glm::mat4 meshWorld(1.0f);
-    Mesh* m = findMesh(bodyNode, meshWorld);
-    if (!m || m->collisionVertices().empty()) return Ref<Shape>();
-
-    glm::mat4 toBody = invBodyTR * meshWorld;
+    // One hull over every mesh under the body. A hull is by definition a single
+    // convex volume, so this is the hull of the whole body rather than of its
+    // first piece — the honest reading of "convex hull of this body", and it can
+    // no longer leave pieces uncovered.
     Array<Vec3> pts;
-    pts.reserve(m->collisionVertices().size());
-    for (const glm::vec3& p : m->collisionVertices()) {
-        glm::vec3 bp = glm::vec3(toBody * glm::vec4(p, 1.0f));
-        pts.push_back(Vec3(bp.x, bp.y, bp.z));
+    for (const MeshInstance& inst : meshesUnder(bodyNode)) {
+        const std::vector<glm::vec3>& src = inst.mesh->collisionVertices();
+        if (src.empty()) continue;
+        const glm::mat4 toBody = invBodyTR * inst.world;
+        pts.reserve(pts.size() + src.size());
+        for (const glm::vec3& p : src) {
+            const glm::vec3 bp = glm::vec3(toBody * glm::vec4(p, 1.0f));
+            pts.push_back(Vec3(bp.x, bp.y, bp.z));
+        }
     }
+    if (pts.empty()) return Ref<Shape>();
+
     ShapeSettings::ShapeResult r = ConvexHullShapeSettings(pts).Create();
     if (!r.IsValid()) {
         Log::warn("CollisionShape: convex hull failed: ", r.GetError().c_str());
@@ -96,25 +117,35 @@ JPH::Ref<JPH::Shape> buildConvexHull(Node& bodyNode, const glm::mat4& invBodyTR)
     return r.Get();
 }
 
-// Exact triangle mesh of the body's mesh. STATIC bodies only (no inertia).
+// Exact triangle mesh over EVERY mesh under the body. STATIC bodies only (no
+// inertia). This is the shape an imported level uses, and the one where taking
+// a single mesh left the player falling through everything the first piece did
+// not cover.
 JPH::Ref<JPH::Shape> buildTriangleMesh(Node& bodyNode, const glm::mat4& invBodyTR) {
     using namespace JPH;
-    glm::mat4 meshWorld(1.0f);
-    Mesh* m = findMesh(bodyNode, meshWorld);
-    if (!m || m->collisionVertices().empty() || m->collisionIndices().size() < 3) return Ref<Shape>();
-
-    glm::mat4 toBody = invBodyTR * meshWorld;
     VertexList verts;
-    verts.reserve(m->collisionVertices().size());
-    for (const glm::vec3& p : m->collisionVertices()) {
-        glm::vec3 bp = glm::vec3(toBody * glm::vec4(p, 1.0f));
-        verts.push_back(Float3(bp.x, bp.y, bp.z));
-    }
     IndexedTriangleList tris;
-    const std::vector<uint32_t>& idx = m->collisionIndices();
-    tris.reserve(idx.size() / 3);
-    for (size_t i = 0; i + 2 < idx.size(); i += 3)
-        tris.push_back(IndexedTriangle(idx[i], idx[i + 1], idx[i + 2], 0));
+
+    for (const MeshInstance& inst : meshesUnder(bodyNode)) {
+        const std::vector<glm::vec3>& src = inst.mesh->collisionVertices();
+        const std::vector<uint32_t>& idx = inst.mesh->collisionIndices();
+        if (src.empty() || idx.size() < 3) continue;
+
+        // Each mesh's indices are its own; they address the merged list only
+        // after being shifted past everything already appended.
+        const uint32_t base = static_cast<uint32_t>(verts.size());
+        const glm::mat4 toBody = invBodyTR * inst.world;
+        verts.reserve(verts.size() + src.size());
+        for (const glm::vec3& p : src) {
+            const glm::vec3 bp = glm::vec3(toBody * glm::vec4(p, 1.0f));
+            verts.push_back(Float3(bp.x, bp.y, bp.z));
+        }
+        tris.reserve(tris.size() + idx.size() / 3);
+        for (size_t i = 0; i + 2 < idx.size(); i += 3)
+            tris.push_back(IndexedTriangle(base + idx[i], base + idx[i + 1],
+                                           base + idx[i + 2], 0));
+    }
+    if (tris.empty()) return Ref<Shape>();
 
     ShapeSettings::ShapeResult r = MeshShapeSettings(verts, tris).Create();
     if (!r.IsValid()) {
@@ -164,10 +195,13 @@ bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNo
     // bounds nor collision data: defer both resolution AND the body
     // (meshPending_) until the geometry arrives. The pending->loaded
     // transition re-resolves and returns true -> the body rebuilds.
+    const std::vector<MeshInstance> meshes = meshesUnder(bodyNode);
     {
-        glm::mat4 ignored(1.0f);
-        Mesh* m = findMesh(bodyNode, ignored);
-        const bool pending = m && !m->loaded();
+        // Pending while ANY mesh is still loading: building the shape from the
+        // ones that arrived first would bake in a body missing the rest.
+        bool pending = false;
+        for (const MeshInstance& inst : meshes)
+            if (!inst.mesh->loaded()) { pending = true; break; }
         const bool becameReady = meshPending_ && !pending;
         meshPending_ = pending;
         if (pending) return false;
@@ -182,14 +216,22 @@ bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNo
         return false;
     }
 
-    // Derive the primitive from the mesh AABB expressed in the body's local
-    // (unscaled) frame; this bakes mesh-vs-body scale into the shape. The source
-    // matrix is invariant under moving/rotating the body, so a stable shape only
-    // re-resolves when the mesh's scale/offset relative to the body actually
-    // changes — including the identity→scaled transition right after a load.
-    glm::mat4 meshWorld(1.0f);
-    if (Mesh* m = findMesh(bodyNode, meshWorld)) {
-        return resolveAutoFrom(m->bounds(), invBodyTR * meshWorld);
+    // Derive the primitive from the union of every mesh's AABB expressed in the
+    // body's local (unscaled) frame; this bakes mesh-vs-body scale into the
+    // shape. Taking one mesh gave a two-piece object a primitive around one of
+    // them. The union is invariant under moving/rotating the body, so a stable
+    // shape only re-resolves when the geometry's extent relative to the body
+    // actually changes — including the identity→scaled transition after a load.
+    if (!meshes.empty()) {
+        Aabb bodyBounds = transformAabb(meshes.front().mesh->bounds(),
+                                        invBodyTR * meshes.front().world);
+        for (size_t i = 1; i < meshes.size(); ++i) {
+            const Aabb b = transformAabb(meshes[i].mesh->bounds(),
+                                         invBodyTR * meshes[i].world);
+            bodyBounds.min = glm::min(bodyBounds.min, b.min);
+            bodyBounds.max = glm::max(bodyBounds.max, b.max);
+        }
+        return resolveAutoFrom(bodyBounds);
     }
     if (!autoResolved_) {
         resolved_ = CollisionShapeType::Box;
@@ -199,11 +241,21 @@ bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNo
     return false;
 }
 
+// `bodyBounds` is already in the body's local frame: the caller unions every
+// mesh under the body, so the cache key is the resulting extent rather than one
+// mesh's matrix. That is the quantity the detection actually reads, and it is
+// the one that changes when a second mesh moves.
 bool CollisionShapeNode::resolveAutoFrom(const Aabb& meshBounds, const glm::mat4& toBody) {
-    if (autoResolved_ && toBody == resolvedFrom_) return false;  // unchanged → keep result
-    autoDetectFrom(transformAabb(meshBounds, toBody));
+    return resolveAutoFrom(transformAabb(meshBounds, toBody));
+}
+
+bool CollisionShapeNode::resolveAutoFrom(const Aabb& bodyBounds) {
+    if (autoResolved_ && bodyBounds.min == resolvedMin_ && bodyBounds.max == resolvedMax_)
+        return false;  // unchanged → keep result
+    autoDetectFrom(bodyBounds);
     autoResolved_ = true;
-    resolvedFrom_ = toBody;
+    resolvedMin_ = bodyBounds.min;
+    resolvedMax_ = bodyBounds.max;
     return true;
 }
 

@@ -37,6 +37,16 @@ public:
     void markDirty() { dirty_ = true; }
 
     JPH::BodyID bodyId() const { return bodyId_; }
+
+    // The second body this node owns, when it owns one. A query that must not
+    // hit its own caster has to skip every body the caster is made of, and
+    // `bodyId()` is not that set for a CharacterBody: a CharacterVirtual is
+    // backed by an inner body and never fills `bodyId_` at all, so a filter
+    // built from `bodyId()` alone ignores nothing. A controller's own forward
+    // ray then hits its own capsule at distance 0 with a horizontal normal, and
+    // every frame looks like a wall.
+    virtual JPH::BodyID innerBodyId() const { return JPH::BodyID(); }
+
     // The world this body actually lives in, which is the one `bodyId()` is
     // valid in. Prefer it over reaching through the SceneTree: a Scene stepped
     // on its own — as every physics test does — has no tree to reach through.

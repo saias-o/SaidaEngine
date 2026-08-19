@@ -41,6 +41,10 @@ struct RaycastHit {
 // not stop on an invisible trigger volume.
 struct QueryFilter {
     JPH::BodyID ignore;       // body to skip (typically the caster's own body)
+    // The caster's second body, when it has one. A CharacterBody is why: a
+    // CharacterVirtual is backed by an inner body that `ignore` alone never
+    // names, so "do not hit myself" has to skip both or it skips neither.
+    JPH::BodyID ignoreInner;
     bool hitSensors = false;  // true → sensor bodies are reported too
 };
 

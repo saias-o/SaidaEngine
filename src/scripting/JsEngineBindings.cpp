@@ -2061,18 +2061,25 @@ JsQueryOptions readQueryOptions(JSContext* ctx, int argc, JSValueConst* argv, in
     return out;
 }
 
-// The body of the calling node (or its nearest ancestor) — excluded by
-// default from queries so a script doesn't touch itself.
-JPH::BodyID callerBodyId(JSContext* ctx) {
-    for (Node* n = nodeFromJs(ctx); n; n = n->parent())
-        if (CollisionObjectNode* body = n->asCollisionObject()) return body->bodyId();
-    return JPH::BodyID();
+// The bodies of the calling node (or its nearest ancestor) — excluded by
+// default from queries so a script doesn't touch itself. Both are read, not
+// just bodyId(): a CharacterBody owns an inner body instead of filling bodyId_,
+// so taking only the first ignores nothing at all for the one caster that
+// queries itself most — a controller probing the ground or the wall ahead.
+void callerBodies(JSContext* ctx, QueryFilter& filter) {
+    for (Node* n = nodeFromJs(ctx); n; n = n->parent()) {
+        if (CollisionObjectNode* body = n->asCollisionObject()) {
+            filter.ignore = body->bodyId();
+            filter.ignoreInner = body->innerBodyId();
+            return;
+        }
+    }
 }
 
 QueryFilter makeQueryFilter(JSContext* ctx, const JsQueryOptions& opts) {
     QueryFilter filter;
     filter.hitSensors = opts.hitSensors;
-    if (opts.ignoreSelf) filter.ignore = callerBodyId(ctx);
+    if (opts.ignoreSelf) callerBodies(ctx, filter);
     return filter;
 }
 

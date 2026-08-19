@@ -77,6 +77,12 @@ public:
     // Core of Auto resolution, GPU-free for testing: derive the primitive from a
     // mesh AABB and the mesh-in-body matrix `toBody`, caching against that matrix.
     // Returns true if it (re-)resolved, false if the cached result was reused.
+    // Detection input is the extent in the BODY's frame, because that is what
+    // the detection reads and what the cache must key on: several meshes under
+    // one body are unioned before they get here.
+    bool resolveAutoFrom(const class Aabb& bodyBounds);
+    // Single mesh: its own bounds seen through `toBody`. Convenience for the
+    // one-mesh case and for tests that state the pair directly.
     bool resolveAutoFrom(const class Aabb& meshBounds, const glm::mat4& toBody);
 
     CollisionShapeType shapeType = CollisionShapeType::Auto;
@@ -93,7 +99,10 @@ private:
     CollisionShapeType resolved_ = CollisionShapeType::Box;
     bool autoResolved_ = false;        // true once Auto has detected a primitive
     bool meshPending_ = false;         // mesh proxy without geometry yet (async .obj)
-    glm::mat4 resolvedFrom_{0.0f};     // mesh-in-body matrix the detection used
+    // Body-space extent the detection last used, as a pair rather than an Aabb
+    // so this header need not pull in graphics/Mesh.hpp.
+    glm::vec3 resolvedMin_{0.0f};
+    glm::vec3 resolvedMax_{0.0f};
 };
 
 } // namespace saida

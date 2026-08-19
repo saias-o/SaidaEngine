@@ -457,7 +457,9 @@ public:
     explicit QueryBodyFilter(const QueryFilter& filter) : filter_(filter) {}
 
     bool ShouldCollide(const BodyID& id) const override {
-        return filter_.ignore.IsInvalid() || id != filter_.ignore;
+        if (!filter_.ignore.IsInvalid() && id == filter_.ignore) return false;
+        if (!filter_.ignoreInner.IsInvalid() && id == filter_.ignoreInner) return false;
+        return true;
     }
     bool ShouldCollideLocked(const Body& body) const override {
         return filter_.hitSensors || !body.IsSensor();

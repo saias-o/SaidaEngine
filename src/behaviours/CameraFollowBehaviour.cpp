@@ -234,12 +234,15 @@ void CameraFollowBehaviour::onUpdate(float dt) {
         if (wanted > 1e-4f) {
             const glm::vec3 dir = toDesired / wanted;
             // The pivot sits inside the target, so the target answers its own
-            // ray. The filter covers a RigidBody or StaticBody; a CharacterBody
-            // needs the epsilon too, its inner body (SPEC 5.1) not being the one
-            // named here and answering at distance zero.
+            // ray. Both of the target's bodies are named: a CharacterBody
+            // answers through its inner body rather than through bodyId().
+            // kSelfHitEpsilon below stays as a second line — a collider offset
+            // from its node can still report a hit a hair away from the pivot.
             QueryFilter filter;
-            if (auto* collider = dynamic_cast<CollisionObjectNode*>(target))
+            if (auto* collider = dynamic_cast<CollisionObjectNode*>(target)) {
                 filter.ignore = collider->bodyId();
+                filter.ignoreInner = collider->innerBodyId();
+            }
             const RaycastHit hit = physics->raycast(pivot, dir, wanted, filter);
 
             float allowed = wanted;

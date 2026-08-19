@@ -262,12 +262,6 @@ Post-V1 unless the scope changes explicitly.
 
 - [ ] XR: validate targeted headsets/runtimes, controllers and hand tracking.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
-- [ ] Physics: make `ignoreSelf` cover a `CharacterBody`. The option resolves
-  the caller's `CollisionObject` body, but a character is backed by an inner body
-  as well, so a controller's own forward ray hits its capsule at distance 0 with
-  a horizontal normal — every frame looks like a wall. Fix by design: resolve the
-  inner body too, and make the option's contract testable (a query from a
-  character must never return the character).
 
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and
   diagnostics.
@@ -275,14 +269,22 @@ Post-V1 unless the scope changes explicitly.
   scene readers accept a project-relative path, which the registry re-resolves
   afterwards (SPEC 3.1).
 
-- [ ] Physics: make a body collide with **every** mesh under it, not just the
-  first. `CollisionShapeNode`'s `findMesh` picks a single mesh, so an imported
-  level — one node, dozens of meshes — silently collides on one piece and the
-  player falls through everything else. The workaround (one glTF and one body per
-  piece) pushes level authoring into the asset pipeline and multiplies bodies for
-  what is one static level. Fix by design: build a Jolt compound (or a merged
-  `MeshShape`) from the whole subtree, and log when a body's geometry is only
-  partially covered instead of succeeding quietly.
+- [ ] Physics: prove the whole-subtree collider on real multi-mesh content.
+  `CollisionShapeNode` now merges every mesh under a body (Mesh and ConvexHull
+  alike, and Auto unions their bounds), replacing the single-mesh `findMesh`.
+  What is missing is a check: `Mesh` needs a `GeometryRegistry`, hence a device,
+  so there is no headless test of it — the guard is the Witness E2E and the
+  golden gate, neither of which draws a multi-mesh body. Either give `Mesh` a
+  CPU-only construction path for tests, or make `GTAClone`'s drive harness a
+  runnable gate (see below).
+
+- [ ] Tooling: GTAClone's `e2e_drive.js` does not pass under Lavapipe. Measured
+  on 2026-08-20 against an unmodified `main`: throttle reaches 1.96 m/s, the car
+  travels 0.00 m along its own forward and steering turns -0.0 deg. The city is
+  568 road tiles on a software rasteriser, so the likely reading is frame budget
+  rather than physics — `witness_e2e.sh` says outright that it wants a real GPU.
+  Until someone runs it on one, the city's collision has no automated verdict,
+  which is exactly the content the whole-subtree collider above exists for.
 
 - [ ] Vehicle: nobody is visible behind the wheel. Seating a player disables
   their node, so a driven car is empty to look at and a passenger cannot be

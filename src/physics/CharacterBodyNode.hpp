@@ -22,6 +22,7 @@ public:
     const char* typeName() const override { return "CharacterBody"; }
     BodyMotion motion() const override { return BodyMotion::Kinematic; }
     CharacterBodyNode* asCharacterBody() override { return this; }
+    JPH::BodyID innerBodyId() const override;  // the CharacterVirtual's inner body
 
     void serialize(nlohmann::json& j, ResourceManager& resources) const override;
     void deserialize(const nlohmann::json& j, ResourceManager& resources) override;

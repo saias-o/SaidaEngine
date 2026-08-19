@@ -9,6 +9,7 @@
 //     never leaves a dangling Jolt constraint.
 #include "scene/Scene.hpp"
 #include "physics/AreaNode.hpp"
+#include "physics/CharacterBodyNode.hpp"
 #include "physics/CollisionShapeNode.hpp"
 #include "physics/JointNodes.hpp"
 #include "physics/PhysicsWorld.hpp"
@@ -276,10 +277,79 @@ void testBodyRemovalDropsConstraint() {
     std::printf("[physics-query-joint] body removal ok\n");
 }
 
+// "Do not hit myself" has to name every body the caster is made of. A
+// CharacterBody is the caster that gets this wrong: it is a CharacterVirtual
+// with a kinematic inner body and never fills bodyId_ at all, so a filter built
+// from bodyId() alone ignores nothing and the forward probe every controller
+// runs each frame answers with the controller's own capsule at distance 0 and a
+// horizontal normal — indistinguishable from a wall, every frame.
+void testCharacterIgnoresItsOwnBodies() {
+    Scene scene;
+
+    auto* floor = scene.createChild<StaticBodyNode>();
+    floor->setName("Floor");
+    addBoxShape(floor, {20.0f, 0.5f, 20.0f});
+
+    auto* wall = scene.createChild<StaticBodyNode>();
+    wall->setName("Wall");
+    wall->transform().position = {4.0f, 1.5f, 0.0f};
+    addBoxShape(wall, {0.5f, 1.5f, 2.0f});
+
+    auto* character = scene.createChild<CharacterBodyNode>();
+    character->setName("Player");
+    character->transform().position = {0.0f, 1.5f, 0.0f};
+    auto capsule = std::make_unique<CollisionShapeNode>();
+    capsule->shapeType = CollisionShapeType::Capsule;
+    capsule->radius = 0.4f;
+    capsule->height = 1.6f;
+    character->addChild(std::move(capsule));
+
+    step(scene, 3);  // create the bodies and the character
+    PhysicsWorld* world = scene.physics();
+    require(world != nullptr, "physics world created");
+
+    require(character->bodyId().IsInvalid(),
+            "a character has no ordinary body id — this is why one id is not enough");
+    require(!character->innerBodyId().IsInvalid(),
+            "a character exposes its inner body once created");
+
+    const glm::vec3 eye = character->transform().position;
+    const glm::vec3 ahead{1.0f, 0.0f, 0.0f};
+
+    // Unfiltered: the character is in the broadphase through its inner body, so
+    // it answers its own ray first. That is correct and is what makes the
+    // filter's job necessary.
+    RaycastHit hit = world->raycast(eye, ahead, 10.0f);
+    require(hit.hit && world->bodyUserData(hit.body) == character,
+            "unfiltered, the character's own ray answers with the character");
+
+    // The filter as it was built before: bodyId() only. Invalid for a
+    // character, so it excludes nothing and the probe still reports itself.
+    QueryFilter idOnly;
+    idOnly.ignore = character->bodyId();
+    hit = world->raycast(eye, ahead, 10.0f, idOnly);
+    require(hit.hit && world->bodyUserData(hit.body) == character,
+            "naming only bodyId() ignores nothing on a character");
+
+    // Both bodies named: the ray leaves the character and finds the wall.
+    QueryFilter both;
+    both.ignore = character->bodyId();
+    both.ignoreInner = character->innerBodyId();
+    hit = world->raycast(eye, ahead, 10.0f, both);
+    require(hit.hit, "the filtered ray still reaches the world");
+    require(world->bodyUserData(hit.body) == wall,
+            "the filtered ray reports the wall, not the caster");
+    require(hit.distance > 3.0f,
+            "the wall is reported at its real distance, not at zero");
+
+    std::printf("[physics-query-joint] character self-exclusion ok\n");
+}
+
 } // namespace
 
 int main() {
     testQueries();
+    testCharacterIgnoresItsOwnBodies();
     testFindByPath();
     testPointJointPendulum();
     testFixedJointWorldAndRebuild();

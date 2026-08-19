@@ -16,6 +16,12 @@ CharacterBodyNode::~CharacterBodyNode() {
     character_ = nullptr;  // Ref releases the CharacterVirtual (out-of-line: complete type here)
 }
 
+JPH::BodyID CharacterBodyNode::innerBodyId() const {
+    // Invalid until syncToPhysics has built the character, which is the honest
+    // answer: before that the node owns no body for a query to skip.
+    return character_ ? character_->GetInnerBodyID() : JPH::BodyID();
+}
+
 void CharacterBodyNode::syncToPhysics(PhysicsWorld& world) {
     if (dirty_) {
         character_ = nullptr;  // shape/params changed → rebuild
