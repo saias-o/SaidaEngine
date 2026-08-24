@@ -1,6 +1,7 @@
 #include "Engine.hpp"
 #include "core/CrashReporter.hpp"
 #include "core/Log.hpp"
+#include "core/Paths.hpp"
 #include "editor/EditorApp.hpp"
 #include "core/Time.hpp"
 #include "runtime/CaptureArgs.hpp"
@@ -17,6 +18,7 @@
 #include <vector>
 
 int main(int argc, char** argv) {
+    saida::initializeInstalledLayout();
     saida::crash::install("SaidaEngine");
     try {
         std::string initialProject;
@@ -67,7 +69,7 @@ int main(int argc, char** argv) {
 
         if (readXrPreviewManifest) {
             const std::filesystem::path manifestPath =
-                std::filesystem::path(SAIDA_BINARY_DIR) / "xr_preview.launch";
+                saida::applicationStatePath("xr/xr_preview.launch");
             std::ifstream manifest(manifestPath);
             if (!manifest || !std::getline(manifest, initialProject) ||
                 !std::getline(manifest, runtimeScene) || initialProject.empty() ||

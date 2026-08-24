@@ -22,11 +22,7 @@ constexpr const char* kThemeFile   = "editor_theme.txt";
 constexpr const char* kDensityFile = "editor_ui_density.txt";
 
 std::filesystem::path editorPreferencePath(const char* fileName) {
-    if (const char* appData = std::getenv("APPDATA")) {
-        if (*appData != '\0')
-            return std::filesystem::path(appData) / "SaidaEngine" / fileName;
-    }
-    return std::filesystem::path(SAIDA_PROJECT_ROOT) / "build" / fileName;
+    return std::filesystem::path(applicationStatePath(fileName));
 }
 
 // Empty when the preference was never written or cannot be read: every caller

@@ -37,6 +37,18 @@ void testSandboxedProjectPaths() {
     assert(!url.ok);
 }
 
+void testInstalledRootResolution() {
+    saida::setRuntimeRoot("C:/Portable/SaidaEngine");
+    assert(saida::installedLayout());
+    assert(saida::engineRoot() == "C:/Portable/SaidaEngine");
+    assert(saida::runtimeBinaryRoot() == "C:/Portable/SaidaEngine");
+    assert(saida::shaderRoot() == "C:/Portable/SaidaEngine/shaders");
+    assert(saida::assetPath("assets/editor/logo.png") ==
+           "C:/Portable/SaidaEngine/assets/editor/logo.png");
+    saida::setRuntimeRoot("");
+    assert(!saida::installedLayout());
+}
+
 } // namespace
 
 int main() {
@@ -53,5 +65,6 @@ int main() {
     assert(observed == 7);
 
     testSandboxedProjectPaths();
+    testInstalledRootResolution();
     return 0;
 }

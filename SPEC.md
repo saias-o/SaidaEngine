@@ -1756,7 +1756,8 @@ it deliberately validates neither the engine's geometry nor its shaders.
 
 ## 17. Support, promotion and retirement of a release
 
-Operational release guide. The checklist of what remains to be done is in
+Operational release contract. The exact publication commands and human/LLM
+checklist are in [RELEASE.md](RELEASE.md); remaining work is in
 [ROADMAP.md](ROADMAP.md).
 
 The public signing roles, privacy statement and trusted-build constraints are
@@ -1764,16 +1765,17 @@ declared in [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md). The SignPath
 release integration and publicly trusted certificate are not provisioned yet;
 until they are, Windows installers remain explicitly unsigned and unqualified.
 
-The raw `v1.0.0-beta.3` `SaidaEngine.exe` is a developer artifact rather than a
-portable distribution: the editor build resolves shaders, fonts and branding
-through absolute configure-time source/build paths, and the executable has no
-Windows VERSIONINFO resource. The Open Project dialog inherits the same flaw: it
-scans `SAIDA_PROJECT_ROOT` (the engine checkout) instead of the Hub registry, so
-on a machine without the source tree it lists nothing and says nothing. A
-qualified editor package must resolve resources relative to its executable,
-discover projects through a path that exists on the user's machine, ship its
-dependency closure and carry consistent product/version metadata before it is
-submitted for signing.
+Starting with Beta 4, `tools/editor_release_candidate.ps1` is the sole Windows
+editor packaging recipe. An adjacent `saida-install.json` switches the four
+entry points from configure-time development paths to the installed root;
+shaders, branding, fonts, samples and runtime templates resolve there. Writable
+state is under `%APPDATA%/SaidaEngine`, while project discovery defaults to
+`%USERPROFILE%/Documents/SaidaEngine/Projects`. The ZIP and per-user NSIS
+installer contain one exact payload, including GLFW and the Vulkan loader, and
+all executables carry the product version from `EngineVersion.hpp` in Windows
+VERSIONINFO. Independent verifiers must run the extracted ZIP and installed
+payload through Hub/editor/CLI boot, Witness export, game run + restart, exact
+uninstall and dependency-closure checks before publication.
 
 ### 17.1 V1 support matrix
 
@@ -1782,7 +1784,7 @@ its commit and its manifest, passes the indicated verifications.
 
 | Surface | Supported target | Prerequisites | Blocking proof |
 |---|---|---|---|
-| Desktop editor and player | Windows 11 x64 | Vulkan 1.3 GPU and driver; system UCRT and shipped `glfw3.dll` | UCRT64 build, full CTest, compatibility corpus, Witness exported then run + restart, exact install and uninstall |
+| Desktop editor and player | Windows 11 x64 | Vulkan 1.3 GPU and driver; system UCRT; shipped `glfw3.dll` and `vulkan-1.dll` | UCRT64 build, full CTest, compatibility corpus, extracted editor ZIP and installed editor each export Witness then run + restart, exact install and uninstall |
 | Web player | recent stable Chrome and Edge on desktop | WebGPU enabled, HTTP(S) secure context, COOP/COEP, `application/wasm` MIME, IndexedDB | Emscripten build, runtime contract, Witness run + restart in CI Chrome; external Chrome and Edge recipe |
 | Headless tool `saida_tool` | Debian 12 x64, glibc 2.36 | no GPU surface required for validate/fold/export | clean Debian container build, full CTest and byte-identical Windows/Linux fold |
 | Authoring WASM | desktop browsers of the Web player line | WebAssembly, ES modules and a host conforming to the authoring contract | Emscripten build and blocking Node smoke |
@@ -1815,8 +1817,9 @@ explicitly. It cannot be reclassified as supported from a compilation alone.
 
 ### 17.3 Identity and promotion
 
-A release's identity is the file
-`build/release/engine/release-manifest.json`, not a mutable name:
+A Windows editor release's identity is
+`build/release/editor-v1/release-manifest.json`; the wider engine artifact set
+also has `build/release/engine/release-manifest.json`. Neither is a mutable name:
 
 1. start from a clean commit and keep its full SHA;
 2. generate the engine manifest and the compliance bundle;

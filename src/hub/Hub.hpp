@@ -46,7 +46,7 @@ private:
     // UI state
     int currentTab_ = 0; // 0 = Projects, 1 = Templates/New
     char newProjectName_[128] = "MyProject";
-    char newProjectPath_[512] = "C:/Projects/";
+    char newProjectPath_[512] = "";
 
     int renameIndex_ = -1;
     char renameBuf_[128] = "";

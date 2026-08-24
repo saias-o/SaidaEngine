@@ -184,7 +184,8 @@ bool Swapchain::submitAndPresent(VkCommandBuffer cmd, uint32_t frame, uint32_t i
         return true;
     }
     if (result != VK_SUCCESS)
-        throw std::runtime_error("failed to present swap chain image");
+        throw std::runtime_error("failed to present swap chain image (VkResult " +
+                                 std::to_string(static_cast<int>(result)) + ")");
     return false;
 }
 

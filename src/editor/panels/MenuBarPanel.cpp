@@ -3,6 +3,7 @@
 #include "editor/EditorApp.hpp"
 #include "scene/Scene.hpp"
 #include "project/Project.hpp"
+#include "core/Paths.hpp"
 
 #include <imgui.h>
 #include <filesystem>
@@ -17,7 +18,7 @@ void MenuBarPanel::draw(EditorUI* editor, Project* project, Scene* scene) {
             }
             if (ImGui::MenuItem("Open Project...")) {
                 editor->projectDialogs_.requestOpenProject(
-                    SAIDA_PROJECT_ROOT);
+                    defaultProjectsRoot());
             }
             bool hasProject = project && project->isLoaded();
             if (ImGui::MenuItem("Save Project", nullptr, false, hasProject)) {

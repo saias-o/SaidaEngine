@@ -24,24 +24,9 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
-#include <windows.h>
-#endif
-
 namespace {
 
 namespace fs = std::filesystem;
-
-// Directory containing this executable (where the packaged game data lives).
-fs::path executableDir() {
-#ifdef _WIN32
-    wchar_t buf[MAX_PATH];
-    DWORD n = ::GetModuleFileNameW(nullptr, buf, MAX_PATH);
-    if (n != 0 && n < MAX_PATH)
-        return fs::path(std::wstring(buf, buf + n)).parent_path();
-#endif
-    return fs::current_path();
-}
 
 } // namespace
 
@@ -70,7 +55,7 @@ int main(int argc, char** argv) {
             return EXIT_FAILURE;
         }
 
-        const fs::path root = executableDir();
+        const fs::path root = saida::executableDirectory();
 
         // Every asset/shader lookup now resolves under the exe directory.
         saida::setRuntimeRoot(root.string());

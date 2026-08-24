@@ -5,12 +5,20 @@ param(
     [string]$ManifestPath = '',
     [string]$Makensis = '',
     [string]$Version = '1.0.0',
+    [string]$DisplayVersion = '',
+    [string]$ProductName = 'Witness Game',
+    [string]$EntryPoint = 'Witness Game.exe',
+    [string[]]$DependencyEntryPoints = @(),
+    [string]$InstallerScript = 'packaging/WitnessGame.nsi',
+    [string]$VerifierScript = 'tools/verify_witness_installer.ps1',
     [switch]$AllowDirty,
     [switch]$SkipVerify
 )
 
 # Compile a deterministic, per-user NSIS installer from an already validated
-# Witness Windows stage. The signing key is deliberately not accepted here:
+# Windows stage. Witness remains the backwards-compatible default; the editor
+# release pipeline supplies its own product, entry point, NSIS UI and verifier.
+# The signing key is deliberately not accepted here:
 # Authenticode signing is the final publication operation and its resulting
 # bytes must be inventoried by a separate trusted signing session.
 
@@ -216,6 +224,18 @@ if ($toolMajor -lt 3 -or ($toolMajor -eq 3 -and $toolMinor -lt 12)) {
     throw "NSIS 3.12+ is required; found $toolVersionText"
 }
 $fourPartVersion = Four-Part-Version $Version
+if ([string]::IsNullOrWhiteSpace($DisplayVersion)) { $DisplayVersion = $Version }
+$installerScriptFull = Resolve-Local $InstallerScript
+$verifierScriptFull = Resolve-Local $VerifierScript
+if (-not (Test-Path -LiteralPath $installerScriptFull -PathType Leaf)) {
+    throw "InstallerScript not found: $installerScriptFull"
+}
+if (-not (Test-Path -LiteralPath $verifierScriptFull -PathType Leaf)) {
+    throw "VerifierScript not found: $verifierScriptFull"
+}
+if ($DependencyEntryPoints.Count -eq 0) {
+    $DependencyEntryPoints = @($EntryPoint)
+}
 
 $previousSourceDateEpoch = $env:SOURCE_DATE_EPOCH
 $payloadInclude = "$output.payload.nsh"
@@ -234,13 +254,13 @@ try {
 
     & (Join-Path $PSScriptRoot 'validate_windows_dependencies.ps1') `
         -BundleDir $source `
-        -EntryPoints @('Witness Game.exe') `
+        -EntryPoints $DependencyEntryPoints `
         -OutputPath (Join-Path $source 'windows-dependencies.json')
     if ($LASTEXITCODE -ne 0) { throw "Installer payload dependency validation failed" }
 
     $payload = @(Payload-Inventory $source)
-    if (-not ($payload | Where-Object { $_.path -eq 'Witness Game.exe' })) {
-        throw "Installer payload is missing Witness Game.exe"
+    if (-not ($payload | Where-Object { $_.path -eq $EntryPoint })) {
+        throw "Installer payload is missing $EntryPoint"
     }
     if (-not ($payload | Where-Object { $_.path -eq 'windows-dependencies.json' })) {
         throw "Installer payload is missing windows-dependencies.json"
@@ -259,7 +279,8 @@ try {
         "/DPAYLOAD_INCLUDE=$payloadInclude" `
         "/DUNINSTALL_INCLUDE=$uninstallInclude" `
         "/DPRODUCT_VERSION=$fourPartVersion" `
-        (Join-Path $root 'packaging/WitnessGame.nsi')
+        "/DPRODUCT_DISPLAY_VERSION=$DisplayVersion" `
+        $installerScriptFull
     if ($LASTEXITCODE -ne 0) {
         throw "makensis failed with exit code $LASTEXITCODE"
     }
@@ -281,13 +302,14 @@ try {
         engineCommit = $commit
         dirty = $dirty
         generatedAtUtc = ([DateTimeOffset]::Parse($commitTime).UtcDateTime.ToString('o'))
-        product = 'Witness Game'
-        version = $Version
+        product = $ProductName
+        version = $DisplayVersion
+        numericVersion = $Version
         tool = [ordered]@{
             name = 'NSIS'
             version = $toolVersionText
         }
-        entryPoint = 'Witness Game.exe'
+        entryPoint = $EntryPoint
         installer = File-Record $output ([System.IO.Path]::GetFileName($output))
         authenticode = [ordered]@{
             status = $signature.Status.ToString()
@@ -301,17 +323,18 @@ try {
         (($manifest | ConvertTo-Json -Depth 10).TrimEnd() + "`r`n"),
         $encoding)
 
-    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'verify_witness_installer.ps1') `
-        -Destination (Join-Path (Split-Path -Parent $output) 'verify_witness_installer.ps1') `
+    $verifierName = [System.IO.Path]::GetFileName($verifierScriptFull)
+    Copy-Item -LiteralPath $verifierScriptFull `
+        -Destination (Join-Path (Split-Path -Parent $output) $verifierName) `
         -Force
 
     if (-not $SkipVerify) {
-        & (Join-Path $PSScriptRoot 'verify_witness_installer.ps1') `
+        & $verifierScriptFull `
             -ManifestPath $manifestPathFull
         if ($LASTEXITCODE -ne 0) { throw "Installer verification failed" }
     }
 
-    Write-Host "WITNESS INSTALLER READY: $output"
+    Write-Host "$($ProductName.ToUpperInvariant()) INSTALLER READY: $output"
     Write-Host "  commit: $commit  dirty: $dirty"
     Write-Host "  sha256: $($manifest.installer.sha256)"
     Write-Host "  Authenticode: $($manifest.authenticode.status)"

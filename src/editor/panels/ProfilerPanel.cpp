@@ -1,6 +1,7 @@
 #include "editor/panels/ProfilerPanel.hpp"
 
 #include "core/Profiler.hpp"
+#include "core/Paths.hpp"
 #include "editor/EditorUI.hpp"
 #include "editor/ProfilerTriangleMetrics.hpp"
 
@@ -560,7 +561,7 @@ std::vector<ProfileFrame> selectRecentFramesByDuration(const std::vector<Profile
 }
 
 std::string tracePathForFrame(uint64_t frameIndex) {
-    std::filesystem::path path = std::filesystem::path(SAIDA_BINARY_DIR) / "profiling";
+    std::filesystem::path path = applicationStatePath("profiling");
     path /= "profile_" + std::to_string(frameIndex) + ".json";
     return path.string();
 }

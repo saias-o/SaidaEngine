@@ -3,6 +3,7 @@
 #include "core/Log.hpp"
 #include "core/EngineVersion.hpp"
 #include "core/FormatVersions.hpp"
+#include "core/Paths.hpp"
 #include "editor/ExeMetadata.hpp"
 #include "project/Project.hpp"
 #include "ui/RmlUiRuntime.hpp"
@@ -213,7 +214,7 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
     if (ec) return fail("cannot create output directory: " + outDir.string());
     r.log += "Output: " + outDir.string() + "\n";
 
-    const fs::path binDir = fs::path(SAIDA_RUNTIME_DIR);
+    const fs::path binDir = fs::path(runtimeBinaryRoot());
     const fs::path runtimeExe = binDir / "SaidaEngineRuntime.exe";
     if (!fs::exists(runtimeExe))
         return fail("runtime template not found — build the SaidaEngineRuntime "
@@ -261,7 +262,7 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
 
     // 3. Compiled SPIR-V shaders. They live in the build's shader output dir
     //    (SAIDA_SHADER_DIR); the runtime resolves them under <exe>/shaders/.
-    const fs::path shaderDir = fs::path(SAIDA_SHADER_DIR);
+    const fs::path shaderDir = fs::path(shaderRoot());
     if (!fs::exists(shaderDir))
         return fail("compiled shaders not found: " + shaderDir.string());
     if (!copyTree(shaderDir, outDir / "shaders", r.log))
@@ -307,8 +308,9 @@ BuildExporter::Result BuildExporter::exportWebBuild(const Project& project,
     if (!fs::is_regular_file(projectRoot / mainScene))
         return fail("main scene not found: " + (projectRoot / mainScene).string());
 
-    const fs::path repoRoot = fs::path(SAIDA_PROJECT_ROOT);
-    const fs::path webBuild = repoRoot / "build-web-player";
+    const fs::path webBuild = installedLayout()
+        ? fs::path(engineRoot()) / "web-player"
+        : fs::path(engineRoot()) / "build-web-player";
     if (!fs::exists(webBuild / "index.html"))
         return fail("web player template missing — build web/player first (emsdk required)");
 
@@ -364,9 +366,15 @@ BuildExporter::Result BuildExporter::exportWebBuild(const Project& project,
     filesJson << fileManifest.dump(2) << "\n";
     filesJson.close();
     r.log += "  project-files.json\n";
-    fs::copy_file(repoRoot / "web" / "serve.py", outDir / "serve.py",
-                  fs::copy_options::overwrite_existing, ec);
-    if (!ec) r.log += "  copied serve.py (COOP/COEP dev server)\n";
+    const fs::path serveScript = installedLayout()
+        ? fs::path(engineRoot()) / "web-player" / "serve.py"
+        : fs::path(engineRoot()) / "web" / "serve.py";
+    ec.clear();
+    if (fs::is_regular_file(serveScript)) {
+        fs::copy_file(serveScript, outDir / "serve.py",
+                      fs::copy_options::overwrite_existing, ec);
+        if (!ec) r.log += "  copied serve.py (COOP/COEP dev server)\n";
+    }
 
     {
         std::ofstream readme(outDir / "README.txt", std::ios::trunc);

@@ -2,6 +2,7 @@
 
 #include "core/Input.hpp"
 #include "core/Log.hpp"
+#include "core/Paths.hpp"
 #include "core/Reflection.hpp"
 #include "physics/AreaNode.hpp"
 #include "scene/Node.hpp"
@@ -148,7 +149,7 @@ std::string ScenarioRunnerBehaviour::resolveScenarioPath() const {
     if (node())
         if (SceneTree* t = node()->tree()) return t->resolveProjectPath(scenarioPath);
     if (std::filesystem::exists(path)) return std::filesystem::absolute(path).string();
-    return (std::filesystem::path(SAIDA_PROJECT_ROOT) / path).string();
+    return (std::filesystem::path(engineRoot()) / path).string();
 }
 
 void ScenarioRunnerBehaviour::resetRuntime() {

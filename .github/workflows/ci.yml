@@ -184,6 +184,21 @@ jobs:
           -Objcopy '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\objcopy.exe'
           -Objdump '${{ steps.msys2.outputs.msys2-location }}\ucrt64\bin\objdump.exe'
 
+      - name: Portable editor ZIP + installer (clean layout, export, restart, uninstall)
+        shell: pwsh
+        env:
+          SAIDA_WINDOW_HIDDEN: "1"
+        run: |
+          $msysRoot = '${{ steps.msys2.outputs.msys2-location }}'
+          $env:PATH = (Join-Path $msysRoot 'ucrt64/bin') + ';' + $env:PATH
+          $env:VK_DRIVER_FILES = [System.IO.Path]::GetFullPath(
+            (Join-Path $msysRoot 'ucrt64/share/vulkan/icd.d/lvp_icd.x86_64.json'))
+          $env:VK_ICD_FILENAMES = $env:VK_DRIVER_FILES
+          ./tools/editor_release_candidate.ps1 `
+            -SkipBuild `
+            -Makensis (Join-Path $msysRoot 'mingw64/bin/makensis.exe') `
+            -VulkanLoader (Join-Path $msysRoot 'ucrt64/bin/vulkan-1.dll')
+
       - uses: actions/upload-artifact@v7
         with:
           name: fold-windows-${{ github.sha }}
@@ -212,6 +227,16 @@ jobs:
         with:
           name: witness-windows-installer-${{ github.sha }}
           path: build/release/witness-installer
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: editor-windows-${{ github.sha }}
+          # Symbols are already uploaded by windows-symbols-${{ github.sha }};
+          # do not duplicate the large .dbg set in the end-user artifact.
+          path: |
+            build/release/editor-v1
+            !build/release/editor-v1/windows-symbols/**
           if-no-files-found: error
 
   web-artifacts:

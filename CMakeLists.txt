@@ -8,6 +8,10 @@ endif()
 
 project(SaidaEngine LANGUAGES C CXX)
 
+if(WIN32)
+    enable_language(RC)
+endif()
+
 include(CTest)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -80,6 +84,33 @@ configure_file(
     "${CMAKE_BINARY_DIR}/generated/saida/BuildIdentity.hpp"
     @ONLY)
 
+# Windows Explorer and installer inventories must expose the same product
+# identity as the engine. Read the existing single source of truth instead of
+# introducing a second release version in CMake.
+if(WIN32)
+    file(READ "${CMAKE_SOURCE_DIR}/src/core/EngineVersion.hpp"
+         SAIDA_ENGINE_VERSION_HEADER)
+    string(REGEX MATCH
+        "kProductVersion[ \t]*=[ \t]*\"([^\"]+)\""
+        SAIDA_PRODUCT_VERSION_MATCH "${SAIDA_ENGINE_VERSION_HEADER}")
+    set(SAIDA_PRODUCT_VERSION_STRING "${CMAKE_MATCH_1}")
+    string(REGEX MATCH
+        "kProductVersionNumeric[ \t]*=[ \t]*\"([0-9]+\\.[0-9]+\\.[0-9]+)\""
+        SAIDA_PRODUCT_VERSION_NUMERIC_MATCH "${SAIDA_ENGINE_VERSION_HEADER}")
+    set(SAIDA_PRODUCT_VERSION_NUMERIC "${CMAKE_MATCH_1}")
+    if(NOT SAIDA_PRODUCT_VERSION_STRING OR NOT SAIDA_PRODUCT_VERSION_NUMERIC)
+        message(FATAL_ERROR "Could not read the SaidaEngine product version")
+    endif()
+    string(REPLACE "." "," SAIDA_PRODUCT_VERSION_TUPLE
+           "${SAIDA_PRODUCT_VERSION_NUMERIC}")
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/packaging/SaidaEngineVersion.rc.in"
+        "${CMAKE_BINARY_DIR}/generated/SaidaEngineVersion.rc"
+        @ONLY)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+        "${CMAKE_SOURCE_DIR}/src/core/EngineVersion.hpp")
+endif()
+
 set(SAIDA_APP_OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
 set(SAIDA_TEST_OUTPUT_DIR ${CMAKE_BINARY_DIR}/tests)
 
@@ -87,6 +118,10 @@ function(saida_app_target target)
     set_target_properties(${target} PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${SAIDA_APP_OUTPUT_DIR}
     )
+    if(WIN32)
+        target_sources(${target} PRIVATE
+            "${CMAKE_BINARY_DIR}/generated/SaidaEngineVersion.rc")
+    endif()
 endfunction()
 
 function(saida_test_target target)
@@ -686,6 +721,7 @@ if (BUILD_TESTING)
     target_compile_definitions(saida_core_tests PRIVATE
         SAIDA_PROJECT_ROOT="${CMAKE_SOURCE_DIR}"
         SAIDA_SHADER_DIR="${SHADER_OUT_DIR}"
+        SAIDA_RUNTIME_DIR="${SAIDA_APP_OUTPUT_DIR}"
     )
     target_compile_options(saida_core_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_core_tests COMMAND $<TARGET_FILE:saida_core_tests>)

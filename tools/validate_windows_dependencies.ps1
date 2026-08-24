@@ -350,11 +350,14 @@ while ($pending.Count -gt 0) {
         if ($forbiddenDynamicRuntimes -contains $lower) {
             throw "Forbidden dynamic MinGW runtime imported by $($record.path): $import"
         }
-        if (Is-System-Dll $import) {
-            $classification = 'system'
-        } elseif ($dllIndex.ContainsKey($lower)) {
+        # A bundled copy wins over the Windows allow-list. This matters for
+        # vulkan-1.dll: editor releases deliberately ship the loader beside
+        # the executables, so its own dependency closure must be inspected.
+        if ($dllIndex.ContainsKey($lower)) {
             $classification = 'bundled'
             $pending.Enqueue([string]$dllIndex[$lower])
+        } elseif (Is-System-Dll $import) {
+            $classification = 'system'
         } else {
             throw "Missing non-system DLL imported by $($record.path): $import"
         }

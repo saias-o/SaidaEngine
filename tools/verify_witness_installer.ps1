@@ -208,7 +208,12 @@ try {
         throw "Uninstaller did not remove the installation directory"
     }
 
-    Write-Host "WITNESS INSTALLER VERIFY PASS"
+    $verifiedProduct = if ($manifest.PSObject.Properties.Name -contains 'product') {
+        ([string]$manifest.product).ToUpperInvariant()
+    } else {
+        'WITNESS'
+    }
+    Write-Host "$verifiedProduct INSTALLER PAYLOAD VERIFY PASS"
     Write-Host "  installer sha256: $installerHash"
     Write-Host "  payload files: $($expected.Count)"
     Write-Host "  install/uninstall: PASS"

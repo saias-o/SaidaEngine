@@ -4,6 +4,27 @@ All notable changes to SaidaEngine. Versions follow the scheme described in
 [CONTRIBUTING.md](CONTRIBUTING.md#versioning): each manual test and correction
 cycle receives its own immutable beta tag.
 
+## v1.0.0-beta.4 (unreleased)
+
+### Windows editor distribution
+
+- The editor, Hub, runtime template and CLI now resolve an installed layout
+  beside their executables instead of retaining absolute paths to the machine
+  that compiled them. Writable state and developer projects live under the
+  current Windows user profile.
+- One release recipe produces a deterministic portable ZIP and a per-user NSIS
+  installer from the same payload. Both formats are executed independently:
+  Hub and editor startup, CLI identity, WitnessGame export, game run, persisted
+  restart and uninstall are fail-closed gates.
+- The Windows package includes the Vulkan loader, GLFW, shaders, UI assets,
+  fonts, sample project, SPDX SBOM and notices. It does not require MSYS2,
+  CMake, a compiler, the Vulkan SDK or a Visual C++ Redistributable. The
+  supported hardware baseline remains Windows 11 x64 with a graphics driver
+  exposing Vulkan 1.3.
+- All four shipped executables carry Windows product/version resources. The
+  exact publication procedure and GitHub release checklist are frozen in
+  `RELEASE.md`.
+
 ## v1.0.0-beta.3
 
 34 commits since `v1.0.0-beta.2`. Two themes dominate: a vehicle stack built by

@@ -2,6 +2,7 @@
 
 #include "core/Input.hpp"
 #include "core/Log.hpp"
+#include "core/Paths.hpp"
 #include "core/Profiler.hpp"
 #include "core/Time.hpp"
 #include "core/Window.hpp"
@@ -244,15 +245,21 @@ bool Engine::launchExternalPreviewIfNeeded() {
         return true;
     }
 
-    const std::filesystem::path scenePath =
-        std::filesystem::path(SAIDA_BINARY_DIR) / "xr_preview.scene";
+    const std::filesystem::path xrState = applicationStatePath("xr");
+    std::error_code pathError;
+    std::filesystem::create_directories(xrState, pathError);
+    if (pathError) {
+        Log::error("XR Preview could not create state directory: ", pathError.message());
+        return true;
+    }
+    const std::filesystem::path scenePath = xrState / "xr_preview.scene";
     if (!SceneSerializer::saveToFile(*scene_, *resources_, scenePath.string())) {
         Log::error("XR Preview could not serialize the current scene");
         return true;
     }
 
     const std::filesystem::path executable =
-        std::filesystem::path(SAIDA_RUNTIME_DIR) / "SaidaEngine.exe";
+        std::filesystem::path(runtimeBinaryRoot()) / "SaidaEngine.exe";
     if (!std::filesystem::exists(executable)) {
         Log::error("XR Preview executable not found: ", executable.string());
         return true;
@@ -261,8 +268,7 @@ bool Engine::launchExternalPreviewIfNeeded() {
     // MinGW's spawn command-line quoting is not reliable for arguments containing
     // spaces. Keep the child command line path-free and transfer launch data via
     // a fixed manifest next to the executable.
-    const std::filesystem::path manifestPath =
-        std::filesystem::path(SAIDA_BINARY_DIR) / "xr_preview.launch";
+    const std::filesystem::path manifestPath = xrState / "xr_preview.launch";
     {
         std::ofstream manifest(manifestPath, std::ios::trunc);
         if (!manifest) {

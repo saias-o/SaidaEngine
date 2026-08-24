@@ -20,9 +20,9 @@ std::string AutoLODBridge::exePath() {
 #elif defined(SAIDA_AUTOLOD_EXE)
     return SAIDA_AUTOLOD_EXE;
 #else
-    const fs::path candidate = fs::path(SAIDA_PROJECT_ROOT) / "build" / "autolod" / "autolod.exe";
+    const fs::path candidate = fs::path(engineRoot()) / "build" / "autolod" / "autolod.exe";
     if (fs::exists(candidate)) return candidate.string();
-    const fs::path alt = fs::path(SAIDA_PROJECT_ROOT) / "autolod" / "build" / "autolod.exe";
+    const fs::path alt = fs::path(engineRoot()) / "autolod" / "build" / "autolod.exe";
     if (fs::exists(alt)) return alt.string();
     return {};
 #endif

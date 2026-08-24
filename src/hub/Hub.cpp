@@ -1,5 +1,6 @@
 #include "Hub.hpp"
 #include "core/Log.hpp"
+#include "core/Paths.hpp"
 #include "graphics/GpuSync.hpp"
 #include "project/ProjectRename.hpp"
 #include "imgui.h"
@@ -9,6 +10,7 @@
 #include <filesystem>
 #include <cstdlib>
 #include <algorithm>
+#include <cstring>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;
@@ -22,18 +24,16 @@ Hub::Hub() {
     imgui_ = std::make_unique<ImGuiLayer>(*device_, *window_, swapchain_->colorFormat(),
                                           swapchain_->imageCount(), swapchain_->samples());
 
-    const char* appData = std::getenv("APPDATA");
-    if (appData) {
-        fs::path dir = fs::path(appData) / "SaidaEngine";
-        if (!fs::exists(dir)) {
-            fs::create_directories(dir);
-        }
-        hubJsonPath_ = (dir / "hub.json").string();
-    } else {
-        hubJsonPath_ = "hub.json";
-    }
+    hubJsonPath_ = applicationStatePath("hub.json");
+    std::error_code stateError;
+    fs::create_directories(fs::path(hubJsonPath_).parent_path(), stateError);
 
     setupStyle();
+    const std::string projectsRoot = defaultProjectsRoot();
+    std::error_code pathError;
+    fs::create_directories(projectsRoot, pathError);
+    std::strncpy(newProjectPath_, projectsRoot.c_str(), sizeof(newProjectPath_) - 1);
+    newProjectPath_[sizeof(newProjectPath_) - 1] = '\0';
     loadProjects();
 }
 
@@ -129,9 +129,7 @@ void Hub::saveProjects() {
 }
 
 void Hub::launchProject(const std::string& path) {
-    fs::path exePath = fs::current_path() / "build" / "bin" / "SaidaEngine.exe";
-    if (!fs::exists(exePath)) exePath = fs::current_path() / "bin" / "SaidaEngine.exe";
-    if (!fs::exists(exePath)) exePath = fs::current_path() / "SaidaEngine.exe";
+    fs::path exePath = fs::path(runtimeBinaryRoot()) / "SaidaEngine.exe";
     
     std::string cmd = "start \"\" \"" + exePath.string() + "\" --project \"" + path + "\"";
     std::system(cmd.c_str());
@@ -139,9 +137,7 @@ void Hub::launchProject(const std::string& path) {
 }
 
 void Hub::launchTemplate() {
-    fs::path exePath = fs::current_path() / "build" / "bin" / "SaidaEngine.exe";
-    if (!fs::exists(exePath)) exePath = fs::current_path() / "bin" / "SaidaEngine.exe";
-    if (!fs::exists(exePath)) exePath = fs::current_path() / "SaidaEngine.exe";
+    fs::path exePath = fs::path(runtimeBinaryRoot()) / "SaidaEngine.exe";
     std::string cmd = "start \"\" \"" + exePath.string() + "\"";
     std::system(cmd.c_str());
     shouldClose_ = true;

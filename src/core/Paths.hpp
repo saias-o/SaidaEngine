@@ -18,6 +18,28 @@
 // existing call site benefits from the redirection transparently.
 namespace saida {
 
+// Process/application layout.
+//
+// Development builds keep using the configure-time checkout/build roots. A
+// published editor carries `saida-install.json` beside its executables; each
+// entry point calls initializeInstalledLayout() before constructing engine
+// services, which redirects every packaged resource lookup to that directory.
+// SAIDA_RUNTIME_ROOT is an explicit override for verification and advanced use.
+std::string executableDirectory();
+bool initializeInstalledLayout();
+bool installedLayout();
+std::string engineRoot();
+std::string shaderRoot();
+std::string runtimeBinaryRoot();
+
+// Per-user writable locations used by both development and installed builds.
+// SAIDA_STATE_DIR / SAIDA_PROJECTS_DIR are deterministic CI and operator
+// overrides. The default Windows roots are %APPDATA%/SaidaEngine and
+// %USERPROFILE%/Documents/SaidaEngine/Projects.
+std::string applicationStateRoot();
+std::string applicationStatePath(const std::string& relative);
+std::string defaultProjectsRoot();
+
 // Set/clear the runtime root (directory of the shipped game exe). Empty string
 // (the default) means dev/editor mode → baked absolute paths are used.
 void setRuntimeRoot(const std::string& dir);
@@ -69,9 +91,7 @@ inline std::string assetPath(const std::string& relative) {
 #ifdef __EMSCRIPTEN__
     return "/assets/" + relative;
 #else
-    const std::string& root = runtimeRoot();
-    if (!root.empty()) return root + "/" + relative;
-    return std::string(SAIDA_PROJECT_ROOT) + "/" + relative;
+    return engineRoot() + "/" + relative;
 #endif
 }
 
@@ -103,9 +123,7 @@ inline std::string shaderPath(const std::string& name) {
     }
     return "/shaders/" + webName;
 #else
-    const std::string& root = runtimeRoot();
-    if (!root.empty()) return root + "/shaders/" + name;
-    return std::string(SAIDA_SHADER_DIR) + "/" + name;
+    return shaderRoot() + "/" + name;
 #endif
 }
 

@@ -5,6 +5,7 @@
 #include "cli/RenderUiCommand.hpp"
 #include "cli/ValidateUiCommand.hpp"
 #include "core/CrashReporter.hpp"
+#include "core/Paths.hpp"
 #include "editor/BuildExporter.hpp"
 #include "project/Project.hpp"
 #include "authoring/SaidaOp.hpp"
@@ -1102,6 +1103,7 @@ int cmdExportGame(const std::vector<std::string>& args) {
 }
 
 int main(int argc, char** argv) {
+    saida::initializeInstalledLayout();
     saida::crash::install("saida_tool");
     if (argc < 2) {
         return usage(std::cerr);

@@ -91,7 +91,7 @@ std::string sanitizeIdentifier(const std::string& value) {
 std::string projectRoot(const ToolContext& context) {
     if (context.project && context.project->isLoaded())
         return context.project->rootPath();
-    return std::string(SAIDA_PROJECT_ROOT);
+    return defaultProjectsRoot();
 }
 
 SandboxedPathResult resolveToolPath(const ToolContext& context,

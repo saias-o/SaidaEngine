@@ -173,8 +173,18 @@ Serve Web output through HTTP(S). Do not test it through `file://`.
 
 ## Release qualification
 
-Release work starts from a clean commit. The complete Windows and Web candidate
-is produced with:
+The step-by-step editor publication procedure is [RELEASE.md](RELEASE.md). It is
+the operational checklist derived from this document and SPEC section 17; use
+it verbatim so the ZIP, installer, proof and GitHub release cannot drift.
+
+Release work starts from a clean commit. The complete portable Windows editor
+candidate is produced and independently exercised with:
+
+```powershell
+.\tools\editor_release_candidate.ps1
+```
+
+The separate Windows and Web Witness candidate is produced with:
 
 ```powershell
 .\tools\witness_release_candidate.ps1
@@ -244,7 +254,7 @@ hard-code a version string anywhere else.
   release tag (prefixed `v`). It follows [SemVer](https://semver.org): a
   `MAJOR.MINOR.PATCH` core plus an optional pre-release suffix such as
   `-beta.1`. Its single source of truth is `kProductVersion` in
-  `src/core/EngineVersion.hpp`. The current value is `1.0.0-beta.3`. Bump it in
+  `src/core/EngineVersion.hpp`. The current value is `1.0.0-beta.4`. Bump it in
   that one file on every release; keep `kProductVersionNumeric` (the suffix-free
   core, used for Windows `VERSIONINFO`) in sync.
 - **Engine format / contract version** — `kEngineVersion` in the same file

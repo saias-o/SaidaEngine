@@ -65,7 +65,7 @@ std::string cppDefault(const std::string& t, const json& d) {
 }
 
 void patchReflectedTypes(const std::string& className) {
-    std::string path = std::string(SAIDA_PROJECT_ROOT) + "/src/scene/ReflectedTypes.cpp";
+    std::string path = engineRoot() + "/src/scene/ReflectedTypes.cpp";
     std::string src = readFile(path);
     if (src.empty()) fail("could not read ReflectedTypes.cpp");
 
@@ -144,7 +144,7 @@ json toolWriteCppBehaviour(const ToolContext&, const json& args) {
         "}\n\n"
         "} // namespace saida\n";
 
-    std::string dir = std::string(SAIDA_PROJECT_ROOT) + "/src/generated/";
+    std::string dir = engineRoot() + "/src/generated/";
     writeFile(dir + className + ".hpp", header);
     writeFile(dir + className + ".cpp", body);
     patchReflectedTypes(className);
@@ -155,7 +155,7 @@ json toolWriteCppBehaviour(const ToolContext&, const json& args) {
 }
 
 json toolBuild(const ToolContext&, const json&) {
-    std::string cmd = "cmake --build \"" + std::string(SAIDA_PROJECT_ROOT) + "/build\" -j 2 2>&1";
+    std::string cmd = "cmake --build \"" + engineRoot() + "/build\" -j 2 2>&1";
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) fail("could not launch build (is cmake on PATH?)");
     std::string out;

@@ -17,6 +17,9 @@ RequestExecutionLevel user
 !ifndef PRODUCT_VERSION
     !define PRODUCT_VERSION "0.1.0.0"
 !endif
+!ifndef PRODUCT_DISPLAY_VERSION
+    !define PRODUCT_DISPLAY_VERSION "${PRODUCT_VERSION}"
+!endif
 
 Name "Witness Game"
 OutFile "${OUTPUT_FILE}"
@@ -37,7 +40,7 @@ VIAddVersionKey /LANG=1033 "FileDescription" "Witness Game Installer"
 VIAddVersionKey /LANG=1033 "FileVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=1033 "LegalCopyright" "Copyright Saida"
 VIAddVersionKey /LANG=1033 "ProductName" "Witness Game"
-VIAddVersionKey /LANG=1033 "ProductVersion" "${PRODUCT_VERSION}"
+VIAddVersionKey /LANG=1033 "ProductVersion" "${PRODUCT_DISPLAY_VERSION}"
 
 Page directory
 Page instfiles

@@ -48,8 +48,10 @@ std::vector<std::string> scanProjectFiles(std::string root) {
 } // namespace
 
 ProjectDialogs::ProjectDialogs()
-    : browseRoot_(SAIDA_PROJECT_ROOT) {
-    std::strncpy(newProjectPath_, SAIDA_PROJECT_ROOT,
+    : browseRoot_(defaultProjectsRoot()) {
+    std::error_code error;
+    std::filesystem::create_directories(browseRoot_, error);
+    std::strncpy(newProjectPath_, browseRoot_.c_str(),
                  sizeof(newProjectPath_) - 1);
     newProjectPath_[sizeof(newProjectPath_) - 1] = '\0';
     startScan(browseRoot_);

@@ -4,7 +4,12 @@
 #include <cctype>
 #include <cstdlib>
 #include <filesystem>
+#include <system_error>
 #include <utility>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace saida {
 
@@ -64,6 +69,53 @@ void setRuntimeRoot(const std::string& dir) { g_runtimeRoot = dir; }
 
 const std::string& runtimeRoot() { return g_runtimeRoot; }
 
+std::string executableDirectory() {
+#ifdef _WIN32
+    std::wstring buffer(32768, L'\0');
+    const DWORD length = ::GetModuleFileNameW(
+        nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    if (length != 0 && length < buffer.size()) {
+        buffer.resize(length);
+        return normalizeSeparators(fs::path(buffer).parent_path().string());
+    }
+#endif
+    std::error_code error;
+    return normalizeSeparators(fs::current_path(error).string());
+}
+
+bool initializeInstalledLayout() {
+    if (const char* overrideRoot = std::getenv("SAIDA_RUNTIME_ROOT")) {
+        if (*overrideRoot != '\0') {
+            setRuntimeRoot(normalizeSeparators(overrideRoot));
+            return true;
+        }
+    }
+    const fs::path root = executableDirectory();
+    std::error_code error;
+    if (fs::is_regular_file(root / "saida-install.json", error)) {
+        setRuntimeRoot(normalizeSeparators(root.string()));
+        return true;
+    }
+    return false;
+}
+
+bool installedLayout() { return !g_runtimeRoot.empty(); }
+
+std::string engineRoot() {
+    if (!g_runtimeRoot.empty()) return g_runtimeRoot;
+    return normalizeSeparators(SAIDA_PROJECT_ROOT);
+}
+
+std::string shaderRoot() {
+    if (!g_runtimeRoot.empty()) return g_runtimeRoot + "/shaders";
+    return normalizeSeparators(SAIDA_SHADER_DIR);
+}
+
+std::string runtimeBinaryRoot() {
+    if (!g_runtimeRoot.empty()) return g_runtimeRoot;
+    return normalizeSeparators(SAIDA_RUNTIME_DIR);
+}
+
 namespace {
 // Root of the currently loaded .saidaproj project (editor or runtime).
 // Resolves project content files (scripts, ui) outside the asset
@@ -83,6 +135,16 @@ std::string g_saveIdentity;
 const char* envOrNull(const char* name) {
     const char* v = std::getenv(name);
     return (v && *v) ? v : nullptr;
+}
+
+std::string homeDirectory() {
+#if defined(_WIN32)
+    if (const char* profile = envOrNull("USERPROFILE"))
+        return normalizeSeparators(profile);
+#else
+    if (const char* home = envOrNull("HOME")) return normalizeSeparators(home);
+#endif
+    return {};
 }
 
 // Reduces a game name to a safe folder component: [A-Za-z0-9._-], spaces
@@ -123,6 +185,27 @@ std::string osUserDataBase() {
 #endif
 }
 } // namespace
+
+std::string applicationStateRoot() {
+    if (const char* value = envOrNull("SAIDA_STATE_DIR"))
+        return stripTrailingSlash(normalizeSeparators(value));
+    const std::string base = osUserDataBase();
+    if (!base.empty()) return stripTrailingSlash(base) + "/SaidaEngine";
+    return engineRoot() + "/.saida-state";
+}
+
+std::string applicationStatePath(const std::string& relative) {
+    if (relative.empty()) return applicationStateRoot();
+    return applicationStateRoot() + "/" + normalizeSeparators(relative);
+}
+
+std::string defaultProjectsRoot() {
+    if (const char* value = envOrNull("SAIDA_PROJECTS_DIR"))
+        return stripTrailingSlash(normalizeSeparators(value));
+    const std::string home = homeDirectory();
+    if (!home.empty()) return home + "/Documents/SaidaEngine/Projects";
+    return applicationStateRoot() + "/Projects";
+}
 
 void setSaveIdentity(const std::string& appName) {
     g_saveIdentity = sanitizeIdentity(appName);

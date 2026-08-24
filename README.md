@@ -20,9 +20,9 @@ blocking defects. Each round of fixes receives a new beta; release candidates
 start only after the manual qualification is satisfactory.
 
 The Windows installer is not an officially qualified distribution until its
-Authenticode signature has been verified. GitHub beta releases may therefore
-contain source code and CI-produced artifacts without representing a signed
-production release.
+Authenticode signature has been verified. Beta 4 nevertheless provides an
+explicitly unsigned portable ZIP and per-user installer for qualification; the
+unsigned status means it is not a signed production release.
 
 ## Code signing policy
 
@@ -37,13 +37,14 @@ explicitly when a Windows installer is unsigned.
 
 ## Documentation
 
-The repository is governed by five documents:
+The repository is governed by six documents:
 
 | Document | Audience | Purpose |
 |---|---|---|
 | [SPEC.md](SPEC.md) | Everyone | Canonical architecture, contracts, formats, supported surfaces and technical limits |
 | [ROADMAP.md](ROADMAP.md) | Everyone | Remaining work, priorities, blockers and closed decisions |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributors | Development setup, contribution rules, tests and release verification |
+| [RELEASE.md](RELEASE.md) | Maintainers and LLM agents | Exact editor packaging, clean-machine qualification and GitHub publication runbook |
 | [AGENTS.md](AGENTS.md) | LLM agents | Mandatory instructions for automated coding agents |
 | [LICENSE](LICENSE) | Everyone | GPL-3.0 license |
 
@@ -57,11 +58,13 @@ The Web platform, backend and operations live in
 Download the latest beta from
 [GitHub Releases](https://github.com/saias-o/SaidaEngine/releases). Every beta
 is a pre-release and is identified by an immutable tag such as
-`v1.0.0-beta.3`.
+`v1.0.0-beta.4`.
 
-When a release does not provide a signed Windows installer, use the source
-archive or build the engine locally. Do not treat the mutable `latest`
-container tag as a release identity. The
+For Beta 4, Windows 11 x64 developers can use the portable ZIP or per-user
+installer without installing a Visual C++ Redistributable, Vulkan SDK/runtime,
+MSYS2 or build tools. A graphics driver exposing Vulkan 1.3 remains required.
+The exact qualification and checksums are shipped with the release. Do not
+treat the mutable `latest` container tag as a release identity. The
 [Code signing policy](CODE_SIGNING_POLICY.md) explains how official Windows
 installers are built, approved, signed and identified.
 
@@ -81,7 +84,7 @@ git lfs pull
 To check out a specific beta:
 
 ```sh
-git checkout v1.0.0-beta.3
+git checkout v1.0.0-beta.4
 git submodule update --init --recursive
 git lfs pull
 ```

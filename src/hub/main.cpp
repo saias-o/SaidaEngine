@@ -1,14 +1,19 @@
 #include "Hub.hpp"
 #include "core/CrashReporter.hpp"
 #include "core/Log.hpp"
+#include "core/Paths.hpp"
 
 #include <cstdlib>
 #include <exception>
+#include <string>
 
-int main() {
+int main(int argc, char** argv) {
+    saida::initializeInstalledLayout();
     saida::crash::install("SaidaEngineHub");
     try {
         saida::Hub hub;
+        if (argc == 2 && std::string(argv[1]) == "--verify-installation")
+            return EXIT_SUCCESS;
         hub.run();
     } catch (const std::exception& e) {
         const auto report =
