@@ -215,7 +215,8 @@ target_include_directories(saida_player PRIVATE
 )
 target_compile_definitions(saida_player PRIVATE
     SAIDA_RHI_WEBGPU SAIDA_SCENE_TREE_TIMERS
-    GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE)
+    GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE
+    SAIDA_PROJECT_ROOT="/" SAIDA_SHADER_DIR="/shaders" SAIDA_RUNTIME_DIR="/")
 target_compile_options(saida_player PRIVATE -fexceptions $<$<CONFIG:Release>:-Oz> --use-port=emdawnwebgpu)
 target_link_libraries(saida_player PRIVATE quickjs Jolt RmlUi::RmlUi)
 

@@ -157,7 +157,8 @@ target_include_directories(saida_web PRIVATE
 # SAIDA_NO_PHYSICS / SAIDA_NO_AUDIO: the authoring viewer compiles neither
 # Jolt nor miniaudio (the game player does).
 target_compile_definitions(saida_web PRIVATE SAIDA_RHI_WEBGPU SAIDA_NO_PHYSICS SAIDA_NO_AUDIO
-    SAIDA_AUTHORING_WEB GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE)
+    SAIDA_AUTHORING_WEB GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE
+    SAIDA_PROJECT_ROOT="/" SAIDA_SHADER_DIR="/shaders" SAIDA_RUNTIME_DIR="/")
 
 # Size-conscious flags (16.6): -Oz in release, plus link-time stripping.
 target_compile_options(saida_web PRIVATE -fexceptions $<$<CONFIG:Release>:-Oz>)
