@@ -2,7 +2,9 @@
 
 #include "core/Paths.hpp"
 #include "graphics/Pipeline.hpp"
+#ifndef SAIDA_RHI_WEBGPU
 #include "graphics/VulkanDevice.hpp"
+#endif
 #include "scene/Scene.hpp"
 
 #include <algorithm>
