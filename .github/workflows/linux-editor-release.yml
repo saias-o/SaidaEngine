@@ -1,0 +1,51 @@
+name: Linux editor release candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Product version (without v)
+        required: true
+        default: 1.0.0-beta.4
+
+permissions:
+  contents: read
+
+jobs:
+  linux-editor:
+    name: Build and qualify Linux x86_64 editor
+    runs-on: ubuntu-latest
+    container: ubuntu:22.04
+    steps:
+      - name: Install clean build and qualification environment
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build git git-lfs ca-certificates \
+            libvulkan-dev libglfw3-dev libglm-dev glslc patchelf \
+            xvfb xauth mesa-vulkan-drivers
+
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          lfs: true
+
+      - name: Build self-contained candidate
+        run: tools/linux_editor_release_candidate.sh '${{ inputs.version }}'
+
+      - name: Qualify installed product outside checkout
+        run: |
+          tools/verify_linux_editor_archive.sh \
+            "build/release/linux-editor/SaidaEngine-v${{ inputs.version }}-linux-x86_64.tar.gz"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: SaidaEngine-v${{ inputs.version }}-linux-x86_64
+          path: |
+            build/release/linux-editor/SaidaEngine-v${{ inputs.version }}-linux-x86_64.tar.gz
+            build/release/linux-editor/README-LINUX.md
+            build/release/linux-editor/SHA256SUMS-LINUX.txt
+            build/release/linux-editor/release-manifest-linux.json
+            build/release/linux-editor/linux-qualification.json
+          if-no-files-found: error
+          retention-days: 30

@@ -382,14 +382,22 @@ void BuildController::drawResult() {
 void BuildController::drawFooter(Project* project) {
     const bool isWindows =
         selectedPlatform_ == BuildPlatform::Windows;
+    const bool isLinux = selectedPlatform_ == BuildPlatform::Linux;
     const bool isWeb = selectedPlatform_ == BuildPlatform::WebGL;
+#ifdef _WIN32
+    const bool nativeAvailable = isWindows;
+#elif defined(__linux__)
+    const bool nativeAvailable = isLinux;
+#else
+    const bool nativeAvailable = false;
+#endif
     const bool canBuild =
-        (isWindows || isWeb) && project && project->isLoaded() &&
+        (nativeAvailable || isWeb) && project && project->isLoaded() &&
         !scenes_.empty();
 
-    if (!isWindows && !isWeb)
+    if (!nativeAvailable && !isWeb)
         ImGui::TextDisabled(
-            "This platform is not available yet — Windows and Web only.");
+            "This target is not available from the current host platform.");
 
     ImGui::BeginDisabled(!canBuild);
     if (ImGui::Button("Build", ImVec2(100, 0)))

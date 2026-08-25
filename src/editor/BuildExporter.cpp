@@ -20,6 +20,8 @@
 #ifdef _WIN32
 #include <windows.h>
 #include <shellapi.h>
+#else
+#include <unistd.h>
 #endif
 
 namespace saida {
@@ -215,13 +217,21 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
     r.log += "Output: " + outDir.string() + "\n";
 
     const fs::path binDir = fs::path(runtimeBinaryRoot());
+#ifdef _WIN32
     const fs::path runtimeExe = binDir / "SaidaEngineRuntime.exe";
+#else
+    const fs::path runtimeExe = binDir / "SaidaEngineRuntime";
+#endif
     if (!fs::exists(runtimeExe))
         return fail("runtime template not found — build the SaidaEngineRuntime "
                     "target first: " + runtimeExe.string());
 
     const std::string gameName = safeFileStem(project.name());
+#ifdef _WIN32
     const fs::path gameExe = outDir / (gameName + ".exe");
+#else
+    const fs::path gameExe = outDir / gameName;
+#endif
 
     // 1. Runtime exe (renamed to the game name).
     fs::copy_file(runtimeExe, gameExe, fs::copy_options::overwrite_existing, ec);
@@ -229,7 +239,8 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
     r.gameExe = gameExe.string();
     r.log += "  exe -> " + gameExe.filename().string() + "\n";
 
-    // 1b. Exe version, metadata, and icon (VERSIONINFO / RT_GROUP_ICON).
+    // 1b. Windows exe version, metadata, and icon (VERSIONINFO / RT_GROUP_ICON).
+#ifdef _WIN32
     {
         ExeMetadata meta;
         meta.productName = project.name().empty() ? gameName : project.name();
@@ -248,8 +259,10 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
         r.log += "  version " + meta.version +
                  (meta.iconPath.empty() ? "" : " + icon") + "\n";
     }
+#endif
 
-    // 2. GLFW runtime DLL.
+    // 2. Platform runtime libraries.
+#ifdef _WIN32
     const fs::path glfwDll = binDir / "glfw3.dll";
     if (fs::exists(glfwDll)) {
         fs::copy_file(glfwDll, outDir / "glfw3.dll",
@@ -259,6 +272,15 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
     } else {
         r.log += "  ! glfw3.dll not found in build dir (may already be on PATH)\n";
     }
+#else
+    // The installed Linux editor keeps its private shared-library closure next
+    // to the runtime. Export it with the game so the copied ELF remains portable.
+    if (fs::exists(binDir / "lib")) {
+        if (!copyTree(binDir / "lib", outDir / "lib", r.log))
+            return fail("failed to copy Linux runtime libraries");
+        r.log += "  Linux runtime libraries\n";
+    }
+#endif
 
     // 3. Compiled SPIR-V shaders. They live in the build's shader output dir
     //    (SAIDA_SHADER_DIR); the runtime resolves them under <exe>/shaders/.
@@ -403,8 +425,19 @@ bool BuildExporter::launch(const std::string& exePath) {
     }
     return true;
 #else
-    (void)exePath;
-    return false;
+    const fs::path exe(exePath);
+    const pid_t child = ::fork();
+    if (child == 0) {
+        const std::string dir = exe.parent_path().string();
+        if (!dir.empty()) ::chdir(dir.c_str());
+        ::execl(exe.c_str(), exe.c_str(), static_cast<char*>(nullptr));
+        ::_exit(127);
+    }
+    if (child < 0) {
+        Log::error("Build: failed to launch ", exePath);
+        return false;
+    }
+    return true;
 #endif
 }
 
@@ -412,7 +445,12 @@ void BuildExporter::openInExplorer(const std::string& dir) {
 #ifdef _WIN32
     ::ShellExecuteA(nullptr, "open", dir.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 #else
-    (void)dir;
+    const pid_t child = ::fork();
+    if (child == 0) {
+        ::execlp("xdg-open", "xdg-open", dir.c_str(), static_cast<char*>(nullptr));
+        ::_exit(127);
+    }
+    if (child < 0) Log::error("Build: failed to open folder ", dir);
 #endif
 }
 

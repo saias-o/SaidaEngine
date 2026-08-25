@@ -2,11 +2,14 @@
 
 This is the executable publication runbook for humans and LLM agents. It
 implements the release contract in [SPEC.md](SPEC.md) and
-[CONTRIBUTING.md](CONTRIBUTING.md). Do not substitute remembered steps, do not
-reuse an old proof, and do not modify an existing tag or release.
+[CONTRIBUTING.md](CONTRIBUTING.md). Do not substitute remembered steps or reuse
+an old proof. Published releases are normally immutable.
 
-The current target is `v1.0.0-beta.4`. `v1.0.0-beta.3` is immutable and must not
-be edited, retagged or have its assets replaced.
+The current target is `v1.0.0-beta.4`. Its Windows assets and tag are immutable.
+The repository owner explicitly authorized one additive exception: a Linux
+x86_64 editor package may be appended to the existing Beta 4 release without
+moving its tag. Its manifest must record the different source commit; no
+existing asset may be replaced. This exception does not apply to later releases.
 
 ## 1. Supported Windows package
 
@@ -162,3 +165,43 @@ Any failed command invalidates the candidate. Fix forward, commit, wait for CI
 and rebuild the whole candidate. Never patch files inside the ZIP, installer or
 release draft. If a defect is found after publication, leave Beta 4 immutable,
 mark its limitation publicly and publish Beta 5 from a new commit and tag.
+
+## 8. Linux x86_64 editor package
+
+The Linux candidate is a per-user, self-contained archive for x86_64 systems
+with glibc 2.35 or newer, X11/XWayland and a graphics driver exposing Vulkan
+1.3. It bundles GLFW, the Vulkan loader and the rest of the non-glibc ELF
+dependency closure. It does not bundle the hardware-specific Vulkan driver.
+Users do not install a Vulkan SDK, compiler, CMake or development packages.
+
+Build only from a clean committed `main` checkout inside the Ubuntu 22.04 container
+defined by `.github/workflows/linux-editor-release.yml`. Run that workflow with
+the intended product version. Its single candidate recipe is:
+
+```bash
+tools/linux_editor_release_candidate.sh 1.0.0-beta.4
+tools/verify_linux_editor_archive.sh \
+  build/release/linux-editor/SaidaEngine-v1.0.0-beta.4-linux-x86_64.tar.gz
+```
+
+The verifier extracts to a temporary home directory, checks every payload hash,
+performs the user install, executes the shipped CLI, starts the Hub against
+Xvfb and Mesa lavapipe, exports WitnessGame with the installed editor, checks
+the exported ELF dependency closure, and uninstalls. It must print
+`VERIFY LINUX EDITOR PASS`. This software-rendered proof validates packaging;
+a real Vulkan 1.3 GPU/driver remains the supported interactive baseline.
+
+The workflow artifact must contain exactly these publishable records:
+
+1. `SaidaEngine-v<VERSION>-linux-x86_64.tar.gz`;
+2. `README-LINUX.md` (also included in the archive);
+3. `SHA256SUMS-LINUX.txt`;
+4. `release-manifest-linux.json` with the exact source commit and `dirty: false`;
+5. `linux-qualification.json` produced only after the isolated install proof.
+
+For the authorized Beta 4 addition, verify that the public tag still resolves
+to its original commit, upload these as **new** assets without replacing any
+Windows file, and append a Linux section to the release body containing the
+Linux asset commit, requirements, installation command, qualification result
+and archive SHA-256. For every later release, produce Linux and Windows assets
+before publication and restore the normal immutable-release rule.

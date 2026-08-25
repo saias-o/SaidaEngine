@@ -12,6 +12,10 @@
 #include <algorithm>
 #include <cstring>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 
@@ -129,17 +133,43 @@ void Hub::saveProjects() {
 }
 
 void Hub::launchProject(const std::string& path) {
+#ifdef _WIN32
     fs::path exePath = fs::path(runtimeBinaryRoot()) / "SaidaEngine.exe";
-    
     std::string cmd = "start \"\" \"" + exePath.string() + "\" --project \"" + path + "\"";
     std::system(cmd.c_str());
+#else
+    const fs::path exePath = fs::path(runtimeBinaryRoot()) / "SaidaEngine";
+    const pid_t child = ::fork();
+    if (child == 0) {
+        ::execl(exePath.c_str(), exePath.c_str(), "--project", path.c_str(),
+                static_cast<char*>(nullptr));
+        ::_exit(127);
+    }
+    if (child < 0) {
+        Log::error("Failed to launch editor: ", exePath.string());
+        return;
+    }
+#endif
     shouldClose_ = true;
 }
 
 void Hub::launchTemplate() {
+#ifdef _WIN32
     fs::path exePath = fs::path(runtimeBinaryRoot()) / "SaidaEngine.exe";
     std::string cmd = "start \"\" \"" + exePath.string() + "\"";
     std::system(cmd.c_str());
+#else
+    const fs::path exePath = fs::path(runtimeBinaryRoot()) / "SaidaEngine";
+    const pid_t child = ::fork();
+    if (child == 0) {
+        ::execl(exePath.c_str(), exePath.c_str(), static_cast<char*>(nullptr));
+        ::_exit(127);
+    }
+    if (child < 0) {
+        Log::error("Failed to launch editor: ", exePath.string());
+        return;
+    }
+#endif
     shouldClose_ = true;
 }
 

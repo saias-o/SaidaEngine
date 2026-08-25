@@ -6,9 +6,12 @@
 #include <filesystem>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
+#elif defined(__linux__)
+#include <unistd.h>
 #endif
 
 namespace saida {
@@ -77,6 +80,19 @@ std::string executableDirectory() {
     if (length != 0 && length < buffer.size()) {
         buffer.resize(length);
         return normalizeSeparators(fs::path(buffer).parent_path().string());
+    }
+#elif defined(__linux__)
+    std::vector<char> buffer(4096, '\0');
+    while (buffer.size() <= 1024 * 1024) {
+        const ssize_t length = ::readlink("/proc/self/exe", buffer.data(),
+                                          buffer.size() - 1);
+        if (length < 0) break;
+        if (static_cast<size_t>(length) < buffer.size() - 1) {
+            buffer[static_cast<size_t>(length)] = '\0';
+            return normalizeSeparators(
+                fs::path(buffer.data()).parent_path().string());
+        }
+        buffer.resize(buffer.size() * 2, '\0');
     }
 #endif
     std::error_code error;

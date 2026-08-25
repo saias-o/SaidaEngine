@@ -73,7 +73,7 @@ int usage(std::ostream& out) {
            "  saida_tool validate-ui <document> --project <dir> [--size WxH] [--pretty]\n"
            "  saida_tool compare-png <actual.png> <expected.png> [--tolerance N]\n"
            "                    [--max-different N] [--diff <png>] [--json] [--pretty]\n"
-           "  saida_tool export-game <project.saidaproj> [--platform windows|web]\n"
+           "  saida_tool export-game <project.saidaproj> [--platform windows|linux|web]\n"
            "                    [--out <dir>] [--main-scene <rel>] [--version a.b.c]\n"
            "                    [--company <name>] [--icon <ico>]\n"
            "  saida_tool help\n"
@@ -1045,7 +1045,11 @@ int cmdCookAnim(const std::vector<std::string>& args) {
 
 // Uses the same BuildExporter as the editor's Build button.
 int cmdExportGame(const std::vector<std::string>& args) {
+#ifdef __linux__
+    std::string projectPath, platform = "linux";
+#else
     std::string projectPath, platform = "windows";
+#endif
     saida::BuildExporter::Options options;
     for (size_t i = 0; i < args.size(); ++i) {
         const std::string& a = args[i];
@@ -1073,14 +1077,25 @@ int cmdExportGame(const std::vector<std::string>& args) {
     }
     if (projectPath.empty()) {
         std::cerr << "usage: saida_tool export-game <project.saidaproj> "
-                     "[--platform windows|web] [--out <dir>] [--main-scene <rel>]\n"
+                     "[--platform windows|linux|web] [--out <dir>] [--main-scene <rel>]\n"
                      "       [--version a.b.c] [--company <name>] [--icon <ico>]\n";
         return kExitUsage;
     }
-    if (platform != "windows" && platform != "web") {
-        std::cerr << "export-game: --platform must be 'windows' or 'web'\n";
+    if (platform != "windows" && platform != "linux" && platform != "web") {
+        std::cerr << "export-game: --platform must be 'windows', 'linux' or 'web'\n";
         return kExitUsage;
     }
+#ifdef _WIN32
+    if (platform == "linux") {
+        std::cerr << "export-game: Linux native export requires a Linux build\n";
+        return kExitUsage;
+    }
+#elif defined(__linux__)
+    if (platform == "windows") {
+        std::cerr << "export-game: Windows native export requires a Windows build\n";
+        return kExitUsage;
+    }
+#endif
 
     saida::Project project;
     if (!project.load(projectPath)) {

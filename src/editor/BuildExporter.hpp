@@ -6,9 +6,9 @@ namespace saida {
 
 class Project;
 
-// Packages a loaded project into a standalone Windows game folder, Godot/Unity
+// Packages a loaded project into a standalone native game folder, Godot/Unity
 // "export template" style: it copies the pre-built editor-less runtime
-// (SaidaEngineRuntime.exe) plus the compiled shaders and the project data next to
+// (SaidaEngineRuntime[.exe]) plus the compiled shaders and project data next to
 // it, and writes a boot manifest (game.saida) the runtime reads at startup. No
 // recompilation — the runtime template is built once with the engine.
 class BuildExporter {
@@ -30,7 +30,7 @@ public:
         std::string error;       // populated when success == false
         std::string log;         // human-readable step log (always populated)
         std::string outputDir;   // absolute output directory
-        std::string gameExe;     // absolute path of the produced <Game>.exe
+        std::string gameExe;     // absolute path of the produced native executable
     };
 
     // Performs the export. Pure filesystem work; safe to call from the UI thread.
