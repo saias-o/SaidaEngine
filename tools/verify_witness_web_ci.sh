@@ -89,10 +89,10 @@ CHROME_ARGS=(
     "--enable-logging=stderr"
     "--enable-unsafe-webgpu"
     "--enable-unsafe-swiftshader"
-    "--use-angle=vulkan"
-    "--enable-features=Vulkan"
-    "--disable-vulkan-surface"
-    "--use-webgpu-adapter=swiftshader"
+    # Force Chrome's bundled software renderer. `--use-angle=vulkan` selects
+    # the runner's system Vulkan ICD first and fails on hosted machines without
+    # VK_KHR_surface/VK_KHR_xcb_surface before Dawn can choose SwiftShader.
+    "--use-angle=swiftshader"
     "--user-data-dir=$PROFILE"
     "--no-first-run"
     "--no-default-browser-check"
