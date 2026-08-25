@@ -29,10 +29,20 @@ archive="$output/$product.tar.gz"
 stage="$output/$product"
 payload="$stage/payload"
 
+glslc_option=()
+if ! command -v glslc >/dev/null 2>&1; then
+    command -v glslangValidator >/dev/null 2>&1 || {
+        echo "Neither glslc nor glslangValidator is installed." >&2
+        exit 1
+    }
+    glslc_option=("-DGLSLC=$root/tools/glslc_from_glslang.sh")
+fi
+
 rm -rf -- "$output"
 mkdir -p "$payload/lib" "$payload/assets/fonts" "$payload/samples"
 
 cmake -S . -B build/linux-release -G Ninja \
+    "${glslc_option[@]}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DSAIDA_ENABLE_XR=OFF \
     -DSAIDA_ENABLE_MCP=OFF \

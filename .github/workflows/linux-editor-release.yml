@@ -22,7 +22,7 @@ jobs:
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential cmake ninja-build git git-lfs ca-certificates \
-            libvulkan-dev libglfw3-dev libglm-dev glslc patchelf \
+            libvulkan-dev libglfw3-dev libglm-dev glslang-tools patchelf \
             xvfb xauth mesa-vulkan-drivers
 
       - uses: actions/checkout@v6
