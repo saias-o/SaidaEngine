@@ -49,8 +49,7 @@ cmake -S . -B build/linux-release -G Ninja \
     -DUSE_SSE4_1=OFF -DUSE_SSE4_2=OFF -DUSE_AVX=OFF -DUSE_AVX2=OFF \
     -DUSE_LZCNT=OFF -DUSE_TZCNT=OFF -DUSE_F16C=OFF -DUSE_FMADD=OFF \
     -DCMAKE_EXE_LINKER_FLAGS='-Wl,--enable-new-dtags,-rpath,$ORIGIN/lib'
-cmake --build build/linux-release --target \
-    SaidaEngine SaidaEngineHub SaidaEngineRuntime saida_tool
+cmake --build build/linux-release
 ctest --test-dir build/linux-release --output-on-failure
 
 for name in SaidaEngine SaidaEngineHub SaidaEngineRuntime saida_tool; do
