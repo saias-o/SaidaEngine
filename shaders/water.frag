@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 
 // Texture-free water shading: procedural ripple normals, Fresnel reflection,
 // sun sparkle, depth tint and shore foam.

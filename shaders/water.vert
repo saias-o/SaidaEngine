@@ -1,4 +1,5 @@
 #version 450
+#extension GL_GOOGLE_include_directive : require
 
 // Procedural water grid with analytic normals. Multiview selects the eye via
 // gl_ViewIndex, sharing the same camera UBO as the scene pass.
