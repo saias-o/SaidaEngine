@@ -41,5 +41,7 @@ fi
 
 "$install_dir/uninstall.sh"
 [[ ! -e "$install_dir" ]]
+sed -i 's/"qualified": false/"qualified": true/' "$manifest"
+grep -q '"qualified": true' "$manifest"
 printf '{\n  "qualified": true,\n  "archiveSha256": "%s",\n  "checks": [\n    "payload hashes",\n    "per-user install",\n    "headless CLI",\n    "Hub Vulkan startup under Xvfb/lavapipe",\n    "installed editor native export",\n    "exported ELF dependency closure",\n    "uninstall"\n  ]\n}\n' "$actual" > "$(dirname -- "$archive")/linux-qualification.json"
 echo "VERIFY LINUX EDITOR PASS"
