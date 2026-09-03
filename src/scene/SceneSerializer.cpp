@@ -129,6 +129,12 @@ json serializeNode(Node& node, ResourceManager& resources) {
 std::unique_ptr<Node> deserializeNode(const json& j, ResourceManager& resources,
                                       NodeIdPolicy idPolicy,
                                       const std::string& ancestry = {}) {
+    // This is the runtime `.scene` codec: its NodeId is intentionally a JSON
+    // number (SPEC 3.3).  Do not "fix" these reads to decimal strings after
+    // comparing them with `saida_tool validate-scene`: that command validates
+    // the separate authoring `SceneSnapshot` format, whose string NodeIds are
+    // required for lossless JavaScript round-trips.  The difference is a
+    // documented format boundary, not a serializer defect.
     const std::string type = j.value("type", "Node");
     const std::string here =
         ancestry.empty() ? j.value("name", std::string("<root>"))
