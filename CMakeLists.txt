@@ -910,6 +910,12 @@ if (BUILD_TESTING)
     target_compile_options(saida_js_signal_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_js_signal_tests COMMAND $<TARGET_FILE:saida_js_signal_tests>)
 
+    add_executable(saida_js_property_tests tests/JsPropertyBindingTests.cpp)
+    saida_test_target(saida_js_property_tests)
+    target_link_libraries(saida_js_property_tests PRIVATE saida_engine)
+    target_compile_options(saida_js_property_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_js_property_tests COMMAND $<TARGET_FILE:saida_js_property_tests>)
+
     add_executable(saida_js_gameplay_tests tests/JsGameplayBindingTests.cpp)
     saida_test_target(saida_js_gameplay_tests)
     target_link_libraries(saida_js_gameplay_tests PRIVATE saida_engine)

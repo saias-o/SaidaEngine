@@ -78,51 +78,6 @@ const reflect::TypeDesc* reflectedNodeDesc(Node& n) {
     return nullptr;
 }
 
-bool valueMatchesKind(const reflect::PropertyDesc& prop, const json& v, std::string& why) {
-    const std::string& kind = prop.kind;
-    if (kind == "bool" && !v.is_boolean()) {
-        why = "expected bool";
-        return false;
-    }
-    if (kind == "float" && !v.is_number()) {
-        why = "expected number";
-        return false;
-    }
-    if (kind == "int" && !v.is_number_integer()) {
-        why = "expected integer";
-        return false;
-    }
-    if ((kind == "string" || kind == "asset") && !v.is_string()) {
-        why = "expected string";
-        return false;
-    }
-    if (kind == "vec3" && (!v.is_array() || v.size() != 3)) {
-        why = "expected vec3 array";
-        return false;
-    }
-    if (kind == "vec4" && (!v.is_array() || v.size() != 4)) {
-        why = "expected vec4 array";
-        return false;
-    }
-    if (kind == "quat" && (!v.is_array() || v.size() != 4)) {
-        why = "expected quat array";
-        return false;
-    }
-    if (kind == "enum") {
-        if (!v.is_number_integer()) {
-            why = "expected enum integer";
-            return false;
-        }
-        const int index = v.get<int>();
-        if (!prop.enumLabels.empty() &&
-            (index < 0 || index >= static_cast<int>(prop.enumLabels.size()))) {
-            why = "enum value out of range";
-            return false;
-        }
-    }
-    return true;
-}
-
 std::string opSetTransform(Scene& scene, const json& p) {
     const NodeId target = nodeId(p, "nodeId");
     Node* n = findById(scene, target);
@@ -298,7 +253,7 @@ std::string opSetProperty(Scene& scene, const json& p) {
     }
 
     std::string why;
-    if (!valueMatchesKind(*reflected, v, why)) {
+    if (!reflect::valueMatchesKind(*reflected, v, why)) {
         return err("property '" + prop + "' expects " + reflected->kind + " (" + why + ")");
     }
 
@@ -451,7 +406,7 @@ std::string opSetBehaviourProperty(Scene& scene, const json& p) {
     if (!reflected) return err("unknown behaviour property '" + prop + "' on " + btype);
 
     std::string why;
-    if (!valueMatchesKind(*reflected, v, why))
+    if (!reflect::valueMatchesKind(*reflected, v, why))
         return err("property '" + prop + "' expects " + reflected->kind + " (" + why + ")");
 
     json before;

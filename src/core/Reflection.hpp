@@ -107,6 +107,17 @@ struct PropertyDesc {
     std::function<void(void*, const json&)> set;
 };
 
+// Whether `v` can be handed to `prop.set` without misreading it. The setters
+// built by TypeBuilder are `Traits<M>::from`, which ignore a value of the wrong
+// shape instead of reporting it: a vec3 given a number, or an enum given a
+// string, leaves the property at its old value and returns no error. Every
+// caller writing an unvalidated value must therefore ask first, and they must
+// ask the same question — a property SaidaOps refuses and a script accepts
+// would be two contracts for one reflection. `why` receives a short reason for
+// the diagnostic. Range (`min`/`max`) is deliberately not enforced here: it is
+// an inspector hint, and no writer has ever clamped to it.
+bool valueMatchesKind(const PropertyDesc& prop, const json& v, std::string& why);
+
 struct SignalDesc {
     std::string name;
     int arity = 0;

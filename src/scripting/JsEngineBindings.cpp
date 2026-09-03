@@ -1466,6 +1466,18 @@ bool jsToJson(JSContext* ctx, JSValueConst v, nlohmann::json& out) {
     if (JS_IsNumber(v)) {
         double d = 0.0;
         if (JS_ToFloat64(ctx, &d, v) != 0) return false;
+        // JavaScript has one number type, so an integral value must cross as an
+        // integer or nothing on the far side can tell 2 from 2.0 — which is what
+        // `JSON.stringify` already decides, and what the array/object branch
+        // below inherits by going through it. Producing a double here made the
+        // two halves of this bridge disagree: `[1, 2, 3]` arrived as integers
+        // while a bare `2` did not, so a reflected `int` or `enum` property was
+        // unwritable from a script while a `vec3` was fine.
+        if (std::isfinite(d) && d == std::trunc(d) &&
+            d >= -9007199254740992.0 && d <= 9007199254740992.0) {
+            out = static_cast<int64_t>(d);
+            return true;
+        }
         out = d;
         return true;
     }
@@ -1555,6 +1567,81 @@ JSValue emitNodeSignal(JSContext* ctx, Node* node, int argc, JSValueConst* argv)
         arr.push_back(std::move(value));
     }
     hit.desc->emit(hit.obj, arr);
+    return JS_NewBool(ctx, true);
+}
+
+// ---- reflected properties --------------------------------------------------
+// The other half of the reflection bridge. `on`/`emit` above reach a reflected
+// signal; these reach a reflected property, which the Inspector, SaidaOps, the
+// MCP node tools and a `.sseq` property track already do. Scripts were the only
+// consumer of the reflection with a hand-written list of what it may touch, so
+// a light's colour, a camera's field of view or a water's wave height were
+// authorable and animatable but could not be changed by gameplay.
+//
+// What a write does NOT do — the same limit every other consumer has — is
+// rebuild anything the value seeded. A field a system re-reads each frame
+// (light, camera, water, particles) changes what is drawn on the next one; a
+// field consumed once when a resource was built does not rebuild that resource.
+
+struct PropertyHit { void* obj = nullptr; const reflect::PropertyDesc* desc = nullptr; };
+
+PropertyHit findPropertyOnNode(Node* node, const std::string& name) {
+    if (!node) return {};
+    auto& reg = reflect::TypeRegistry::instance();
+    if (const auto* d = reg.find(node->typeName()))
+        if (const auto* p = d->findProperty(name)) return {node, p};
+    for (const auto& b : node->behaviours())
+        if (const auto* d = reg.find(b->typeName() ? b->typeName() : ""))
+            if (const auto* p = d->findProperty(name)) return {b.get(), p};
+    return {};
+}
+
+// An absent property answers null rather than warning: asking a node whether it
+// carries one is the same legitimate probe as `characterState()` on a node with
+// no controller. A *write* that goes nowhere is the opposite — a lost intent,
+// and silence there is the trap the engine refuses elsewhere — so it warns.
+JSValue getReflectedProperty(JSContext* ctx, Node* node, int argc, JSValueConst* argv) {
+    if (!node || argc < 1) return JS_NULL;
+    const char* raw = JS_ToCString(ctx, argv[0]);
+    if (!raw) return JS_NULL;
+    PropertyHit hit = findPropertyOnNode(node, raw);
+    JS_FreeCString(ctx, raw);
+    if (!hit.desc) return JS_NULL;
+
+    nlohmann::json value;
+    hit.desc->get(hit.obj, value);
+    return jsonToJs(ctx, value);
+}
+
+JSValue setReflectedProperty(JSContext* ctx, Node* node, int argc, JSValueConst* argv) {
+    if (!node || argc < 2) return JS_NewBool(ctx, false);
+    const char* raw = JS_ToCString(ctx, argv[0]);
+    if (!raw) return JS_NewBool(ctx, false);
+    const std::string name = raw;
+    JS_FreeCString(ctx, raw);
+
+    PropertyHit hit = findPropertyOnNode(node, name);
+    if (!hit.desc) {
+        Log::warn("[JS] setProperty: no reflected property '", name, "' on node '",
+                  node->name(), "'");
+        return JS_NewBool(ctx, false);
+    }
+
+    nlohmann::json value;
+    if (!jsToJson(ctx, argv[1], value))
+        return JS_ThrowTypeError(ctx, "setProperty value must be JSON-compatible");
+
+    std::string why;
+    if (!reflect::valueMatchesKind(*hit.desc, value, why)) {
+        Log::warn("[JS] setProperty '", name, "' expects ", hit.desc->kind, " (", why, ")");
+        return JS_NewBool(ctx, false);
+    }
+    try {
+        hit.desc->set(hit.obj, value);
+    } catch (const std::exception& e) {
+        Log::warn("[JS] setProperty '", name, "' failed: ", e.what());
+        return JS_NewBool(ctx, false);
+    }
     return JS_NewBool(ctx, true);
 }
 
@@ -1749,6 +1836,14 @@ JSValue jsNodeOn(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
 
 JSValue jsNodeEmit(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
     return emitNodeSignal(ctx, nodeFromJs(ctx), argc, argv);
+}
+
+JSValue jsNodeGetProperty(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    return getReflectedProperty(ctx, nodeFromJs(ctx), argc, argv);
+}
+
+JSValue jsNodeSetProperty(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    return setReflectedProperty(ctx, nodeFromJs(ctx), argc, argv);
 }
 
 Node* nodeRefTarget(JSContext* ctx, JSValueConst* data) {
@@ -1993,6 +2088,20 @@ JSValue jsNodeRefEmit(JSContext* ctx, JSValueConst, int argc,
     return emitNodeSignal(ctx, target, argc, argv);
 }
 
+JSValue jsNodeRefGetProperty(JSContext* ctx, JSValueConst, int argc,
+                             JSValueConst* argv, int, JSValueConst* data) {
+    Node* target = nodeRefTarget(ctx, data);
+    if (!target) return JS_ThrowReferenceError(ctx, "NodeRef target no longer exists");
+    return getReflectedProperty(ctx, target, argc, argv);
+}
+
+JSValue jsNodeRefSetProperty(JSContext* ctx, JSValueConst, int argc,
+                             JSValueConst* argv, int, JSValueConst* data) {
+    Node* target = nodeRefTarget(ctx, data);
+    if (!target) return JS_ThrowReferenceError(ctx, "NodeRef target no longer exists");
+    return setReflectedProperty(ctx, target, argc, argv);
+}
+
 JSValue jsNodeRefCall(JSContext* ctx, JSValueConst, int argc,
                       JSValueConst* argv, int, JSValueConst* data) {
     Node* target = nodeRefTarget(ctx, data);
@@ -2201,6 +2310,8 @@ JSValue makeNodeRef(JSContext* ctx, Node* target) {
     setNodeRefMethod(ctx, object, target->id(), "hasData", jsNodeRefMethod, 1, NodeRefHasData);
     setNodeRefMethod(ctx, object, target->id(), "on", jsNodeRefOn, 2);
     setNodeRefMethod(ctx, object, target->id(), "emit", jsNodeRefEmit, 1);
+    setNodeRefMethod(ctx, object, target->id(), "getProperty", jsNodeRefGetProperty, 1);
+    setNodeRefMethod(ctx, object, target->id(), "setProperty", jsNodeRefSetProperty, 2);
     setNodeRefMethod(ctx, object, target->id(), "call", jsNodeRefCall, 1);
     return object;
 }
@@ -2252,6 +2363,8 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JS_SetPropertyStr(ctx, node, "isInGroup", JS_NewCFunction(ctx, jsNodeIsInGroup, "isInGroup", 1));
     JS_SetPropertyStr(ctx, node, "on", JS_NewCFunction(ctx, jsNodeOn, "on", 2));
     JS_SetPropertyStr(ctx, node, "emit", JS_NewCFunction(ctx, jsNodeEmit, "emit", 1));
+    JS_SetPropertyStr(ctx, node, "getProperty", JS_NewCFunction(ctx, jsNodeGetProperty, "getProperty", 1));
+    JS_SetPropertyStr(ctx, node, "setProperty", JS_NewCFunction(ctx, jsNodeSetProperty, "setProperty", 2));
     JS_SetPropertyStr(ctx, node, "playClip", JS_NewCFunction(ctx, jsNodePlayClip, "playClip", 3));
     JS_SetPropertyStr(ctx, node, "currentClip", JS_NewCFunction(ctx, jsNodeCurrentClip, "currentClip", 0));
     JS_SetPropertyStr(ctx, node, "setAnimFloat", JS_NewCFunction(ctx, jsNodeSetAnimFloat, "setAnimFloat", 2));

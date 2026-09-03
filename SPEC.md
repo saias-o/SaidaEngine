@@ -833,6 +833,29 @@ globals the engine explicitly installs — `console` and the
 
 - `node`: name, position, translation, rotation, activation, deferred removal,
   groups, `on`, `emit`; on `UITextNode`, `setText/getText`.
+  `getProperty(name)` and `setProperty(name, value)` reach a **reflected**
+  property — the other half of the bridge `on`/`emit` opens onto reflected
+  signals, and the same reflection the Inspector, SaidaOps, the MCP node tools
+  and a `.sseq` property track already write through. The name resolves on the
+  node's own reflected type first, then on its behaviours, which is the order
+  the sequence binder and the gameplay bindings use; a light's colour, a
+  camera's field of view or a water's wave height are therefore reachable from
+  gameplay without a per-type verb. An absent property reads `null` and writes
+  `false` — asking whether a node carries one is a probe, like `characterState()`
+  on a node with no controller — while a *failed write* is logged, because a
+  lost intent must not be silent. The value is checked against the property's
+  declared kind (`reflect::valueMatchesKind`, shared with SaidaOps) before it is
+  applied: the reflected setters ignore a value of the wrong shape instead of
+  reporting it, so an unchecked write would report success on a property it
+  never changed. A declared `range` is an inspector hint and is not enforced, by
+  any writer. Numbers cross this bridge the way `JSON.stringify` writes them —
+  an integral value is an integer — which is what makes an `int` or `enum`
+  property writable at all from a language with one number type.
+  **Limit, shared with every other reflected writer:** a write sets the field.
+  What a system re-reads each frame changes on the next one; what was consumed
+  once to build a resource does not rebuild it — a `CollisionShape`'s type is
+  changed through the editor's dedicated command (§11), not by writing the
+  property.
   `getRotation()`/`setRotation(x, y, z, w | {x,y,z,w})` carry the transform's
   quaternion; a non-finite or zero-length value is rejected (`false`) rather than
   repaired, so a node never receives an orientation its caller did not ask for.
@@ -884,8 +907,9 @@ globals the engine explicitly installs — `console` and the
   deferred request has been queued, not when the destination has resolved or
   loaded; failure is reported later. Gameplay must retain a retry path for an
   irreplaceable transition until completion/failure becomes observable.
-- `NodeRef`: weak reference resolved by NodeId, usual node operations — rotation
-  and character control included, at parity with `node` — `on/emit` cross-node
+- `NodeRef`: weak reference resolved by NodeId, usual node operations — rotation,
+  character control and reflected `getProperty`/`setProperty` included, at parity
+  with `node` — `on/emit` cross-node
   signals and `call(exportName, ...args)` JSON-compatible to a `ScriptBehaviour`
   in another QuickJS context. `valid()` is the sole operation that safely
   answers `false` after the target is freed; every other operation throws

@@ -516,6 +516,44 @@ What is missing:
   `saida_tool describe-engine`, and extend `describe-engine` to cover the core
   nodes that are serialized by hand.
 
+- [x] Scripting: reach a reflected property from a script. `node.getProperty`/
+  `node.setProperty`, and the same pair on `NodeRef`, bind the reflection the
+  Inspector, SaidaOps, the MCP node tools and `.sseq` property tracks already
+  write through (SPEC 6.3). Scripts were the fifth consumer of that reflection
+  and the only one with a hand-written list of what it may touch, so a light's
+  colour or intensity, a camera's field of view, a water's wave height or a
+  particle's spawn rate were authorable and animatable but could not be changed
+  by gameplay — SPEC 7 documents a `.sseq` animating "Sun intensity", which the
+  engine could do on a timeline and a game could not do on a switch.
+
+  Three things the implementation is deliberate about. Resolution is the node's
+  own type then its behaviours, the order the sequence binder already uses.
+  The value is kind-checked before it is applied, through `valueMatchesKind`
+  promoted out of `SaidaOpApplier.cpp` into `reflect::` rather than copied — the
+  reflected setters silently ignore a value of the wrong shape, so an unchecked
+  write reports success on a property it never changed. And a failed write is
+  logged while an absent property reads `null` in silence: probing is legitimate,
+  losing a write is not.
+
+  It also fixed a defect in the bridge it needed: `jsToJson` turned every JS
+  number into a double, while the array/object branch went through
+  `JSON.stringify` and produced integers. The two halves disagreed, so `[1,2,3]`
+  reached a `vec3` and a bare `2` could not reach an `int` or an `enum` at all.
+  Integral numbers now cross as integers, which is what `JSON.stringify` decides
+  and what the object branch already inherited.
+
+  Proof: `saida_js_property_tests` (headless, no device) covers both resolution
+  halves, every kind a registered type carries through the live binding, all
+  eight through the validator — no registered type declares a `quat` today —
+  refusal of a wrong shape *with the value left unchanged*, an out-of-range
+  enum, an unknown name and missing arguments. CTest 85/85, native build,
+  `describe-engine`, `[CONTRACT] PASS native nodes=29 behaviours=21
+  properties=217`, Web player and authoring WASM rebuilt, `witness_e2e.sh` and
+  `witness_editor_play.sh` PASS. `NodeRef` parity cannot be proven headlessly —
+  `SceneTree` needs a `ResourceManager`, hence a device — and was proven in a
+  real scene through `--test-autoload`: read, write, wrong-kind refusal, unknown
+  name and an enum write, all through a `NodeRef`.
+
 - [ ] Scripting: settle the `NodeId` convention on the JS side. `node.id` and
   `NodeRef.id` return a **BigInt** (`JS_NewBigUint64`), so an id throws under
   `JSON.stringify` and under arithmetic: it can be passed back to
