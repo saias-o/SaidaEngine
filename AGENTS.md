@@ -30,3 +30,29 @@ Place durable knowledge in its canonical document, never in this file:
 - Never add a `Co-authored-by` trailer for an AI agent.
 - Do not claim human authorship or alter the configured human or service Git
   identity.
+
+## Two local failures that are not what they look like
+
+Both cost an agent significant time by reading as regressions in the change
+under test. Neither is.
+
+**A bare `ld returned 116`.** The build in `build/` is UCRT64. If `/mingw64/bin`
+precedes `/c/msys64/ucrt64/bin` on PATH, binaries resolve `libstdc++-6.dll` and
+`libgcc_s_seh-1.dll` from the wrong runtime, and two failures appear together:
+`SaidaEngineRuntime.exe` fails to link with `collect2.exe: error: ld returned
+116 exit status` and **no other diagnostic** — it dies writing the import
+library, and `SaidaEngine.exe` never builds either because it depends on it —
+while `saida_core_tests`, `saida_png_writer_tests`,
+`saida_gpu_driven_contract_tests` and `saida_exe_metadata_tests` fail under
+CTest with `0xC0000139` (STATUS_ENTRYPOINT_NOT_FOUND). Put
+`/c/msys64/ucrt64/bin` first on PATH before cmake, ninja, ctest and anything run
+from `build/bin`. Confirm with `ldd build/bin/<exe> | grep libstdc`: it must
+resolve under `/c/msys64/ucrt64/bin`. Check this before suspecting the change or
+a toolchain limit — the failure carries no message pointing at its cause.
+
+**`[E2E] FAIL: no relic collected within 25s` on a first run.**
+`tools/witness_e2e.sh` and `tools/witness_editor_play.sh` budget 25 s of wall
+clock for the driver, and the first launch after a fresh export or rebuild also
+pays for cold shader/pipeline cache compilation. Re-run the harness before
+investigating; treat it as a regression only if it repeats on a warm cache. When
+reporting, give the run count rather than quoting the passing run alone.
