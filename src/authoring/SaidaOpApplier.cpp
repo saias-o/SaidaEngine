@@ -273,73 +273,40 @@ std::string opSetProperty(Scene& scene, const json& p) {
               std::move(inv));
 }
 
-// set_scene_setting: edits scene ambiance (SceneSettings) by name. A curated
-// subset relevant to the editor (fog/bloom/ambient/ibl/gi/skybox).
-// Returns a re-applicable inverse (undo). Colors are stored as vec4
-// but edited as vec3 (xyz), w preserved.
+// set_scene_setting: edits the scene's environment by name, through the same
+// reflected description the script binding uses (`sceneSettingsDesc()`), so the
+// two cannot disagree about which settings exist or what shape each takes.
+// Returns a re-applicable inverse (undo). Colours are stored as vec4 and edited
+// as vec3, alpha preserved — see `TypeBuilder::colorProperty`.
 std::string opSetSceneSetting(Scene& scene, const json& p) {
     const std::string key = p.value("setting", std::string());
     if (key.empty()) return err("set_scene_setting needs 'setting'");
     if (!p.contains("value")) return err("set_scene_setting needs a 'value'");
     const json& v = p["value"];
+
+    const reflect::PropertyDesc* setting = sceneSettingsDesc().findProperty(key);
+    if (!setting) return err("unknown scene setting '" + key + "'");
+
+    std::string why;
+    if (!reflect::valueMatchesKind(*setting, v, why))
+        return err("scene setting '" + key + "' expects " + setting->kind + " (" + why + ")");
+
     SceneSettings& s = scene.settings();
+    json before;
+    try {
+        setting->get(&s, before);
+        setting->set(&s, v);
+    } catch (const std::exception& e) {
+        return err("failed to set scene setting '" + key + "': " + std::string(e.what()));
+    }
+    json after;
+    setting->get(&s, after);
 
-    auto sceneInverse = [&](const json& before) {
-        return inverseOp("set_scene_setting", json{{"setting", key}, {"value", before}});
-    };
-    auto okScene = [&](const json& before, const json& after) {
-        return ok("set_scene_setting",
-                  json{{"setting", key}, {"before", before}, {"after", after}},
-                  sceneInverse(before));
-    };
-    auto setFloat = [&](float& field) -> std::string {
-        if (!v.is_number()) return err("scene setting '" + key + "' expects a number");
-        const float before = field;
-        field = v.get<float>();
-        return okScene(before, field);
-    };
-    auto setBool = [&](bool& field) -> std::string {
-        if (!v.is_boolean()) return err("scene setting '" + key + "' expects a bool");
-        const bool before = field;
-        field = v.get<bool>();
-        return okScene(before, field);
-    };
-    // Colour stored as vec4; edited as a vec3, alpha preserved.
-    auto setColor = [&](glm::vec4& field) -> std::string {
-        if (!v.is_array() || v.size() != 3) return err("scene setting '" + key + "' expects a vec3");
-        const json before = json::array({field.x, field.y, field.z});
-        field.x = v[0].get<float>();
-        field.y = v[1].get<float>();
-        field.z = v[2].get<float>();
-        return okScene(before, json::array({field.x, field.y, field.z}));
-    };
-
-    if (key == "fogEnabled") return setBool(s.fogEnabled);
-    if (key == "bloomEnabled") return setBool(s.bloomEnabled);
-    if (key == "aoEnabled") return setBool(s.aoEnabled);
-    if (key == "iblEnabled") return setBool(s.iblEnabled);
-    if (key == "giEnabled") return setBool(s.giEnabled);
-    if (key == "enablePostProcessing") return setBool(s.enablePostProcessing);
-
-    if (key == "fogStart") return setFloat(s.fogStart);
-    if (key == "fogDensity") return setFloat(s.fogDensity);
-    if (key == "bloomThreshold") return setFloat(s.bloomThreshold);
-    if (key == "bloomIntensity") return setFloat(s.bloomIntensity);
-    if (key == "bloomRadius") return setFloat(s.bloomRadius);
-    if (key == "aoRadius") return setFloat(s.aoRadius);
-    if (key == "aoIntensity") return setFloat(s.aoIntensity);
-    if (key == "aoPower") return setFloat(s.aoPower);
-    if (key == "giIntensity") return setFloat(s.giIntensity);
-    if (key == "iblDiffuseIntensity") return setFloat(s.iblDiffuseIntensity);
-    if (key == "iblSpecularIntensity") return setFloat(s.iblSpecularIntensity);
-    if (key == "skyboxExposure") return setFloat(s.skyboxExposure);
-    if (key == "skyboxRotation") return setFloat(s.skyboxRotation);
-
-    if (key == "ambientLight") return setColor(s.ambientLight);
-    if (key == "clearColor") return setColor(s.clearColor);
-    if (key == "fogColor") return setColor(s.fogColor);
-
-    return err("unknown scene setting '" + key + "'");
+    json inv = inverseOp("set_scene_setting", json{{"setting", key}, {"value", before}});
+    return ok("set_scene_setting",
+              json{{"setting", key}, {"kind", setting->kind},
+                   {"before", std::move(before)}, {"after", std::move(after)}},
+              std::move(inv));
 }
 
 // --- behaviours (gameplay logic) --------------------------------------------

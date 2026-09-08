@@ -7,6 +7,7 @@
 #include "nodes/LightNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
 #include "scene/RuntimeTypeMatrix.hpp"
+#include "scene/Scene.hpp"
 #include "nodes/WaterNode.hpp"
 
 #ifndef __EMSCRIPTEN__
@@ -121,6 +122,12 @@ nlohmann::json buildEngineManifest() {
     });
     m["behaviours"] = nlohmann::json::array();
 #endif
+
+    // The scene environment is not a node and is not in the type registry, so
+    // it is published on its own key. Without it `set_scene_setting` would be a
+    // listed op whose vocabulary nothing declares — the caller would have to
+    // guess the names, which is what the manifest exists to prevent.
+    m["sceneSettings"] = sceneSettingsDesc().manifest();
 
     m["ops"] = knownOpTypes();
     m["opAddressing"] = {

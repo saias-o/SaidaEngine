@@ -162,6 +162,12 @@ void hashFloat(uint64_t& h, float v) {
     hashCombine(h, bits);
 }
 
+void hashVec3(uint64_t& h, const glm::vec3& v) {
+    hashFloat(h, v.x);
+    hashFloat(h, v.y);
+    hashFloat(h, v.z);
+}
+
 void hashVec4(uint64_t& h, const glm::vec4& v) {
     hashFloat(h, v.x);
     hashFloat(h, v.y);
@@ -720,6 +726,13 @@ uint64_t Renderer::giDirtySignature(const Scene& scene) const {
         hashFloat(h, light->spotInnerAngle);
         hashFloat(h, light->spotOuterAngle);
         hashCombine(h, light->castShadows ? 1ull : 0ull);
+        // Both halves of where a directional light points: the node's transform,
+        // and the local direction the transform rotates. Hashing only the
+        // transform was correct while `direction` could only be authored, but a
+        // script can write it every frame now — a Sun steered through its
+        // direction rather than its rotation would leave the irradiance volume
+        // convinced nothing had moved.
+        hashVec3(h, light->direction);
         hashMat4(h, light->worldTransform());
     }
     return h;

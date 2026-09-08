@@ -2,7 +2,7 @@
 //
 // A Saida script has NO ambient authority beyond the globals the engine
 // explicitly installs: `console` (JsContext) and the gameplay capabilities
-// `node/time/input/tree/assets/audio/physics/storage` (JsEngineBindings).
+// `node/time/input/tree/scene/assets/audio/physics/storage` (JsEngineBindings).
 // No network, no OS/process/env access, no filesystem outside `storage`
 // (quotas), and imports confined to the project root (proven by
 // saida_js_safety_tests), interruptible time budget.
@@ -79,7 +79,12 @@ int main() {
         const std::set<std::string> allowed = {
             "console",  // JsContext
             "node", "time", "input", "tree", "assets", "audio", "physics",
-            "storage",  // JsEngineBindings
+            "storage",
+            // The scene's environment (ambient, fog, sky, post). Authority over
+            // how the level looks, and nothing outside it: it reads and writes
+            // the reflected `SceneSettings` fields and reaches no file, no
+            // process and no other scene.
+            "scene",  // JsEngineBindings
         };
 
         std::set<std::string> added;

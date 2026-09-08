@@ -554,6 +554,63 @@ What is missing:
   real scene through `--test-autoload`: read, write, wrong-kind refusal, unknown
   name and an enum write, all through a `NodeRef`.
 
+- [x] Scripting: reach the scene's environment from a script. `scene.getSetting`/
+  `scene.setSetting` read and write ambient, clear colour, fog, sky exposure, the
+  IBL intensities, AO and bloom (SPEC 6.3). Reflected node properties had just
+  made a light's colour and intensity scriptable, which left a day/night cycle
+  half-connected: a game could redden and dim the Sun while the ambient it sits
+  in, and the fog the distance fades to, stayed frozen at whatever the scene was
+  authored with. Those are `SceneSettings` fields rather than node properties,
+  and no binding reached them.
+
+  The environment was also the last authored surface in the engine still
+  described by hand at every consumer — the Inspector, the `set_scene_setting`
+  op, the MCP tool and the serializer each with its own list of keys, its own
+  idea of which ones existed, and for two of them its own spelling. Adding a
+  fifth list for scripts is the mistake the reflected-property binding had just
+  removed for nodes, so the environment is now described once, in
+  `SceneSettings::describe`, and the two writers that resolve a field by name —
+  the op applier and the script binding — go through it and nothing else. The op
+  applier lost its hand-written key table in the process and gained the settings
+  it never covered (`lightingMode`, `giMode`, `changeRenderingAtLoad`).
+
+  Two consumers deliberately still do not. The Inspector's list is a *layout* —
+  sliders, colour wheels, sections greyed out by bake state — and generating it
+  from the reflection's range/tooltip/group metadata is its own change. The
+  serializer's is a durable format: it resolves a skybox by path because ids are
+  regenerated on rescan, and two of its keys have been written into every scene
+  ever saved under names the ops spell differently. So the two descriptions are
+  held to each other instead of merged: `saida_scene_settings_tests` requires
+  every reflected setting to survive a save/load round trip and every saved key
+  to stay reachable, with the exceptions — the skybox reference, the GI bake
+  handshake, the editor's debug toggles — named in one place and justified
+  there. A field added to one and forgotten in the other now fails the suite
+  instead of becoming a setting that cannot be saved, or one no tool can edit.
+
+  Two smaller things came with it. `TypeBuilder::colorProperty` describes a
+  colour held as a `vec4` but authored as three channels with the alpha
+  preserved, which is what the scene format, the ops and the inspector all
+  already do and what a plain `property()` would have exposed to exactly one of
+  them. And `Renderer::giDirtySignature` now hashes a light's `direction`
+  alongside its transform: hashing only the transform was correct while
+  `direction` could only be authored, but a script can write it every frame now,
+  and a Sun steered through its direction rather than its rotation would have
+  left the irradiance volume convinced nothing had moved.
+
+  Proof: `saida_scene_settings_tests` extended with the reflection/format
+  equivalence in both directions, colour alpha, enum range checking and the
+  absence of internal state; `saida_js_permission_policy_tests` updated for the
+  new capability — it caught the addition on its own, which is what it is for.
+  CTest 85/85, native build, `describe-engine` (the vocabulary is published
+  under `sceneSettings`), `[CONTRACT] PASS native nodes=29 behaviours=21
+  properties=217`, the three Web builds, `witness_e2e.sh` (3/3),
+  `witness_editor_play.sh` and `witness_editor_build.sh` PASS. The binding
+  itself cannot be proven headlessly — it needs a mounted `SceneTree`, hence a
+  device — and was proven in a real scene through `--test-autoload`: a driver
+  wrote a sentinel colour into the ambient and required the running cycle to
+  take it back, then followed a computed dusk down and checked that the ambient
+  darkened, the horizon warmed and the sky exposure fell together with the beam.
+
 - [ ] Scripting: settle the `NodeId` convention on the JS side. `node.id` and
   `NodeRef.id` return a **BigInt** (`JS_NewBigUint64`), so an id throws under
   `JSON.stringify` and under arithmetic: it can be passed back to

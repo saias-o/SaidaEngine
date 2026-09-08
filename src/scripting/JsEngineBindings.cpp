@@ -1600,17 +1600,49 @@ PropertyHit findPropertyOnNode(Node* node, const std::string& name) {
 // carries one is the same legitimate probe as `characterState()` on a node with
 // no controller. A *write* that goes nowhere is the opposite — a lost intent,
 // and silence there is the trap the engine refuses elsewhere — so it warns.
+JSValue readReflected(JSContext* ctx, const PropertyHit& hit) {
+    if (!hit.desc) return JS_NULL;
+    nlohmann::json value;
+    hit.desc->get(hit.obj, value);
+    return jsonToJs(ctx, value);
+}
+
+// The write half, shared by every reflected surface a script can reach: the
+// kind check and the "a lost write is never silent" rule belong to the
+// reflection, not to whichever object carried the property. `what` names the
+// carrier in the warning, which is the only thing that differs between them.
+JSValue writeReflected(JSContext* ctx, const PropertyHit& hit, const std::string& name,
+                       JSValueConst value, const std::string& what) {
+    if (!hit.desc) {
+        Log::warn("[JS] setProperty: no reflected property '", name, "' on ", what);
+        return JS_NewBool(ctx, false);
+    }
+
+    nlohmann::json parsed;
+    if (!jsToJson(ctx, value, parsed))
+        return JS_ThrowTypeError(ctx, "setProperty value must be JSON-compatible");
+
+    std::string why;
+    if (!reflect::valueMatchesKind(*hit.desc, parsed, why)) {
+        Log::warn("[JS] setProperty '", name, "' expects ", hit.desc->kind, " (", why, ")");
+        return JS_NewBool(ctx, false);
+    }
+    try {
+        hit.desc->set(hit.obj, parsed);
+    } catch (const std::exception& e) {
+        Log::warn("[JS] setProperty '", name, "' failed: ", e.what());
+        return JS_NewBool(ctx, false);
+    }
+    return JS_NewBool(ctx, true);
+}
+
 JSValue getReflectedProperty(JSContext* ctx, Node* node, int argc, JSValueConst* argv) {
     if (!node || argc < 1) return JS_NULL;
     const char* raw = JS_ToCString(ctx, argv[0]);
     if (!raw) return JS_NULL;
     PropertyHit hit = findPropertyOnNode(node, raw);
     JS_FreeCString(ctx, raw);
-    if (!hit.desc) return JS_NULL;
-
-    nlohmann::json value;
-    hit.desc->get(hit.obj, value);
-    return jsonToJs(ctx, value);
+    return readReflected(ctx, hit);
 }
 
 JSValue setReflectedProperty(JSContext* ctx, Node* node, int argc, JSValueConst* argv) {
@@ -1619,30 +1651,54 @@ JSValue setReflectedProperty(JSContext* ctx, Node* node, int argc, JSValueConst*
     if (!raw) return JS_NewBool(ctx, false);
     const std::string name = raw;
     JS_FreeCString(ctx, raw);
+    return writeReflected(ctx, findPropertyOnNode(node, name), name,
+                          argv[1], std::string("node '") + node->name() + "'");
+}
 
-    PropertyHit hit = findPropertyOnNode(node, name);
-    if (!hit.desc) {
-        Log::warn("[JS] setProperty: no reflected property '", name, "' on node '",
-                  node->name(), "'");
-        return JS_NewBool(ctx, false);
-    }
+// ---- scene environment -----------------------------------------------------
+//
+// `scene.getSetting` / `scene.setSetting` reach the environment — ambient,
+// clear colour, fog, sky exposure, the IBL intensities, AO and bloom — through
+// the same reflected description the `set_scene_setting` op resolves against
+// (`sceneSettingsDesc()`), with the same kind check and the same refusal to
+// absorb a value of the wrong shape.
+//
+// They address the *World's* settings, not the settings of whatever scene the
+// calling script was instantiated from, because the World's are the ones the
+// renderer reads: a level marked `changeRenderingAtLoad` copies its own onto
+// the World when it mounts, and after that nothing looks at the copy. Writing
+// the level's would silently do nothing, which is the failure this binding
+// exists to avoid.
+//
+// Every field reachable here is read by the renderer on the frame it draws, so
+// a write lands on the next one. That is what makes a day/night cycle possible
+// from a script: the Sun's colour is a node property, but the ambient it sits
+// in, and the fog the distance fades to, are these.
 
-    nlohmann::json value;
-    if (!jsToJson(ctx, argv[1], value))
-        return JS_ThrowTypeError(ctx, "setProperty value must be JSON-compatible");
+SceneSettings* sceneSettingsFromJs(JSContext* ctx) {
+    SceneTree* tree = treeFromJs(ctx);
+    return tree ? &tree->world().settings() : nullptr;
+}
 
-    std::string why;
-    if (!reflect::valueMatchesKind(*hit.desc, value, why)) {
-        Log::warn("[JS] setProperty '", name, "' expects ", hit.desc->kind, " (", why, ")");
-        return JS_NewBool(ctx, false);
-    }
-    try {
-        hit.desc->set(hit.obj, value);
-    } catch (const std::exception& e) {
-        Log::warn("[JS] setProperty '", name, "' failed: ", e.what());
-        return JS_NewBool(ctx, false);
-    }
-    return JS_NewBool(ctx, true);
+JSValue jsSceneGetSetting(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    SceneSettings* settings = sceneSettingsFromJs(ctx);
+    if (!settings || argc < 1) return JS_NULL;
+    const char* raw = JS_ToCString(ctx, argv[0]);
+    if (!raw) return JS_NULL;
+    const reflect::PropertyDesc* desc = sceneSettingsDesc().findProperty(raw);
+    JS_FreeCString(ctx, raw);
+    return readReflected(ctx, PropertyHit{settings, desc});
+}
+
+JSValue jsSceneSetSetting(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    SceneSettings* settings = sceneSettingsFromJs(ctx);
+    if (!settings || argc < 2) return JS_NewBool(ctx, false);
+    const char* raw = JS_ToCString(ctx, argv[0]);
+    if (!raw) return JS_NewBool(ctx, false);
+    const std::string name = raw;
+    JS_FreeCString(ctx, raw);
+    return writeReflected(ctx, PropertyHit{settings, sceneSettingsDesc().findProperty(name)},
+                          name, argv[1], "the scene environment");
 }
 
 // ---- gameplay: animation / graph / sequences / blackboard ------------------
@@ -2438,6 +2494,13 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JS_SetPropertyStr(ctx, tree, "nodesInGroup", JS_NewCFunction(ctx, jsTreeNodesInGroup, "nodesInGroup", 1));
     JS_SetPropertyStr(ctx, tree, "nodeById", JS_NewCFunction(ctx, jsTreeNodeById, "nodeById", 1));
     JS_SetPropertyStr(ctx, global, "tree", tree);
+
+    JSValue scene = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, scene, "getSetting",
+                      JS_NewCFunction(ctx, jsSceneGetSetting, "getSetting", 1));
+    JS_SetPropertyStr(ctx, scene, "setSetting",
+                      JS_NewCFunction(ctx, jsSceneSetSetting, "setSetting", 2));
+    JS_SetPropertyStr(ctx, global, "scene", scene);
 
     JSValue assets = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, assets, "load", JS_NewCFunction(ctx, jsAssetsLoad, "load", 2));

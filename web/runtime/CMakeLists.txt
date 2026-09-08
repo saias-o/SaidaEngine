@@ -109,6 +109,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/scene/ReflectedTypesWeb.cpp
     ${SAIDA_ROOT}/src/nodes/ParticleSystemNode.cpp
     ${SAIDA_ROOT}/src/scene/Scene.cpp
+    ${SAIDA_ROOT}/src/scene/SceneSettingsReflection.cpp
     ${SAIDA_ROOT}/src/scene/SceneSettingsSerialization.cpp
     ${SAIDA_ROOT}/src/scene/Transform.cpp
     ${SAIDA_ROOT}/src/nodes/UINode.cpp

@@ -8,4 +8,5 @@
 namespace saida::reflect {
 template <typename T>
 class TypeBuilder;
+struct TypeDesc;
 }

@@ -165,6 +165,36 @@ durable reference. An explicitly empty path clears the reference rather than
 keeping the previous one. `saida_scene_settings_tests` locks the round trip, the
 patch semantics and both reference forms.
 
+The same settings are described a second time, for the writers that resolve a
+field *by name* rather than by member: `SceneSettings::describe`
+(`src/scene/SceneSettingsReflection.cpp`, reached through `sceneSettingsDesc()`).
+The `set_scene_setting` op (§3.2) and the `scene` script capability (§6.3) go
+through it and through nothing else, so the two cannot disagree about which
+settings exist or what shape each takes, and `describe-engine` publishes it
+under `sceneSettings` so the vocabulary is discoverable.
+
+The two descriptions cannot be merged and are held to each other instead. They
+differ where each is a contract of its own: the file spells two keys `ambient`
+and `postProcessing` where the op vocabulary says `ambientLight` and
+`enablePostProcessing`, and neither name can move without breaking scenes
+already saved or op streams already recorded. The reflected description also
+omits `skyboxTexture` — its durable form is a path, and reflection has no
+asset-path setter, so swapping a sky belongs with the asset API — and omits the
+GI bake handshake (`baked`, `bakeRequested`) and the editor's debug toggles
+(`giDebugVoxels`, `showSkeletons`), which are engine state a scene never carries
+and no author writes. Everything else must match, in both directions:
+`saida_scene_settings_tests` requires every reflected setting to survive a
+save/load round trip and every saved key to stay reachable, with those
+exceptions named in one place. A field added to one description and forgotten in
+the other fails the suite rather than becoming a setting that cannot be saved,
+or one that no tool can edit.
+
+The Inspector and the MCP `set_scene_settings` tool still carry their own key
+lists. The Inspector's is a layout — sliders, colour wheels, sections greyed out
+by bake state — and generating it from the reflection's range/tooltip/group
+metadata is its own change; the MCP tool's is a published argument schema whose
+names differ again.
+
 ### 3.2 SaidaOps
 
 The authoring contract covers the validated operations of creation/deletion,
@@ -813,7 +843,7 @@ and a second bindings ecosystem.
 
 The model is *capability-based*: a script has no ambient authority beyond the
 globals the engine explicitly installs — `console` and the
-`node/time/input/tree/assets/audio/physics/storage` capabilities (plus
+`node/time/input/tree/scene/assets/audio/physics/storage` capabilities (plus
 `exportProperty`/`props` during the loading of a `ScriptBehaviour`). Concretely:
 
 - no network (no `fetch`/socket), no OS, process or environment-variable access;
@@ -907,6 +937,29 @@ globals the engine explicitly installs — `console` and the
   deferred request has been queued, not when the destination has resolved or
   loaded; failure is reported later. Gameplay must retain a retry path for an
   irreplaceable transition until completion/failure becomes observable.
+- `scene`: `getSetting(name)` and `setSetting(name, value)` read and write the
+  scene's **environment** — ambient, clear colour, fog, sky exposure, the IBL
+  intensities, AO and bloom — resolved against the same reflected description of
+  `SceneSettings` the `set_scene_setting` op uses (§3.1), with the same kind
+  check and the same refusal to absorb a value of the wrong shape. An unknown
+  setting reads `null` and writes `false`, exactly as an unknown node property
+  does. Colours are three channels and the stored alpha is preserved.
+  The vocabulary is published by `describe-engine` under `sceneSettings`, so it
+  is discoverable rather than folklore.
+  They address the **World's** settings, not those of the scene the calling
+  script was instantiated from: the World's are the ones the renderer reads, and
+  a level marked `changeRenderingAtLoad` copies its own onto the World when it
+  mounts. Writing the level's copy afterwards would silently do nothing, which
+  is the failure this capability exists to avoid.
+  Every reachable field is read by the renderer on the frame it draws, so a
+  write lands on the next one. Together with reflected light properties this is
+  what makes a computed day/night cycle possible from a script: the Sun's colour
+  is a node property, the sky it sits in is one of these.
+  The authority is bounded by the reflection and is not a scene-graph
+  capability: it reaches no file, no process and no other scene, and the fields
+  the engine keeps for itself — the GI bake handshake and the editor's debug
+  toggles — are deliberately absent from the description, so no script can
+  request a bake or turn on a debug view.
 - `NodeRef`: weak reference resolved by NodeId, usual node operations — rotation,
   character control and reflected `getProperty`/`setProperty` included, at parity
   with `node` — `on/emit` cross-node

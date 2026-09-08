@@ -2,6 +2,7 @@
 
 #include "scene/Node.hpp"
 #include "scene/SignalWiring.hpp"
+#include "core/ReflectionFwd.hpp"
 #include "project/AssetRegistry.hpp"
 
 #include <glm/glm.hpp>
@@ -76,7 +77,27 @@ struct SceneSettings {
     // rendering settings (above) override the World's. If false, the World keeps
     // the settings it already has (those of the "super-scene" / a previous level).
     bool changeRenderingAtLoad = true;
+
+    // The reflected view of the durable environment, in `SceneSettingsReflection.cpp`.
+    //
+    // It describes exactly the fields `writeSceneSettings` persists — the
+    // authored environment — and deliberately not the transient bake state
+    // (`baked`, `bakeRequested`) or the editor's debug toggles
+    // (`giDebugVoxels`, `showSkeletons`), which are engine state a scene never
+    // carries and no author should be able to write. `SceneSettingsTests` pins
+    // that equivalence in both directions, so a field added here and forgotten
+    // in one of the two lists fails the build's tests rather than going
+    // silently unsaved or unwritable.
+    //
+    // Consumers: the `set_scene_setting` op and the `scene.setSetting` script
+    // binding both resolve through this and nothing else. The Inspector and the
+    // MCP `set_scene_settings` tool still carry their own key lists.
+    static void describe(reflect::TypeBuilder<SceneSettings>& t);
 };
+
+// The description above, built once. Every writer that resolves a setting by
+// name goes through this; see `SceneSettingsReflection.cpp` for which do not.
+const reflect::TypeDesc& sceneSettingsDesc();
 
 class MeshNode;
 class LightNode;

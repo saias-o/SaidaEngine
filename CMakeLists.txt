@@ -444,6 +444,7 @@ add_library(saida_engine STATIC
     src/behaviours/CameraFollowBehaviour.cpp
     src/scene/Scene.cpp
     src/scene/SceneMeasure.cpp
+    src/scene/SceneSettingsReflection.cpp
     src/scene/SceneSettingsSerialization.cpp
     src/scene/SceneTree.cpp
     src/scene/SceneTimerQueue.cpp
@@ -868,7 +869,7 @@ if (BUILD_TESTING)
     target_compile_options(saida_scene_lifecycle_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_scene_lifecycle_tests COMMAND $<TARGET_FILE:saida_scene_lifecycle_tests>)
 
-    add_executable(saida_scene_settings_tests tests/SceneSettingsSerializationTests.cpp)
+    add_executable(saida_scene_settings_tests tests/SceneSettingsTests.cpp)
     saida_test_target(saida_scene_settings_tests)
     target_link_libraries(saida_scene_settings_tests PRIVATE saida_engine)
     target_compile_options(saida_scene_settings_tests PRIVATE -Wall -Wextra)

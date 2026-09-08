@@ -192,6 +192,28 @@ public:
         return PropertyRef{&d_.properties.back()};
     }
 
+    // A colour held as a vec4 but authored as three channels, alpha preserved.
+    // The engine's scene format, its ops and its inspector all edit colours as
+    // rgb and keep whatever alpha the field carried; a plain `property()` here
+    // would expose the fourth channel to exactly one of those three and is how
+    // the two former scene-settings readers came to disagree about it.
+    PropertyRef colorProperty(std::string name, glm::vec4 T::*ptr) {
+        PropertyDesc pd;
+        pd.name = std::move(name);
+        pd.kind = "vec3";
+        pd.get = [ptr](const void* o, json& j) {
+            const glm::vec4& v = static_cast<const T*>(o)->*ptr;
+            j = json::array({v.x, v.y, v.z});
+        };
+        pd.set = [ptr](void* o, const json& j) {
+            if (!j.is_array() || j.size() != 3) return;
+            glm::vec4& v = static_cast<T*>(o)->*ptr;
+            v = glm::vec4(j[0].get<float>(), j[1].get<float>(), j[2].get<float>(), v.w);
+        };
+        d_.properties.push_back(std::move(pd));
+        return PropertyRef{&d_.properties.back()};
+    }
+
     template <typename... A>
     void signal(std::string name, Signal<A...> T::*ptr) {
         SignalDesc s;
