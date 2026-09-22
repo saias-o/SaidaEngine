@@ -39,6 +39,10 @@ plugins/python-tools/.venv/
 plugins/python-tools/build/
 plugins/python-tools/dist/
 plugins/python-tools/src/*.egg-info/
+# The traffic add-on's test binary is built beside its source, because the
+# add-on is header-only and absent from CMake.
+plugins/traffic/tests/test_traffic
+plugins/traffic/tests/test_traffic.exe
 # Packaged game build output (artifacts, never source)
 MyGame/build/
 # saida_tool export-game resolves --out against the PROJECT, so a web export

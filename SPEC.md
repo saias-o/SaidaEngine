@@ -1527,6 +1527,35 @@ external programs from their own authoring environment; this does not add those
 dependencies to the plugin core or engine. Machine consumers use the CLI's
 JSON/JSONL diagnostics and result events.
 
+### 11.2 Optional C++ traffic add-on
+
+`plugins/traffic` is a standalone, header-only C++ add-on that drives ambient
+road traffic over a lane graph. It is not linked to `saida_engine`, is absent
+from CMake, is never loaded by the editor or runtime, and is never copied by
+game export. Removing the directory has no effect on a project, engine build or
+shipped player; a project that includes the header compiles it into its own
+binary, which is what lets a game link against a prebuilt engine and still gain
+traffic.
+
+The header declares `saida::traffic::Graph` (nodes, directed lanes and the
+adjacency built once from them), `Rules` (side of the road, lane offset,
+acceleration, braking, headway, junction guard, spawn and despawn radii) and
+`Flow` (a population of agents on one graph). It depends only on `<cmath>`,
+`<cstdint>` and `<vector>`: no scene, node, material, serialization, glm or
+coordinate convention. The host owns rendering and supplies the graph; `Flow`
+supplies poses.
+
+The model is agents on a directed lane graph with car following, nearest-first
+give way at junctions, and spawning in an annulus around the observer. There is
+no path planning, destination, signal or lane change. Update cost is O(n²) in
+live agents. `agents()` is a fixed-size array whose indices are stable while an
+agent lives; a host keys per-car state by index. A streaming host gives each
+region its own `Graph` and `Flow`.
+
+Verification is one translation unit with no engine build:
+`g++ -std=c++20 -O2 -Wall -I../include test_traffic.cpp -o test_traffic` in
+`plugins/traffic/tests`, which prints `PASS saida::traffic`.
+
 ## 12. Export and packaging
 
 `BuildExporter` and `saida_tool export-game` produce a desktop package with an
