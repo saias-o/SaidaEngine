@@ -8,6 +8,7 @@ namespace saida {
 
 void MeshNode::setLods(std::vector<MeshLodLevel> levels) {
     lods_ = std::move(levels);
+    markResourcesChanged();
     activeLodIndex_ = 0;
     if (lods_.size() > 1 && !getBehaviour<LODGroupBehaviour>())
         addBehaviour<LODGroupBehaviour>();
@@ -30,23 +31,7 @@ Material* MeshNode::materialForLod(int lodIndex) const {
 }
 
 int MeshNode::selectLodIndex(float screenCoverage) const {
-    if (lods_.empty()) return 0;
-    const int picked = saida::selectLodIndex(screenCoverage, lods_);
-    if (picked == activeLodIndex_) return picked;
-    if (activeLodIndex_ < 0 || activeLodIndex_ >= static_cast<int>(lods_.size()))
-        return picked;
-
-    constexpr float kHysteresis = 0.10f;
-    if (picked > activeLodIndex_) {
-        const float currentMin = lods_[static_cast<size_t>(activeLodIndex_)].minScreenCoverage;
-        if (screenCoverage > currentMin * (1.0f - kHysteresis))
-            return activeLodIndex_;
-    } else {
-        const float pickedMin = lods_[static_cast<size_t>(picked)].minScreenCoverage;
-        if (screenCoverage < pickedMin * (1.0f + kHysteresis))
-            return activeLodIndex_;
-    }
-    return picked;
+    return saida::selectLodIndex(screenCoverage, lods_, activeLodIndex_, 0.10f);
 }
 
 void MeshNode::captureDurableResourceRefs(const nlohmann::json& j) {
@@ -94,6 +79,7 @@ void MeshNode::serialize(nlohmann::json& j, ResourceManager& resources) const {
 void MeshNode::deserialize(const nlohmann::json& j, ResourceManager& resources) {
     Node::deserialize(j, resources);
     captureDurableResourceRefs(j);
+    markResourcesChanged();
     if (j.contains("mesh")) {
         AssetID meshId = kAssetInvalid;
         if (j["mesh"].is_number_integer()) {

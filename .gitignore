@@ -52,3 +52,6 @@ GTAClone/build/
 build-web/
 build-web-player/
 build-authoring-wasm/
+
+# Local cross-runtime verification build (same source, pinned player SDK).
+/build-web-streaming/

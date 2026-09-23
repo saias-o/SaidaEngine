@@ -746,6 +746,7 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
     if (lodMatricesValid_) {
         lodView_ = *view;
         lodProj_ = *proj;
+        scene.updateRenderLods(*view, *proj);
     }
     auto& settings = scene.settings();
     ubo.ambient = settings.ambientLight;
@@ -1454,8 +1455,8 @@ void Renderer::drawFrame(Scene& scene, Camera& camera, Project* project) {
     const bool giModeChanged = giMode != giLastMode_;
     const bool lightingModeChanged = lightingMode != giLastLightingMode_;
     const bool giEnabledChanged = settings.giEnabled != giWasEnabled_;
-    const bool giHierarchyChanged = Node::g_hierarchyVersion != giLastHierarchyVersion_;
-    const bool giTransformChanged = Node::g_transformVersion != giLastTransformVersion_;
+    const bool giHierarchyChanged = scene.subtreeRevision() != giLastHierarchyVersion_;
+    const bool giTransformChanged = scene.subtreeTransformRevision() != giLastTransformVersion_;
     const uint64_t giSignature = giDirtySignature(scene);
     const bool giContentChanged = giSignature != giLastDirtySignature_;
     const bool giDirty = giHierarchyChanged || giTransformChanged || giContentChanged;
@@ -1489,8 +1490,8 @@ void Renderer::drawFrame(Scene& scene, Camera& camera, Project* project) {
         }
     }
     if (giUpdateThisFrame_ || !settings.giEnabled) {
-        giLastHierarchyVersion_ = Node::g_hierarchyVersion;
-        giLastTransformVersion_ = Node::g_transformVersion;
+        giLastHierarchyVersion_ = scene.subtreeRevision();
+        giLastTransformVersion_ = scene.subtreeTransformRevision();
         giLastDirtySignature_ = giSignature;
     }
     ++giFrameCounter_;
@@ -1852,8 +1853,8 @@ void Renderer::drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eye
     const bool giModeChanged = giMode != giLastMode_;
     const bool lightingModeChanged = lightingMode != giLastLightingMode_;
     const bool giEnabledChanged = settings.giEnabled != giWasEnabled_;
-    const bool giHierarchyChanged = Node::g_hierarchyVersion != giLastHierarchyVersion_;
-    const bool giTransformChanged = Node::g_transformVersion != giLastTransformVersion_;
+    const bool giHierarchyChanged = scene.subtreeRevision() != giLastHierarchyVersion_;
+    const bool giTransformChanged = scene.subtreeTransformRevision() != giLastTransformVersion_;
     const uint64_t giSignature = giDirtySignature(scene);
     const bool giContentChanged = giSignature != giLastDirtySignature_;
     const bool giDirty = giHierarchyChanged || giTransformChanged || giContentChanged;
@@ -1881,8 +1882,8 @@ void Renderer::drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eye
             settings.baked = true;
     }
     if (giUpdateThisFrame_ || !settings.giEnabled) {
-        giLastHierarchyVersion_ = Node::g_hierarchyVersion;
-        giLastTransformVersion_ = Node::g_transformVersion;
+        giLastHierarchyVersion_ = scene.subtreeRevision();
+        giLastTransformVersion_ = scene.subtreeTransformRevision();
         giLastDirtySignature_ = giSignature;
     }
     ++giFrameCounter_;

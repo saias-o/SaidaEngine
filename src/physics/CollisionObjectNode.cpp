@@ -122,12 +122,17 @@ void CollisionObjectNode::syncToPhysics(PhysicsWorld& world) {
 
     if (bodyId_.IsInvalid()) {
         createBody(world);
+        pushedWorld_ = worldTransform();
         return;
     }
 
     // Static & kinematic bodies are driven by the node tree (e.g. scripted
     // platforms). Dynamic bodies own their transform — don't fight the solver.
+    // Only a moved node is pushed: a static world of thousands of colliders
+    // would otherwise update the broadphase for every one of them every frame.
     if (motion() != BodyMotion::Dynamic) {
+        if (worldTransform() == pushedWorld_) return;
+        pushedWorld_ = worldTransform();
         glm::vec3 position;
         glm::quat rotation;
         glm::mat4 invTR;
@@ -143,6 +148,18 @@ void CollisionObjectNode::syncFromPhysics(PhysicsWorld& world) {
     glm::quat worldRot;
     world.getBodyTransform(bodyId_, worldPos, worldRot);
     writeWorldPoseToLocal(worldPos, worldRot);
+}
+
+void CollisionObjectNode::rebasePhysics(const glm::vec3& translation, const glm::quat& rotation) {
+    if (!world_ || bodyId_.IsInvalid()) return;
+    glm::vec3 position;
+    glm::quat orientation;
+    world_->getBodyTransform(bodyId_, position, orientation);
+    world_->setBodyTransform(bodyId_, rotation * position + translation, rotation * orientation, false);
+    if (motion() == BodyMotion::Dynamic) {
+        world_->setLinearVelocity(bodyId_, rotation * world_->linearVelocity(bodyId_));
+        world_->setAngularVelocity(bodyId_, rotation * world_->angularVelocity(bodyId_));
+    }
 }
 
 void CollisionObjectNode::writeWorldPoseToLocal(const glm::vec3& worldPos,

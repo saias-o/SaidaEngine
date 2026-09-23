@@ -12,8 +12,8 @@
 
 namespace saida {
 
-// Equirectangular skybox. Owns its own descriptor set (the environment texture)
-// and draws a fullscreen triangle at the far plane. Handles both the mono (desktop)
+// Equirectangular skybox. Owns its own descriptor set (the environment texture,
+// and the second sky it crossfades into — `SceneSettings::skyboxBlend`) and draws a fullscreen triangle at the far plane. Handles both the mono (desktop)
 // and stereo (XR multiview, per-eye via gl_ViewIndex) paths; in XR passthrough the
 // sky is skipped so the real world shows through.
 class SkyboxFeature : public ScenePassFeature {
@@ -23,8 +23,14 @@ public:
     void record(FrameContext& fc) override;
 
 private:
-    struct MonoPush { glm::mat4 invViewProj; float exposure; float rotation; };
-    struct StereoPush { glm::mat4 invViewProj[2]; float exposure; float rotation; };
+    struct MonoPush {
+        glm::mat4 invViewProj; float exposure; float rotation; float blend; float blendRotation;
+        glm::vec4 sunDirection; glm::vec4 sunColor;
+    };
+    struct StereoPush {
+        glm::mat4 invViewProj[2]; float exposure; float rotation; float blend; float blendRotation;
+        glm::vec4 sunDirection; glm::vec4 sunColor;
+    };
 
     rhi::Device* device_ = nullptr;
     ResourceManager* resources_ = nullptr;
@@ -34,9 +40,11 @@ private:
     std::unique_ptr<rhi::BindGroupLayout> setLayout_;
     std::unique_ptr<rhi::BindGroup> set_;
     AssetID currentTexture_ = kAssetInvalid;
+    AssetID currentBlend_ = kAssetInvalid;
     // The same AssetID can be reborn on a different Texture object after an
-    // eviction (trimUnused) + a reload: also compare the pointer.
+    // eviction (trimUnused) + a reload: also compare the pointers.
     const Texture* currentTexturePtr_ = nullptr;
+    const Texture* currentBlendPtr_ = nullptr;
 };
 
 } // namespace saida

@@ -1701,6 +1701,59 @@ JSValue jsSceneSetSetting(JSContext* ctx, JSValueConst, int argc, JSValueConst* 
                           name, argv[1], "the scene environment");
 }
 
+// `scene.setSkybox(path[, blendPath])` swaps the World's sky, and the sky it
+// fades into (`skyboxBlend`). The two textures are the settings reflection
+// leaves out, because their durable form is a path and reflection has no
+// asset-path setter; this takes paths, resolves them the way a scene file's are
+// resolved, and never hands a script an id to keep. An empty or omitted blend
+// path clears the second sky. A path that leaves the project is refused, and
+// nothing is changed.
+bool skyPathFromJs(JSContext* ctx, JSValueConst value, std::string& out) {
+    if (JS_IsUndefined(value) || JS_IsNull(value)) { out.clear(); return true; }
+    const char* raw = JS_ToCString(ctx, value);
+    if (!raw) return false;
+    out = raw;
+    JS_FreeCString(ctx, raw);
+    if (out.empty()) return true;
+    const std::filesystem::path normalized = std::filesystem::path(out).lexically_normal();
+    if (normalized.is_absolute() || normalized.begin()->string() == "..") return false;
+    out = normalized.generic_string();
+    return true;
+}
+
+JSValue jsSceneSetSkybox(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    SceneTree* tree = treeFromJs(ctx);
+    SceneSettings* settings = sceneSettingsFromJs(ctx);
+    if (!tree || !settings || argc < 1) return JS_NewBool(ctx, false);
+    std::string sky, blend;
+    if (!skyPathFromJs(ctx, argv[0], sky) || sky.empty() ||
+        !skyPathFromJs(ctx, argc >= 2 ? argv[1] : JS_UNDEFINED, blend)) {
+        Log::warn("[Script] scene.setSkybox refused: a sky path is empty or leaves the project");
+        return JS_NewBool(ctx, false);
+    }
+    // A missing file would register anyway and draw the magenta checkerboard
+    // with nothing in the log to say why; it is refused here instead.
+    ResourceManager& resources = tree->resources();
+    auto resolve = [&](const std::string& path) {
+        std::error_code ec;
+        if (!std::filesystem::is_regular_file(tree->resolveProjectPath(path), ec)) {
+            Log::warn("[Script] scene.setSkybox refused: no texture at ", path);
+            return kAssetInvalid;
+        }
+        return resources.getOrRegister(path, AssetType::Texture);
+    };
+    const AssetID skyId = resolve(sky);
+    if (skyId == kAssetInvalid) return JS_NewBool(ctx, false);
+    AssetID blendId = kAssetInvalid;
+    if (!blend.empty()) {
+        blendId = resolve(blend);
+        if (blendId == kAssetInvalid) return JS_NewBool(ctx, false);
+    }
+    settings->skyboxTexture = skyId;
+    settings->skyboxBlendTexture = blendId;
+    return JS_NewBool(ctx, true);
+}
+
 // ---- gameplay: animation / graph / sequences / blackboard ------------------
 // Common resolution rule (the same as SequenceDirector's): the behaviour is
 // looked up on the targeted node, otherwise the first one found among its
@@ -2500,6 +2553,8 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
                       JS_NewCFunction(ctx, jsSceneGetSetting, "getSetting", 1));
     JS_SetPropertyStr(ctx, scene, "setSetting",
                       JS_NewCFunction(ctx, jsSceneSetSetting, "setSetting", 2));
+    JS_SetPropertyStr(ctx, scene, "setSkybox",
+                      JS_NewCFunction(ctx, jsSceneSetSkybox, "setSkybox", 2));
     JS_SetPropertyStr(ctx, global, "scene", scene);
 
     JSValue assets = JS_NewObject(ctx);

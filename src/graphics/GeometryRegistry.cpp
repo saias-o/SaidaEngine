@@ -13,7 +13,10 @@
 namespace saida {
 
 GeometryRegistry::GeometryRegistry(rhi::Device& device, DeviceSize maxVertices, DeviceSize maxIndices)
-    : device_(device) {
+    : device_(device), capacity_{maxVertices, maxIndices} {
+    if (maxVertices == 0 || maxVertices > uint64_t(INT32_MAX) ||
+        maxIndices == 0 || maxIndices > uint64_t(UINT32_MAX))
+        throw std::invalid_argument("geometry capacity must fit nonzero vertex/index draw offsets");
     
     const uint64_t vertexBufferSize = maxVertices * sizeof(Vertex);
     const uint64_t indexBufferSize = maxIndices * sizeof(uint32_t);

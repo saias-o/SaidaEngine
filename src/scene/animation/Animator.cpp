@@ -24,6 +24,7 @@ std::string clipNameFromKey(const std::string& key) {
 } // namespace
 
 void Animator::setRig(Rig* rig) {
+    if (node()) node()->markResourcesChanged();
     rig_ = rig;
     if (!rig_) {
         bindPose_.localTransforms.clear();
@@ -46,6 +47,11 @@ void Animator::setRig(Rig* rig) {
         bindPose_.localTransforms[i] = rig_->bones()[i].restLocal;
     currentLocalPose_.resize(boneCount);
     globalPose_.resize(boneCount);
+}
+
+void Animator::addClip(const std::string& name, const AnimationClip* clip) {
+    clips_[name] = clip;
+    if (node()) node()->markResourcesChanged();
 }
 
 void Animator::setRootNode(std::unique_ptr<AnimNode> rootNode) {

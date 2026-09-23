@@ -260,8 +260,8 @@ private:
     int giBakeFramesRemaining_ = 0;
     int giRealtimeWarmupRemaining_ = kGIRealtimeWarmupFrames;
     uint64_t giFrameCounter_ = 0;
-    uint32_t giLastHierarchyVersion_ = 0;
-    uint32_t giLastTransformVersion_ = 0;
+    uint64_t giLastHierarchyVersion_ = 0;
+    uint64_t giLastTransformVersion_ = 0;
     uint64_t giLastDirtySignature_ = 0;
     bool giWasEnabled_ = true;
     int giLastLightingMode_ = 0;

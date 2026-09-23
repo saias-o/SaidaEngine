@@ -6,6 +6,23 @@ cycle receives its own immutable beta tag.
 
 ## v1.0.0-beta.4 (unreleased)
 
+### A sky that changes with the hour
+
+- The skybox crossfades two skies: `SceneSettings::skyboxBlendTexture`,
+  `skyboxBlend` and `skyboxBlendRotation`, each sky turned by its own rotation.
+  Scripts swap either by path with `scene.setSkybox(path[, blendPath])`, which
+  refuses a path outside the project or with no file behind it, out loud.
+- An optional Sun disc drawn over the sky (`skySunDirection`, `skySunColor`,
+  `skySunSize`), with a soft edge and limb darkening, outside the sky's
+  exposure — for photographed skies whose own Sun has been removed, so a
+  crossfade never shows two.
+- The sky pass clamps what it writes below the half-float ceiling of the HDR
+  target, so a very bright sky or disc can no longer store infinity and turn
+  into NaN in the tonemapper.
+- Both new textures are saved by path, snapshotted, counted as resources in use
+  and editable in the Inspector; the reflected settings round-trip like every
+  other (`saida_scene_settings_tests`).
+
 ### Windows editor distribution
 
 - The editor, Hub, runtime template and CLI now resolve an installed layout

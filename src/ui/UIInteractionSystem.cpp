@@ -124,7 +124,7 @@ struct WebHit {
 std::vector<WebCanvasNode*> activeWebCanvases(Scene& scene) {
     std::vector<WebCanvasNode*> canvases;
     for (WebCanvasNode* canvas : scene.webCanvases()) {
-        if (canvas && canvas->isActiveInHierarchy() && canvas->interactive()) {
+        if (canvas && (canvas->isActiveInHierarchy() && canvas->isVisibleInHierarchy()) && canvas->interactive()) {
             canvases.push_back(canvas);
         }
     }
@@ -173,23 +173,16 @@ glm::vec2 clampCanvasLocal(WebCanvasNode& canvas, glm::vec2 local) {
     };
 }
 
-bool containsNode(const Node& root, const Node* target) {
-    if (!target) return false;
-    if (&root == target) return true;
-    for (const auto& child : root.children()) {
-        if (containsNode(*child, target)) return true;
-    }
-    return false;
-}
 
 } // namespace
 
 bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::vec2& mousePos, const glm::vec2& viewportSize,
                                  bool isLeftDown, bool isLeftJustPressed, bool isLeftJustReleased) {
-    if (hierarchyVersion_ != Node::g_hierarchyVersion) {
-        hierarchyVersion_ = Node::g_hierarchyVersion;
+    if (hierarchyVersion_ != scene.subtreeRevision()) {
+        hierarchyVersion_ = scene.subtreeRevision();
+        scene.refreshHierarchy();
         auto isLive = [&scene](const Node* node) {
-            return node && containsNode(scene, node);
+            return node && scene.containsNode(node);
         };
 
         if (!isLive(hoveredNode_)) hoveredNode_ = nullptr;
@@ -208,7 +201,7 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
     }
 
     UICanvasNode* canvas = scene.uiCanvas();
-    if (!canvas || !canvas->isActiveInHierarchy()) {
+    if (!canvas || !(canvas->isActiveInHierarchy() && canvas->isVisibleInHierarchy())) {
         if (hoveredNode_) {
             hoveredNode_->onHoverExit();
             hoveredNode_ = nullptr;
@@ -222,7 +215,7 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
     }
 
     UIInteractableNode* targetNode = nullptr;
-    if (canvas && canvas->isActiveInHierarchy()) {
+    if (canvas && (canvas->isActiveInHierarchy() && canvas->isVisibleInHierarchy())) {
         const auto& children = canvas->children();
         for (auto it = children.rbegin(); it != children.rend(); ++it) {
             if (UINode* uiChild = dynamic_cast<UINode*>(it->get())) {
@@ -315,7 +308,7 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
         WebCanvasNode* touchTarget = nullptr;
         glm::vec2 local{0.0f};
         auto active = touchTargets_.find(touch.id);
-        if (active != touchTargets_.end() && active->second && active->second->isActiveInHierarchy()) {
+        if (active != touchTargets_.end() && active->second && (active->second->isActiveInHierarchy() && active->second->isVisibleInHierarchy())) {
             WebHit hit = findWebCanvas(scene, camera, touch.position, viewportSize);
             if (hit.canvas == active->second) {
                 touchTarget = active->second;
@@ -350,7 +343,7 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
         }
     }
 
-    if (focusedWebCanvas_ && focusedWebCanvas_->isActiveInHierarchy()) {
+    if (focusedWebCanvas_ && (focusedWebCanvas_->isActiveInHierarchy() && focusedWebCanvas_->isVisibleInHierarchy())) {
         for (const KeyMap& key : kKeyMap) {
             if (Input::isKeyPressed(key.key)) webHandled = focusedWebCanvas_->fireKeyEvent(true, key.rml, modifiers) || true;
             if (Input::isKeyReleased(key.key)) webHandled = focusedWebCanvas_->fireKeyEvent(false, key.rml, modifiers) || webHandled;
@@ -367,7 +360,7 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
 }
 
 UIInteractableNode* UIInteractionSystem::raycast(UINode* node, const glm::vec2& mousePos) {
-    if (!node->isActiveInHierarchy()) return nullptr;
+    if (!(node->isActiveInHierarchy() && node->isVisibleInHierarchy())) return nullptr;
 
     float globalX = node->globalX();
     float globalY = node->globalY();

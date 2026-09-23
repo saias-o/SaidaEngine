@@ -9,6 +9,24 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
+## Streaming integration — verified 2026-09-23
+
+- [x] Replace global scene/resource rebuilds with per-scene branch revisions and
+  incremental membership/resource ownership. Reuse the same ownership snapshot
+  for trimming and the GPU budget; hidden and disabled branches retain assets.
+- [x] Provide runtime subtree visibility, configurable geometry capacity, and
+  child-group LOD selection using the existing projected coverage/hysteresis.
+- [x] Add explicit world-frame rebasing for live bodies, characters and joint
+  anchors. Run vehicle forces on actual fixed physics substeps.
+- [x] Verify with 86 native CTest cases, `saida_scene_streaming_tests --gpu`
+  (55 checks including real geometry capacity and multi-primitive LOD),
+  `saida_vehicle_tests` (75 checks including 30/60/120/240 Hz equivalence),
+  the native runtime contract, Witness export/run/restart and R1World's offline
+  Paris-to-Tunis walk/drive/traffic-takeover/teleport test.
+
+These changes do not replace mutable-transform traversal or add a script-level
+reparenting/seat API. The vehicle seating item below remains open.
+
 ## 0. Status
 
 The **V1** effort is complete on the engine side: gates P0.1 through P0.6 are

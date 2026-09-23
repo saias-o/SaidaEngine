@@ -1,13 +1,9 @@
 #include "scene/SceneTree.hpp"
 
 #include "scene/Scene.hpp"
-#include "nodes/MeshNode.hpp"
-#include "nodes/UIImageNode.hpp"
-#include "scene/animation/Animator.hpp"
 #include "scene/SceneSerializer.hpp"
 #include "scene/BehaviourRegistry.hpp"
 #include "scripting/ScriptBehaviour.hpp"
-#include "graphics/Material.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "core/Time.hpp"
 #include "core/Log.hpp"
@@ -16,7 +12,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <filesystem>
 #include <fstream>
 
@@ -26,6 +21,7 @@ SceneTree::SceneTree(ResourceManager& resources) : resources_(resources) {}
 SceneTree::~SceneTree() { unmountWorld(); }
 
 Scene* SceneTree::mountWorld(std::unique_ptr<Scene> startScene) {
+    unmountWorld();
     world_ = std::make_unique<Scene>();
     world_->setName("World");
     world_->setTree(this);
@@ -47,6 +43,8 @@ void SceneTree::unmountWorld() {
     quitRequested_ = false;
     world_.reset();  // ~Scene clears children (and their physics bodies) while alive
     timerQueue_.clear();
+    lastUsageVersion_ = 0;
+    resources_.setLiveUsage({});
 }
 
 Scene& SceneTree::currentScene() {
@@ -125,49 +123,6 @@ void SceneTree::requestFree(Node* node) {
     if (node) pendingFree_.push_back(node);
 }
 
-namespace {
-// Marks everything this node (and its descendants) references in the
-// ResourceManager: meshes + materials (and their textures) of MeshNode and
-// their LODs, textures of UIImageNode, skybox of traversed Scenes.
-void collectAssetUsage(Node& node, ResourceManager::AssetUsage& usage) {
-    if (auto* meshNode = dynamic_cast<MeshNode*>(&node)) {
-        auto markMaterial = [&usage](Material* material) {
-            if (!material) return;
-            usage.materials.insert(material);
-            const MaterialDesc& d = material->desc();
-            for (AssetID id : {d.albedoId, d.normalId, d.metallicRoughnessId, d.emissiveId})
-                if (id != kAssetInvalid) usage.textures.insert(id);
-        };
-        if (meshNode->mesh()) usage.meshes.insert(meshNode->mesh());
-        markMaterial(meshNode->material());
-        for (const MeshLodLevel& lvl : meshNode->lods()) {
-            if (lvl.mesh) usage.meshes.insert(lvl.mesh);
-            markMaterial(lvl.material);
-        }
-    } else if (std::strcmp(node.typeName(), "UIImageNode") == 0) {
-        // static_cast via typeName: the web player doesn't compile in UI nodes
-        // (they degrade to a generic Node), and a dynamic_cast would require
-        // their typeinfo at link time.
-        auto* image = static_cast<UIImageNode*>(&node);
-        if (image->texture() != kAssetInvalid) usage.textures.insert(image->texture());
-    }
-    if (auto* scene = dynamic_cast<Scene*>(&node)) {
-        if (scene->settings().skyboxTexture != kAssetInvalid)
-            usage.textures.insert(scene->settings().skyboxTexture);
-    }
-    // Animation: Animators hold raw pointers to a rig and clips — anything a
-    // live Animator references must survive the trim.
-    for (const auto& behaviour : node.behaviours()) {
-        if (auto* animator = dynamic_cast<Animator*>(behaviour.get())) {
-            if (animator->rig()) usage.rigs.insert(animator->rig());
-            for (const auto& [name, clip] : animator->clips())
-                if (clip) usage.animations.insert(clip);
-        }
-    }
-    for (const auto& child : node.children()) collectAssetUsage(*child, usage);
-}
-} // namespace
-
 void SceneTree::applyDeferred() {
     if (!world_) return;
 
@@ -190,30 +145,12 @@ void SceneTree::applyDeferred() {
         }
     }
 
-    // 3) After a scene change, anything the World (autoloads + new
-    // sub-scene) no longer references is evicted from the ResourceManager —
-    // GPU memory stays bounded across N hub<->arena cycles. The old
-    // sub-scene is already destroyed, so the walk sees exactly what must survive.
-    if (sceneChanged) {
-        ResourceManager::AssetUsage usage;
-        collectAssetUsage(*world_, usage);
-        resources_.trimUnused(usage);
-    }
-
-    // 3b) Mid-scene GPU budget: the ResourceManager LRU-evicts whatever the
-    // live scene no longer references. Its reference snapshot is refreshed
-    // on every hierarchy change (spawn, queueFree, scene) — the walk costs
-    // nothing on a stable hierarchy.
-    if (lastUsageVersion_ != Node::g_hierarchyVersion) {
-        lastUsageVersion_ = Node::g_hierarchyVersion;
-        ResourceManager::AssetUsage usage;
-        collectAssetUsage(*world_, usage);
-        resources_.setLiveUsage(std::move(usage));
-    }
-
-    // 4) The World's flattened caches (meshes/lights) still point to the
-    // nodes destroyed above; this frame's render would otherwise consume them.
     world_->refreshHierarchy();
+    if (sceneChanged) resources_.trimUnused(world_->resourceUsage());
+    if (lastUsageVersion_ != world_->resourceVersion()) {
+        lastUsageVersion_ = world_->resourceVersion();
+        resources_.setLiveUsage(world_->resourceUsage());
+    }
 }
 
 void SceneTree::setPaused(bool paused) { Time::setScale(paused ? 0.0f : 1.0f); }

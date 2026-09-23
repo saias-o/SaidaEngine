@@ -76,12 +76,10 @@ so a host keys its own per-car state (a scene node, a colour) by index and
 releases it when `alive` goes false. Lowering the population truncates the
 array; a host must drop the state of any index past the new size.
 
-**A host should pool whatever it attaches to a slot rather than creating and
-destroying it per trip.** Agents come and go constantly by design, and in a
-scene graph that answers a local change with a global walk — Saida's does — a
-node added on every spawn and freed on every despawn is the most expensive thing
-about the traffic by an order of magnitude. Create per slot, hide between trips
-by moving, and let the slot's lifetime be the region's.
+A host can pool its scene nodes per slot to avoid repeated allocation and model
+loading. In Saida, use `Node::setVisible(false)` between trips and restore
+visibility on reuse. Hidden nodes retain their resources; visibility changes
+refresh only the affected scene branches. Keep the pool scoped to its region.
 
 `facing` is the direction the observer is looking, or `{0, 0}` when the host
 does not track one. Given it, a car may appear much closer behind the observer

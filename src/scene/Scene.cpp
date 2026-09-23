@@ -1,5 +1,6 @@
 #include "scene/Scene.hpp"
 #include "scene/Behaviour.hpp"
+#include "behaviours/LODGroupBehaviour.hpp"
 #include "core/Profiler.hpp"
 #include "nodes/MeshNode.hpp"
 #include "nodes/LightNode.hpp"
@@ -20,6 +21,10 @@
 #endif
 
 #include <nlohmann/json.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <stdexcept>
+#include <algorithm>
+#include <cmath>
 
 namespace saida {
 
@@ -36,21 +41,17 @@ Scene::~Scene() {
 
 void Scene::update(float dt) {
     SAIDA_PROFILE_FUNCTION();
-    if (lastHierarchyVersion_ != g_hierarchyVersion) {
-        SAIDA_PROFILE_SCOPE("Scene/FlattenHierarchy");
-        flattenHierarchy();
-        lastHierarchyVersion_ = g_hierarchyVersion;
-    }
+    refreshHierarchy();
 
-    SAIDA_PROFILE_COUNTER("Scene/Behaviours", flatBehaviours_.size());
-    SAIDA_PROFILE_COUNTER("Scene/Nodes", activeNodeCount_);
-    SAIDA_PROFILE_COUNTER("Scene/MeshNodes", meshes_.size());
-    SAIDA_PROFILE_COUNTER("Scene/Lights", lights_.size());
-    SAIDA_PROFILE_COUNTER("Physics/Bodies", bodies_.size());
+    SAIDA_PROFILE_COUNTER("Scene/Behaviours", index_.behaviours.values().size());
+    SAIDA_PROFILE_COUNTER("Scene/Nodes", index_.activeNodes);
+    SAIDA_PROFILE_COUNTER("Scene/MeshNodes", index_.meshes.values().size());
+    SAIDA_PROFILE_COUNTER("Scene/Lights", index_.lights.values().size());
+    SAIDA_PROFILE_COUNTER("Physics/Bodies", index_.bodies.values().size());
 
     {
         SAIDA_PROFILE_SCOPE("Scene/Behaviours");
-        for (auto* b : flatBehaviours_) {
+        for (auto* b : index_.behaviours.values()) {
             if (!b->enabled()) continue;
             if (dt > 0.0f) {
                 if (!b->ready_) {
@@ -72,31 +73,48 @@ void Scene::update(float dt) {
     // (runs in edit mode too, so the editor wireframe is stable and correct).
     {
         SAIDA_PROFILE_SCOPE("Physics/ResolveAutoShapes");
-        for (auto* body : bodies_) body->resolveAutoShapes();
+        for (auto* body : index_.bodies.values()) body->resolveAutoShapes();
     }
 
     // Physics only runs while time is advancing (i.e. in Play, not while editing).
-    if (dt > 0.0f && !bodies_.empty()) {
+    if (dt > 0.0f && !index_.bodies.values().empty()) {
         SAIDA_PROFILE_SCOPE("Physics/SceneStep");
         if (!physics_) physics_ = std::make_unique<PhysicsWorld>();
         {
             SAIDA_PROFILE_SCOPE("Physics/SyncTo");
-            for (auto* body : bodies_) body->syncToPhysics(*physics_);
+            for (auto* body : index_.bodies.values()) body->syncToPhysics(*physics_);
         }
         {
             // After body sync so both referenced bodies exist; a joint whose
             // body was rebuilt this frame recreates its constraint here.
             SAIDA_PROFILE_SCOPE("Physics/SyncJoints");
-            for (auto* joint : joints_) joint->syncJointToPhysics(*physics_);
+            for (auto* joint : index_.joints.values()) joint->syncJointToPhysics(*physics_);
         }
-        {
-            SAIDA_PROFILE_SCOPE("Physics/PreStep");
-            for (auto* body : bodies_) body->prePhysicsStep(*physics_, dt);  // characters move/slide
-        }
-        physics_->step(dt);
+        // Per substep, only what asked to be called. Node transforms are not
+        // touched between substeps: `onPhysicsStep` reads the body from Jolt,
+        // and the tree is brought up to date once, after the last substep.
+        movedBodies_.clear();
+        physics_->step(dt, [&](float fixedDt) {
+            for (auto* b : index_.physicsSteppers.values())
+                if (b->enabled() && b->ready_) b->onPhysicsStep(fixedDt);
+            for (auto* body : index_.preSteppers.values()) body->prePhysicsStep(*physics_, fixedDt);
+        }, [&](float) {
+            // A body that was awake during any substep moved this frame, even
+            // if it has fallen asleep since; sleeping and static bodies did not.
+            physics_->appendActiveBodies(movedBodies_);
+        });
         {
             SAIDA_PROFILE_SCOPE("Physics/SyncFrom");
-            for (auto* body : bodies_) body->syncFromPhysics(*physics_);
+            for (auto* body : index_.preSteppers.values()) body->syncFromPhysics(*physics_);
+            std::sort(movedBodies_.begin(), movedBodies_.end());
+            movedBodies_.erase(std::unique(movedBodies_.begin(), movedBodies_.end()), movedBodies_.end());
+            for (uint32_t id : movedBodies_)
+                if (auto* body = static_cast<CollisionObjectNode*>(physics_->bodyUserData(JPH::BodyID(id))))
+                    body->syncFromPhysics(*physics_);
+        }
+        {
+            SAIDA_PROFILE_SCOPE("Scene/PostPhysicsTransforms");
+            updateTransforms(glm::mat4(1.0f), false);  // propagate dynamic results down the tree
         }
 
         // Dispatch contact events on the main thread: sensor overlaps to Area
@@ -116,71 +134,59 @@ void Scene::update(float dt) {
         }
         }
 
-        {
-            SAIDA_PROFILE_SCOPE("Scene/PostPhysicsTransforms");
-            updateTransforms(glm::mat4(1.0f), false);  // propagate dynamic results down the tree
-        }
+
     }
 #endif
 }
 
 void Scene::refreshHierarchy() {
-    if (lastHierarchyVersion_ != g_hierarchyVersion) {
-        flattenHierarchy();
-        lastHierarchyVersion_ = g_hierarchyVersion;
-    }
+    index_.refresh(*this);
 }
 
-void Scene::flattenHierarchy() {
-    meshes_.clear();
-    lights_.clear();
-    uiCanvas_ = nullptr;
-    webCanvases_.clear();
-    waterNodes_.clear();
-    particleSystems_.clear();
-    flatBehaviours_.clear();
-    bodies_.clear();
-    joints_.clear();
-    activeNodeCount_ = 0;
+void Scene::updateRenderLods(const glm::mat4& view, const glm::mat4& projection) {
+    for (auto* group : index_.lodGroups.values())
+        if (group->enabled()) group->updateForView(view, projection);
+    refreshHierarchy();
+}
 
-    traverse([this](Node& n, const glm::mat4&) {
-        if (!n.isActiveInHierarchy()) return;
-        ++activeNodeCount_;
-
-        if (MeshNode* mn = dynamic_cast<MeshNode*>(&n)) {
-            if (mn->meshEnabled()) {
-                meshes_.push_back(mn);
-            }
-        }
-        if (n.asLight()) {
-            lights_.push_back(static_cast<LightNode*>(&n));
-        }
-        if (auto* water = dynamic_cast<WaterNode*>(&n)) {
-            waterNodes_.push_back(water);
-        }
-        if (!uiCanvas_) {
-            if (auto* canvas = dynamic_cast<UICanvasNode*>(&n)) {
-                uiCanvas_ = canvas;
-            }
-        }
-#ifndef SAIDA_RHI_WEBGPU
-        if (auto* webCanvas = dynamic_cast<WebCanvasNode*>(&n)) {
-            webCanvases_.push_back(webCanvas);
-        }
-#endif
-        if (auto* ps = dynamic_cast<ParticleSystemNode*>(&n)) {
-            particleSystems_.push_back(ps);
-        }
-        if (CollisionObjectNode* co = n.asCollisionObject()) {
-            bodies_.push_back(co);
-        }
-        if (JointNode* joint = n.asJointNode()) {
-            joints_.push_back(joint);
-        }
-        for (auto& b : n.behaviours()) {
-            flatBehaviours_.push_back(b.get());
-        }
+void Scene::rebaseSubtree(Node& root, const glm::vec3& translation, const glm::quat& rotation) {
+    const Node* ancestor = &root;
+    while (ancestor && ancestor != this) ancestor = ancestor->parent();
+    if (!ancestor || &root == this) throw std::invalid_argument("rebaseSubtree requires a descendant of this scene");
+    if (!std::isfinite(translation.x) || !std::isfinite(translation.y) || !std::isfinite(translation.z) ||
+        !std::isfinite(glm::dot(rotation, rotation)) || std::abs(glm::dot(rotation, rotation) - 1.f) > 1e-4f)
+        throw std::invalid_argument("rebase requires a finite translation and unit quaternion");
+    // Read the live parent chain; callers need not have stepped the scene first.
+    glm::mat4 parentWorld(1.f);
+    std::vector<const Node*> parents;
+    for (auto* p = root.parent(); p; p = p->parent()) parents.push_back(p);
+    for (auto it = parents.rbegin(); it != parents.rend(); ++it) parentWorld *= (*it)->localMatrix();
+    const glm::vec3 scale{glm::length(glm::vec3(parentWorld[0])), glm::length(glm::vec3(parentWorld[1])),
+                          glm::length(glm::vec3(parentWorld[2]))};
+    if (scale.x < 1e-6f || std::abs(scale.x - scale.y) > 1e-5f || std::abs(scale.x - scale.z) > 1e-5f ||
+        glm::determinant(glm::mat3(parentWorld)) <= 0.f)
+        throw std::invalid_argument("rebase requires a parent frame with positive uniform scale");
+    const glm::mat3 frame = glm::mat3(parentWorld) / scale.x;
+    if (std::abs(glm::dot(frame[0], frame[1])) > 1e-5f ||
+        std::abs(glm::dot(frame[0], frame[2])) > 1e-5f ||
+        std::abs(glm::dot(frame[1], frame[2])) > 1e-5f)
+        throw std::invalid_argument("rebase requires an orthogonal parent frame");
+    const glm::quat parentRotation = glm::quat_cast(glm::mat3(parentWorld) / scale.x);
+    auto& local = root.transform();
+    const glm::vec3 worldPosition = glm::vec3(parentWorld * glm::vec4(local.position, 1.f));
+    local.position = glm::vec3(glm::inverse(parentWorld) * glm::vec4(rotation * worldPosition + translation, 1.f));
+    local.rotation = glm::inverse(parentRotation) * rotation * parentRotation * local.rotation;
+    root.updateTransforms(parentWorld, true);
+#ifndef SAIDA_NO_PHYSICS
+    root.traverse([&](Node& node, const glm::mat4&) {
+        if (auto* body = node.asCollisionObject()) body->rebasePhysics(translation, rotation);
+        if (auto* joint = node.asJointNode()) joint->detachJointFromPhysics();
     });
+#endif
+}
+
+void Scene::rebaseOrigin(const glm::vec3& translation, const glm::quat& rotation) {
+    for (const auto& child : children()) rebaseSubtree(*child, translation, rotation);
 }
 
 void Scene::serialize(nlohmann::json& j, ResourceManager& resources) const {

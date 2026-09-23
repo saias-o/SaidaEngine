@@ -499,6 +499,21 @@ void testAirborneVehicleFalls() {
     require(finite(rig.position()), "the landing stays finite");
 }
 
+void testFrameCadence() {
+    auto drive = [](int fps) {
+        Rig rig;
+        rig.step(2.f);
+        rig.vehicle->setThrottle(.7f);
+        rig.vehicle->setSteer(.15f);
+        for (int i = 0; i < fps * 4; ++i) rig.scene.update(1.f / float(fps));
+        return rig.position();
+    };
+    const auto reference = drive(60);
+    for (int fps : {30, 120, 240})
+        requireNear(glm::length(drive(fps) - reference), 0.f, .02f,
+                    "same simulated driving at different render rates");
+}
+
 } // namespace
 
 int main() {
@@ -507,6 +522,7 @@ int main() {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     struct Case { const char* name; void (*run)(); };
     const Case cases[] = {
+        {"frame cadence independence", testFrameCadence},
         {"settles on suspension", testSettlesOnSuspension},
         {"throttle accelerates", testThrottleAccelerates},
         {"brake stops", testBrakeStops},

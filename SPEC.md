@@ -178,8 +178,9 @@ differ where each is a contract of its own: the file spells two keys `ambient`
 and `postProcessing` where the op vocabulary says `ambientLight` and
 `enablePostProcessing`, and neither name can move without breaking scenes
 already saved or op streams already recorded. The reflected description also
-omits `skyboxTexture` — its durable form is a path, and reflection has no
-asset-path setter, so swapping a sky belongs with the asset API — and omits the
+omits `skyboxTexture` and `skyboxBlendTexture` — their durable form is a path,
+and reflection has no asset-path setter, so scripts swap skies through
+`scene.setSkybox`, which takes paths (§6.3) — and omits the
 GI bake handshake (`baked`, `bakeRequested`) and the editor's debug toggles
 (`giDebugVoxels`, `showSkeletons`), which are engine state a scene never carries
 and no author writes. Everything else must match, in both directions:
@@ -361,7 +362,7 @@ is deferred four frames; bindless indices and material slots are recycled.
 
 DURING a scene, `gpuBudgetBytes` (512 MiB by default, `assets.setGpuBudget`) is
 applied every frame: beyond it, textures/meshes neither referenced by the living
-scene (usage snapshot refreshed on every hierarchy change) nor being loaded are
+scene (incremental resource ownership, refreshed on reference changes) nor being loaded are
 evicted LRU (`lastUse` per frame), counters `gpuEvictedCount/Bytes` in
 `assets.stats()`. If the entire overshoot is referenced: a single warning,
 nothing broken. `gpuResidentBytes` is exposed to `assets.stats()` and to the
@@ -397,6 +398,62 @@ as long as their consumers are not asynchronous.
 - Tangents: without author tangents in a glTF, the material's normal mapping is
   explicitly disabled (warning logged) — never lighting silently approximated;
   MikkTSpace is P1.
+
+### Incremental scenes and streamed worlds
+
+`Scene::refreshHierarchy` maintains a per-scene `SceneIndex`. Node membership
+changes propagate a revision along the ancestor path; refresh skips unchanged
+subtrees. Detached prototypes and other scenes do not invalidate the live scene.
+Removal uses cached identities without dereferencing destroyed nodes, including
+reparenting and `clearChildren`. Dense render/simulation lists have unspecified
+iteration order; gameplay must not rely on hierarchy order for per-frame updates.
+This does not eliminate the transform traversal: mutable `Transform&` still
+requires comparison during `updateTransforms`.
+
+`Node::setVisible` is runtime-only, inherited visibility. It removes the subtree
+from render lists without stopping behaviours or physics or releasing resources.
+`setEnabled` retains its activation role. Hidden native UI cannot receive input;
+GPU particle effects follow the renderer's existing visibility-culling policy.
+Pooling can hide a node in place instead of moving it outside the world.
+
+The same index retains base and LOD meshes/materials/textures, UIImage textures,
+skyboxes and Animator rigs/clips even in disabled branches. Resource setters
+invalidate ownership independently of topology. `Scene::resourceUsage` is current
+after refresh; `SceneTree::applyDeferred` publishes it to the GPU budget when its
+resource revision changes. A disabled scene branch is an explicit owner for shared
+prototype assets. A detached node alone does not pin resources in ResourceManager.
+
+`GeometryCapacity` configures vertex/index capacity when constructing Engine or
+ResourceManager; `ResourceManager::geometryCapacity()` returns that configuration.
+Defaults remain 1,048,576 vertices and 3,145,728 indices. Games can reserve a share
+of the configured capacity without duplicating allocator constants. This is a
+startup allocation, not automatic growth or a replacement for the GPU byte budget.
+
+`Scene::rebaseOrigin(translation, rotation)` maps every child and existing physics
+body from old point p to `rotation*p + translation`. `rebaseSubtree` applies the
+same operation to one descendant. The rotation must be a finite unit quaternion;
+the parent frame must be orthogonal with positive uniform scale. Rigid-body IDs
+survive; linear/angular velocities rotate, CharacterBody poses/velocities follow,
+and joints inside the rebased subtree rebuild their anchors before the next step.
+Call between updates and transform game-owned world-space data as well. Gravity
+remains a world-space setting; this API does not impose a geographic coordinate
+system or convert a game-specific height field into physics collision geometry.
+
+`LOD Group` also supports child representations, configured through `setLevels`
+or the behaviour's `levels` array (`path`, `minCoverage`). Each level names a
+distinct direct child, allowing a multi-primitive near model and a single-mesh far
+model to share the same selection. Coverage comes from LOD0 bounds, including its
+child transforms, with the same 10% hysteresis as MeshNode LOD. The renderer picks
+once for its view before gathering geometry and shadows; inactive representations
+remain resident. Child transform/resource changes invalidate cached bounds.
+Empty levels preserve the existing marker for MeshNode's per-mesh LOD chain.
+Disabling or reconfiguring a group restores its children's visibility.
+
+`saida_scene_streaming_tests` covers branch invalidation, reference ownership,
+reparenting/removal, fixed-step callbacks, rebasing and snapshot round trips.
+Its optional `--gpu` mode creates a hidden Vulkan window to verify configured
+geometry capacity, multi-primitive LOD selection and transform-bound invalidation.
+
 
 ### 4.4 AutoLOD
 
@@ -615,13 +672,21 @@ vehicle on its roof has nothing to push against and stays there: the only way ou
 of a roll is to reload. The torque must exceed `weight * halfWidth` or nothing
 happens at all — it has to lift the car onto an edge before gravity can help.
 
-A fourth rule is about time rather than order. Every force the vehicle applies
-becomes an impulse by multiplying by the frame delta, so it clamps that delta to
-`PhysicsWorld::kMaxSimulatedStep` — the fixed step times the substep ceiling,
-which is the most simulated time one `step()` can advance however long the frame
-took. Past that the vehicle would be paying force for time the world never
-simulates: a 0.63 s frame while a city finished streaming turned a parked car's
-suspension into 89 kN.s and threw it 28 m into the air.
+Vehicle forces are applied in `Behaviour::onPhysicsStep`, immediately before
+**each actual 1/60 s Jolt step**, after bodies have been created. Input is sampled
+in `onUpdate`; wheel rays, suspension, steering and impulses advance in fixed
+time. The callback receives exactly the simulated step duration, runs zero times
+on frames below the accumulator threshold and once per substep on longer frames.
+The vehicle reads its pose from Jolt (`getBodyTransform`) on every substep, so
+each wheel query sees the pose the previous substep produced. Node transforms
+are synchronized once per frame, after the last substep: only the behaviours
+that declare `hasPhysicsStep()` and the bodies that declare
+`hasPrePhysicsStep()` (characters) are called per substep; dynamic bodies are
+synced back only if Jolt had them awake during the frame; a static or
+kinematic body is pushed to Jolt only when its world transform changed. Body
+access goes through Jolt's lock-free interfaces, which is sound because the
+engine touches bodies only from the main thread between `Update` calls. The existing accumulator/hitch limits remain
+in `PhysicsWorld`; there is no independent vehicle frame-delta clamp.
 
 Covered by `saida_vehicle_tests` with no device: resting height and wheel count,
 throttle, braking to a standstill without creeping, bounded top speed, steering
@@ -630,7 +695,8 @@ over-damped suspension, an anti-roll bar that leans the car less rather than
 more, a hard corner that slides rather than rolls, an overturned car righted by
 holding a direction from four different stranded attitudes, wheel nodes placed
 and spun by the suspension, and a fall back onto four wheels. Steering is
-asserted by direction, not merely by motion.
+asserted by direction, not merely by motion. The same four-second drive is also
+checked at 30, 60, 120 and 240 render updates per second.
 
 Righting turns about `up x worldUp` — whatever axis takes the car back onto its
 wheels soonest — rather than about its own length. Rolling is only the commonest
@@ -955,6 +1021,18 @@ globals the engine explicitly installs — `console` and the
   write lands on the next one. Together with reflected light properties this is
   what makes a computed day/night cycle possible from a script: the Sun's colour
   is a node property, the sky it sits in is one of these.
+  `setSkybox(path[, blendPath])` swaps the World's sky and the sky it fades
+  into, by project-relative path: the two texture settings are the ones
+  reflection leaves out. `skyboxBlend` then crossfades the two (0 draws the
+  first, 1 the second), each turned by its own rotation (`skyboxRotation`,
+  `skyboxBlendRotation`), so a cycle can walk a series of photographed skies.
+  An empty or omitted blend path clears the second sky. A path that leaves the
+  project or names no file is refused with a logged reason and changes
+  nothing — a missing sky would otherwise draw the magenta checkerboard with no
+  line to say why. `skySunDirection`, `skySunColor` and `skySunSize` draw one
+  Sun disc over the sky, outside its exposure, for skies whose photographs had
+  their own Sun removed; black draws none. Only the sky pass reads the second
+  sky: IBL and the reflection environment sample `skyboxTexture` alone.
   The authority is bounded by the reflection and is not a scene-graph
   capability: it reaches no file, no process and no other scene, and the fields
   the engine keeps for itself — the GI bake handshake and the editor's debug
@@ -1327,7 +1405,7 @@ For a `WebCanvasNode`, pointer movement is routed by canvas geometry and always
 reaches RmlUi while the pointer is inside the canvas; `hitTest()` decides click,
 scroll and capture policy only. `UIInteractionSystem` currently stores raw
 hovered, pressed, focused and touch targets across frames and revalidates them
-when the global hierarchy version changes before dispatching more input. The
+when the owning scene revision changes before dispatching more input. The
 roadmap retains the stronger lifetime-checked-handle contract and the missing
 re-entrancy corpus.
 

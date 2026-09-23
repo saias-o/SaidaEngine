@@ -14,10 +14,10 @@ void UIImageNode::deserialize(const nlohmann::json& j, ResourceManager& resource
     UINode::deserialize(j, resources);
     if (j.contains("texture")) {
         if (j["texture"].is_number_integer()) {
-            texture_ = j["texture"].get<AssetID>();
+            setTexture(j["texture"].get<AssetID>());
         } else if (j["texture"].is_string()) {
             std::string path = j["texture"].get<std::string>();
-            texture_ = resources.getOrRegister(path, AssetType::Texture);
+            setTexture(resources.getOrRegister(path, AssetType::Texture));
         }
     }
 }

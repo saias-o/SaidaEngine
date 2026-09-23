@@ -33,6 +33,8 @@ public:
 
     void onReady() override;
     void onUpdate(float frameDt) override;
+    void onPhysicsStep(float dt) override;
+    bool hasPhysicsStep() const override { return true; }
 
     // ---- layout (metres, in the body's local frame) -------------------------
     // Measured off the art by tools/split_car_wheels.py rather than typed in.

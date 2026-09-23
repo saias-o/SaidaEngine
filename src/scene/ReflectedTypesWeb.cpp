@@ -10,9 +10,8 @@
 // + NodeRegistry::create() for the create_node op, so the web build needs *a*
 // definition. Here we register the reflected render nodes; SceneSnapshot adds
 // the base, Mesh and durable HUD factories before verifying the canonical
-// authoringWasm matrix. No behaviours are registered — the
-// add_behaviour / set_behaviour_property ops simply report the type as unknown on
-// web, which is the correct MVP behavior (no behaviours on the web runtime yet).
+// authoringWasm matrix. LOD Group is shared render logic; gameplay behaviours
+// remain unavailable in this authoring preview.
 //
 // This whole TU is Emscripten-guarded so it never collides with the desktop
 // ReflectedTypes.cpp definition.
@@ -21,6 +20,8 @@
 #include "scene/ReflectedTypes.hpp"
 
 #include "core/Reflection.hpp"
+#include "scene/BehaviourRegistry.hpp"
+#include "behaviours/LODGroupBehaviour.hpp"
 #include "scene/NodeRegistry.hpp"
 
 #include "nodes/CameraNode.hpp"
@@ -55,6 +56,11 @@ void registerReflectedTypes() {
     registerNode<LightNode>();
     registerNode<WaterNode>();
     registerNode<ParticleSystemNode>();
+    auto& lod = reflect::TypeRegistry::instance().add(LODGroupBehaviour::reflectName());
+    lod = reflect::localDesc<LODGroupBehaviour>();
+    lod.name = LODGroupBehaviour::reflectName();
+    lod.category = "behaviour";
+    BehaviourRegistry::instance().registerType<LODGroupBehaviour>(LODGroupBehaviour::reflectName());
 }
 
 } // namespace saida

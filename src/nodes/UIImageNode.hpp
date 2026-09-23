@@ -11,7 +11,7 @@ public:
     virtual ~UIImageNode() = default;
 
     AssetID texture() const { return texture_; }
-    void setTexture(AssetID tex) { texture_ = tex; }
+    void setTexture(AssetID tex) { if (texture_ != tex) { texture_ = tex; markResourcesChanged(); } }
 
     const char* typeName() const override { return "UIImageNode"; }
     void serialize(nlohmann::json& j, ResourceManager& resources) const override;

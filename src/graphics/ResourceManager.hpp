@@ -48,7 +48,9 @@ class ResourceManager {
 public:
     static constexpr uint32_t kMaxBindlessTextures = 8192;
     static constexpr uint32_t kMaxBindlessMaterials = 4096;
-    ResourceManager(rhi::Device& device, AssetRegistry* registry = nullptr);
+    ResourceManager(rhi::Device& device, AssetRegistry* registry = nullptr,
+                    GeometryCapacity geometry = {});
+    GeometryCapacity geometryCapacity() const { return geometryRegistry_->capacity(); }
     ~ResourceManager();
     ResourceManager(const ResourceManager&) = delete;
     ResourceManager& operator=(const ResourceManager&) = delete;

@@ -99,6 +99,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/scene/BehaviourRegistry.cpp
     ${SAIDA_ROOT}/src/nodes/CameraNode.cpp
     ${SAIDA_ROOT}/src/nodes/LightNode.cpp
+    ${SAIDA_ROOT}/src/behaviours/LODGroupBehaviour.cpp
     ${SAIDA_ROOT}/src/scene/MeshLod.cpp
     ${SAIDA_ROOT}/src/nodes/MeshNode.cpp
     ${SAIDA_ROOT}/src/scene/Node.cpp
@@ -109,6 +110,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/scene/ReflectedTypesWeb.cpp
     ${SAIDA_ROOT}/src/nodes/ParticleSystemNode.cpp
     ${SAIDA_ROOT}/src/scene/Scene.cpp
+    ${SAIDA_ROOT}/src/scene/SceneIndex.cpp
     ${SAIDA_ROOT}/src/scene/SceneSettingsReflection.cpp
     ${SAIDA_ROOT}/src/scene/SceneSettingsSerialization.cpp
     ${SAIDA_ROOT}/src/scene/Transform.cpp

@@ -23,9 +23,15 @@ public:
     virtual void syncToPhysics(PhysicsWorld& world);
     // Called between syncToPhysics and the solver step; characters move here.
     virtual void prePhysicsStep(PhysicsWorld& /*world*/, float /*dt*/) {}
+    // True for bodies whose `prePhysicsStep` does something, and whose pose is
+    // not a Jolt body the solver wakes and sleeps (a CharacterVirtual): the
+    // scene calls them every substep and syncs them every frame.
+    virtual bool hasPrePhysicsStep() const { return false; }
     // Called after the step: for dynamic bodies, write Jolt's result back into
     // the node's local transform.
     virtual void syncFromPhysics(PhysicsWorld& world);
+    // Apply a change of world frame without rebuilding the body or losing momentum.
+    virtual void rebasePhysics(const glm::vec3& translation, const glm::quat& rotation);
 
     // Resolve any Auto CollisionShape children once, using the body's current
     // (fresh) world transform. Called by the Scene every frame; cheap once frozen.
@@ -93,6 +99,9 @@ protected:
     JPH::BodyID bodyId_;
     PhysicsWorld* world_ = nullptr;
     bool dirty_ = false;
+    // The world transform last handed to Jolt for a static or kinematic body.
+    // An unmoved body is not pushed again: every push is a broadphase update.
+    glm::mat4 pushedWorld_{0.0f};
 
 private:
     void createBody(PhysicsWorld& world);

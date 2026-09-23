@@ -27,6 +27,7 @@
 #include "behaviours/AnimGraphBehaviour.hpp"
 #include "behaviours/CharacterBehaviour.hpp"
 #include "behaviours/VehicleBehaviour.hpp"
+#include "behaviours/LODGroupBehaviour.hpp"
 #include "nodes/LightNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
 #include "behaviours/RotatorBehaviour.hpp"
@@ -73,6 +74,7 @@ void registerReflectedTypes() {
     registerBehaviour<AnimGraphBehaviour>();
     registerBehaviour<CharacterBehaviour>();
     registerBehaviour<VehicleBehaviour>();
+    registerBehaviour<LODGroupBehaviour>();
     registerBehaviour<CameraFollowBehaviour>();
     registerBehaviour<AudioSourceBehaviour>();
     // Signals-only descriptor (animationEvent) — serialization stays manual.

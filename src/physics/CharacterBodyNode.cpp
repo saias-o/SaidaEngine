@@ -69,6 +69,16 @@ void CharacterBodyNode::syncFromPhysics(PhysicsWorld& /*world*/) {
     writeWorldPoseToLocal(glm::vec3(p.GetX(), p.GetY(), p.GetZ()), toGlm(character_->GetRotation()));
 }
 
+void CharacterBodyNode::rebasePhysics(const glm::vec3& translation, const glm::quat& rotation) {
+    velocity = rotation * velocity;
+    if (!character_) return;
+    const auto p = character_->GetPosition();
+    const glm::vec3 moved = rotation * glm::vec3(p.GetX(), p.GetY(), p.GetZ()) + translation;
+    character_->SetPosition(JPH::RVec3(moved.x, moved.y, moved.z));
+    character_->SetRotation(toJolt(rotation) * character_->GetRotation());
+    character_->SetLinearVelocity(toJolt(velocity));
+}
+
 bool CharacterBodyNode::isOnFloor() const {
     return character_ && character_->GetGroundState() == JPH::CharacterBase::EGroundState::OnGround;
 }

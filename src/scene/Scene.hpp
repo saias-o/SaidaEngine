@@ -1,6 +1,7 @@
 #pragma once
 
 #include "scene/Node.hpp"
+#include "scene/SceneIndex.hpp"
 #include "scene/SignalWiring.hpp"
 #include "core/ReflectionFwd.hpp"
 #include "project/AssetRegistry.hpp"
@@ -45,6 +46,25 @@ struct SceneSettings {
     AssetID skyboxTexture = kAssetInvalid;
     float skyboxExposure = 1.0f;
     float skyboxRotation = 0.0f;
+
+    // A second sky the first one fades into: the drawn sky is
+    // mix(skyboxTexture, skyboxBlendTexture, skyboxBlend), each image turned by
+    // its own rotation so two photographs whose Sun sits at different azimuths
+    // can both be aligned on one light. A day/night cycle walks through a set of
+    // skies by moving the pair and the blend. Only the sky pass reads it; IBL and
+    // the reflection environment keep sampling `skyboxTexture` alone.
+    AssetID skyboxBlendTexture = kAssetInvalid;
+    float skyboxBlend = 0.0f;
+    float skyboxBlendRotation = 0.0f;
+
+    // A Sun disc drawn over the sky, toward `skySunDirection` (world space,
+    // pointing at the Sun), `skySunSize` degrees in angular radius and of
+    // linear radiance `skySunColor`. Black draws nothing. It exists for skies
+    // whose photographs had their own Sun removed: two photographs crossfading
+    // would otherwise show two Suns, neither where the light comes from.
+    glm::vec3 skySunDirection{0.0f, 1.0f, 0.0f};
+    glm::vec3 skySunColor{0.0f};
+    float skySunSize = 0.265f;
 
     // Image-based lighting samples the same equirectangular environment as the
     // skybox. The shader is shared by desktop/XR/mobile; platforms may only vary
@@ -118,24 +138,37 @@ public:
     void serialize(nlohmann::json& j, ResourceManager& resources) const override;
     void deserialize(const nlohmann::json& j, ResourceManager& resources) override;
 
-    // Invokes updateTree on the root, recursively updating all behaviours.
+    // Updates active behaviours, transforms and fixed-step physics.
     void update(float dt);
 
     SceneSettings& settings() { return settings_; }
     const SceneSettings& settings() const { return settings_; }
 
-    // Re-flattens the caches (meshes/lights/...) if the tree has changed since
+    // Refreshes membership and resource ownership in changed branches since
     // the last update. Must be called after deferred mutations (queueFree,
     // changeScene): the same frame's rendering must never see pointers to
     // destroyed nodes.
     void refreshHierarchy();
+    void updateRenderLods(const glm::mat4& view, const glm::mat4& projection);
+    // old world point p becomes rotation*p + translation. Uniformly scaled
+    // parents only; body identities/velocities survive, joint anchors rebuild.
+    // Call between updates, and rebase any game-owned world-space state too.
+    void rebaseSubtree(Node& root, const glm::vec3& translation,
+                       const glm::quat& rotation = glm::quat(1.f, 0.f, 0.f, 0.f));
+    void rebaseOrigin(const glm::vec3& translation,
+                      const glm::quat& rotation = glm::quat(1.f, 0.f, 0.f, 0.f));
+    const ResourceManager::AssetUsage& resourceUsage() const { return index_.resources(); }
+    uint64_t resourceVersion() const { return index_.resourceVersion(); }
+    bool containsNode(const Node* node) const { return index_.contains(node); }
+    size_t indexedNodesLastRefresh() const { return index_.visitedNodes(); }
+    uint64_t indexedNodesTotal() const { return index_.totalVisitedNodes(); }
 
-    const std::vector<MeshNode*>& meshes() const { return meshes_; }
-    const std::vector<LightNode*>& lights() const { return lights_; }
-    UICanvasNode* uiCanvas() const { return uiCanvas_; }
-    const std::vector<WebCanvasNode*>& webCanvases() const { return webCanvases_; }
-    const std::vector<WaterNode*>& waterNodes() const { return waterNodes_; }
-    const std::vector<ParticleSystemNode*>& particleSystems() const { return particleSystems_; }
+    const std::vector<MeshNode*>& meshes() const { return index_.meshes.values(); }
+    const std::vector<LightNode*>& lights() const { return index_.lights.values(); }
+    UICanvasNode* uiCanvas() const { return index_.canvases.values().empty() ? nullptr : index_.canvases.values().front(); }
+    const std::vector<WebCanvasNode*>& webCanvases() const { return index_.webCanvases.values(); }
+    const std::vector<WaterNode*>& waterNodes() const { return index_.water.values(); }
+    const std::vector<ParticleSystemNode*>& particleSystems() const { return index_.particles.values(); }
 
     // The per-scene physics world (created lazily once a body exists; null until then).
     PhysicsWorld* physics() const {
@@ -168,27 +201,18 @@ public:
     void readConnections(const nlohmann::json& j);
 
 private:
-    void flattenHierarchy();
+    SceneIndex index_;
 
     SceneSettings settings_;
     std::vector<SignalConnectionDef> connectionDefs_;
     SignalWiring wiring_;
     AssetID prefabAssetId_ = kAssetInvalid;
-    uint32_t lastHierarchyVersion_ = 0;
-
-    std::vector<MeshNode*> meshes_;
-    std::vector<LightNode*> lights_;
-    UICanvasNode* uiCanvas_ = nullptr;
-    std::vector<WebCanvasNode*> webCanvases_;
-    std::vector<WaterNode*> waterNodes_;
-    std::vector<ParticleSystemNode*> particleSystems_;
-    std::vector<Behaviour*> flatBehaviours_;
-    std::vector<CollisionObjectNode*> bodies_;
-    std::vector<JointNode*> joints_;
-    uint32_t activeNodeCount_ = 0;
 
 #ifndef SAIDA_NO_PHYSICS
     std::unique_ptr<PhysicsWorld> physics_;
+    // Raw Jolt body ids awake during this frame's substeps (kept to avoid a
+    // per-frame allocation, and raw so this header stays free of Jolt).
+    std::vector<uint32_t> movedBodies_;
 #endif
     SceneTree* tree_ = nullptr;
 };

@@ -652,6 +652,22 @@ void InspectorPanel::draw(EditorUI* editor) {
         }
         pe.dragFloat("Exposure", G(&SceneSettings::skyboxExposure), S(&SceneSettings::skyboxExposure), 0.05f, 0.0f, 20.0f);
         pe.sliderAngle("Rotation", G(&SceneSettings::skyboxRotation), S(&SceneSettings::skyboxRotation));
+        std::string blendName = "Blend Skybox [" + getAssetName(s.skyboxBlendTexture, editor) + "]";
+        if (s.skyboxBlendTexture == kAssetInvalid) blendName = "Drop Blend Skybox Here";
+        ImGui::Button(blendName.c_str(), ImVec2(-FLT_MIN, 30));
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("ASSET_ID")) {
+                AssetID id = *(AssetID*)payload->Data;
+                pe.push<AssetID>("Blend Skybox", G(&SceneSettings::skyboxBlendTexture), S(&SceneSettings::skyboxBlendTexture), id);
+            }
+            ImGui::EndDragDropTarget();
+        }
+        pe.sliderFloat("Blend", G(&SceneSettings::skyboxBlend), S(&SceneSettings::skyboxBlend), 0.0f, 1.0f);
+        pe.sliderAngle("Blend Rotation", G(&SceneSettings::skyboxBlendRotation), S(&SceneSettings::skyboxBlendRotation));
+        pe.dragFloat3("Sun Direction", G(&SceneSettings::skySunDirection), S(&SceneSettings::skySunDirection), 0.01f);
+        // Radiance, not a colour: a Sun disc is far brighter than 1.
+        pe.dragFloat3("Sun Radiance", G(&SceneSettings::skySunColor), S(&SceneSettings::skySunColor), 0.5f, 0.0f, 100000.0f);
+        pe.sliderFloat("Sun Size", G(&SceneSettings::skySunSize), S(&SceneSettings::skySunSize), 0.0f, 10.0f);
 
         ImGui::SeparatorText("Image-Based Lighting");
         pe.checkbox("Enable IBL", G(&SceneSettings::iblEnabled), S(&SceneSettings::iblEnabled));
@@ -1132,7 +1148,8 @@ void InspectorPanel::drawLodGroup(MeshNode* meshNode, EditorUI* editor) {
         meshNode->setLods({base});
     }
 
-    auto& lods = meshNode->lods();
+    auto lods = meshNode->lods();
+    bool lodsChanged = false;
     ImGui::Text("Active LOD: %d", meshNode->activeLodIndex());
     ImGui::Text("Levels: %zu", lods.size());
 
@@ -1143,7 +1160,7 @@ void InspectorPanel::drawLodGroup(MeshNode* meshNode, EditorUI* editor) {
         lvl.material = meshNode->material();
         lvl.minScreenCoverage = lods.empty() ? 0.0f : lods.back().minScreenCoverage * 0.5f;
         lods.push_back(lvl);
-        editor->markDirty();
+        lodsChanged = true;
     }
     ImGui::SameLine();
     if (ImGui::Button("Normalize Thresholds", ImVec2(170, 0))) {
@@ -1151,7 +1168,7 @@ void InspectorPanel::drawLodGroup(MeshNode* meshNode, EditorUI* editor) {
         const std::vector<float> thresholds = coverageThresholdsFromMsft({}, count);
         for (size_t i = 0; i < count; ++i)
             lods[i].minScreenCoverage = thresholds[i];
-        editor->markDirty();
+        lodsChanged = true;
     }
 
     if (ImGui::BeginTable("LodGroupTable", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
@@ -1188,7 +1205,7 @@ void InspectorPanel::drawLodGroup(MeshNode* meshNode, EditorUI* editor) {
                     if (Mesh* newMesh = editor->ctxResources_->getMesh(id)) {
                         if (i == 0) meshNode->setMesh(newMesh);
                         lvl.mesh = newMesh;
-                        editor->markDirty();
+                        lodsChanged = true;
                     }
                 }
                 ImGui::EndDragDropTarget();
@@ -1207,7 +1224,7 @@ void InspectorPanel::drawLodGroup(MeshNode* meshNode, EditorUI* editor) {
                     if (Material* mat = editor->ctxResources_->getMaterial(desc)) {
                         if (i == 0) meshNode->setMaterial(mat);
                         lvl.material = mat;
-                        editor->markDirty();
+                        lodsChanged = true;
                     }
                 }
                 ImGui::EndDragDropTarget();
@@ -1222,7 +1239,7 @@ void InspectorPanel::drawLodGroup(MeshNode* meshNode, EditorUI* editor) {
             ImGui::TableSetColumnIndex(4);
             ImGui::SetNextItemWidth(-FLT_MIN);
             if (ImGui::DragFloat("##coverage", &lvl.minScreenCoverage, 0.01f, 0.0f, 1.0f, "%.3f"))
-                editor->markDirty();
+                lodsChanged = true;
 
             ImGui::TableSetColumnIndex(5);
             if (i > 0 && ImGui::Button("X"))
@@ -1233,10 +1250,14 @@ void InspectorPanel::drawLodGroup(MeshNode* meshNode, EditorUI* editor) {
 
         if (removeIndex > 0) {
             lods.erase(lods.begin() + removeIndex);
-            editor->markDirty();
+            lodsChanged = true;
         }
 
         ImGui::EndTable();
+    }
+    if (lodsChanged) {
+        meshNode->setLods(std::move(lods));
+        editor->markDirty();
     }
 }
 

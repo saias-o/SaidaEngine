@@ -9,6 +9,7 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include <memory>
+#include <functional>
 #include <vector>
 
 namespace JPH {
@@ -85,7 +86,12 @@ public:
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
 
     // Advance the simulation by `dt`, sub-stepped at a fixed 1/60 s.
-    void step(float dt);
+    void step(float dt, const std::function<void(float)>& beforeStep = {},
+              const std::function<void(float)>& afterStep = {});
+    // Append the raw ids of the rigid bodies awake right now: the only ones
+    // whose pose can have changed since the last step. Sleeping and static
+    // bodies are not listed, so syncing a scene back costs what moved.
+    void appendActiveBodies(std::vector<uint32_t>& out) const;
 
     // Create a body from an already-built (ref-counted) shape. Returns an
     // invalid id on failure.

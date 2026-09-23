@@ -45,7 +45,7 @@ public:
     // Bind pose fallback used during evaluation (defaults to identity transforms).
     void setBindPose(LocalPose bindPose) { bindPose_ = std::move(bindPose); }
 
-    void addClip(const std::string& name, const AnimationClip* clip) { clips_[name] = clip; }
+    void addClip(const std::string& name, const AnimationClip* clip);
     const std::unordered_map<std::string, const AnimationClip*>& clips() const { return clips_; }
 
     // Name-based (see RetargetMap). Affects clips started via play() afterwards.

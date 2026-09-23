@@ -43,7 +43,7 @@ int toByte(float channel) {
 // count how many were written, so an empty HUD can skip its draw.
 void appendTextElements(Node& parent, std::ostringstream& out, int& textCount) {
     for (const auto& child : parent.children()) {
-        if (!child->isActiveInHierarchy()) continue;
+        if (!child->isActiveInHierarchy() || !child->isVisibleInHierarchy()) continue;
         if (auto* text = dynamic_cast<UITextNode*>(child.get())) {
             float x = 0.0f, y = 0.0f, width = 0.0f, height = 0.0f;
             text->getGlobalRect(x, y, width, height);

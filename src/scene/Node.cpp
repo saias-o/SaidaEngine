@@ -19,7 +19,27 @@ namespace saida {
 uint32_t Node::g_hierarchyVersion = 1;
 uint32_t Node::g_transformVersion = 1;
 
-Node::Node(std::string name) : id_(generateNodeId()), name_(std::move(name)) {}
+Node::Node(std::string name) : id_(generateNodeId()), name_(std::move(name)) {
+    markResourcesChanged();
+}
+
+void Node::markChanged() {
+    static uint64_t revision = 0;
+    localRevision_ = ++revision;
+    for (Node* n = this; n; n = n->parent_) n->subtreeRevision_ = revision;
+    ++g_hierarchyVersion; // legacy public counter; internal caches use subtree revisions
+}
+
+void Node::markResourcesChanged() {
+    markChanged();
+    resourceRevision_ = localRevision_;
+}
+
+void Node::clearChildren() {
+    if (children_.empty()) return;
+    children_.clear();
+    markChanged();
+}
 
 Node::~Node() {
     // Notify behaviours that ran, then cancel this node's timers — while the node
@@ -40,7 +60,7 @@ Node* Node::addChild(std::unique_ptr<Node> child) {
     child->parent_ = this;
     Node* ptr = child.get();
     children_.push_back(std::move(child));
-    g_hierarchyVersion++;
+    markChanged();
     return ptr;
 }
 
@@ -52,7 +72,7 @@ Node* Node::addChildAt(std::unique_ptr<Node> child, size_t index) {
     } else {
         children_.insert(children_.begin() + index, std::move(child));
     }
-    g_hierarchyVersion++;
+    markChanged();
     return ptr;
 }
 
@@ -60,7 +80,7 @@ Behaviour* Node::addBehaviour(std::unique_ptr<Behaviour> behaviour) {
     behaviour->node_ = this;
     Behaviour* ptr = behaviour.get();
     behaviours_.push_back(std::move(behaviour));
-    g_hierarchyVersion++;
+    markResourcesChanged();
     return ptr;
 }
 
@@ -72,7 +92,7 @@ Behaviour* Node::addBehaviourAt(std::unique_ptr<Behaviour> behaviour, size_t ind
     } else {
         behaviours_.insert(behaviours_.begin() + index, std::move(behaviour));
     }
-    g_hierarchyVersion++;
+    markResourcesChanged();
     return ptr;
 }
 
@@ -83,7 +103,7 @@ void Node::removeBehaviour(Behaviour* b) {
             if (b->ready_) b->onDestroy();
             b->cancelTimers();
             behaviours_.erase(it);
-            g_hierarchyVersion++;
+            markResourcesChanged();
             return;
         }
     }
@@ -94,7 +114,7 @@ bool Node::removeChild(Node* child) {
     for (auto it = children_.begin(); it != children_.end(); ++it) {
         if (it->get() == child) {
             children_.erase(it);
-            g_hierarchyVersion++;
+            markChanged();
             return true;
         }
     }
@@ -108,7 +128,7 @@ std::unique_ptr<Node> Node::detachChild(Node* child) {
             std::unique_ptr<Node> detached = std::move(*it);
             children_.erase(it);
             detached->parent_ = nullptr;
-            g_hierarchyVersion++;
+            markChanged();
             return detached;
         }
     }
@@ -118,7 +138,7 @@ std::unique_ptr<Node> Node::detachChild(Node* child) {
 void Node::setEnabled(bool enabled) {
     if (enabled_ != enabled) {
         enabled_ = enabled;
-        g_hierarchyVersion++;
+        markChanged();
     }
 }
 
@@ -126,6 +146,16 @@ bool Node::isActiveInHierarchy() const {
     if (!enabled_) return false;
     if (parent_) return parent_->isActiveInHierarchy();
     return true;
+}
+
+void Node::setVisible(bool visible) {
+    if (visible_ == visible) return;
+    visible_ = visible;
+    markChanged();
+}
+
+bool Node::isVisibleInHierarchy() const {
+    return visible_ && (!parent_ || parent_->isVisibleInHierarchy());
 }
 
 SceneTree* Node::tree() const {
@@ -172,6 +202,9 @@ void Node::updateTransforms(const glm::mat4& parentWorld, bool parentDirty) {
         worldTransform_ = parentWorld * currentLocal;
         lastLocalMatrix_ = currentLocal;
         ++g_transformVersion;
+        static uint64_t revision = 0;
+        ++revision;
+        for (Node* n = this; n; n = n->parent_) n->subtreeTransformRevision_ = revision;
     }
     
     for (auto& child : children_) {

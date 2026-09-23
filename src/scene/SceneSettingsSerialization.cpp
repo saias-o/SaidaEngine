@@ -58,6 +58,12 @@ void writeSceneSettings(const SceneSettings& s, json& out) {
         {"skyboxTexture", s.skyboxTexture},
         {"skyboxExposure", s.skyboxExposure},
         {"skyboxRotation", s.skyboxRotation},
+        {"skyboxBlendTexture", s.skyboxBlendTexture},
+        {"skyboxBlend", s.skyboxBlend},
+        {"skyboxBlendRotation", s.skyboxBlendRotation},
+        {"skySunDirection", vec3ToJson(s.skySunDirection)},
+        {"skySunColor", vec3ToJson(s.skySunColor)},
+        {"skySunSize", s.skySunSize},
         {"iblEnabled", s.iblEnabled},
         {"iblDiffuseIntensity", s.iblDiffuseIntensity},
         {"iblSpecularIntensity", s.iblSpecularIntensity},
@@ -102,6 +108,15 @@ void applySceneSettings(const json& j, SceneSettings& out, const AssetPathResolv
         out.skyboxTexture = readAssetRef(*it, AssetType::Texture, resolve, out.skyboxTexture);
     readInto(j, "skyboxExposure", out.skyboxExposure);
     readInto(j, "skyboxRotation", out.skyboxRotation);
+    if (auto it = j.find("skyboxBlendTexture"); it != j.end())
+        out.skyboxBlendTexture = readAssetRef(*it, AssetType::Texture, resolve, out.skyboxBlendTexture);
+    readInto(j, "skyboxBlend", out.skyboxBlend);
+    readInto(j, "skyboxBlendRotation", out.skyboxBlendRotation);
+    if (auto it = j.find("skySunDirection"); it != j.end())
+        out.skySunDirection = jsonToVec3(*it, out.skySunDirection);
+    if (auto it = j.find("skySunColor"); it != j.end())
+        out.skySunColor = jsonToVec3(*it, out.skySunColor);
+    readInto(j, "skySunSize", out.skySunSize);
 
     readInto(j, "iblEnabled", out.iblEnabled);
     readInto(j, "iblDiffuseIntensity", out.iblDiffuseIntensity);

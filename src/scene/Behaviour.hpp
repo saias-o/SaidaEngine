@@ -27,6 +27,14 @@ public:
     virtual ~Behaviour();
     virtual void onReady() {}
     virtual void onUpdate(float /*dt*/) {}
+    // Called immediately before each fixed physics step, after body sync.
+    // Only behaviours answering true to `hasPhysicsStep` are called: the scene
+    // keeps them in a list of their own, so a substep does not walk every
+    // behaviour of the world. Read the body's state from `PhysicsWorld` here,
+    // never a node transform: node transforms are brought up to date once per
+    // frame, after the last substep, not after each one.
+    virtual void onPhysicsStep(float /*dt*/) {}
+    virtual bool hasPhysicsStep() const { return false; }
 
     // Lifecycle hooks. onDestroy fires when the node is being destroyed (while it
     // is still valid). onEnable/onDisable fire when enabled flips after onReady.

@@ -102,27 +102,6 @@ float VehicleBehaviour::speed() const { return std::abs(forwardSpeed_); }
 
 void VehicleBehaviour::onUpdate(float frameDt) {
     if (frameDt <= 0.0f || !node()) return;
-
-    // Every force below becomes an impulse by multiplying by dt, so an unbounded
-    // frame would apply an unbounded impulse — and the world would not advance
-    // far enough to spend it, because PhysicsWorld caps how much it simulates per
-    // call. Measured: a 0.63 s frame while the city finished streaming turned a
-    // parked car's suspension into 89 kN.s and threw it 28 m into the air. Coast
-    // through a hitch instead of being catapulted by it.
-    const float dt = std::min(frameDt, PhysicsWorld::kMaxSimulatedStep);
-
-    // The body's own world, not the SceneTree's: they are the same world in a
-    // running game, and this one is also there when a Scene is stepped alone.
-    auto* collider = dynamic_cast<CollisionObjectNode*>(node());
-    if (!collider) return;
-    PhysicsWorld* physics = collider->physicsWorld();
-    const JPH::BodyID body = collider->bodyId();
-    if (!physics || body.IsInvalid()) return;
-
-    float mass = kFallbackMass;
-    if (auto* rb = dynamic_cast<RigidBodyNode*>(node()))
-        if (rb->mass > 0.0f) mass = rb->mass;
-
     if (readsInput) {
         const glm::vec2 drive = readDriveInput();
         steerInput_ = std::clamp(drive.x, -1.0f, 1.0f);
@@ -138,9 +117,39 @@ void VehicleBehaviour::onUpdate(float frameDt) {
         }
         handbrake_ = readHandbrake();
     }
+}
+
+void VehicleBehaviour::onPhysicsStep(float dt) {
+    if (dt <= 0.0f || !node()) return;
+    // The body's own world, not the SceneTree's: they are the same world in a
+    // running game, and this one is also there when a Scene is stepped alone.
+    auto* collider = dynamic_cast<CollisionObjectNode*>(node());
+    if (!collider) return;
+    PhysicsWorld* physics = collider->physicsWorld();
+    const JPH::BodyID body = collider->bodyId();
+    if (!physics || body.IsInvalid()) return;
+
+    float mass = kFallbackMass;
+    if (auto* rb = dynamic_cast<RigidBodyNode*>(node()))
+        if (rb->mass > 0.0f) mass = rb->mass;
+
+
 
     // ---- frame of reference ------------------------------------------------
-    const glm::mat4 m = node()->worldTransform();
+    // The body's pose in Jolt, not the node's: node transforms are synced once
+    // per frame, after the last substep, so on the second substep of a frame
+    // the node still stands where the first one started. The node supplies
+    // only its scale, which physics never changes.
+    glm::vec3 bodyPosition(0.0f);
+    glm::quat bodyRotation(1.0f, 0.0f, 0.0f, 0.0f);
+    physics->getBodyTransform(body, bodyPosition, bodyRotation);
+    const glm::mat4& nodeWorld = node()->worldTransform();
+    const glm::vec3 nodeScale(glm::length(glm::vec3(nodeWorld[0])),
+                              glm::length(glm::vec3(nodeWorld[1])),
+                              glm::length(glm::vec3(nodeWorld[2])));
+    const glm::mat4 m = glm::translate(glm::mat4(1.0f), bodyPosition) *
+                        glm::mat4_cast(bodyRotation) *
+                        glm::scale(glm::mat4(1.0f), nodeScale);
     const glm::vec3 up = glm::normalize(glm::vec3(m[1]));
     const glm::vec3 forward = glm::normalize(glm::vec3(m[2]));
 

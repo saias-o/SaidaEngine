@@ -55,6 +55,17 @@ int selectLodIndex(float screenCoverage, const std::vector<MeshLodLevel>& lods) 
     return static_cast<int>(lods.size()) - 1;
 }
 
+int selectLodIndex(float coverage, const std::vector<MeshLodLevel>& lods,
+                   int current, float hysteresis) {
+    const int picked = selectLodIndex(coverage, lods);
+    if (current < 0 || current >= int(lods.size()) || picked == current) return picked;
+    if (picked > current && coverage > lods[size_t(current)].minScreenCoverage * (1.f - hysteresis))
+        return current;
+    if (picked < current && coverage < lods[size_t(picked)].minScreenCoverage * (1.f + hysteresis))
+        return current;
+    return picked;
+}
+
 std::vector<float> coverageThresholdsFromMsft(const std::vector<float>& msftCoverage, size_t lodCount) {
     std::vector<float> thresholds(lodCount, 0.0f);
     for (size_t i = 0; i < lodCount; ++i) {

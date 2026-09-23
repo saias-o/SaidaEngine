@@ -61,6 +61,12 @@ saida::SceneSettings distinctive() {
     s.skyboxTexture = 4242;
     s.skyboxExposure = 1.75f;
     s.skyboxRotation = 42.0f;
+    s.skyboxBlendTexture = 4343;
+    s.skyboxBlend = 0.625f;
+    s.skyboxBlendRotation = 1.5f;
+    s.skySunDirection = {0.6f, 0.48f, -0.64f};
+    s.skySunColor = {800.0f, 700.0f, 500.0f};
+    s.skySunSize = 0.5f;
     s.iblEnabled = false;
     s.iblDiffuseIntensity = 0.9f;
     s.iblSpecularIntensity = 0.2f;
@@ -95,6 +101,14 @@ void expectEqual(const saida::SceneSettings& a, const saida::SceneSettings& b) {
     assert(a.skyboxTexture == b.skyboxTexture);
     assert(near(a.skyboxExposure, b.skyboxExposure));
     assert(near(a.skyboxRotation, b.skyboxRotation));
+    assert(a.skyboxBlendTexture == b.skyboxBlendTexture);
+    assert(near(a.skyboxBlend, b.skyboxBlend));
+    assert(near(a.skyboxBlendRotation, b.skyboxBlendRotation));
+    for (int i = 0; i < 3; ++i) {
+        assert(near(a.skySunDirection[i], b.skySunDirection[i]));
+        assert(near(a.skySunColor[i], b.skySunColor[i]));
+    }
+    assert(near(a.skySunSize, b.skySunSize));
     assert(a.iblEnabled == b.iblEnabled);
     assert(near(a.iblDiffuseIntensity, b.iblDiffuseIntensity));
     assert(near(a.iblSpecularIntensity, b.iblSpecularIntensity));
@@ -143,6 +157,23 @@ void testSkyboxByPathResolvesThroughTheProject() {
     assert(resolver.calls == 1);
     assert(resolver.lastPath == "assets/skies/sky.hdr");
     assert(resolver.lastType == saida::AssetType::Texture);
+}
+
+// The sky a day/night cycle fades into is named by path like the first one,
+// and resolved through the same project.
+void testBlendSkyboxByPathResolvesThroughTheProject() {
+    RecordingResolver resolver;
+    saida::SceneSettings settings;
+    saida::applySceneSettings(json{{"skyboxBlendTexture", "assets/skies/night.hdr"},
+                                   {"skyboxBlend", 0.25}},
+                              settings, resolver.fn());
+
+    assert(settings.skyboxBlendTexture == kResolvedSky);
+    assert(near(settings.skyboxBlend, 0.25f));
+    assert(resolver.lastPath == "assets/skies/night.hdr");
+    assert(resolver.lastType == saida::AssetType::Texture);
+    // The first sky is untouched: a document naming only the second patches it.
+    assert(settings.skyboxTexture == saida::kAssetInvalid);
 }
 
 void testSkyboxByIdIsKeptVerbatim() {
@@ -215,9 +246,10 @@ const char* serializedKeyFor(const std::string& reflected) {
     return nullptr;  // same name on both sides
 }
 
-// The one field a scene carries that reflection deliberately does not describe:
-// an AssetID whose durable form is a path, which reflection has no setter for.
-const std::set<std::string> kSerializedOnly = {"skyboxTexture"};
+// The fields a scene carries that reflection deliberately does not describe:
+// AssetIDs whose durable form is a path, which reflection has no setter for.
+// Scripts reach both through `scene.setSkybox`, which takes paths.
+const std::set<std::string> kSerializedOnly = {"skyboxTexture", "skyboxBlendTexture"};
 
 // A legal value that is not the current one, so a round-trip that drops the
 // field fails instead of being accidentally right.
@@ -361,6 +393,7 @@ void testInternalStateIsNotReflected() {
 int main() {
     testRoundTripKeepsEveryField();
     testSkyboxByPathResolvesThroughTheProject();
+    testBlendSkyboxByPathResolvesThroughTheProject();
     testSkyboxByIdIsKeptVerbatim();
     testEmptySkyboxPathClearsTheReference();
     testAbsentFieldsAreLeftUntouched();

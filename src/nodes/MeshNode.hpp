@@ -28,12 +28,11 @@ public:
     Mesh* mesh() const override { return mesh_; }
     Material* material() const override { return material_; }
 
-    void setMesh(Mesh* mesh) { mesh_ = mesh; }
-    void setMaterial(Material* material) { material_ = material; }
+    void setMesh(Mesh* mesh) { if (mesh_ != mesh) { mesh_ = mesh; markResourcesChanged(); } }
+    void setMaterial(Material* material) { if (material_ != material) { material_ = material; markResourcesChanged(); } }
 
     // LOD chain (LOD0 = base mesh/material). Empty → single-LOD behaviour.
     const std::vector<MeshLodLevel>& lods() const { return lods_; }
-    std::vector<MeshLodLevel>& lods() { return lods_; }
     void setLods(std::vector<MeshLodLevel> levels);
     bool hasLods() const { return lods_.size() > 1; }
 
@@ -59,7 +58,7 @@ public:
     void setMeshEnabled(bool enabled) {
         if (meshEnabled_ != enabled) {
             meshEnabled_ = enabled;
-            g_hierarchyVersion++;
+            markChanged();
         }
     }
 

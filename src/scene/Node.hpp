@@ -62,7 +62,7 @@ public:
 
     void removeBehaviour(Behaviour* b);
 
-    void clearChildren() { children_.clear(); }
+    void clearChildren();
 
     void updateTree(float dt);
 
@@ -90,6 +90,20 @@ public:
     bool enabled() const { return enabled_; }
     void setEnabled(bool enabled);
     bool isActiveInHierarchy() const;
+
+    // Runtime visibility affects rendering, not simulation or resource ownership.
+    bool visible() const { return visible_; }
+    void setVisible(bool visible);
+    bool isVisibleInHierarchy() const;
+
+    // Invalidate only this node and its ancestor path. Resource setters use the
+    // second entry point; neither operation inspects descendants.
+    void markChanged();
+    void markResourcesChanged();
+    uint64_t subtreeRevision() const { return subtreeRevision_; }
+    uint64_t localRevision() const { return localRevision_; }
+    uint64_t resourceRevision() const { return resourceRevision_; }
+    uint64_t subtreeTransformRevision() const { return subtreeTransformRevision_; }
 
     Node* parent() const { return parent_; }
     const std::vector<std::unique_ptr<Node>>& children() const { return children_; }
@@ -179,6 +193,7 @@ protected:
     std::string name_;
     std::string importedFromPath_;
     bool enabled_ = true;
+    bool visible_ = true;
     Transform transform_;
     Node* parent_ = nullptr;
     std::vector<std::unique_ptr<Node>> children_;
@@ -187,6 +202,12 @@ protected:
 
     glm::mat4 worldTransform_{1.0f};
     glm::mat4 lastLocalMatrix_{0.0f};
+
+private:
+    uint64_t subtreeRevision_ = 0;
+    uint64_t localRevision_ = 0;
+    uint64_t resourceRevision_ = 0;
+    uint64_t subtreeTransformRevision_ = 0;
 
 public:
     static uint32_t g_hierarchyVersion;

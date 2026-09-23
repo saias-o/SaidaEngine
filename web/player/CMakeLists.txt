@@ -103,6 +103,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/scene/GLTFLoader.cpp
     ${SAIDA_ROOT}/src/scene/GltfMeshopt.cpp
     ${SAIDA_ROOT}/src/nodes/LightNode.cpp
+    ${SAIDA_ROOT}/src/behaviours/LODGroupBehaviour.cpp
     ${SAIDA_ROOT}/src/scene/MeshLod.cpp
     ${SAIDA_ROOT}/src/nodes/MeshNode.cpp
     ${SAIDA_ROOT}/src/scene/Node.cpp
@@ -112,6 +113,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/scene/ReflectedTypesPlayer.cpp
     ${SAIDA_ROOT}/src/behaviours/RotatorBehaviour.cpp
     ${SAIDA_ROOT}/src/scene/Scene.cpp
+    ${SAIDA_ROOT}/src/scene/SceneIndex.cpp
     ${SAIDA_ROOT}/src/scene/SceneMeasure.cpp
     ${SAIDA_ROOT}/src/scene/SceneSettingsReflection.cpp
     ${SAIDA_ROOT}/src/scene/SceneSettingsSerialization.cpp

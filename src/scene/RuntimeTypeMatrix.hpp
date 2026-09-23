@@ -82,7 +82,7 @@ inline constexpr std::array<RuntimeTypeRow, 50> kRuntimeTypeMatrix{{
     {"CameraFollow", RuntimeTypeCategory::Behaviour, {R, R, A, R}},
     {"Character", RuntimeTypeCategory::Behaviour, {R, R, A, R}},
     {"Health", RuntimeTypeCategory::Behaviour, {R, R, A, A}},
-    {"LOD Group", RuntimeTypeCategory::Behaviour, {R, R, A, A}},
+    {"LOD Group", RuntimeTypeCategory::Behaviour, {R, R, R, R}},
     {"Rotator", RuntimeTypeCategory::Behaviour, {R, R, A, R}},
     {"ScenarioAnchor", RuntimeTypeCategory::Behaviour, {R, R, A, A}},
     {"ScenarioDirector", RuntimeTypeCategory::Behaviour, {R, R, A, A}},

@@ -23,6 +23,10 @@ float computeScreenCoverage(const glm::mat4& world, const Aabb& localBounds,
 // Pick the finest LOD whose minScreenCoverage threshold is met.
 int selectLodIndex(float screenCoverage, const std::vector<MeshLodLevel>& lods);
 
+// Same selection with hysteresis around the active level.
+int selectLodIndex(float screenCoverage, const std::vector<MeshLodLevel>& lods,
+                   int current, float hysteresis);
+
 // Convert MSFT_screencoverage array [1.0, t1, t2, ...] to per-level min thresholds.
 std::vector<float> coverageThresholdsFromMsft(const std::vector<float>& msftCoverage, size_t lodCount);
 

@@ -31,7 +31,7 @@ void logAnimationAssetDiagnostics(const char* type, const std::string& path,
 }
 } // namespace
 
-ResourceManager::ResourceManager(rhi::Device& device, AssetRegistry* registry)
+ResourceManager::ResourceManager(rhi::Device& device, AssetRegistry* registry, GeometryCapacity geometry)
     : device_(device), registry_(registry),
       bindlessTables_(device, kMaxBindlessTextures, kMaxBindlessMaterials),
       rigAssetCache_(AssetType::Rig, AssetPayloadKind::RigAsset, makeRigAssetDecoder,
@@ -59,7 +59,7 @@ ResourceManager::ResourceManager(rhi::Device& device, AssetRegistry* registry)
                           return std::make_unique<AnimGraphAsset>(std::move(payload->graph));
                       }) {
     assetLoader_ = std::make_unique<AssetLoader>(registry_);
-    geometryRegistry_ = std::make_unique<GeometryRegistry>(device_);
+    geometryRegistry_ = std::make_unique<GeometryRegistry>(device_, geometry.vertices, geometry.indices);
     meshCache_ = std::make_unique<MeshCache>(*geometryRegistry_);
 #ifdef SAIDA_RHI_WEBGPU
     materialSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,

@@ -172,6 +172,20 @@
       "iblSpecularIntensity": 1.0,
       "lightingMode": 0,
       "postProcessing": true,
+      "skySunColor": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "skySunDirection": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "skySunSize": 0.26499998569488525,
+      "skyboxBlend": 0.0,
+      "skyboxBlendRotation": 0.0,
+      "skyboxBlendTexture": 0,
       "skyboxExposure": 1.0,
       "skyboxRotation": 0.0,
       "skyboxTexture": 0

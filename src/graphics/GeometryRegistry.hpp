@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "rhi/Rhi.hpp"
+#include "graphics/GeometryCapacity.hpp"
 
 namespace saida {
 
@@ -35,8 +36,8 @@ struct GeometryAllocation {
 class GeometryRegistry {
 public:
     using DeviceSize = uint64_t;
-    static constexpr DeviceSize kDefaultMaxVertices = 1 * 1024 * 1024;
-    static constexpr DeviceSize kDefaultMaxIndices = 3 * 1024 * 1024;
+    static constexpr DeviceSize kDefaultMaxVertices = GeometryCapacity{}.vertices;
+    static constexpr DeviceSize kDefaultMaxIndices = GeometryCapacity{}.indices;
 
     // Default to ~64MB vertices (1M vertices) and ~12MB indices (3M indices).
     GeometryRegistry(rhi::Device& device,
@@ -55,9 +56,11 @@ public:
 
     Buffer* vertexBuffer() const { return vertexBuffer_.get(); }
     Buffer* indexBuffer() const { return indexBuffer_.get(); }
+    GeometryCapacity capacity() const { return capacity_; }
 
 private:
     rhi::Device& device_;
+    GeometryCapacity capacity_;
     std::unique_ptr<Buffer> vertexBuffer_;
     std::unique_ptr<Buffer> indexBuffer_;
 #ifndef SAIDA_RHI_WEBGPU

@@ -279,6 +279,12 @@ json sceneSettingsToJson(const Scene& scene) {
         {"skyboxTexture", s.skyboxTexture},
         {"skyboxExposure", s.skyboxExposure},
         {"skyboxRotation", s.skyboxRotation},
+        {"skyboxBlendTexture", s.skyboxBlendTexture},
+        {"skyboxBlend", s.skyboxBlend},
+        {"skyboxBlendRotation", s.skyboxBlendRotation},
+        {"skySunDirection", vec3ToJson(s.skySunDirection)},
+        {"skySunColor", vec3ToJson(s.skySunColor)},
+        {"skySunSize", s.skySunSize},
         {"iblEnabled", s.iblEnabled},
         {"iblDiffuseIntensity", s.iblDiffuseIntensity},
         {"iblSpecularIntensity", s.iblSpecularIntensity},
@@ -525,6 +531,12 @@ void loadSceneSettings(Scene& scene, const json& s) {
     out.skyboxTexture = s.value("skyboxTexture", kAssetInvalid);
     out.skyboxExposure = s.value("skyboxExposure", 1.0f);
     out.skyboxRotation = s.value("skyboxRotation", 0.0f);
+    out.skyboxBlendTexture = s.value("skyboxBlendTexture", kAssetInvalid);
+    out.skyboxBlend = s.value("skyboxBlend", 0.0f);
+    out.skyboxBlendRotation = s.value("skyboxBlendRotation", 0.0f);
+    out.skySunDirection = jsonToVec3(s.value("skySunDirection", json()), glm::vec3(0.0f, 1.0f, 0.0f));
+    out.skySunColor = jsonToVec3(s.value("skySunColor", json()), glm::vec3(0.0f));
+    out.skySunSize = s.value("skySunSize", 0.265f);
     out.iblEnabled = s.value("iblEnabled", true);
     out.iblDiffuseIntensity = s.value("iblDiffuseIntensity", 0.35f);
     out.iblSpecularIntensity = s.value("iblSpecularIntensity", 1.0f);

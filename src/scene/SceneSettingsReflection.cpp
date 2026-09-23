@@ -76,6 +76,22 @@ void SceneSettings::describe(reflect::TypeBuilder<SceneSettings>& t) {
         .group("Sky").range(0.0, 8.0);
     t.property("skyboxRotation", &SceneSettings::skyboxRotation)
         .group("Sky").range(0.0, 360.0);
+    // `skyboxBlendTexture` is absent for the same reason as `skyboxTexture`;
+    // scripts swap either sky with `scene.setSkybox`, which takes paths.
+    t.property("skyboxBlend", &SceneSettings::skyboxBlend)
+        .group("Sky").range(0.0, 1.0)
+        .tooltip("0 draws the skybox, 1 the blend skybox, between them a crossfade");
+    t.property("skyboxBlendRotation", &SceneSettings::skyboxBlendRotation)
+        .group("Sky").range(0.0, 360.0);
+    t.property("skySunDirection", &SceneSettings::skySunDirection)
+        .group("Sky")
+        .tooltip("world-space direction toward the Sun disc");
+    t.property("skySunColor", &SceneSettings::skySunColor)
+        .group("Sky")
+        .tooltip("linear radiance of the Sun disc; black draws none");
+    t.property("skySunSize", &SceneSettings::skySunSize)
+        .group("Sky").range(0.0, 10.0)
+        .tooltip("angular radius of the Sun disc, in degrees");
     t.property("iblEnabled", &SceneSettings::iblEnabled).group("Sky");
     t.property("iblDiffuseIntensity", &SceneSettings::iblDiffuseIntensity)
         .group("Sky").range(0.0, 4.0);

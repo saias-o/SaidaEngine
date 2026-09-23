@@ -199,12 +199,27 @@ std::vector<PhysicsWorld::ContactEvent> PhysicsWorld::drainContactEvents() {
     return contactListener_->drain();
 }
 
+// Every body access below goes through Jolt's lock-free interfaces. That is
+// sound because of when they happen: the engine only touches bodies from the
+// main thread, between `PhysicsSystem::Update` calls (the substep callbacks
+// included), while no job is running. Jolt's worker threads only run inside
+// `Update`, and the contact listener they call records events under its own
+// mutex without touching bodies through this class. A locking interface would
+// take a body mutex per call for nothing — and a vehicle makes dozens a step.
 void* PhysicsWorld::bodyUserData(JPH::BodyID id) const {
     if (id.IsInvalid()) return nullptr;
-    return reinterpret_cast<void*>(system_->GetBodyInterface().GetUserData(id));
+    return reinterpret_cast<void*>(system_->GetBodyInterfaceNoLock().GetUserData(id));
 }
 
-void PhysicsWorld::step(float dt) {
+void PhysicsWorld::appendActiveBodies(std::vector<uint32_t>& out) const {
+    const uint32_t count = system_->GetNumActiveBodies(EBodyType::RigidBody);
+    const BodyID* ids = system_->GetActiveBodiesUnsafe(EBodyType::RigidBody);
+    out.reserve(out.size() + count);
+    for (uint32_t i = 0; i < count; ++i) out.push_back(ids[i].GetIndexAndSequenceNumber());
+}
+
+void PhysicsWorld::step(float dt, const std::function<void(float)>& beforeStep,
+                        const std::function<void(float)>& afterStep) {
     SAIDA_PROFILE_FUNCTION();
     if (dt <= 0.0f) return;
 
@@ -213,10 +228,15 @@ void PhysicsWorld::step(float dt) {
     if (accumulator_ > 0.25f) accumulator_ = 0.25f;  // avoid spiral of death after a hitch
 
     int steps = 0;
-    while (accumulator_ >= fixed && steps < kMaxSubSteps) {
+    // Float frame deltas can sum to a fraction below an exact step boundary.
+    // Keep that rounding error from delaying a step (e.g. 0.5 + 2.5 steps).
+    const float rounding = fixed * 1e-6f;
+    while (accumulator_ + rounding >= fixed && steps < kMaxSubSteps) {
         SAIDA_PROFILE_SCOPE("Physics/JoltUpdate");
+        if (beforeStep) beforeStep(fixed);
         system_->Update(fixed, 1, tempAllocator_.get(), jobSystem_.get());
-        accumulator_ -= fixed;
+        if (afterStep) afterStep(fixed);
+        accumulator_ = std::max(0.f, accumulator_ - fixed);
         ++steps;
     }
     SAIDA_PROFILE_COUNTER("Physics/FixedSteps", steps);
@@ -260,7 +280,7 @@ JPH::BodyID PhysicsWorld::createBody(const BodyDesc& d) {
         }
     }
 
-    BodyInterface& bi = system_->GetBodyInterface();
+    BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     Body* body = bi.CreateBody(settings);
     if (!body) {
         Log::warn("PhysicsWorld: body limit reached, cannot create body");
@@ -288,10 +308,10 @@ void PhysicsWorld::removeBody(JPH::BodyID id) {
             constraints_.erase(constraints_.begin() + static_cast<std::ptrdiff_t>(i));
             if (other && !other->GetID().IsInvalid() && other->GetID() != id &&
                 !other->IsStatic())
-                system_->GetBodyInterface().ActivateBody(other->GetID());
+                system_->GetBodyInterfaceNoLock().ActivateBody(other->GetID());
         }
     }
-    BodyInterface& bi = system_->GetBodyInterface();
+    BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     bi.RemoveBody(id);
     bi.DestroyBody(id);
 }
@@ -299,7 +319,7 @@ void PhysicsWorld::removeBody(JPH::BodyID id) {
 void PhysicsWorld::setBodyTransform(JPH::BodyID id, const glm::vec3& position,
                                     const glm::quat& rotation, bool activate) {
     if (id.IsInvalid()) return;
-    system_->GetBodyInterface().SetPositionAndRotation(
+    system_->GetBodyInterfaceNoLock().SetPositionAndRotation(
         id, RVec3(position.x, position.y, position.z), toJolt(rotation),
         activate ? EActivation::Activate : EActivation::DontActivate);
 }
@@ -307,37 +327,37 @@ void PhysicsWorld::setBodyTransform(JPH::BodyID id, const glm::vec3& position,
 void PhysicsWorld::moveKinematic(JPH::BodyID id, const glm::vec3& position,
                                  const glm::quat& rotation, float dt) {
     if (id.IsInvalid() || dt <= 0.0f) return;
-    system_->GetBodyInterface().MoveKinematic(
+    system_->GetBodyInterfaceNoLock().MoveKinematic(
         id, RVec3(position.x, position.y, position.z), toJolt(rotation), dt);
 }
 
 void PhysicsWorld::setLinearVelocity(JPH::BodyID id, const glm::vec3& v) {
     if (id.IsInvalid()) return;
-    BodyInterface& bi = system_->GetBodyInterface();
+    BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     bi.ActivateBody(id);
     bi.SetLinearVelocity(id, Vec3(v.x, v.y, v.z));
 }
 
 void PhysicsWorld::setAngularVelocity(JPH::BodyID id, const glm::vec3& v) {
     if (id.IsInvalid()) return;
-    BodyInterface& bi = system_->GetBodyInterface();
+    BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     bi.ActivateBody(id);
     bi.SetAngularVelocity(id, Vec3(v.x, v.y, v.z));
 }
 
 glm::vec3 PhysicsWorld::linearVelocity(JPH::BodyID id) const {
     if (id.IsInvalid()) return glm::vec3(0.0f);
-    return toGlm(system_->GetBodyInterface().GetLinearVelocity(id));
+    return toGlm(system_->GetBodyInterfaceNoLock().GetLinearVelocity(id));
 }
 
 glm::vec3 PhysicsWorld::angularVelocity(JPH::BodyID id) const {
     if (id.IsInvalid()) return glm::vec3(0.0f);
-    return toGlm(system_->GetBodyInterface().GetAngularVelocity(id));
+    return toGlm(system_->GetBodyInterfaceNoLock().GetAngularVelocity(id));
 }
 
 glm::vec3 PhysicsWorld::pointVelocity(JPH::BodyID id, const glm::vec3& worldPoint) const {
     if (id.IsInvalid()) return glm::vec3(0.0f);
-    return toGlm(system_->GetBodyInterface().GetPointVelocity(
+    return toGlm(system_->GetBodyInterfaceNoLock().GetPointVelocity(
         id, RVec3(worldPoint.x, worldPoint.y, worldPoint.z)));
 }
 
@@ -348,7 +368,7 @@ float PhysicsWorld::effectiveMassAt(JPH::BodyID id, const glm::vec3& worldPoint,
     if (length < 1e-6f) return 0.0f;
     const glm::vec3 d = direction / length;
 
-    JPH::BodyLockRead lock(system_->GetBodyLockInterface(), id);
+    JPH::BodyLockRead lock(system_->GetBodyLockInterfaceNoLock(), id);
     if (!lock.Succeeded()) return 0.0f;
     const JPH::Body& body = lock.GetBody();
     if (!body.IsDynamic()) return 0.0f;
@@ -372,43 +392,43 @@ float PhysicsWorld::effectiveMassAt(JPH::BodyID id, const glm::vec3& worldPoint,
 // sleeping one, so these only have to guard the invalid id.
 void PhysicsWorld::applyImpulse(JPH::BodyID id, const glm::vec3& impulse) {
     if (id.IsInvalid()) return;
-    system_->GetBodyInterface().AddImpulse(id, Vec3(impulse.x, impulse.y, impulse.z));
+    system_->GetBodyInterfaceNoLock().AddImpulse(id, Vec3(impulse.x, impulse.y, impulse.z));
 }
 
 void PhysicsWorld::applyImpulse(JPH::BodyID id, const glm::vec3& impulse,
                                 const glm::vec3& worldPoint) {
     if (id.IsInvalid()) return;
-    system_->GetBodyInterface().AddImpulse(id, Vec3(impulse.x, impulse.y, impulse.z),
+    system_->GetBodyInterfaceNoLock().AddImpulse(id, Vec3(impulse.x, impulse.y, impulse.z),
                                            RVec3(worldPoint.x, worldPoint.y, worldPoint.z));
 }
 
 void PhysicsWorld::applyAngularImpulse(JPH::BodyID id, const glm::vec3& angularImpulse) {
     if (id.IsInvalid()) return;
-    system_->GetBodyInterface().AddAngularImpulse(
+    system_->GetBodyInterfaceNoLock().AddAngularImpulse(
         id, Vec3(angularImpulse.x, angularImpulse.y, angularImpulse.z));
 }
 
 void PhysicsWorld::applyForce(JPH::BodyID id, const glm::vec3& force) {
     if (id.IsInvalid()) return;
-    system_->GetBodyInterface().AddForce(id, Vec3(force.x, force.y, force.z));
+    system_->GetBodyInterfaceNoLock().AddForce(id, Vec3(force.x, force.y, force.z));
 }
 
 void PhysicsWorld::applyForce(JPH::BodyID id, const glm::vec3& force,
                               const glm::vec3& worldPoint) {
     if (id.IsInvalid()) return;
-    system_->GetBodyInterface().AddForce(id, Vec3(force.x, force.y, force.z),
+    system_->GetBodyInterfaceNoLock().AddForce(id, Vec3(force.x, force.y, force.z),
                                          RVec3(worldPoint.x, worldPoint.y, worldPoint.z));
 }
 
 void PhysicsWorld::applyTorque(JPH::BodyID id, const glm::vec3& torque) {
     if (id.IsInvalid()) return;
-    system_->GetBodyInterface().AddTorque(id, Vec3(torque.x, torque.y, torque.z));
+    system_->GetBodyInterfaceNoLock().AddTorque(id, Vec3(torque.x, torque.y, torque.z));
 }
 
 void PhysicsWorld::getBodyTransform(JPH::BodyID id, glm::vec3& position,
                                     glm::quat& rotation) const {
     if (id.IsInvalid()) return;
-    const BodyInterface& bi = system_->GetBodyInterface();
+    const BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     RVec3 p;
     Quat q;
     bi.GetPositionAndRotation(id, p, q);
@@ -479,7 +499,7 @@ RaycastHit PhysicsWorld::raycast(const glm::vec3& origin, const glm::vec3& direc
     // ClosestHitCollisionCollector + filter: the closest hit among the
     // admitted bodies (the plain CastRay doesn't take a BodyFilter).
     ClosestHitCollisionCollector<CastRayCollector> collector;
-    system_->GetNarrowPhaseQuery().CastRay(ray, {}, collector, {}, {}, bodyFilter);
+    system_->GetNarrowPhaseQueryNoLock().CastRay(ray, {}, collector, {}, {}, bodyFilter);
     if (collector.HadHit()) {
         const RayCastResult& result = collector.mHit;
         out.hit = true;
@@ -488,7 +508,7 @@ RaycastHit PhysicsWorld::raycast(const glm::vec3& origin, const glm::vec3& direc
         RVec3 hitPos = ray.GetPointOnRay(result.mFraction);
         out.point = glm::vec3(hitPos.GetX(), hitPos.GetY(), hitPos.GetZ());
 
-        BodyLockRead lock(system_->GetBodyLockInterface(), result.mBodyID);
+        BodyLockRead lock(system_->GetBodyLockInterfaceNoLock(), result.mBodyID);
         if (lock.Succeeded()) {
             Vec3 n = lock.GetBody().GetWorldSpaceSurfaceNormal(result.mSubShapeID2, hitPos);
             out.normal = toGlm(n);
@@ -507,7 +527,7 @@ std::vector<JPH::BodyID> PhysicsWorld::overlapSphere(const glm::vec3& center, fl
     CollideShapeSettings settings;
     AllHitCollisionCollector<CollideShapeCollector> collector;
     QueryBodyFilter bodyFilter(filter);
-    system_->GetNarrowPhaseQuery().CollideShape(
+    system_->GetNarrowPhaseQueryNoLock().CollideShape(
         &sphere, Vec3::sReplicate(1.0f),
         RMat44::sTranslation(RVec3(center.x, center.y, center.z)), settings,
         RVec3::sZero(), collector, {}, {}, bodyFilter);
@@ -534,7 +554,7 @@ void PhysicsWorld::removeConstraint(const JPH::Ref<JPH::TwoBodyConstraint>& cons
     constraints_.erase(it);
     // Wake both bodies: a sleeping body would keep hovering where the
     // constraint held it instead of resuming under gravity.
-    BodyInterface& bi = system_->GetBodyInterface();
+    BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     for (const Body* body : {constraint->GetBody1(), constraint->GetBody2()}) {
         if (body && !body->GetID().IsInvalid() && !body->IsStatic())
             bi.ActivateBody(body->GetID());

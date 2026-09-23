@@ -120,7 +120,7 @@ public:
 #endif
 }
 
-Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool requireXr) {
+Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool requireXr, GeometryCapacity geometry) {
     // The XR process currently has no desktop mirror swapchain. Keep its host
     // GLFW window hidden instead of presenting a misleading unrendered surface.
     // CI may also hide it while exercising the exact editor Build/runtime path
@@ -151,7 +151,7 @@ Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool re
 #endif
     if (!device_) device_ = std::make_unique<VulkanDevice>(*window_);
     if (!xrMode_) swapchain_ = std::make_unique<Swapchain>(*device_, *window_);
-    resources_ = std::make_unique<ResourceManager>(*device_);
+    resources_ = std::make_unique<ResourceManager>(*device_, nullptr, geometry);
 
     scene_ = std::make_unique<Scene>();
     project_ = std::make_unique<Project>();

@@ -30,7 +30,9 @@ public:
     // Engine hooks (not called by gameplay code).
     void syncToPhysics(PhysicsWorld& world) override;     // lazily create the character
     void prePhysicsStep(PhysicsWorld& world, float dt) override;  // move/slide
+    bool hasPrePhysicsStep() const override { return true; }
     void syncFromPhysics(PhysicsWorld& world) override;   // write pose back to the node
+    void rebasePhysics(const glm::vec3& translation, const glm::quat& rotation) override;
 
     glm::vec3 velocity{0.0f};     // read/written by the controller behaviour
     float maxSlopeAngle = 50.0f;  // degrees; steeper ground → isOnSteepSlope(), slide off
