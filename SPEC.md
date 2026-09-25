@@ -521,6 +521,28 @@ several meshes — an imported level in particular — collides with one of them
 ignores the others without any diagnostic. Levels must therefore be split into
 one body per mesh until the builder covers a whole subtree ([ROADMAP](ROADMAP.md)).
 
+**Disabled bodies.** A body whose node, or an ancestor, is disabled leaves the
+Jolt world, not only the scene index: it is removed at once and rebuilt by its
+next sync when enabled again. A disabled body never collides, is never hit by a
+query and never pushes a character.
+
+**Character contacts.** `CharacterBodyNode::contacts()` lists what the character
+touched in its last move: each solid body it collided with or overlaps, named by
+its `CollisionObjectNode`, with the contact point and the normal pointing back at
+the character (`PhysicsWorld::characterContacts` is the same list for a raw
+`CharacterVirtual`, naming bodies by their user data). Predictive contacts that
+never closed and sensors are excluded. A game learns what its character ran into
+from the engine's own solve instead of testing collisions a second time.
+
+**Move-and-slide now.** `CharacterBodyNode::moveAndSlide(velocity, dt)` moves the
+character at once, from where its node stands, stopping at bodies and sliding
+along them as the physics step would, puts the node where it ended and returns
+that position; the next step leaves it there and `velocity` is untouched. It is
+for gameplay that needs the answer in the same frame or keeps its character's
+position itself (on a globe, in its own units). A primitive shape's `offset`
+(half the capsule's height up) makes the node's position the character's feet.
+Covered by `saida_physics_character_tests`.
+
 **Scene queries.** `PhysicsWorld::raycast` and `overlapSphere` take a
 `QueryFilter`: sensors (Area) are excluded by default — a camera occlusion ray or
 a hitscan does not stop on an invisible trigger — and re-admitted via
@@ -1147,6 +1169,20 @@ it still touches every bone every frame. `Hold` keeps the latest sample and
 skips both the evaluation and the global-matrix composition between samples,
 so a distant character in a crowd costs little more than its graph's tick. The
 next sample lands at the clip's own time, not late.
+
+**Pose modifiers.** `Animator::addModifier<T>(...)` appends a procedural
+correction applied after the graph, whatever drives it (play()-by-name, a
+`.sgraph`, a custom root), in the order added (`PoseModifiers.hpp`). Two exist:
+`GazeModifier` turns a chain of bones (spine to head, then the eyes) toward a
+point in object space, each bone taking a share of what is left, within the
+body's yaw and pitch limits, and eases in and out; a target behind the body is
+followed to the limit, over the shoulder it is already on. `ImpactModifier`
+leans a chain on a damped spring pushed by `push(direction, strength)`: a
+flinch or a stagger that swings back and settles. Both read each bone's facing
+off the rig's bind pose, so no skeleton's local axes matter. A modifier with
+nothing to do costs nothing: the Animator skips it, and composes a held pose
+only while one is active or has just stopped. Covered by
+`saida_animation_playback_tests`.
 
 Generalized SIMD, massive pose sharing and GPU crowds are deferred until
 measurements justify them.

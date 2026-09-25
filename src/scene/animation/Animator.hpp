@@ -5,6 +5,7 @@
 #include "scene/Behaviour.hpp"
 #include "scene/animation/Rig.hpp"
 #include "scene/animation/Pose.hpp"
+#include "scene/animation/PoseModifiers.hpp"
 #include "scene/animation/AnimStateMachine.hpp"
 #include "scene/animation/AnimBlackboard.hpp"
 #include "scene/animation/Retarget.hpp"
@@ -108,6 +109,18 @@ public:
     float poseRate() const { return poseRate_; }
     PoseRateMode poseRateMode() const { return poseRateMode_; }
 
+    // Procedural modifiers applied after the graph, in the order added, on
+    // every tick one of them is active -- a held pose included -- and never
+    // otherwise (PoseModifiers.hpp). The Animator owns them.
+    template <class T, class... Args>
+    T* addModifier(Args&&... args) {
+        auto modifier = std::make_unique<T>(std::forward<Args>(args)...);
+        T* raw = modifier.get();
+        modifiers_.push_back(std::move(modifier));
+        return raw;
+    }
+    void clearModifiers() { modifiers_.clear(); }
+
     const GlobalPose& globalPose() const { return globalPose_; }
     AnimNode* rootNode() const { return rootNode_.get(); }
 
@@ -156,6 +169,10 @@ private:
     bool sampledPosesPrimed_ = false;
     LocalPose previousSampledPose_;
     LocalPose lastSampledPose_;
+
+    std::vector<std::unique_ptr<PoseModifier>> modifiers_;
+    LocalPose modifiedPose_;
+    bool modified_ = false;  // the GlobalPose holds a modified pose
 };
 
 } // namespace saida

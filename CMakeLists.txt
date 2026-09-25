@@ -471,6 +471,7 @@ add_library(saida_engine STATIC
     src/scene/animation/ClipView.cpp
     src/scene/animation/AnimGraphAsset.cpp
     src/scene/animation/ProceduralNodes.cpp
+    src/scene/animation/PoseModifiers.cpp
     src/scene/animation/RetargetProfile.cpp
     src/scene/animation/RigAsset.cpp
     src/scene/animation/ClipNode.cpp

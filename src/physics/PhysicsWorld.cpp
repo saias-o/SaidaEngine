@@ -468,6 +468,24 @@ void PhysicsWorld::updateCharacter(JPH::CharacterVirtual& character, float dt) {
                              {}, {}, *tempAllocator_);
 }
 
+std::vector<PhysicsWorld::CharacterContact> PhysicsWorld::characterContacts(
+    const CharacterVirtual& character) const {
+    std::vector<CharacterContact> out;
+    for (const CharacterVirtual::Contact& c : character.GetActiveContacts()) {
+        // A contact is real once it stopped the character or overlaps it;
+        // one that was only predicted (distance > 0, never hit) is not.
+        if (c.mWasDiscarded || c.mIsSensorB || c.mBodyB.IsInvalid()) continue;
+        if (!c.mHadCollision && c.mDistance > 1e-3f) continue;
+        CharacterContact contact;
+        contact.body = c.mBodyB;
+        contact.userData = bodyUserData(c.mBodyB);
+        contact.point = glm::vec3(float(c.mPosition.GetX()), float(c.mPosition.GetY()), float(c.mPosition.GetZ()));
+        contact.normal = toGlm(c.mContactNormal);
+        out.push_back(contact);
+    }
+    return out;
+}
+
 namespace {
 
 // Shared body-level filter for the scene queries: skips one explicit body and,

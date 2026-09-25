@@ -274,10 +274,26 @@ void Animator::onUpdate(float dt) {
         transform.position += transform.rotation * consumeRootMotion();
     }
 
+    bool modifying = false;
+    for (auto& modifier : modifiers_) {
+        modifier->update(dt);
+        modifying = modifying || modifier->active();
+    }
+
     // GlobalPose in object space (identity base): the renderer applies the entity
     // model matrix to the whole mesh after skinning. A held pose keeps the
-    // matrices it already has.
-    if (posed) globalPose_.computeFrom(currentLocalPose_, *rig_, glm::mat4(1.0f));
+    // matrices it already has, unless a modifier moves it, or has just
+    // stopped moving it and its last correction has to come off.
+    if (modifying) {
+        SAIDA_PROFILE_SCOPE("Animation/PoseModifiers");
+        modifiedPose_ = currentLocalPose_;
+        for (auto& modifier : modifiers_)
+            if (modifier->active()) modifier->apply(modifiedPose_, *rig_);
+        globalPose_.computeFrom(modifiedPose_, *rig_, glm::mat4(1.0f));
+    } else if (posed || modified_) {
+        globalPose_.computeFrom(currentLocalPose_, *rig_, glm::mat4(1.0f));
+    }
+    modified_ = modifying;
 }
 
 void Animator::describe(reflect::TypeBuilder<Animator>& t) {

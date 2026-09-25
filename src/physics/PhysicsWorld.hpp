@@ -181,6 +181,21 @@ public:
     // stairs, stick to the floor, push dynamic bodies. Set its linear velocity first.
     void updateCharacter(JPH::CharacterVirtual& character, float dt);
 
+    // What a character is touching after its last update: every solid body
+    // it collided with or stands against, where, and the normal pointing back
+    // at the character. Predictive contacts that never closed and sensors
+    // are left out. `userData` is the body's, which for a body built from a
+    // node is its CollisionObjectNode. How a game learns what its character
+    // ran into -- a wall, a door, a person -- without a second collision
+    // test of its own.
+    struct CharacterContact {
+        JPH::BodyID body;
+        void* userData = nullptr;
+        glm::vec3 point{0.0f};
+        glm::vec3 normal{0.0f};
+    };
+    std::vector<CharacterContact> characterContacts(const JPH::CharacterVirtual& character) const;
+
     // A contact between two bodies began (entered) or ended. `sensor` is true when
     // a trigger (Area) was involved — those go to AreaNode overlap, the rest to the
     // bodies' collision signals.

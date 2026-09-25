@@ -1,7 +1,8 @@
 // Tests du playback production : blend space 1D, couches masquées
 // (override/additif), événements traversant une boucle, extraction de root
-// motion, triggers/exit time/sync de phase du schéma 2, et LOD de pose
-// (control à chaque tick, pose interpolée à fréquence réduite).
+// motion, triggers/exit time/sync de phase du schéma 2, LOD de pose
+// (control à chaque tick, pose interpolée à fréquence réduite) et modificateurs
+// de pose (regard, impact) appliqués après le graphe.
 
 #include "scene/animation/AnimGraphAsset.hpp"
 #include "scene/animation/AnimStateMachine.hpp"
@@ -11,15 +12,18 @@
 #include "scene/animation/ClipNode.hpp"
 #include "scene/animation/ClipView.hpp"
 #include "scene/animation/LayerNode.hpp"
+#include "scene/animation/PoseModifiers.hpp"
 #include "scene/animation/Rig.hpp"
 
 #include <glm/gtc/quaternion.hpp>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -312,6 +316,164 @@ void testPoseRateHold() {
     assert(near(animator.globalPose().globalMatrices[0][3].x, 2.0f * 0.1f, 1e-3f));
 }
 
+// Rig 4 os aux axes locaux quelconques : root → spine → head → eye. Les
+// modificateurs lisent la face de chaque os dans la pose de bind, pas dans
+// ses axes : la tête est tournée de 1,2 rad sur Z, l'œil de -0,7 sur Y.
+saida::Rig makeGazeRig() {
+    struct Spec { const char* name; int32_t parent; glm::vec3 position; glm::quat rotation; };
+    const Spec specs[] = {
+        {"root", -1, {0.0f, 0.0f, 0.0f}, glm::quat(1, 0, 0, 0)},
+        {"spine", 0, {0.0f, 1.0f, 0.0f}, glm::angleAxis(0.3f, glm::vec3(1, 0, 0))},
+        {"head", 1, {0.0f, 0.6f, 0.0f}, glm::angleAxis(1.2f, glm::vec3(0, 0, 1))},
+        {"eye", 2, {0.03f, 0.05f, 0.1f}, glm::angleAxis(-0.7f, glm::vec3(0, 1, 0))},
+    };
+    saida::Rig rig;
+    std::vector<glm::mat4> globals;
+    for (const Spec& spec : specs) {
+        saida::Transform rest;
+        rest.position = spec.position;
+        rest.rotation = spec.rotation;
+        const glm::mat4 global = spec.parent >= 0 ? globals[size_t(spec.parent)] * rest.matrix() : rest.matrix();
+        globals.push_back(global);
+        rig.addBone(spec.name, spec.parent, glm::inverse(global), rest);
+    }
+    std::string error;
+    assert(rig.finalize(&error));
+    return rig;
+}
+
+// Où l'os regarde, en espace objet : sa rotation actuelle appliquée à la
+// direction qu'il avait (+Z) dans la pose de bind.
+glm::vec3 facing(const saida::Animator& animator, const saida::Rig& rig, int32_t bone) {
+    const glm::quat bind = glm::quat_cast(glm::mat3(glm::inverse(rig.bones()[size_t(bone)].inverseBindMatrix)));
+    const glm::quat now = glm::quat_cast(glm::mat3(animator.globalPose().globalMatrices[size_t(bone)]));
+    return glm::normalize(now * (glm::inverse(bind) * glm::vec3(0, 0, 1)));
+}
+
+float angleBetween(const glm::vec3& a, const glm::vec3& b) {
+    return std::acos(std::clamp(glm::dot(glm::normalize(a), glm::normalize(b)), -1.0f, 1.0f));
+}
+
+bool samePose(const saida::GlobalPose& a, const saida::GlobalPose& b) {
+    for (size_t i = 0; i < a.globalMatrices.size(); ++i)
+        for (int c = 0; c < 4; ++c)
+            for (int r = 0; r < 4; ++r)
+                if (std::abs(a.globalMatrices[i][c][r] - b.globalMatrices[i][c][r]) > 1e-5f) return false;
+    return true;
+}
+
+saida::GazeModifier::Settings gazeSettings() {
+    saida::GazeModifier::Settings settings;
+    settings.chain = {{"spine", 0.3f, 1.0f}, {"head", 1.0f, 1.5f}, {"eye", 1.0f, 0.5f}};
+    settings.maxYaw = 1.2f;
+    return settings;
+}
+
+// Le regard : la tête finit face à la cible, la colonne en a pris sa part,
+// quels que soient les axes locaux des os ; relâché, la pose revient
+// exactement à celle du graphe et le modificateur ne coûte plus rien.
+void testGazeFollowsATarget() {
+    saida::Rig rig = makeGazeRig();
+    saida::Animator plain, looking;
+    plain.setRig(&rig);
+    looking.setRig(&rig);
+    auto* gaze = looking.addModifier<saida::GazeModifier>(rig, gazeSettings());
+    assert(gaze->valid());
+    assert(!gaze->active());
+
+    const glm::vec3 target(1.5f, 1.8f, 2.0f);
+    for (int i = 0; i < 80; ++i) {
+        gaze->lookAt(target);
+        plain.onUpdate(0.05f);
+        looking.onUpdate(0.05f);
+    }
+    assert(gaze->weight() > 0.999f);
+    const glm::vec3 head(looking.globalPose().globalMatrices[2][3]);
+    assert(angleBetween(facing(looking, rig, 2), target - head) < 0.02f);
+    const glm::vec3 eye(looking.globalPose().globalMatrices[3][3]);
+    assert(angleBetween(facing(looking, rig, 3), target - eye) < 0.02f);
+    // The spine turned part of the way, not all of it.
+    const float spineTurn = angleBetween(facing(looking, rig, 1), facing(plain, rig, 1));
+    const float wholeTurn = angleBetween(facing(plain, rig, 2), target - head);
+    assert(spineTurn > 0.15f * wholeTurn && spineTurn < 0.5f * wholeTurn);
+
+    gaze->release();
+    for (int i = 0; i < 80; ++i) {
+        plain.onUpdate(0.05f);
+        looking.onUpdate(0.05f);
+    }
+    assert(!gaze->active());
+    assert(samePose(plain.globalPose(), looking.globalPose()));
+}
+
+// Une cible derrière le corps est suivie jusqu'à la limite de lacet, et
+// tenue là : personne ne tourne la tête d'un demi-tour.
+void testGazeHoldsAtTheBodysLimit() {
+    saida::Rig rig = makeGazeRig();
+    saida::Animator animator;
+    animator.setRig(&rig);
+    auto* gaze = animator.addModifier<saida::GazeModifier>(rig, gazeSettings());
+    for (int i = 0; i < 80; ++i) {
+        gaze->lookAt({0.0f, 1.7f, -5.0f});
+        animator.onUpdate(0.05f);
+    }
+    const glm::vec3 head = facing(animator, rig, 2);
+    assert(near(std::atan2(head.x, head.z), 1.2f, 0.03f));
+}
+
+// L'impact : une poussée vers +X penche le haut de la chaîne vers +X, le
+// ressort revient, dépasse un peu et se pose ; posé, la pose est celle du
+// graphe à l'identique.
+void testImpactLeansAndSettles() {
+    saida::Rig rig = makeGazeRig();
+    saida::Animator plain, pushed;
+    plain.setRig(&rig);
+    pushed.setRig(&rig);
+    saida::ImpactModifier::Settings settings;
+    settings.chain = {{"spine", 0.6f}, {"head", 0.4f}};
+    auto* impact = pushed.addModifier<saida::ImpactModifier>(rig, settings);
+    assert(impact->valid() && !impact->active());
+    plain.onUpdate(0.0f);
+    pushed.onUpdate(0.0f);
+    const float restX = plain.globalPose().globalMatrices[2][3].x;
+
+    impact->push({1.0f, 0.4f, 0.0f}, 3.0f);
+    float peak = 0.0f, lowest = 0.0f;
+    for (int i = 0; i < 40; ++i) {
+        pushed.onUpdate(0.025f);
+        const float x = pushed.globalPose().globalMatrices[2][3].x - restX;
+        peak = std::max(peak, x);
+        lowest = std::min(lowest, x);
+    }
+    assert(peak > 0.05f);                     // the head went the way of the push
+    assert(lowest < 0.0f && lowest > -peak);  // and swung back past rest, less far
+    for (int i = 0; i < 200; ++i) {
+        plain.onUpdate(0.025f);
+        pushed.onUpdate(0.025f);
+    }
+    assert(!impact->active());
+    assert(samePose(plain.globalPose(), pushed.globalPose()));
+}
+
+// Une pose tenue (Hold) n'arrête pas un modificateur actif : le regard bouge
+// à chaque tick entre deux échantillons.
+void testModifierMovesAHeldPose() {
+    saida::Rig rig = makeGazeRig();
+    saida::Animator animator;
+    animator.setRig(&rig);
+    auto clip = makeRootTravelClip("travel", 0.0f);
+    animator.addClip("travel", clip.get());
+    animator.play("travel", true, 0.0f);
+    animator.setPoseRate(5.0f, saida::Animator::PoseRateMode::Hold);
+    auto* gaze = animator.addModifier<saida::GazeModifier>(rig, gazeSettings());
+    animator.onUpdate(0.0f);
+    gaze->lookAt({2.0f, 1.6f, 1.0f});
+    animator.onUpdate(0.02f);
+    const glm::mat4 first = animator.globalPose().globalMatrices[2];
+    animator.onUpdate(0.02f);  // held: no new sample before 0.2 s
+    assert(first != animator.globalPose().globalMatrices[2]);
+}
+
 } // namespace
 
 int main() {
@@ -322,6 +484,10 @@ int main() {
     testTriggersExitTimeAndSync();
     testPoseRateInterpolation();
     testPoseRateHold();
+    testGazeFollowsATarget();
+    testGazeHoldsAtTheBodysLimit();
+    testImpactLeansAndSettles();
+    testModifierMovesAHeldPose();
     std::puts("saida_animation_playback_tests: OK");
     return 0;
 }

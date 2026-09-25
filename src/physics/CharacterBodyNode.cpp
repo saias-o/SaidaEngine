@@ -6,6 +6,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <algorithm>
+
 #include <nlohmann/json.hpp>
 
 namespace saida {
@@ -52,12 +54,17 @@ void CharacterBodyNode::syncToPhysics(PhysicsWorld& world) {
     if (!shape) return;  // no CollisionShape child yet — try again next frame
 
     character_ = world.createCharacter(shape.GetPtr(), position, rotation,
-                                       mass, glm::radians(maxSlopeAngle), this);
+                                       mass, glm::radians(maxSlopeAngle),
+                                       static_cast<CollisionObjectNode*>(this));
     world_ = &world;
 }
 
 void CharacterBodyNode::prePhysicsStep(PhysicsWorld& world, float dt) {
     if (!character_) return;
+    if (moved_) {  // moveAndSlide already moved it this frame
+        moved_ = false;
+        return;
+    }
     character_->SetLinearVelocity(toJolt(velocity));
     world.updateCharacter(*character_, dt);
     velocity = toGlm(character_->GetLinearVelocity());  // reflect the slide result
@@ -88,6 +95,36 @@ bool CharacterBodyNode::isOnSteepSlope() const {
 }
 glm::vec3 CharacterBodyNode::groundNormal() const {
     return character_ ? toGlm(character_->GetGroundNormal()) : glm::vec3(0.0f, 1.0f, 0.0f);
+}
+glm::vec3 CharacterBodyNode::moveAndSlide(const glm::vec3& v, float dt) {
+    glm::vec3 position;
+    glm::quat rotation;
+    glm::mat4 invTR;
+    // From the local transform as it is now: gameplay may have just placed
+    // the node, after this frame's transforms were composed.
+    const glm::mat4 world = (parent() ? parent()->worldTransform() : glm::mat4(1.0f)) * localMatrix();
+    decomposeTR(world, position, rotation, invTR);
+    if (!character_ || !world_ || dt <= 0.0f) {
+        const glm::vec3 free = position + v * std::max(dt, 0.0f);
+        writeWorldPoseToLocal(free, rotation);
+        return free;
+    }
+    character_->SetPosition(JPH::RVec3(position.x, position.y, position.z));
+    character_->SetLinearVelocity(toJolt(v));
+    world_->updateCharacter(*character_, dt);
+    moved_ = true;
+    const JPH::RVec3 p = character_->GetPosition();
+    const glm::vec3 end(float(p.GetX()), float(p.GetY()), float(p.GetZ()));
+    writeWorldPoseToLocal(end, rotation);
+    return end;
+}
+
+std::vector<CharacterBodyNode::Contact> CharacterBodyNode::contacts() const {
+    std::vector<Contact> out;
+    if (!character_ || !world_) return out;
+    for (const auto& c : world_->characterContacts(*character_))
+        out.push_back({static_cast<CollisionObjectNode*>(c.userData), c.point, c.normal});
+    return out;
 }
 glm::vec3 CharacterBodyNode::groundVelocity() const {
     return character_ ? toGlm(character_->GetGroundVelocity()) : glm::vec3(0.0f);

@@ -106,7 +106,15 @@ void SceneIndex::publish(Node& node, Entry& e) {
 #endif
     e.body = node.asCollisionObject();
     e.joint = node.asJointNode();
-    if (!e.active) return;
+    if (!e.active) {
+#ifndef SAIDA_NO_PHYSICS
+        // A disabled body leaves the simulation, not only this index: left in
+        // Jolt it would stay where it was disabled, unseen, never synced, and
+        // still solid. Enabled again, its next sync builds it afresh.
+        if (e.body) e.body->detachFromPhysics();
+#endif
+        return;
+    }
     ++activeNodes;
     bodies.add(e.body); joints.add(e.joint);
     if (e.body && e.body->hasPrePhysicsStep()) preSteppers.add(e.body);
