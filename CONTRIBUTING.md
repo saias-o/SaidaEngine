@@ -105,6 +105,12 @@ ctest --test-dir build --output-on-failure
 ./build/bin/saida_tool.exe describe-engine
 ```
 
+To see where a run spends its time, pass `--profile <trace.json>` to the player
+(or to any executable that calls `Engine::profileTo`): the trace is written when
+the run ends, and the log gets the most expensive scopes per frame. Measure an
+optimized build: the Debug tree is several times slower and ranks scopes
+differently.
+
 The native semantic contract can also be checked without a project:
 
 ```sh

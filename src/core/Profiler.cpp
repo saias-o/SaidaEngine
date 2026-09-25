@@ -7,6 +7,7 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <string_view>
 
@@ -188,6 +189,60 @@ void Profiler::setMemorySnapshot(const MemorySnapshot& snapshot) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!frameActive_) return;
     frames_[currentSlot_].memory = snapshot;
+}
+
+ProfileSummary Profiler::summarize(const std::vector<ProfileFrame>& frames) {
+    ProfileSummary summary;
+    summary.frames = frames.size();
+    if (frames.empty()) return summary;
+
+    struct Key {
+        std::string thread;
+        std::string name;
+        uint32_t depth;
+        bool operator==(const Key& o) const { return depth == o.depth && name == o.name && thread == o.thread; }
+    };
+    struct KeyHash {
+        size_t operator()(const Key& k) const {
+            return std::hash<std::string>{}(k.thread) ^ (std::hash<std::string>{}(k.name) << 1) ^ (size_t(k.depth) << 7);
+        }
+    };
+    std::unordered_map<Key, ProfileScopeSummary, KeyHash> scopes;
+    // By name, keeping the counter's own static name pointer.
+    std::map<std::string, ProfileCounter> peaks;
+    double total = 0.0;
+    for (const ProfileFrame& frame : frames) {
+        total += frame.cpuFrameMs;
+        summary.worstFrameMs = std::max(summary.worstFrameMs, frame.cpuFrameMs);
+        for (const ProfileEvent& event : frame.events) {
+            Key key{event.threadName, event.name ? event.name : "", event.depth};
+            ProfileScopeSummary& scope = scopes[key];
+            scope.thread = key.thread;
+            scope.name = key.name;
+            scope.depth = key.depth;
+            scope.totalMs += event.endMs - event.startMs;
+            ++scope.calls;
+        }
+        for (const ProfileCounter& counter : frame.counters) {
+            if (!counter.name) continue;
+            auto [it, inserted] = peaks.try_emplace(counter.name, counter);
+            if (!inserted) it->second.value = std::max(it->second.value, counter.value);
+        }
+    }
+    summary.averageFrameMs = total / double(frames.size());
+    summary.scopes.reserve(scopes.size());
+    for (auto& [key, scope] : scopes) {
+        scope.averageMs = scope.totalMs / double(frames.size());
+        summary.scopes.push_back(std::move(scope));
+    }
+    std::sort(summary.scopes.begin(), summary.scopes.end(),
+        [](const ProfileScopeSummary& a, const ProfileScopeSummary& b) {
+            if (a.totalMs != b.totalMs) return a.totalMs > b.totalMs;
+            if (a.depth != b.depth) return a.depth < b.depth;
+            return a.name < b.name;
+        });
+    for (const auto& [name, counter] : peaks) summary.counterPeaks.push_back(counter);
+    return summary;
 }
 
 std::vector<ProfileFrame> Profiler::recentFrames() const {

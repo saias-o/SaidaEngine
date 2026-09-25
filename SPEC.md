@@ -429,6 +429,18 @@ Defaults remain 1,048,576 vertices and 3,145,728 indices. Games can reserve a sh
 of the configured capacity without duplicating allocator constants. This is a
 startup allocation, not automatic growth or a replacement for the GPU byte budget.
 
+`ResourceManager::geometryUsage()` reports what the arenas hold and their
+largest free ranges. The largest free range bounds the biggest mesh that can
+still be uploaded. The native registry tracks every live allocation. When an
+upload fits in the free space as a whole but in no single range, the registry
+packs the resident geometry together (`GeometryRegistry::compact`: device idle,
+live ranges copied to fresh buffers in offset order, owners' offsets updated)
+and retries. A streamed world that frees and uploads meshes of every size
+otherwise ends with its free space in pieces, none of which fits the next tile.
+A refused upload names the request, the space in use, the largest free range
+and the resident mesh count. The WebGPU arena is linear and neither frees nor
+compacts.
+
 `Scene::rebaseOrigin(translation, rotation)` maps every child and existing physics
 body from old point p to `rotation*p + translation`. `rebaseSubtree` applies the
 same operation to one descendant. The rotation must be a finite unit quaternion;
@@ -1127,6 +1139,14 @@ The `.srig/.sclip/.sgraph` assets are loaded by the AssetLoader without blocking
 the frame. The runtime continues with its current state during `queued/loading`;
 a character graph becomes the owner of playback only after successful loading,
 validation and compilation.
+
+An `Animator` can pose at a reduced rate, `setPoseRate(hz, mode)`, while its
+graph (time, transitions, events) still advances on every tick. `Interpolate`
+(the default) blends the two latest samples on every tick. That is smooth, but
+it still touches every bone every frame. `Hold` keeps the latest sample and
+skips both the evaluation and the global-matrix composition between samples,
+so a distant character in a crowd costs little more than its graph's tick. The
+next sample lands at the clip's own time, not late.
 
 Generalized SIMD, massive pose sharing and GPU crowds are deferred until
 measurements justify them.

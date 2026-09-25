@@ -288,6 +288,30 @@ void testPoseRateInterpolation() {
     assert(near(exact, 2.0f * 0.2f, 1e-3f));
 }
 
+// Hold: between two samples the pose stays exactly the last one sampled,
+// while the clip keeps its own time, so the next sample lands where it would have.
+void testPoseRateHold() {
+    saida::Rig rig = makeRig();
+    auto clip = makeRootTravelClip("travel", 2.0f);
+
+    saida::Animator animator;
+    animator.setRig(&rig);
+    animator.addClip("travel", clip.get());
+    animator.play("travel", true, 0.0f);
+    animator.setPoseRate(10.0f, saida::Animator::PoseRateMode::Hold);
+    assert(animator.poseRateMode() == saida::Animator::PoseRateMode::Hold);
+
+    animator.onUpdate(0.0f);  // primes: sampled at t=0
+    const float first = animator.globalPose().globalMatrices[0][3].x;
+    assert(near(first, 0.0f, 1e-4f));
+    animator.onUpdate(0.05f);  // t=0.05, before the next sample: held
+    assert(animator.globalPose().globalMatrices[0][3].x == first);
+    animator.onUpdate(0.05f);  // t=0.1: sampled at the clip's own time
+    assert(near(animator.globalPose().globalMatrices[0][3].x, 2.0f * 0.1f, 1e-3f));
+    animator.onUpdate(0.03f);  // t=0.13: held again
+    assert(near(animator.globalPose().globalMatrices[0][3].x, 2.0f * 0.1f, 1e-3f));
+}
+
 } // namespace
 
 int main() {
@@ -297,6 +321,7 @@ int main() {
     testRootMotionExtraction();
     testTriggersExitTimeAndSync();
     testPoseRateInterpolation();
+    testPoseRateHold();
     std::puts("saida_animation_playback_tests: OK");
     return 0;
 }

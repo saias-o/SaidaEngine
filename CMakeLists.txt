@@ -819,6 +819,12 @@ if (BUILD_TESTING)
     target_compile_options(saida_animation_playback_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_animation_playback_tests COMMAND $<TARGET_FILE:saida_animation_playback_tests>)
 
+    add_executable(saida_profiler_summary_tests tests/ProfilerSummaryTests.cpp)
+    saida_test_target(saida_profiler_summary_tests)
+    target_link_libraries(saida_profiler_summary_tests PRIVATE saida_engine)
+    target_compile_options(saida_profiler_summary_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_profiler_summary_tests COMMAND $<TARGET_FILE:saida_profiler_summary_tests>)
+
     add_executable(saida_animation_retarget_tests tests/AnimationRetargetTests.cpp)
     saida_test_target(saida_animation_retarget_tests)
     target_link_libraries(saida_animation_retarget_tests PRIVATE saida_engine)

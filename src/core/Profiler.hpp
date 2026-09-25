@@ -57,6 +57,25 @@ struct GpuProfileZone {
     uint32_t depth = 0;
 };
 
+// Where a run of frames spent its time, scope by scope: the whole of a
+// recorded session reduced to what a log line can say.
+struct ProfileScopeSummary {
+    std::string thread;
+    std::string name;
+    uint32_t depth = 0;
+    double totalMs = 0.0;    // summed over every frame
+    double averageMs = 0.0;  // per frame of the run, frames without it included
+    uint64_t calls = 0;
+};
+
+struct ProfileSummary {
+    size_t frames = 0;
+    double averageFrameMs = 0.0;
+    double worstFrameMs = 0.0;
+    std::vector<ProfileScopeSummary> scopes;  // most expensive first
+    std::vector<ProfileCounter> counterPeaks;  // the highest value each counter reached, by name
+};
+
 struct ProfileFrame {
     uint64_t index = 0;
     double cpuFrameMs = 0.0;
@@ -86,6 +105,9 @@ public:
     bool exportChromeTrace(const std::string& path,
                            const std::vector<ProfileFrame>& frames,
                            std::string* error = nullptr) const;
+
+    // Aggregates frames by thread, scope name and depth.
+    static ProfileSummary summarize(const std::vector<ProfileFrame>& frames);
 
     void setThreadName(const std::string& name);
     bool enabled() const { return enabled_.load(std::memory_order_relaxed); }

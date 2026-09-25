@@ -1,6 +1,10 @@
 #include "scene/Scene.hpp"
 #include "core/Window.hpp"
 #include "graphics/VulkanDevice.hpp"
+#include "graphics/Mesh.hpp"
+#include "graphics/ResourceManager.hpp"
+#include "graphics/Buffer.hpp"
+#include "graphics/GeometryRegistry.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "authoring/SceneSnapshot.hpp"
 #include "nodes/MeshNode.hpp"
@@ -16,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <stdexcept>
 
 using namespace saida;
 namespace {
@@ -30,6 +35,8 @@ void near(glm::vec3 actual, glm::vec3 expected, const char* message) {
 struct Counter : Behaviour {
     int updates = 0, steps = 0;
     void onUpdate(float) override { ++updates; }
+    // Substep callbacks are opt-in (Behaviour::hasPhysicsStep).
+    bool hasPhysicsStep() const override { return true; }
     void onPhysicsStep(float dt) override {
         require(std::abs(dt - PhysicsWorld::kFixedStep) < 1e-7f, "fixed callback duration");
         ++steps;
@@ -210,6 +217,57 @@ void groupContract() {
     require(selectLodIndex(.105f, thresholds, 1, .1f) == 1, "hysteresis preserves far level");
     require(selectLodIndex(.12f, thresholds, 1, .1f) == 0, "coverage restores near level");
 }
+// Free space in pieces is packed when an upload needs it whole, and what was
+// resident is still there, byte for byte, where its owner now finds it.
+void gpuCompaction(VulkanDevice& device) {
+    GeometryRegistry arena(device, 64, 96);
+    auto mesh = [](uint32_t marker) {
+        std::vector<Vertex> vertices(16);
+        for (uint32_t i = 0; i < vertices.size(); ++i) vertices[i].pos = glm::vec3(float(marker), float(i), 0.f);
+        std::vector<uint32_t> indices(24);
+        for (uint32_t i = 0; i < indices.size(); ++i) indices[i] = marker * 100 + i;
+        return std::make_pair(vertices, indices);
+    };
+    GeometryAllocation a, b, c, d;
+    uint32_t marker = 1;
+    for (GeometryAllocation* alloc : {&a, &b, &c, &d}) {
+        auto [vertices, indices] = mesh(marker++);
+        arena.allocate(*alloc, vertices, indices);
+    }
+    arena.free(a);
+    arena.free(c);
+    require(arena.usage().largestFreeIndices == 24 && arena.compactions() == 0, "free space in two pieces");
+    auto [vertices, indices] = mesh(9);
+    vertices.resize(32);
+    indices.resize(48);
+    GeometryAllocation big;
+    arena.allocate(big, vertices, indices);
+    require(arena.compactions() == 1 && big.indexCount == 48, "a fragmented arena is packed for an upload that fits in total");
+    require(b.firstIndex == 0 && d.firstIndex == 24 && b.vertexOffset == 0 && d.vertexOffset == 16,
+            "resident meshes are packed in order and their owners see where");
+
+    // Read the moved geometry back.
+    Buffer readIndices(device, 96 * sizeof(uint32_t), rhi::BufferUsage::TransferDst, MemoryUsage::HostVisible);
+    Buffer readVertices(device, 64 * sizeof(Vertex), rhi::BufferUsage::TransferDst, MemoryUsage::HostVisible);
+    device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) {
+        enc.copyBufferToBuffer(*arena.indexBuffer(), readIndices, readIndices.size());
+        enc.copyBufferToBuffer(*arena.vertexBuffer(), readVertices, readVertices.size());
+    });
+    const auto* index = static_cast<const uint32_t*>(readIndices.mapped());
+    const auto* vertex = static_cast<const Vertex*>(readVertices.mapped());
+    require(index && vertex, "readback buffers are mapped");
+    require(index[b.firstIndex] == 200 && index[b.firstIndex + 23] == 223 &&
+                index[d.firstIndex] == 400 && index[d.firstIndex + 23] == 423,
+            "indices moved intact");
+    require(vertex[b.vertexOffset].pos.x == 2.f && vertex[d.vertexOffset + 15].pos.y == 15.f &&
+                vertex[d.vertexOffset].pos.x == 4.f,
+            "vertices moved intact");
+    arena.free(b);
+    arena.free(d);
+    arena.free(big);
+    require(arena.usage().indices == 0 && arena.usage().allocations == 0, "everything freed");
+}
+
 // Optional device proof: --gpu. The default CTest suite stays headless.
 void gpuLodGroups() {
     Window window(64, 64, "Streaming contracts", false);
@@ -217,8 +275,25 @@ void gpuLodGroups() {
     ResourceManager resources(device, nullptr, {512, 1024});
     require(resources.geometryCapacity().vertices == 512 && resources.geometryCapacity().indices == 1024,
             "resource manager exposes configured geometry capacity");
+    const GeometryUsage before = resources.geometryUsage();
     Mesh* mesh = resources.getMesh(kAssetBuiltinCube);
     require(mesh && mesh->loaded(), "mesh uploaded into configured arena");
+    const GeometryUsage after = resources.geometryUsage();
+    require(after.indices > before.indices && after.vertices > before.vertices &&
+                after.allocations == before.allocations + 1,
+            "the arena reports what an upload took");
+    require(after.largestFreeIndices <= 1024 - after.indices, "the largest free range is free space");
+    bool told = false;
+    try {
+        std::vector<Vertex> vertices(4);
+        std::vector<uint32_t> indices(4096, 0);
+        GeometryAllocation tooBig;
+        resources.geometry().allocate(tooBig, vertices, indices);
+    } catch (const std::runtime_error& e) {
+        told = std::string(e.what()).find("4096 indices requested") != std::string::npos;
+    }
+    require(told, "an upload the arena cannot hold says what it asked and what was left");
+    gpuCompaction(device);
     Scene scene;
     auto* root = scene.createChild<Node>();
     auto* close = root->createChild<Node>("Near");

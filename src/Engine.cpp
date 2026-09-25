@@ -373,9 +373,38 @@ void Engine::unmountWorld() {
 
 void Engine::run() {
 #ifdef SAIDA_ENABLE_XR
-    if (xrMode_) { runXr(); return; }
+    if (xrMode_) {
+        runXr();
+        writeProfile();
+        return;
+    }
 #endif
     runDesktop();
+    writeProfile();
+}
+
+void Engine::profileTo(std::string tracePath) {
+    profilePath_ = std::move(tracePath);
+    Profiler::instance().setEnabled(!profilePath_.empty());
+}
+
+void Engine::writeProfile() {
+    if (profilePath_.empty()) return;
+    constexpr size_t kLoggedScopes = 30;
+    const std::vector<ProfileFrame> frames = Profiler::instance().recentFrames();
+    std::string error;
+    if (!Profiler::instance().exportChromeTrace(profilePath_, frames, &error))
+        Log::error("Profile: trace not written to ", profilePath_, ": ", error);
+    const ProfileSummary summary = Profiler::summarize(frames);
+    Log::info("Profile: ", summary.frames, " frames, ", summary.averageFrameMs, " ms average, ",
+              summary.worstFrameMs, " ms worst; trace ", profilePath_);
+    for (size_t i = 0; i < summary.scopes.size() && i < kLoggedScopes; ++i) {
+        const ProfileScopeSummary& s = summary.scopes[i];
+        Log::info("Profile: ", std::string(size_t(s.depth) * 2, ' '), s.name, " [", s.thread, "] ",
+                  s.averageMs, " ms/frame, ", s.calls, " calls");
+    }
+    for (const ProfileCounter& counter : summary.counterPeaks)
+        Log::info("Profile counter: ", counter.name, " peak ", counter.value);
 }
 
 void Engine::setRenderViewport(glm::vec2 position, glm::vec2 size) {

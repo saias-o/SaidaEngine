@@ -51,6 +51,7 @@ public:
     ResourceManager(rhi::Device& device, AssetRegistry* registry = nullptr,
                     GeometryCapacity geometry = {});
     GeometryCapacity geometryCapacity() const { return geometryRegistry_->capacity(); }
+    GeometryUsage geometryUsage() const { return geometryRegistry_->usage(); }
     ~ResourceManager();
     ResourceManager(const ResourceManager&) = delete;
     ResourceManager& operator=(const ResourceManager&) = delete;

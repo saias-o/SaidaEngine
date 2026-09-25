@@ -97,10 +97,16 @@ public:
     glm::vec3 consumeRootMotion();
 
     // Animation LOD: the graph (states, transitions, events) advances on
-    // every tick, but the pose is only resampled at `hz` and interpolated
-    // between the two latest samples. 0 = pose every tick.
-    void setPoseRate(float hz);
+    // every tick, but the pose is only resampled at `hz`. 0 = pose every tick.
+    //   Interpolate — between samples the output blends the two latest
+    //                 samples, every bone on every tick: smooth, not free.
+    //   Hold        — between samples the latest pose is kept and nothing is
+    //                 evaluated or recomposed: what a distant character in a
+    //                 crowd can afford, stepping at `hz`.
+    enum class PoseRateMode { Interpolate, Hold };
+    void setPoseRate(float hz, PoseRateMode mode = PoseRateMode::Interpolate);
     float poseRate() const { return poseRate_; }
+    PoseRateMode poseRateMode() const { return poseRateMode_; }
 
     const GlobalPose& globalPose() const { return globalPose_; }
     AnimNode* rootNode() const { return rootNode_.get(); }
@@ -121,7 +127,8 @@ public:
 private:
     void refreshRootMotionExtraction();
     void dispatchClipEvents();
-    void samplePose(float dt);
+    // Returns whether the local pose changed this tick.
+    bool samplePose(float dt);
 
     Rig* rig_ = nullptr;
     std::unique_ptr<AnimNode> rootNode_;
@@ -144,6 +151,7 @@ private:
     glm::vec3 pendingRootMotion_{0.0f};
 
     float poseRate_ = 0.0f;
+    PoseRateMode poseRateMode_ = PoseRateMode::Interpolate;
     float poseAccumulator_ = 0.0f;
     bool sampledPosesPrimed_ = false;
     LocalPose previousSampledPose_;

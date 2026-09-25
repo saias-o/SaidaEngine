@@ -95,7 +95,7 @@ void Mesh::upload(const std::vector<Vertex>& vertices, const std::vector<uint32_
     collisionIndices_ = indices;
 
     if (allocation_.indexCount != 0) registry_.free(allocation_);
-    allocation_ = registry_.allocate(vertices, indices);
+    registry_.allocate(allocation_, vertices, indices);
     gpuBytes_ = static_cast<uint64_t>(vertices.size()) * sizeof(Vertex) +
                 static_cast<uint64_t>(indices.size()) * sizeof(uint32_t);
 }

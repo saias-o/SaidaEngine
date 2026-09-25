@@ -66,6 +66,12 @@ public:
     void captureFrameThenExit(CaptureRequest request);
     bool captureFailed() const { return captureFailed_; }
 
+    // Profiles the run (--profile): the profiler is on from now, and when
+    // run() returns its last frames are written to `tracePath` as a Chrome
+    // trace and summarized in the log, scope by scope. Measuring a game needs
+    // no code in the game.
+    void profileTo(std::string tracePath);
+
     // Hand every frame the same delta instead of the measured one, and stop
     // throttling to maxFps (there is nothing to pace when time is fictional).
     // 0 restores the real clock.
@@ -98,6 +104,8 @@ private:
     // Deterministic frame capture (--screenshot). The scheduler owns the policy
     // (settle, then count); the Engine only asks it once per frame, before the
     // frame is drawn, and resolves the image after.
+    void writeProfile();
+    std::string profilePath_;
     void armFrameCapture();
     void serviceFrameCapture();
     CaptureScheduler captureScheduler_;

@@ -1,5 +1,7 @@
 # Build output (CMake/Ninja: objects, exe, compiled SPIR-V shaders, etc.)
 /build/
+# An optimized native build beside the Debug one (RelWithDebInfo).
+/build-rel/
 
 # Blender source files: large, only needed for editing the model, not the build.
 *.blend

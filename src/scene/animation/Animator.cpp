@@ -175,8 +175,9 @@ glm::vec3 Animator::consumeRootMotion() {
     return delta;
 }
 
-void Animator::setPoseRate(float hz) {
+void Animator::setPoseRate(float hz, PoseRateMode mode) {
     poseRate_ = std::max(0.0f, hz);
+    poseRateMode_ = mode;
     poseAccumulator_ = 0.0f;
     sampledPosesPrimed_ = false;
 }
@@ -208,13 +209,23 @@ void Animator::dispatchClipEvents() {
 }
 
 // Control runs every tick, pose at a reduced rate: between two samples,
-// the output interpolates the two latest evaluated poses.
-void Animator::samplePose(float dt) {
+// the output interpolates the two latest evaluated poses, or holds the latest.
+bool Animator::samplePose(float dt) {
     const float interval = poseRate_ > 0.0f ? 1.0f / poseRate_ : 0.0f;
     if (interval <= 0.0f) {
         rootNode_->evaluate(bindPose_, currentLocalPose_);
         retargetCorrections_.apply(currentLocalPose_);
-        return;
+        return true;
+    }
+
+    if (poseRateMode_ == PoseRateMode::Hold) {
+        poseAccumulator_ += dt;
+        if (sampledPosesPrimed_ && poseAccumulator_ < interval) return false;
+        poseAccumulator_ = sampledPosesPrimed_ ? std::fmod(poseAccumulator_, interval) : 0.0f;
+        sampledPosesPrimed_ = true;
+        rootNode_->evaluate(bindPose_, currentLocalPose_);
+        retargetCorrections_.apply(currentLocalPose_);
+        return true;
     }
 
     poseAccumulator_ += dt;
@@ -240,6 +251,7 @@ void Animator::samplePose(float dt) {
         out.scale = glm::mix(a.scale, b.scale, alpha);
     }
     retargetCorrections_.apply(currentLocalPose_);
+    return true;
 }
 
 void Animator::onUpdate(float dt) {
@@ -247,11 +259,12 @@ void Animator::onUpdate(float dt) {
     SAIDA_PROFILE_COUNTER_ADD("Animation/Animators", 1);
     if (!rig_) return;
 
+    bool posed = true;
     if (rootNode_) {
         refreshRootMotionExtraction();
         rootNode_->update(dt);
         dispatchClipEvents();
-        samplePose(dt);
+        posed = samplePose(dt);
     } else {
         currentLocalPose_ = bindPose_;  // no graph → rest pose
     }
@@ -262,8 +275,9 @@ void Animator::onUpdate(float dt) {
     }
 
     // GlobalPose in object space (identity base): the renderer applies the entity
-    // model matrix to the whole mesh after skinning.
-    globalPose_.computeFrom(currentLocalPose_, *rig_, glm::mat4(1.0f));
+    // model matrix to the whole mesh after skinning. A held pose keeps the
+    // matrices it already has.
+    if (posed) globalPose_.computeFrom(currentLocalPose_, *rig_, glm::mat4(1.0f));
 }
 
 void Animator::describe(reflect::TypeBuilder<Animator>& t) {

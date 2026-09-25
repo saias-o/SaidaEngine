@@ -16,6 +16,7 @@
 #include "core/Time.hpp"
 #include "runtime/BootManifest.hpp"
 #include "runtime/CaptureArgs.hpp"
+#include "runtime/ProfileArgs.hpp"
 #include "runtime/TestAutoload.hpp"
 #include "scene/SceneSerializer.hpp"
 
@@ -54,6 +55,11 @@ int main(int argc, char** argv) {
             saida::Log::error(captureError);
             return EXIT_FAILURE;
         }
+        std::string profilePath;
+        if (!saida::runtime::parseProfileArgs(argc, argv, profilePath, captureError)) {
+            saida::Log::error(captureError);
+            return EXIT_FAILURE;
+        }
 
         const fs::path root = saida::executableDirectory();
 
@@ -77,6 +83,7 @@ int main(int argc, char** argv) {
         // Same standalone path as the XR preview: load project + scene, mount the
         // persistent World (autoloads), run unscaled (Play).
         saida::Engine engine(nullptr, projectAbs, false);
+        engine.profileTo(profilePath);
 
         // Shipped game: persist saves/prefs under the per-user OS data directory
         // (never next to the read-only exe), keyed by the game's identity. Set
