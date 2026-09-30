@@ -28,6 +28,13 @@ int main() {
     if (!type.findProperty("style")) return 4;
     if (!type.findProperty("cartoonWaveScale")) return 5;
     if (!type.findProperty("cartoonShoreFrequency")) return 6;
+    const auto* surface = type.findProperty("surface");
+    if (!surface) return 16;
+    const nlohmann::json triangle = "0 2 0 1 2 0 0 2 1";
+    surface->set(&water, triangle);
+    nlohmann::json roundTrip;
+    surface->get(&water, roundTrip);
+    if (roundTrip != triangle) return 17;
 
     const auto shaderRoot = std::filesystem::path(SAIDA_PROJECT_ROOT) / "shaders";
     const std::string vertex = readText(shaderRoot / "cartoon_water.vert");
@@ -42,6 +49,8 @@ int main() {
     if (!contains(fragment, "shoreLine")) return 13;
     if (!contains(fragment, "cartoonWave")) return 14;
     if (!contains(fragment, "cartoonShore")) return 15;
+    if (!contains(readText(shaderRoot / "water_surface.vert"), "waterWaveAt")) return 18;
+    if (!contains(readText(shaderRoot / "cartoon_water_surface.vert"), "localToWorld")) return 19;
 
     return 0;
 }

@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 
 #include <memory>
+#include <unordered_map>
 #include <vector>
 
 namespace saida {
@@ -38,6 +39,7 @@ private:
         glm::vec4 cartoonDetail;
         glm::vec4 cartoonLook;
         glm::vec4 cartoonShore;
+        glm::mat4 localToWorld;
     };
 
     // Tiny per-draw push: which water entry + the animation clock.
@@ -48,11 +50,29 @@ private:
 
     static constexpr uint32_t kGridRes = 128;  // must match RES in water.vert
     static constexpr uint32_t kCartoonVertexCount = 6;
-    static constexpr uint32_t kMaxWaters = 8;  // must match WATER_MAX in water_common.glsl
+    static constexpr uint32_t kMaxWaters = 64;  // must match WATER_MAX in water_common.glsl
 
     rhi::Device* device_ = nullptr;
     std::unique_ptr<Pipeline> realisticPipeline_;
     std::unique_ptr<Pipeline> cartoonPipeline_;
+    std::unique_ptr<Pipeline> realisticSurfacePipeline_;
+    std::unique_ptr<Pipeline> cartoonSurfacePipeline_;
+
+    struct SurfaceBuffer {
+        std::unique_ptr<Buffer> vertices;
+        uint32_t count = 0;
+        uint64_t signature = 0;
+        uint64_t lastFrame = 0;
+        bool invalid = false;
+    };
+    struct RetiredBuffer {
+        std::unique_ptr<Buffer> vertices;
+        uint64_t releaseFrame = 0;
+    };
+    std::unordered_map<uint64_t, SurfaceBuffer> surfaces_;
+    std::vector<RetiredBuffer> retired_;
+    uint64_t frame_ = 0;
+    uint32_t framesInFlight_ = 1;
 
     // set 1: a UBO array of GpuWater, double-buffered per frame-in-flight.
     std::unique_ptr<rhi::BindGroupLayout> setLayout_;

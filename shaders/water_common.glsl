@@ -2,7 +2,7 @@
 
 #include "web_compat.glsl"
 
-const int WATER_MAX = 8;  // must match kMaxWaters in WaterFeature
+const int WATER_MAX = 64;  // must match kMaxWaters in WaterFeature
 
 struct GpuWater {
     vec4 area;       // x=centreX, y=surfaceY, z=centreZ, w=halfSize
@@ -21,6 +21,7 @@ struct GpuWater {
     vec4 cartoonDetail;
     vec4 cartoonLook;
     vec4 cartoonShore;
+    mat4 localToWorld; // optional shaped surface vertices use the node transform
 };
 
 layout(set = 1, binding = 0) uniform WaterBlock {

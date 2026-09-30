@@ -4,6 +4,7 @@
 #include "core/Reflection.hpp"
 
 #include <glm/glm.hpp>
+#include <string>
 
 namespace saida {
 
@@ -21,6 +22,9 @@ public:
 
     Style style = Style::Realistic;
     float size = 300.0f;          // half-extent of the plane (m)
+    // Optional tile-local xyz triangle list. Empty keeps the procedural square;
+    // a populated surface uses the same water shader over mapped river shapes.
+    std::string surface;
 
     glm::vec3 deepColor{0.01f, 0.07f, 0.11f};   // refracted body tint
     glm::vec3 foamColor{0.80f, 0.90f, 0.96f};   // crest foam colour

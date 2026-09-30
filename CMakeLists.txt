@@ -156,8 +156,10 @@ set(SHADERS
     ${SHADER_DIR}/skybox.vert
     ${SHADER_DIR}/skybox.frag
     ${SHADER_DIR}/water.vert
+    ${SHADER_DIR}/water_surface.vert
     ${SHADER_DIR}/water.frag
     ${SHADER_DIR}/cartoon_water.vert
+    ${SHADER_DIR}/cartoon_water_surface.vert
     ${SHADER_DIR}/cartoon_water.frag
     ${SHADER_DIR}/particle_render.vert
     ${SHADER_DIR}/particle_render.frag
@@ -201,7 +203,7 @@ set(WEB_READY_SHADERS
     voxelize.vert voxelize.frag
     debug_line.vert debug_line.frag
     ui.vert ui.frag
-    water.vert water.frag cartoon_water.vert cartoon_water.frag
+    water.vert water_surface.vert water.frag cartoon_water.vert cartoon_water_surface.vert cartoon_water.frag
     web_canvas_world.vert web_canvas_world.frag
     particle_render.vert particle_render.frag
     culling.comp
@@ -247,7 +249,8 @@ foreach(SHADER ${SHADERS})
     # gl_ViewIndex get a -DMULTIVIEW variant. The scene vertex picks per-eye
     # camera matrices; the skybox fragment picks per-eye inverse view-proj.
     if(SHADER_NAME STREQUAL "shader.vert" OR SHADER_NAME STREQUAL "skybox.frag"
-       OR SHADER_NAME STREQUAL "water.vert" OR SHADER_NAME STREQUAL "cartoon_water.vert"
+       OR SHADER_NAME STREQUAL "water.vert" OR SHADER_NAME STREQUAL "water_surface.vert"
+       OR SHADER_NAME STREQUAL "cartoon_water.vert" OR SHADER_NAME STREQUAL "cartoon_water_surface.vert"
        OR SHADER_NAME STREQUAL "outline.vert"
        OR SHADER_NAME STREQUAL "particle_render.vert")
         set(MULTIVIEW_OUTPUT ${SHADER_OUT_DIR}/multiview.${SHADER_NAME}.spv)

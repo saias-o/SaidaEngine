@@ -295,6 +295,13 @@ The RHI compiles to Vulkan or WebGPU. GLSL shaders are compiled to SPIR-V, then
 transpiled to WGSL with naga for the Web. The Web player has no MSAA. XR
 rendering uses the same renderer with stereo/multiview views.
 
+`WaterNode` uses the same water shading for its procedural square and an optional
+tile-local triangle surface (`surface`, space-separated xyz floats in groups of
+three vertices).
+The shaped surface follows the node transform and keeps the shader's waves,
+normal detail, Fresnel reflection and sun sparkle. An empty surface retains the
+procedural square used by ocean scenes.
+
 The GPU-driven path has bindless materials, indirect draw, compute culling and
 tested binding contracts. It is not the active universal path: some
 `useGpuDriven=false` remain. Its activation must become an explicit setting/cap

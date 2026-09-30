@@ -7,6 +7,8 @@ void WaterNode::describe(reflect::TypeBuilder<WaterNode>& t) {
     t.property("style", &WaterNode::style)
         .enumValues({"Realistic", "Cartoon"});
     t.property("size", &WaterNode::size).range(1.0, 5000.0).tooltip("half-extent of the plane (m)");
+    t.property("surface", &WaterNode::surface)
+        .tooltip("optional space-separated tile-local xyz triangles; empty for the procedural square");
     t.property("deepColor", &WaterNode::deepColor).tooltip("refracted body tint");
     t.property("foamColor", &WaterNode::foamColor).tooltip("wave-crest foam colour");
     t.property("roughness", &WaterNode::roughness).range(0.02, 0.4)
