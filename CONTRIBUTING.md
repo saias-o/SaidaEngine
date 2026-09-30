@@ -125,6 +125,7 @@ Use the dedicated Witness harnesses for end-to-end work:
 ./tools/witness_editor_build.sh
 ./tools/witness_web_stage.sh
 ./tools/witness_golden_image.sh   # renderer/shader/HUD changes; needs Lavapipe
+python tools/verify_material_sidedness.py --build build  # Pillow; native front/back pixel check
 ```
 
 The desktop and Web restart checks must restore the saved progression and reach

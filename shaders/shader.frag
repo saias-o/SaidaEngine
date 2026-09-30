@@ -61,12 +61,15 @@ layout(location = 6) in vec3 fragBitangent;
 
 #ifdef BINDLESS
 layout(location = 7) flat in uint fragMaterialIndex;
+layout(location = 8) flat in uint fragDoubleSided;
 #endif
 
 layout(location = 0) out vec4 outColor;
 
 void main() {
 #ifdef BINDLESS
+    // Mixed materials share one indirect pipeline; sidedness remains per draw.
+    if (!gl_FrontFacing && fragDoubleSided == 0u) discard;
     MaterialData mat = materials[fragMaterialIndex];
     vec4 baseColor = mat.baseColor;
     float matMetallic = mat.metallic;
@@ -125,6 +128,8 @@ void main() {
         vec3 tangentNormal = normalSample * 2.0 - 1.0;
         N = normalize(TBN * tangentNormal);
     }
+    // Reverse the complete mapped normal on the back of a two-sided surface.
+    if (!gl_FrontFacing) N = -N;
 
 #ifdef BINDLESS
     vec3 mrSample = texture(globalTextures[nonuniformEXT(mat.metallicRoughnessTexIdx)], fragTexCoord).rgb;

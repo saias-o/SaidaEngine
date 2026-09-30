@@ -89,5 +89,11 @@ int main() {
     if (!require(contains(fragment, "uint materialType;"))) return 9;
     if (!require(contains(fragment, "if (mat.materialType == 1u)"))) return 10;
 
+    const std::string vertex = readText(shaders / "shader.vert");
+    static_assert(offsetof(saida::gpu_driven::InstanceData, doubleSided) == 88);
+    if (!require(contains(vertex, "uint doubleSided, pad;"))) return 20;
+    if (!require(contains(vertex, "fragDoubleSided = instances[gl_InstanceIndex].doubleSided;"))) return 21;
+    if (!require(contains(fragment, "if (!gl_FrontFacing && fragDoubleSided == 0u) discard;"))) return 22;
+    if (!require(contains(fragment, "if (!gl_FrontFacing) N = -N;"))) return 23;
     return 0;
 }

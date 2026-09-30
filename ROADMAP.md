@@ -341,6 +341,8 @@ Post-V1 unless the scope changes explicitly.
   constrains traffic is triangles and bodies, not the vehicle solver.
 
 - [ ] Animation: extended API (scrub, JS root motion) and BVH retargeting.
+- [x] Honor material sidedness in classic, bindless and XR scene draws; reverse
+  back-face shading normals. The instance ABI retains its existing size.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.
 - [ ] Rendering: point-light cubemap shadows and lightmap persistence if

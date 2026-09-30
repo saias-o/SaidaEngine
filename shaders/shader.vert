@@ -25,7 +25,7 @@ struct InstanceData {
     vec4 boundingSphere;
     uint materialIndex;
     int boneOffset;
-    uint pad2, pad3;
+    uint doubleSided, pad;
 };
 
 layout(std140, set = 2, binding = 0) readonly buffer InstanceBuffer {
@@ -52,6 +52,7 @@ layout(location = 6) out vec3 fragBitangent;
 
 #ifdef BINDLESS
 layout(location = 7) flat out uint fragMaterialIndex;
+layout(location = 8) flat out uint fragDoubleSided;
 #endif
 
 void main() {
@@ -61,6 +62,7 @@ void main() {
 #ifdef BINDLESS
     modelMat = instances[gl_InstanceIndex].model;
     fragMaterialIndex = instances[gl_InstanceIndex].materialIndex;
+    fragDoubleSided = instances[gl_InstanceIndex].doubleSided;
     boneOffset = instances[gl_InstanceIndex].boneOffset;
 #else
     modelMat = push.model;

@@ -391,10 +391,15 @@ void Renderer::createPipeline(rhi::BindGroupLayout& materialSetLayout) {
     rhi::Pipeline::Desc unlit = classic;
     unlit.fragPath = shaderPath("unlit.frag.spv");
     unlitPipeline_ = std::make_unique<rhi::Pipeline>(device_, unlit);
+    auto twoSided = classic; twoSided.cullMode = rhi::CullMode::None;
+    twoSidedPipeline_ = std::make_unique<rhi::Pipeline>(device_, twoSided);
+    twoSided.fragPath = shaderPath("unlit.frag.spv");
+    twoSidedUnlitPipeline_ = std::make_unique<rhi::Pipeline>(device_, twoSided);
 
 #ifndef SAIDA_RHI_WEBGPU
     if (gpuDrivenAvailable_) {
         rhi::Pipeline::Desc gpuDriven = classic;
+        gpuDriven.cullMode = rhi::CullMode::None; // shader applies each instance's sidedness
         gpuDriven.vertPath = shaderPath("bindless.shader.vert.spv");
         gpuDriven.fragPath = shaderPath("bindless.shader.frag.spv");
         gpuDriven.bindGroupLayouts = {globalSetLayout_.get(), resources_.globalMaterialSetLayout(),
@@ -977,6 +982,8 @@ void Renderer::uploadGpuDrivenDraws() {
                      kMinBoundsRadius));
         instance.materialIndex = draw.material->bindlessIndex();
         instance.boneOffset = draw.boneOffset;
+        instance.doubleSided = draw.material->desc().doubleSided ? 1u : 0u;
+        instance.pad = 0;
 
         const GeometryAllocation allocation = draw.mesh->geometryAllocation();
         gpu_driven::DrawIndexedIndirectCommand& command = commands[index];
@@ -1148,10 +1155,10 @@ void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstP
     rp.setBindGroup(0, globalSet);
 
     for (const auto& draw : frameDraws_.visibleDraws) {
-        rhi::Pipeline* want = scenePipelineFor(draw.materialType);
+        rhi::Pipeline* want = scenePipelineFor(draw.materialType, draw.material->desc().doubleSided);
 #ifdef SAIDA_ENABLE_XR
         if (xrMultiview)
-            want = xrScenePipelineFor(draw.materialType);
+            want = xrScenePipelineFor(draw.materialType, draw.material->desc().doubleSided);
 #else
         (void)xrMultiview;
 #endif
@@ -1611,6 +1618,10 @@ void Renderer::createXrPipelines() {
 
     sceneDesc.fragPath = shaderPath("unlit.frag.spv");
     xrUnlitPipeline_ = std::make_unique<rhi::Pipeline>(device_, sceneDesc);
+    sceneDesc.cullMode = rhi::CullMode::None;
+    xrTwoSidedUnlitPipeline_ = std::make_unique<rhi::Pipeline>(device_, sceneDesc);
+    sceneDesc.fragPath = shaderPath("shader.frag.spv");
+    xrTwoSidedPipeline_ = std::make_unique<rhi::Pipeline>(device_, sceneDesc);
 
     if (resources_.globalMaterialSetLayout()) {
         rhi::Pipeline::Desc webDesc;

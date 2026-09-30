@@ -133,7 +133,8 @@ private:
     void createPipeline(rhi::BindGroupLayout& materialSetLayout);
     void createWebCanvasWorldPipeline();
     // Layout-compatible variants keep existing binds valid across a switch.
-    rhi::Pipeline* scenePipelineFor(MaterialType type) const {
+    rhi::Pipeline* scenePipelineFor(MaterialType type, bool doubleSided = false) const {
+        if (doubleSided) return type == MaterialType::Unlit ? twoSidedUnlitPipeline_.get() : twoSidedPipeline_.get();
         return (type == MaterialType::Unlit && unlitPipeline_) ? unlitPipeline_.get()
                                                                : pipeline_.get();
     }
@@ -169,6 +170,8 @@ private:
     ImGuiLayer* imgui_ = nullptr;     // null in XR mode (no debug overlay yet)
 
     std::unique_ptr<rhi::Pipeline> pipeline_;        // scene pipeline: MaterialType::Lit
+    std::unique_ptr<rhi::Pipeline> twoSidedPipeline_;
+    std::unique_ptr<rhi::Pipeline> twoSidedUnlitPipeline_;
     std::unique_ptr<rhi::Pipeline> unlitPipeline_;   // scene pipeline: MaterialType::Unlit
     // Material type comes from the bindless material table.
     std::unique_ptr<rhi::Pipeline> gpuDrivenPipeline_;
@@ -300,6 +303,8 @@ private:
                          const std::vector<EyeRenderInfo>& eyes);
 
     std::unique_ptr<rhi::Pipeline> xrScenePipeline_;    // multiview scene: MaterialType::Lit
+    std::unique_ptr<rhi::Pipeline> xrTwoSidedPipeline_;
+    std::unique_ptr<rhi::Pipeline> xrTwoSidedUnlitPipeline_;
     std::unique_ptr<rhi::Pipeline> xrUnlitPipeline_;    // multiview scene: MaterialType::Unlit
     std::unique_ptr<rhi::Pipeline> xrWebCanvasWorldPipeline_;
     std::unique_ptr<rhi::Pipeline> xrTonemapPipeline_;  // per-eye tonemap → XR image
@@ -310,7 +315,8 @@ private:
     std::unique_ptr<rhi::BindGroupLayout> xrTonemapSetLayout_;
     std::unique_ptr<rhi::Sampler> xrTonemapSampler_;
     std::unique_ptr<rhi::Sampler> xrTonemapDepthSampler_;
-    rhi::Pipeline* xrScenePipelineFor(MaterialType type) const {
+    rhi::Pipeline* xrScenePipelineFor(MaterialType type, bool doubleSided = false) const {
+        if (doubleSided) return type == MaterialType::Unlit ? xrTwoSidedUnlitPipeline_.get() : xrTwoSidedPipeline_.get();
         return (type == MaterialType::Unlit && xrUnlitPipeline_) ? xrUnlitPipeline_.get()
                                                                  : xrScenePipeline_.get();
     }

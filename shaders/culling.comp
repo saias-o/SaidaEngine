@@ -10,8 +10,8 @@ struct InstanceData {
     vec4 boundingSphere; // xyz = center, w = radius
     uint materialIndex;
     int boneOffset;
-    uint pad0;
-    uint pad1;
+    uint doubleSided;
+    uint pad;
 };
 
 struct VkDrawIndexedIndirectCommand {

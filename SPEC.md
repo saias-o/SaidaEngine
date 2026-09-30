@@ -302,6 +302,13 @@ The shaped surface follows the node transform and keeps the shader's waves,
 normal detail, Fresnel reflection and sun sparkle. An empty surface retains the
 procedural square used by ocean scenes.
 
+`MaterialDesc::doubleSided` controls scene visibility on desktop, Web and XR.
+Classic draws select a no-cull pipeline for two-sided materials; the mixed
+bindless pipeline carries the flag at byte 88 of each 96-byte instance and
+rejects only the backs of single-sided materials in its fragment shader.
+Back-face lighting reverses the complete normal after normal-map evaluation.
+The GPU ABI sizes and durable material format are unchanged.
+
 The GPU-driven path has bindless materials, indirect draw, compute culling and
 tested binding contracts. It is not the active universal path: some
 `useGpuDriven=false` remain. Its activation must become an explicit setting/cap

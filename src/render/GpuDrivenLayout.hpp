@@ -25,7 +25,8 @@ struct alignas(16) InstanceData {
     glm::vec4 boundingSphere{0.0f};  // local center xyz, local radius w
     uint32_t materialIndex = 0;
     int32_t boneOffset = -1;
-    uint32_t pad[2]{};
+    uint32_t doubleSided = 0;
+    uint32_t pad = 0;
 };
 
 struct DrawIndexedIndirectCommand {
@@ -46,6 +47,7 @@ static_assert(sizeof(InstanceData) == 96);
 static_assert(offsetof(InstanceData, boundingSphere) == 64);
 static_assert(offsetof(InstanceData, materialIndex) == 80);
 static_assert(offsetof(InstanceData, boneOffset) == 84);
+static_assert(offsetof(InstanceData, doubleSided) == 88);
 static_assert(sizeof(DrawIndexedIndirectCommand) == 20);
 static_assert(offsetof(CullingPushConstants, instanceCount) == 96);
 
