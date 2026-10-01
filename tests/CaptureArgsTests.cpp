@@ -124,6 +124,25 @@ void testMalformedVectorsAreRefused() {
             "an empty component is refused");
 }
 
+// SAIDA_WINDOW_SIZE sets the capture's resolution; a malformed one must stop
+// the engine rather than fall back to a size nobody asked for.
+void testWindowSize() {
+    uint32_t w = 1, h = 1;
+    std::string error;
+    require(runtime::parseWindowSize("1600x900", w, h, error) && w == 1600 && h == 900,
+            "WIDTHxHEIGHT parses");
+    require(runtime::parseWindowSize("1280X720", w, h, error) && w == 1280 && h == 720,
+            "an upper-case X parses");
+    for (const char* bad : {"", "1600", "1600x", "x900", "1600x900x2", "-1600x900", "1600 x 900",
+                            "16x900", "1600x9000", "99999x900", "1e3x900"}) {
+        w = h = 7;
+        error.clear();
+        require(!runtime::parseWindowSize(bad, w, h, error), "a malformed size is refused");
+        require(!error.empty(), "a refused size says why");
+        require(w == 7 && h == 7, "a refused size leaves the default untouched");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -134,6 +153,7 @@ int main() {
     testViewpoint();
     testHalfAViewpointIsRefused();
     testMalformedVectorsAreRefused();
+    testWindowSize();
 
     std::cout << "[capture-args] OK (" << gChecks << " checks)\n";
     return 0;

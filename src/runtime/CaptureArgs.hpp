@@ -2,6 +2,7 @@
 
 #include "render/CaptureScheduler.hpp"
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 
@@ -136,6 +137,33 @@ inline bool parseCaptureArgs(int argc, char** argv, CaptureRequest& request,
         return false;
     }
     viewpoint.set = sawCameraPos;
+    return true;
+}
+
+// The window's size, from `SAIDA_WINDOW_SIZE` ("1600x900"). A capture's
+// resolution is the window's, so this is how a headless capture is taken at a
+// size worth looking at rather than the hidden window's 640x360.
+//
+// Returns false with `error` set on a malformed value: a size quietly replaced
+// by the default is a reference image of the wrong size, compared as a
+// mismatch long after the typo that caused it.
+inline bool parseWindowSize(const std::string& text, uint32_t& width, uint32_t& height,
+                            std::string& error) {
+    const size_t x = text.find_first_of("xX");
+    auto side = [](const std::string& part, uint32_t& out) {
+        if (part.empty() || part.size() > 5) return false;
+        for (char c : part)
+            if (c < '0' || c > '9') return false;
+        out = static_cast<uint32_t>(std::stoul(part));
+        return out >= 64 && out <= 8192;
+    };
+    uint32_t w = 0, h = 0;
+    if (x == std::string::npos || !side(text.substr(0, x), w) || !side(text.substr(x + 1), h)) {
+        error = "SAIDA_WINDOW_SIZE expects WIDTHxHEIGHT, each from 64 to 8192 -- got '" + text + "'";
+        return false;
+    }
+    width = w;
+    height = h;
     return true;
 }
 

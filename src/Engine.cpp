@@ -13,6 +13,7 @@
 #include "graphics/VulkanDevice.hpp"
 #include "project/Project.hpp"
 #include "render/Renderer.hpp"
+#include "runtime/CaptureArgs.hpp"
 #include "scene/Scene.hpp"
 #include "scene/SceneTree.hpp"
 #include "scene/SceneSerializer.hpp"
@@ -127,8 +128,12 @@ Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool re
     // on a clean runner with a software Vulkan ICD.
     const bool hiddenTestWindow = std::getenv("SAIDA_WINDOW_HIDDEN") != nullptr;
     const bool hideWindow = requireXr || hiddenTestWindow;
-    const uint32_t width = hiddenTestWindow ? kHiddenTestWidth : kWidth;
-    const uint32_t height = hiddenTestWindow ? kHiddenTestHeight : kHeight;
+    uint32_t width = hiddenTestWindow ? kHiddenTestWidth : kWidth;
+    uint32_t height = hiddenTestWindow ? kHiddenTestHeight : kHeight;
+    if (const char* size = std::getenv("SAIDA_WINDOW_SIZE")) {
+        std::string error;
+        if (!runtime::parseWindowSize(size, width, height, error)) throw std::runtime_error(error);
+    }
     window_ = std::make_unique<Window>(width, height, "SaidaEngine", !hideWindow);
     Input::bind(window_.get());
 

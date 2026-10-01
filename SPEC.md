@@ -1378,6 +1378,9 @@ Because both defaults are the reproducible ones, `--screenshot` alone produces a
 golden image. Its **resolution follows the window**, so a committed reference is
 taken headless (`SAIDA_WINDOW_HIDDEN=1`); a capture from a visible window is a
 different image size and compares as a size mismatch.
+`SAIDA_WINDOW_SIZE=WIDTHxHEIGHT` (each 64–8192) sets the window's size, hidden
+or visible, and therefore the capture's; a malformed value stops the engine at
+startup with the reason instead of falling back to the default size.
 
 The comparison half is `saida_tool compare-png <actual.png> <expected.png>`:
 exit 0 when the images match within the stated bounds, 1 when they differ, 2 on
