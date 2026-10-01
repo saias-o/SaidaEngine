@@ -517,7 +517,9 @@ RaycastHit PhysicsWorld::raycast(const glm::vec3& origin, const glm::vec3& direc
     // ClosestHitCollisionCollector + filter: the closest hit among the
     // admitted bodies (the plain CastRay doesn't take a BodyFilter).
     ClosestHitCollisionCollector<CastRayCollector> collector;
-    system_->GetNarrowPhaseQueryNoLock().CastRay(ray, {}, collector, {}, {}, bodyFilter);
+    RayCastSettings settings;
+    settings.mBackFaceModeTriangles = EBackFaceMode::CollideWithBackFaces;
+    system_->GetNarrowPhaseQueryNoLock().CastRay(ray, settings, collector, {}, {}, bodyFilter);
     if (collector.HadHit()) {
         const RayCastResult& result = collector.mHit;
         out.hit = true;
@@ -543,6 +545,7 @@ std::vector<JPH::BodyID> PhysicsWorld::overlapSphere(const glm::vec3& center, fl
     SphereShape sphere(radius);
     sphere.SetEmbedded();  // stack-owned: opt out of ref-counted destruction
     CollideShapeSettings settings;
+    settings.mBackFaceMode = EBackFaceMode::CollideWithBackFaces;
     AllHitCollisionCollector<CollideShapeCollector> collector;
     QueryBodyFilter bodyFilter(filter);
     system_->GetNarrowPhaseQueryNoLock().CollideShape(

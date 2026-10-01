@@ -11,6 +11,10 @@ the corresponding contracts of `SPEC.md`.
 
 ## Streaming integration — verified 2026-10-01
 
+- [x] Detect thin triangle walls from either side in scene rays and sphere
+  overlaps. Covered by a mesh-wall front/back query regression, including the
+  ignored-body filter, and R1World's character facade traversal checks.
+
 - [x] Release `CharacterVirtual` and its inner body when a character or its
   ancestor is disabled. Reconnect on reactivation; covered by the character
   disable/query/reactivate/move-and-slide regression and the R1World teleport

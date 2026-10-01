@@ -15,6 +15,7 @@
 #include "physics/PhysicsWorld.hpp"
 #include "physics/RigidBodyNode.hpp"
 #include "physics/StaticBodyNode.hpp"
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
 
 #include <cmath>
 #include <cstdio>
@@ -31,6 +32,7 @@ void require(bool condition, const char* what) {
     ++gChecks;
     if (!condition) {
         std::printf("[physics-query-joint] FAIL: %s\n", what);
+        std::fflush(stdout);
         std::abort();
     }
 }
@@ -112,6 +114,25 @@ void testQueries() {
     // Far away → empty.
     require(world->overlapSphere({100.0f, 50.0f, 0.0f}, 1.0f).empty(),
             "empty overlap far from every body");
+
+    // A scene wall is an obstacle from either side. Box-only query tests
+    // miss back-face rejection and roundoff at thin triangle surfaces.
+    JPH::VertexList vertices{{-2,-2,0},{2,-2,0},{0,2,0}};
+    JPH::IndexedTriangleList triangles{{0,1,2,0}};
+    auto mesh=JPH::MeshShapeSettings(vertices,triangles).Create();
+    require(mesh.IsValid(), "query wall mesh built");
+    BodyDesc desc;desc.shape=mesh.Get().GetPtr();desc.position={10,3,0};desc.motion=BodyMotion::Static;
+    const auto plane=world->createBody(desc);
+    require(!plane.IsInvalid(), "query wall body built");
+    for(float side:{1.f,-1.f}) {
+        found=world->overlapSphere({10,3,side*.1f},.2f);
+        require(std::find(found.begin(),found.end(),plane)!=found.end(), "sphere overlaps wall from either side");
+        hit=world->raycast({10,3,side},{0,0,-side},2.f);
+        require(hit.hit&&hit.body==plane&&std::abs(hit.distance-1.f)<.01f, "ray hits wall from either side");
+    }
+    QueryFilter ignorePlane;ignorePlane.ignore=plane;
+    require(world->overlapSphere({10,3,-.1f},.2f,ignorePlane).empty(), "two-sided overlap keeps ignore filter");
+    world->removeBody(plane);
 
     std::printf("[physics-query-joint] queries ok\n");
 }

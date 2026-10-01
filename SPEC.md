@@ -560,6 +560,8 @@ position itself (on a globe, in its own units). A primitive shape's `offset`
 Covered by `saida_physics_character_tests`.
 
 **Scene queries.** `PhysicsWorld::raycast` and `overlapSphere` take a
+two-sided view of triangle meshes: camera rays and occupancy checks see a thin
+wall from either side, independently of its render material or winding. They take a
 `QueryFilter`: sensors (Area) are excluded by default — a camera occlusion ray or
 a hitscan does not stop on an invisible trigger — and re-admitted via
 `hitSensors`; an explicit body can be ignored (the caster). Exposed in JS by the
