@@ -117,7 +117,9 @@ void SceneIndex::publish(Node& node, Entry& e) {
     }
     ++activeNodes;
     bodies.add(e.body); joints.add(e.joint);
+#ifndef SAIDA_NO_PHYSICS
     if (e.body && e.body->hasPrePhysicsStep()) preSteppers.add(e.body);
+#endif
     for (const auto& b : node.behaviours()) {
         e.behaviours.push_back(b.get());
         behaviours.add(b.get());
