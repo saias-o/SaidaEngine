@@ -38,7 +38,7 @@ public:
     void resolveAutoShapes();
 
     // Drop the Jolt body (on disable / removal from a physics scene).
-    void detachFromPhysics();
+    virtual void detachFromPhysics();
     // Force a rebuild of the body next sync (after a shape/param change).
     void markDirty() { dirty_ = true; }
 

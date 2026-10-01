@@ -24,6 +24,15 @@ JPH::BodyID CharacterBodyNode::innerBodyId() const {
     return character_ ? character_->GetInnerBodyID() : JPH::BodyID();
 }
 
+void CharacterBodyNode::detachFromPhysics() {
+    // CharacterVirtual owns an inner body independently of bodyId_. Releasing
+    // only the base body's bookkeeping leaves a disabled capsule in Jolt and
+    // prevents the next sync from reconnecting this node to its physics world.
+    character_ = nullptr;
+    moved_ = false;
+    CollisionObjectNode::detachFromPhysics();
+}
+
 void CharacterBodyNode::syncToPhysics(PhysicsWorld& world) {
     if (dirty_) {
         character_ = nullptr;  // shape/params changed → rebuild

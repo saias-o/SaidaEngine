@@ -31,6 +31,7 @@ public:
 
     // Engine hooks (not called by gameplay code).
     void syncToPhysics(PhysicsWorld& world) override;     // lazily create the character
+    void detachFromPhysics() override;
     void prePhysicsStep(PhysicsWorld& world, float dt) override;  // move/slide
     bool hasPrePhysicsStep() const override { return true; }
     void syncFromPhysics(PhysicsWorld& world) override;   // write pose back to the node

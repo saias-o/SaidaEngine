@@ -9,7 +9,12 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
-## Streaming integration — verified 2026-09-23
+## Streaming integration — verified 2026-10-01
+
+- [x] Release `CharacterVirtual` and its inner body when a character or its
+  ancestor is disabled. Reconnect on reactivation; covered by the character
+  disable/query/reactivate/move-and-slide regression and the R1World teleport
+  between Paris and Tunis after driving and traffic takeover.
 
 - [x] Replace global scene/resource rebuilds with per-scene branch revisions and
   incremental membership/resource ownership. Reuse the same ownership snapshot

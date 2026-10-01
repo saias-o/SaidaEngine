@@ -134,5 +134,38 @@ int main() {
     std::printf("slid round to x=%.3f z=%.3f\n", feet.x, feet.z);
     assert(feet.x > 3.0f && feet.z > 0.6f);
     std::printf("PASS: moveAndSlide stops at and slides round bodies\n");
+    // Disabling a character must release its inner Jolt body, not only its
+    // scene membership. Re-enabling must reconnect moveAndSlide to physics.
+    scene.update(dt);
+    auto* world = walker->physicsWorld();
+    const auto oldInner = walker->innerBodyId();
+    const glm::vec3 oldCenter = feet + glm::vec3(0, .9f, 0);
+    walker->setEnabled(false);
+    scene.update(dt);
+    assert(!walker->physicsWorld());
+    assert(walker->innerBodyId().IsInvalid());
+    for (auto id : world->overlapSphere(oldCenter, .1f)) assert(id != oldInner);
+    walker->setEnabled(true);
+    walker->transform().position = {0, .5f, 0};
+    scene.update(dt);
+    assert(walker->physicsWorld() == world);
+    assert(!walker->innerBodyId().IsInvalid());
+    met = false;
+    for (int i = 0; i < 90; ++i) {
+        feet = walker->moveAndSlide({2, 0, 0}, dt);
+        for (const auto& contact : walker->contacts()) met = met || contact.node == post;
+        scene.update(dt);
+    }
+    assert(met && feet.x < 1.35f);
+    auto* branch = scene.createChild<Node>("Character branch");
+    branch->addChild(scene.detachChild(walker));
+    scene.update(dt);
+    branch->setEnabled(false);
+    scene.update(dt);
+    assert(!walker->physicsWorld() && walker->innerBodyId().IsInvalid());
+    branch->setEnabled(true);
+    scene.update(dt);
+    assert(walker->physicsWorld() == world && !walker->innerBodyId().IsInvalid());
+    std::printf("PASS: disabled characters release their inner body and reconnect on reactivation\n");
     return 0;
 }

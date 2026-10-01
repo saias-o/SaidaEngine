@@ -538,7 +538,9 @@ one body per mesh until the builder covers a whole subtree ([ROADMAP](ROADMAP.md
 **Disabled bodies.** A body whose node, or an ancestor, is disabled leaves the
 Jolt world, not only the scene index: it is removed at once and rebuilt by its
 next sync when enabled again. A disabled body never collides, is never hit by a
-query and never pushes a character.
+query and never pushes a character. Character bodies release their
+`CharacterVirtual` and its inner body on detach as well; reactivation creates
+both again and reconnects immediate movement to the owning physics world.
 
 **Character contacts.** `CharacterBodyNode::contacts()` lists what the character
 touched in its last move: each solid body it collided with or overlaps, named by
