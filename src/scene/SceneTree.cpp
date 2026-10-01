@@ -17,7 +17,8 @@
 
 namespace saida {
 
-SceneTree::SceneTree(ResourceManager& resources) : resources_(resources) {}
+SceneTree::SceneTree(ResourceManager& resources, PhysicsCapacity physics)
+    : resources_(resources), physicsCapacity_(physics) {}
 SceneTree::~SceneTree() { unmountWorld(); }
 
 Scene* SceneTree::mountWorld(std::unique_ptr<Scene> startScene) {
@@ -25,6 +26,7 @@ Scene* SceneTree::mountWorld(std::unique_ptr<Scene> startScene) {
     world_ = std::make_unique<Scene>();
     world_->setName("World");
     world_->setTree(this);
+    world_->setPhysicsCapacity(physicsCapacity_);
 
     // Autoloads must become ready before level behaviours: gameplay scripts may
     // resolve and call them from their first onReady callback.

@@ -43,6 +43,10 @@ public:
     void markDirty() { dirty_ = true; }
 
     JPH::BodyID bodyId() const { return bodyId_; }
+    // True while the physics world has refused this body for capacity. The
+    // body is not rebuilt every frame: the next sync that finds the world with
+    // room builds it.
+    bool bodyRefused() const { return refused_; }
 
     // The second body this node owns, when it owns one. A query that must not
     // hit its own caster has to skip every body the caster is made of, and
@@ -99,6 +103,7 @@ protected:
     JPH::BodyID bodyId_;
     PhysicsWorld* world_ = nullptr;
     bool dirty_ = false;
+    bool refused_ = false;
     // The world transform last handed to Jolt for a static or kinematic body.
     // An unmoved body is not pushed again: every push is a broadphase update.
     glm::mat4 pushedWorld_{0.0f};

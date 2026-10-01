@@ -5,6 +5,7 @@
 #include "render/CaptureScheduler.hpp"
 #include "ui/UIInteractionSystem.hpp"
 #include "graphics/GeometryCapacity.hpp"
+#include "physics/PhysicsCapacity.hpp"
 
 #include <functional>
 #include <memory>
@@ -32,7 +33,8 @@ using SceneSetup = std::function<void(Scene&, ResourceManager&)>;
 class Engine {
 public:
     explicit Engine(SceneSetup sceneSetup, const std::string& initialProject = "",
-                    bool requireXr = false, GeometryCapacity geometry = {});
+                    bool requireXr = false, GeometryCapacity geometry = {},
+                    PhysicsCapacity physics = {});
     ~Engine();
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;

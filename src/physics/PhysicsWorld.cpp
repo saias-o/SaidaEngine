@@ -33,6 +33,8 @@
 
 #include <algorithm>
 #include <mutex>
+#include <stdexcept>
+#include <string>
 #include <thread>
 #include <unordered_map>
 
@@ -107,6 +109,20 @@ EMotionType toMotionType(BodyMotion m) {
     }
 }
 
+// What a step that overflowed a fixed buffer lost, and which capacity holds it.
+const char* stepErrorReason(EPhysicsUpdateError error) {
+    switch (error) {
+        case EPhysicsUpdateError::ManifoldCacheFull:
+            return "contact manifold cache full, contacts dropped (PhysicsCapacity::contactConstraints)";
+        case EPhysicsUpdateError::BodyPairCacheFull:
+            return "body pair cache full, contacts dropped (PhysicsCapacity::bodyPairs)";
+        case EPhysicsUpdateError::ContactConstraintsFull:
+            return "contact constraint buffer full, contacts dropped (PhysicsCapacity::contactConstraints)";
+        default:
+            return "unknown step error";
+    }
+}
+
 uint64 contactKey(BodyID a, BodyID b) {
     uint32 x = a.GetIndexAndSequenceNumber();
     uint32 y = b.GetIndexAndSequenceNumber();
@@ -158,7 +174,10 @@ struct PhysicsWorld::LayerState {
     ObjectLayerPairFilterImpl objectVsObject;
 };
 
-PhysicsWorld::PhysicsWorld() {
+PhysicsWorld::PhysicsWorld(PhysicsCapacity capacity) : capacity_(capacity) {
+    if (!capacity_.valid())
+        throw std::invalid_argument("physics capacity must be nonzero and hold at most " +
+                                    std::to_string(PhysicsCapacity::kMaxBodies) + " bodies");
     globalInit();
 
     layers_ = std::make_unique<LayerState>();
@@ -174,11 +193,8 @@ PhysicsWorld::PhysicsWorld() {
 #endif
 
     system_ = std::make_unique<PhysicsSystem>();
-    const uint cMaxBodies = 8192;
     const uint cNumBodyMutexes = 0;  // 0 = autodetect
-    const uint cMaxBodyPairs = 8192;
-    const uint cMaxContactConstraints = 4096;
-    system_->Init(cMaxBodies, cNumBodyMutexes, cMaxBodyPairs, cMaxContactConstraints,
+    system_->Init(capacity_.bodies, cNumBodyMutexes, capacity_.bodyPairs, capacity_.contactConstraints,
                   layers_->broadphase, layers_->objectVsBroadphase, layers_->objectVsObject);
     system_->SetGravity(Vec3(0.0f, -9.81f, 0.0f));
 
@@ -234,7 +250,18 @@ void PhysicsWorld::step(float dt, const std::function<void(float)>& beforeStep,
     while (accumulator_ + rounding >= fixed && steps < kMaxSubSteps) {
         SAIDA_PROFILE_SCOPE("Physics/JoltUpdate");
         if (beforeStep) beforeStep(fixed);
-        system_->Update(fixed, 1, tempAllocator_.get(), jobSystem_.get());
+        const EPhysicsUpdateError errors =
+            system_->Update(fixed, 1, tempAllocator_.get(), jobSystem_.get());
+        // Each overflow is said once: a dropped contact otherwise reads as a
+        // body falling through the world for no reason.
+        for (EPhysicsUpdateError kind : {EPhysicsUpdateError::ManifoldCacheFull,
+                                         EPhysicsUpdateError::BodyPairCacheFull,
+                                         EPhysicsUpdateError::ContactConstraintsFull}) {
+            const uint32_t bit = static_cast<uint32_t>(kind);
+            if ((static_cast<uint32_t>(errors) & bit) == 0 || (stepErrorsSaid_ & bit) != 0) continue;
+            stepErrorsSaid_ |= bit;
+            Log::error("PhysicsWorld: step overflowed: ", stepErrorReason(kind));
+        }
         if (afterStep) afterStep(fixed);
         accumulator_ = std::max(0.f, accumulator_ - fixed);
         ++steps;
@@ -283,7 +310,7 @@ JPH::BodyID PhysicsWorld::createBody(const BodyDesc& d) {
     BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     Body* body = bi.CreateBody(settings);
     if (!body) {
-        Log::warn("PhysicsWorld: body limit reached, cannot create body");
+        refuseBody("body");
         return BodyID();
     }
     EActivation activation = (d.motion == BodyMotion::Static) ? EActivation::DontActivate
@@ -314,6 +341,20 @@ void PhysicsWorld::removeBody(JPH::BodyID id) {
     BodyInterface& bi = system_->GetBodyInterfaceNoLock();
     bi.RemoveBody(id);
     bi.DestroyBody(id);
+    refusalSaid_ = false;
+}
+
+uint32_t PhysicsWorld::bodyCount() const {
+    return system_->GetNumBodies();
+}
+
+void PhysicsWorld::refuseBody(const char* what) {
+    ++refusedBodies_;
+    if (refusalSaid_) return;
+    refusalSaid_ = true;
+    Log::error("PhysicsWorld: ", what, " refused: all ", capacity_.bodies,
+               " bodies of PhysicsCapacity::bodies are in use; further refusals are counted "
+               "(refusedBodies) until a body is removed");
 }
 
 void PhysicsWorld::setBodyTransform(JPH::BodyID id, const glm::vec3& position,
@@ -453,9 +494,13 @@ JPH::Ref<JPH::CharacterVirtual> PhysicsWorld::createCharacter(
     settings->mInnerBodyShape = shape;
     settings->mInnerBodyLayer = Layers::MOVING;
 
-    return new CharacterVirtual(settings, RVec3(position.x, position.y, position.z),
-                                toJolt(rotation), reinterpret_cast<uint64>(userData),
-                                system_.get());
+    Ref<CharacterVirtual> character =
+        new CharacterVirtual(settings, RVec3(position.x, position.y, position.z),
+                             toJolt(rotation), reinterpret_cast<uint64>(userData), system_.get());
+    // Without its inner body the character still moves, but no sensor and no
+    // query ever sees it: a full world refuses that body like any other.
+    if (character->GetInnerBodyID().IsInvalid()) refuseBody("character inner body");
+    return character;
 }
 
 void PhysicsWorld::updateCharacter(JPH::CharacterVirtual& character, float dt) {

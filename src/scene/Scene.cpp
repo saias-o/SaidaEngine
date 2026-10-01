@@ -16,6 +16,7 @@
 #ifndef SAIDA_NO_PHYSICS
 #include "physics/PhysicsWorld.hpp"
 #include "physics/CollisionObjectNode.hpp"
+#include "core/Log.hpp"
 #include "physics/AreaNode.hpp"
 #include "physics/JointNodes.hpp"
 #endif
@@ -37,6 +38,24 @@ Scene::~Scene() {
     // torn down after this Scene's members, leaving body destructors with a
     // dangling world pointer.
     clearChildren();
+}
+
+bool Scene::setPhysicsCapacity(const PhysicsCapacity& capacity) {
+    if (!capacity.valid())
+        throw std::invalid_argument("physics capacity must be nonzero and hold at most " +
+                                    std::to_string(PhysicsCapacity::kMaxBodies) + " bodies");
+#ifndef SAIDA_NO_PHYSICS
+    if (physics_) {
+        if (physics_->bodyCount() > 0) {
+            Log::error("Scene '", name(), "': physics capacity not changed: its world already holds ",
+                       physics_->bodyCount(), " bodies");
+            return false;
+        }
+        physics_.reset();  // empty: the next step builds it at the new capacity
+    }
+#endif
+    physicsCapacity_ = capacity;
+    return true;
 }
 
 void Scene::update(float dt) {
@@ -79,7 +98,7 @@ void Scene::update(float dt) {
     // Physics only runs while time is advancing (i.e. in Play, not while editing).
     if (dt > 0.0f && !index_.bodies.values().empty()) {
         SAIDA_PROFILE_SCOPE("Physics/SceneStep");
-        if (!physics_) physics_ = std::make_unique<PhysicsWorld>();
+        if (!physics_) physics_ = std::make_unique<PhysicsWorld>(physicsCapacity_);
         {
             SAIDA_PROFILE_SCOPE("Physics/SyncTo");
             for (auto* body : index_.bodies.values()) body->syncToPhysics(*physics_);

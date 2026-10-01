@@ -38,6 +38,9 @@ void CharacterBodyNode::syncToPhysics(PhysicsWorld& world) {
         character_ = nullptr;  // shape/params changed → rebuild
         dirty_ = false;
     }
+    // A character whose inner body the world refused still moves, but no
+    // query or sensor sees it: rebuilt once the world has room for that body.
+    if (character_ && refused_ && world.hasRoomForBody()) character_ = nullptr;
 
     glm::vec3 position;
     glm::quat rotation;
@@ -65,6 +68,7 @@ void CharacterBodyNode::syncToPhysics(PhysicsWorld& world) {
     character_ = world.createCharacter(shape.GetPtr(), position, rotation,
                                        mass, glm::radians(maxSlopeAngle),
                                        static_cast<CollisionObjectNode*>(this));
+    refused_ = character_ && character_->GetInnerBodyID().IsInvalid();
     world_ = &world;
 }
 
