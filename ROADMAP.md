@@ -11,6 +11,11 @@ the corresponding contracts of `SPEC.md`.
 
 ## Streaming integration — verified 2026-10-01
 
+- [x] Construct mesh, hull and Auto geometry in the body's local frame without
+  cancellation of large world translations. The GPU streaming regression builds
+  a wall millions of metres away, rebases it, and checks front/back rays and
+  thin sphere overlaps against its drawn surface (69 streaming checks).
+
 - [x] Detect thin triangle walls from either side in scene rays and sphere
   overlaps. Covered by a mesh-wall front/back query regression, including the
   ignored-body filter, and R1World's character facade traversal checks.

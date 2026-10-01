@@ -37,10 +37,10 @@ namespace {
 // Smallest half-extent / radius we let through so Jolt's convex radius is valid.
 constexpr float kMinHalf = 0.02f;
 
-// One drawn mesh under a body, with the world transform it is drawn at.
+// One drawn mesh under a body, expressed in its unscaled physics frame.
 struct MeshInstance {
     Mesh* mesh = nullptr;
-    glm::mat4 world{1.0f};
+    glm::mat4 toBody{1.0f};
 };
 
 // EVERY mesh under the body, not the first one found.
@@ -53,14 +53,18 @@ struct MeshInstance {
 //
 // A node with a mesh may still have children with meshes, so the walk does not
 // stop at the first hit.
-void collectMeshes(Node& n, std::vector<MeshInstance>& out) {
-    if (Mesh* m = n.mesh()) out.push_back({m, n.worldTransform()});
-    for (const auto& c : n.children()) collectMeshes(*c, out);
+void collectMeshes(Node& n, const glm::mat4& toBody, std::vector<MeshInstance>& out) {
+    if (Mesh* m = n.mesh()) out.push_back({m, toBody});
+    for (const auto& c : n.children()) collectMeshes(*c, toBody*c->localMatrix(), out);
 }
 
-std::vector<MeshInstance> meshesUnder(Node& bodyNode) {
+std::vector<MeshInstance> meshesUnder(Node& bodyNode, const glm::mat4& invBodyTR) {
     std::vector<MeshInstance> found;
-    collectMeshes(bodyNode, found);
+    // Cancel rotation using only the linear matrices, then walk local child
+    // transforms. Multiplying inverse(world TR) * meshWorld subtracts enormous
+    // translations and permanently bakes float rounding into the collider.
+    const glm::mat4 bodyLinear(glm::mat3(invBodyTR)*glm::mat3(bodyNode.worldTransform()));
+    collectMeshes(bodyNode, bodyLinear, found);
     return found;
 }
 
@@ -97,10 +101,10 @@ JPH::Ref<JPH::Shape> buildConvexHull(Node& bodyNode, const glm::mat4& invBodyTR)
     // first piece — the honest reading of "convex hull of this body", and it can
     // no longer leave pieces uncovered.
     Array<Vec3> pts;
-    for (const MeshInstance& inst : meshesUnder(bodyNode)) {
+    for (const MeshInstance& inst : meshesUnder(bodyNode, invBodyTR)) {
         const std::vector<glm::vec3>& src = inst.mesh->collisionVertices();
         if (src.empty()) continue;
-        const glm::mat4 toBody = invBodyTR * inst.world;
+        const glm::mat4& toBody = inst.toBody;
         pts.reserve(pts.size() + src.size());
         for (const glm::vec3& p : src) {
             const glm::vec3 bp = glm::vec3(toBody * glm::vec4(p, 1.0f));
@@ -126,7 +130,7 @@ JPH::Ref<JPH::Shape> buildTriangleMesh(Node& bodyNode, const glm::mat4& invBodyT
     VertexList verts;
     IndexedTriangleList tris;
 
-    for (const MeshInstance& inst : meshesUnder(bodyNode)) {
+    for (const MeshInstance& inst : meshesUnder(bodyNode, invBodyTR)) {
         const std::vector<glm::vec3>& src = inst.mesh->collisionVertices();
         const std::vector<uint32_t>& idx = inst.mesh->collisionIndices();
         if (src.empty() || idx.size() < 3) continue;
@@ -134,7 +138,7 @@ JPH::Ref<JPH::Shape> buildTriangleMesh(Node& bodyNode, const glm::mat4& invBodyT
         // Each mesh's indices are its own; they address the merged list only
         // after being shifted past everything already appended.
         const uint32_t base = static_cast<uint32_t>(verts.size());
-        const glm::mat4 toBody = invBodyTR * inst.world;
+        const glm::mat4& toBody = inst.toBody;
         verts.reserve(verts.size() + src.size());
         for (const glm::vec3& p : src) {
             const glm::vec3 bp = glm::vec3(toBody * glm::vec4(p, 1.0f));
@@ -195,7 +199,7 @@ bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNo
     // bounds nor collision data: defer both resolution AND the body
     // (meshPending_) until the geometry arrives. The pending->loaded
     // transition re-resolves and returns true -> the body rebuilds.
-    const std::vector<MeshInstance> meshes = meshesUnder(bodyNode);
+    const std::vector<MeshInstance> meshes = meshesUnder(bodyNode, invBodyTR);
     {
         // Pending while ANY mesh is still loading: building the shape from the
         // ones that arrived first would bake in a body missing the rest.
@@ -224,10 +228,10 @@ bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNo
     // actually changes — including the identity→scaled transition after a load.
     if (!meshes.empty()) {
         Aabb bodyBounds = transformAabb(meshes.front().mesh->bounds(),
-                                        invBodyTR * meshes.front().world);
+                                        meshes.front().toBody);
         for (size_t i = 1; i < meshes.size(); ++i) {
             const Aabb b = transformAabb(meshes[i].mesh->bounds(),
-                                         invBodyTR * meshes[i].world);
+                                         meshes[i].toBody);
             bodyBounds.min = glm::min(bodyBounds.min, b.min);
             bodyBounds.max = glm::max(bodyBounds.max, b.max);
         }

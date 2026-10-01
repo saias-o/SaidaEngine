@@ -268,6 +268,34 @@ void gpuCompaction(VulkanDevice& device) {
     require(arena.usage().indices == 0 && arena.usage().allocations == 0, "everything freed");
 }
 
+void gpuCollisionFrames(ResourceManager& resources) {
+    std::vector<Vertex> vertices(4);
+    const glm::vec3 points[]={{-196.25f,12.125f,-172.123f},{-179.25f,12.125f,-172.123f},
+                              {-179.25f,21.125f,-172.123f},{-196.25f,21.125f,-172.123f}};
+    for(int i=0;i<4;++i){vertices[i].pos=points[i];vertices[i].normal={0,0,1};}
+    auto* mesh=resources.getMesh(resources.registerMemoryMesh(vertices,{0,1,2,0,2,3}));
+    Scene scene;
+    auto* frame=scene.createChild<Node>("Distant frame");
+    frame->transform().position={-199832.390625f,-2076780.5f,-4689437.5f};
+    frame->transform().rotation=glm::angleAxis(.833f,glm::vec3(1,0,0))*glm::angleAxis(.0464f,glm::vec3(0,0,1));
+    auto* body=frame->createChild<StaticBodyNode>();
+    auto* shape=body->createChild<CollisionShapeNode>();shape->shapeType=CollisionShapeType::Mesh;
+    auto* branch=body->createChild<Node>();branch->transform().position={.34f,.12f,.25f};
+    branch->transform().scale={1.2f,.9f,1.1f};
+    auto* drawn=branch->createChild<MeshNode>("Wall",mesh,nullptr);
+    scene.update(1.f/60.f); // Build while its parent is millions of metres away.
+    scene.rebaseSubtree(*frame,-frame->transform().position);
+    scene.update(1.f/60.f);
+    const glm::vec3 probe(drawn->worldTransform()*glm::vec4(-187.25f,16.125f,-172.123f,1));
+    const glm::vec3 normal=glm::normalize(glm::mat3(drawn->worldTransform())*glm::vec3(0,0,1));
+    for(float side:{-1.f,1.f}) {
+        auto hit=scene.physics()->raycast(probe+normal*side,-normal*side,2.f);
+        require(hit.hit&&hit.body==body->bodyId()&&std::abs(hit.distance-1.f)<.01f,"rebased mesh collider matches its drawn wall");
+        const auto hits=scene.physics()->overlapSphere(probe+normal*side*.02f,.03f);
+        require(std::find(hits.begin(),hits.end(),body->bodyId())!=hits.end(),"thin-wall overlap survives a distant initial frame");
+    }
+}
+
 // Optional device proof: --gpu. The default CTest suite stays headless.
 void gpuLodGroups() {
     Window window(64, 64, "Streaming contracts", false);
@@ -294,6 +322,7 @@ void gpuLodGroups() {
     }
     require(told, "an upload the arena cannot hold says what it asked and what was left");
     gpuCompaction(device);
+    gpuCollisionFrames(resources);
     Scene scene;
     auto* root = scene.createChild<Node>();
     auto* close = root->createChild<Node>("Near");

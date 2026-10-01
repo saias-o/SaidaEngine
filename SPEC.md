@@ -529,11 +529,12 @@ character has an inner body to be visible in broadphase, sensors and raycasts.
 **Collision shapes.** `Auto`, `Box`, `Sphere`, `Capsule`, `ConvexHull` (dynamic
 capable) and `Mesh` (exact triangle mesh, static bodies only) are all
 implemented; the hull and triangle-mesh builders fall back to a box, with a
-logged warning, when the body carries no CPU mesh data. Current limit: a shape
-resolves against the **first** mesh found under its body, so a body holding
-several meshes — an imported level in particular — collides with one of them and
-ignores the others without any diagnostic. Levels must therefore be split into
-one body per mesh until the builder covers a whole subtree ([ROADMAP](ROADMAP.md)).
+logged warning, when the body carries no CPU mesh data. Builders gather every
+mesh below the body. They compose local child transforms with the body's linear
+scale/rotation residual, avoiding subtraction of large world translations.
+Colliders built millions of metres from the origin therefore retain their local
+geometry after rebasing. Covered by the distant-frame mesh regression in
+`saida_scene_streaming_tests --gpu`, including a translated and scaled child.
 
 **Disabled bodies.** A body whose node, or an ancestor, is disabled leaves the
 Jolt world, not only the scene index: it is removed at once and rebuilt by its
