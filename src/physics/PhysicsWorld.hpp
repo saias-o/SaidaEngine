@@ -5,6 +5,8 @@
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Core/Reference.h>
 
+#include "physics/PhysicsCapacity.hpp"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
@@ -80,7 +82,9 @@ struct BodyDesc {
 // across worlds, so constructing/destroying multiple is safe.
 class PhysicsWorld {
 public:
-    PhysicsWorld();
+    // Throws std::invalid_argument for a zero capacity or more bodies than a
+    // Jolt BodyID can index.
+    explicit PhysicsWorld(PhysicsCapacity capacity = {});
     ~PhysicsWorld();
     PhysicsWorld(const PhysicsWorld&) = delete;
     PhysicsWorld& operator=(const PhysicsWorld&) = delete;
@@ -94,9 +98,18 @@ public:
     void appendActiveBodies(std::vector<uint32_t>& out) const;
 
     // Create a body from an already-built (ref-counted) shape. Returns an
-    // invalid id on failure.
+    // invalid id on failure. A body refused because every one of
+    // `capacity().bodies` is in use is counted in `refusedBodies()`, and the
+    // first refusal while the world is full is logged with that reason.
     JPH::BodyID createBody(const BodyDesc& desc);
     void removeBody(JPH::BodyID id);
+
+    const PhysicsCapacity& capacity() const { return capacity_; }
+    // Bodies alive now, character inner bodies included.
+    uint32_t bodyCount() const;
+    bool hasRoomForBody() const { return bodyCount() < capacity_.bodies; }
+    // Bodies refused for capacity since this world was built.
+    uint64_t refusedBodies() const { return refusedBodies_; }
 
     // Teleport a body (used for static/kinematic bodies driven by the node tree).
     void setBodyTransform(JPH::BodyID id, const glm::vec3& position,
@@ -223,6 +236,15 @@ private:
     // a body before Jolt destroys it (a dangling constraint would crash the step).
     std::vector<JPH::Ref<JPH::TwoBodyConstraint>> constraints_;
 
+    void refuseBody(const char* what);
+
+    PhysicsCapacity capacity_;
+    uint64_t refusedBodies_ = 0;
+    // Whether the current run of refusals has been logged; a removal that
+    // makes room ends the run.
+    bool refusalSaid_ = false;
+    // Step overflows (Jolt's EPhysicsUpdateError bits) already logged.
+    uint32_t stepErrorsSaid_ = 0;
     float accumulator_ = 0.0f;
 };
 

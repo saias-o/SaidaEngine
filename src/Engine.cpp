@@ -121,7 +121,8 @@ public:
 #endif
 }
 
-Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool requireXr, GeometryCapacity geometry) {
+Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool requireXr, GeometryCapacity geometry,
+               PhysicsCapacity physics) {
     // The XR process currently has no desktop mirror swapchain. Keep its host
     // GLFW window hidden instead of presenting a misleading unrendered surface.
     // CI may also hide it while exercising the exact editor Build/runtime path
@@ -159,8 +160,9 @@ Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool re
     resources_ = std::make_unique<ResourceManager>(*device_, nullptr, geometry);
 
     scene_ = std::make_unique<Scene>();
+    scene_->setPhysicsCapacity(physics);
     project_ = std::make_unique<Project>();
-    sceneTree_ = std::make_unique<SceneTree>(*resources_);
+    sceneTree_ = std::make_unique<SceneTree>(*resources_, physics);
 
     resources_->setRegistry(&project_->assetRegistry());
 

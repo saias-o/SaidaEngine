@@ -1102,6 +1102,12 @@ if (BUILD_TESTING)
         "$<$<NOT:$<CONFIG:Debug>>:-DNDEBUG>")
     add_test(NAME saida_physics_query_joint_tests COMMAND $<TARGET_FILE:saida_physics_query_joint_tests>)
 
+    add_executable(saida_physics_capacity_tests tests/PhysicsCapacityTests.cpp)
+    saida_test_target(saida_physics_capacity_tests)
+    target_link_libraries(saida_physics_capacity_tests PRIVATE saida_engine)
+    target_compile_options(saida_physics_capacity_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_physics_capacity_tests COMMAND $<TARGET_FILE:saida_physics_capacity_tests>)
+
     add_executable(saida_physics_impulse_tests tests/PhysicsImpulseTests.cpp)
     saida_test_target(saida_physics_impulse_tests)
     target_link_libraries(saida_physics_impulse_tests PRIVATE saida_engine)

@@ -20,6 +20,13 @@ the corresponding contracts of `SPEC.md`.
   overlaps. Covered by a mesh-wall front/back query regression, including the
   ignored-body filter, and R1World's character facade traversal checks.
 
+- [x] Configure physics body, body-pair and contact capacity at startup
+  (`PhysicsCapacity`, like `GeometryCapacity`). A body refused for capacity is
+  logged once, counted, and no longer rebuilt and refused again every frame;
+  step overflows are logged once per kind. Covered by
+  `saida_physics_capacity_tests` and R1World's offline Paris runs, which logged
+  about 2.2 million refusals before the change and none after it.
+
 - [x] Release `CharacterVirtual` and its inner body when a character or its
   ancestor is disabled. Reconnect on reactivation; covered by the character
   disable/query/reactivate/move-and-slide regression and the R1World teleport

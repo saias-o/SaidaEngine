@@ -2,6 +2,7 @@
 
 #include "scene/Node.hpp"
 #include "scene/SceneTimerQueue.hpp"
+#include "physics/PhysicsCapacity.hpp"
 
 #include <cstdint>
 #include <functional>
@@ -18,7 +19,7 @@ class Behaviour;
 
 class SceneTree {
 public:
-    explicit SceneTree(ResourceManager& resources);
+    explicit SceneTree(ResourceManager& resources, PhysicsCapacity physics = {});
     ~SceneTree();
     SceneTree(const SceneTree&) = delete;
     SceneTree& operator=(const SceneTree&) = delete;
@@ -30,6 +31,8 @@ public:
     Scene& world() { return *world_; }
     Scene& currentScene();
     ResourceManager& resources() { return resources_; }
+    // The capacity every World this tree mounts builds its physics with.
+    const PhysicsCapacity& physicsCapacity() const { return physicsCapacity_; }
 
     void setProjectRoot(const std::string& root) { projectRoot_ = root; }
     std::string resolveProjectPath(const std::string& path) const;
@@ -116,6 +119,7 @@ private:
     void clearAutoloads();
 
     ResourceManager& resources_;
+    PhysicsCapacity physicsCapacity_;
     std::unique_ptr<Scene> world_;
     Scene* currentScene_ = nullptr;
     std::string currentScenePath_;

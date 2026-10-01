@@ -25,6 +25,7 @@ void CollisionObjectNode::detachFromPhysics() {
     }
     bodyId_ = JPH::BodyID();
     world_ = nullptr;
+    refused_ = false;
 }
 
 void CollisionObjectNode::decomposeTR(const glm::mat4& w, glm::vec3& t, glm::quat& r,
@@ -111,7 +112,9 @@ void CollisionObjectNode::createBody(PhysicsWorld& world) {
     describeBody(desc);  // subclass fills mass/damping/gravity for dynamic bodies
 
     bodyId_ = world.createBody(desc);
-    world_ = &world;
+    // A refused body lives in no world: physicsWorld() stays null for it.
+    refused_ = bodyId_.IsInvalid();
+    world_ = refused_ ? nullptr : &world;
 }
 
 void CollisionObjectNode::syncToPhysics(PhysicsWorld& world) {
@@ -121,6 +124,9 @@ void CollisionObjectNode::syncToPhysics(PhysicsWorld& world) {
     dirty_ = false;
 
     if (bodyId_.IsInvalid()) {
+        // The world said why once; asking again every frame would rebuild the
+        // shape and be refused again, for every refused body.
+        if (refused_ && !world.hasRoomForBody()) return;
         createBody(world);
         pushedWorld_ = worldTransform();
         return;

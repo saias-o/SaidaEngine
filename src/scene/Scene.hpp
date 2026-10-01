@@ -5,6 +5,7 @@
 #include "scene/SignalWiring.hpp"
 #include "core/ReflectionFwd.hpp"
 #include "project/AssetRegistry.hpp"
+#include "physics/PhysicsCapacity.hpp"
 
 #include <glm/glm.hpp>
 
@@ -179,6 +180,12 @@ public:
 #endif
     }
 
+    // Capacity of the physics world this scene builds with its first body.
+    // Chosen before that world holds a body: a world already holding bodies
+    // keeps its capacity, the refusal is logged and false returned.
+    bool setPhysicsCapacity(const PhysicsCapacity& capacity);
+    const PhysicsCapacity& physicsCapacity() const { return physicsCapacity_; }
+
     // SceneTree wiring: only the persistent World root carries a tree pointer;
     // Node::tree() walks to the root and reads it via ownTree().
     void setTree(SceneTree* t) { tree_ = t; }
@@ -207,6 +214,7 @@ private:
     std::vector<SignalConnectionDef> connectionDefs_;
     SignalWiring wiring_;
     AssetID prefabAssetId_ = kAssetInvalid;
+    PhysicsCapacity physicsCapacity_;
 
 #ifndef SAIDA_NO_PHYSICS
     std::unique_ptr<PhysicsWorld> physics_;

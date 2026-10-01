@@ -543,6 +543,21 @@ query and never pushes a character. Character bodies release their
 `CharacterVirtual` and its inner body on detach as well; reactivation creates
 both again and reconnects immediate movement to the owning physics world.
 
+**Capacity.** Jolt sizes its body table, body-pair cache and contact buffers
+once, when a world is built. `PhysicsCapacity` (bodies, body pairs, contact
+constraints; defaults 8,192 / 8,192 / 4,096) configures them when constructing
+Engine or SceneTree, or per Scene with `Scene::setPhysicsCapacity` before its
+world holds a body; `PhysicsWorld::capacity()` returns that configuration and
+`bodyCount()` what is alive, character inner bodies included. A zero capacity or
+more than 8,388,607 bodies is rejected. A compound of many shapes is one body.
+A body refused for capacity is counted (`refusedBodies()`), and the first
+refusal while the world is full is logged once, naming the capacity; a removal
+ends that run. The refused node reports `bodyRefused()`, lives in no world and
+is not rebuilt every frame: the first sync that finds the world with room builds
+it. A character whose inner body is refused still moves but is reported refused.
+A step that overflows the pair cache or the contact buffers logs each kind once.
+Covered by `saida_physics_capacity_tests`.
+
 **Character contacts.** `CharacterBodyNode::contacts()` lists what the character
 touched in its last move: each solid body it collided with or overlaps, named by
 its `CollisionObjectNode`, with the contact point and the normal pointing back at
