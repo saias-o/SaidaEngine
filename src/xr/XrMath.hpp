@@ -36,6 +36,7 @@ inline glm::mat4 viewFromPose(const XrPosef& pose) {
 }
 
 // Vulkan Y-down clip space is baked in here; callers must not flip Y again.
+// Depth is reversed like the desktop camera's: near 1, far 0.
 inline glm::mat4 projectionFromFov(const XrFovf& fov, float nearZ, float farZ) {
     const float tanLeft  = std::tan(fov.angleLeft);
     const float tanRight = std::tan(fov.angleRight);
@@ -50,9 +51,9 @@ inline glm::mat4 projectionFromFov(const XrFovf& fov, float nearZ, float farZ) {
     m[1][1] = 2.0f / tanHeight;
     m[2][0] = (tanRight + tanLeft) / tanWidth;
     m[2][1] = (tanUp + tanDown) / tanHeight;
-    m[2][2] = -farZ / (farZ - nearZ);
+    m[2][2] = nearZ / (farZ - nearZ);
     m[2][3] = -1.0f;
-    m[3][2] = -(farZ * nearZ) / (farZ - nearZ);
+    m[3][2] = (farZ * nearZ) / (farZ - nearZ);
     return m;
 }
 

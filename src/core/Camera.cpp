@@ -3,6 +3,7 @@
 #include <glm/gtc/matrix_transform.hpp>  // GLM_FORCE_* set globally by CMake
 
 #include <algorithm>
+#include <cmath>
 
 namespace saida {
 
@@ -11,8 +12,15 @@ constexpr glm::vec3 kWorldUp{0.0f, 1.0f, 0.0f};
 }
 
 void Camera::setPerspective(float fovYRadians, float aspect, float nearZ, float farZ) {
-    projection_ = glm::perspective(fovYRadians, aspect, nearZ, farZ);
-    projection_[1][1] *= -1.0f;  // GLM is OpenGL-handed; flip Y for Vulkan.
+    // Reversed depth (rhi/PipelineState.hpp): the near plane maps to 1 and the
+    // far plane to 0, so a float depth buffer keeps its precision for distance.
+    const float focal = 1.0f / std::tan(fovYRadians * 0.5f);
+    projection_ = glm::mat4(0.0f);
+    projection_[0][0] = focal / aspect;
+    projection_[1][1] = -focal;  // Vulkan's clip space is Y-down.
+    projection_[2][2] = nearZ / (farZ - nearZ);
+    projection_[2][3] = -1.0f;
+    projection_[3][2] = farZ * nearZ / (farZ - nearZ);
 }
 
 glm::vec3 Camera::front() const {

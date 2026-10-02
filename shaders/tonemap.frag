@@ -57,6 +57,14 @@ vec3 acesFilmic(vec3 x) {
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+// Depth is reversed (rhi/PipelineState.hpp): the clear value 0 is the far
+// plane, and only a pixel nothing was drawn on holds it exactly. A threshold
+// near it would take distant ground for sky: the conventional test this
+// replaces, depth >= 0.9999, left everything past a kilometre unfogged.
+bool nothingDrawn(float depth) {
+    return depth <= 0.0;
+}
+
 vec3 reconstructViewPosition(vec2 uv, float depth) {
     vec2 clipXY = uv * 2.0 - 1.0;
     float viewW = push.projectionParams.z * depth + push.projectionParams.w;
@@ -83,7 +91,7 @@ float ambientOcclusion(vec2 uv) {
     if (push.aoParams.x < 0.5) return 1.0;
 
     float centerDepth = sampleDepth(uv);
-    if (centerDepth >= 0.9999) return 1.0;
+    if (nothingDrawn(centerDepth)) return 1.0;
 
     vec3 center = reconstructViewPosition(uv, centerDepth);
     vec3 normal = viewNormalFromDepth(uv, center);
@@ -103,7 +111,7 @@ float ambientOcclusion(vec2 uv) {
                 continue;
 
             float depthSample = sampleDepth(sampleUV);
-            if (depthSample >= 0.9999) continue;
+            if (nothingDrawn(depthSample)) continue;
 
             vec3 samplePos = reconstructViewPosition(sampleUV, depthSample);
             vec3 delta = samplePos - center;
@@ -132,7 +140,7 @@ vec3 applyFog(vec3 color, vec2 uv) {
     if (push.fogParams.x < 0.5) return color;
 
     float depth = sampleDepth(uv);
-    if (depth >= 0.9999) return color;
+    if (nothingDrawn(depth)) return color;
 
     vec3 viewPos = reconstructViewPosition(uv, depth);
     float distanceFog = max(length(viewPos) - push.fogParams.y, 0.0);

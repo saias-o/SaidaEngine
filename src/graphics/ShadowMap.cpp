@@ -77,6 +77,9 @@ void ShadowMap::createPipeline() {
     // same convention as the scene pass.
     desc.pushConstantSize = sizeof(glm::mat4) + sizeof(glm::vec4);
     desc.pushConstantStages = rhi::ShaderStages::Vertex;
+    // A shadow map keeps conventional depth (1 far, nearer passes): its range
+    // is a light's, a few hundred metres, and its bias is tuned for it.
+    desc.depthCompare = rhi::CompareOp::Less;
     desc.depthBias = true;  // combat shadow acne
     // The constant term is what detaches a shadow from the feet that cast it
     // (peter-panning), and it buys little: it offsets every caster by the same

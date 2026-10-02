@@ -61,7 +61,7 @@ void SkyboxFeature::createPipelines(const RenderContext& ctx) {
     desc.samples = ctx.samples;
     desc.vertexInput = false;
     desc.depthWrite = false;
-    desc.depthCompare = rhi::CompareOp::LessOrEqual;
+    desc.depthCompare = rhi::kDepthCloserOrEqual;
     desc.cullMode = rhi::CullMode::None;
     desc.pushConstantSize = pushSize;
     desc.viewMask = ctx.viewMask;

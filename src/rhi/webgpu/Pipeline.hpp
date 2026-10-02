@@ -28,7 +28,7 @@ public:
         bool vertexInput = true;
         bool depthTest = true;
         bool depthWrite = true;
-        rhi::CompareOp depthCompare = rhi::CompareOp::Less;
+        rhi::CompareOp depthCompare = rhi::kDepthCloser;  // reversed depth (rhi/PipelineState.hpp)
         rhi::CullMode cullMode = rhi::CullMode::Back;
         rhi::BlendMode blendMode = rhi::BlendMode::None;
         rhi::Topology topology = rhi::Topology::TriangleList;

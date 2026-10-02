@@ -752,6 +752,14 @@ if (BUILD_TESTING)
     add_test(NAME saida_capture_scheduler_tests
         COMMAND $<TARGET_FILE:saida_capture_scheduler_tests>)
 
+    # Reversed depth is a convention three places must share (projection,
+    # depth test, clear value); the projection half is proven without a GPU.
+    add_executable(saida_reversed_depth_tests tests/ReversedDepthTests.cpp src/core/Camera.cpp)
+    saida_test_target(saida_reversed_depth_tests)
+    target_include_directories(saida_reversed_depth_tests PRIVATE src)
+    target_compile_options(saida_reversed_depth_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_reversed_depth_tests COMMAND $<TARGET_FILE:saida_reversed_depth_tests>)
+
     # The same flags are obeyed by the editor and the player; a divergence would
     # compare two differently-configured runs. Header-only parser, so the test
     # needs nothing but the header.

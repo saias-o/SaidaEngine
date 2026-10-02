@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/CommandTypes.hpp"
+#include "rhi/PipelineState.hpp"
 #include "rhi/webgpu/WebGpu.hpp"
 
 #include <array>
@@ -28,7 +29,7 @@ struct ColorAttachment {
 struct DepthAttachment {
     WGPUTextureView view = nullptr;
     rhi::LoadOp loadOp = rhi::LoadOp::Clear;
-    float clearDepth = 1.0f;
+    float clearDepth = rhi::kDepthFar;
     bool store = true;
     WGPUTextureView resolveView = nullptr;  // no depth resolve on web (ignored)
 };

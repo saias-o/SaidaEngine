@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/CommandTypes.hpp"
+#include "rhi/PipelineState.hpp"
 
 #include <vulkan/vulkan.h>
 
@@ -30,7 +31,7 @@ struct ColorAttachment {
 struct DepthAttachment {
     VkImageView view = VK_NULL_HANDLE;
     rhi::LoadOp loadOp = rhi::LoadOp::Clear;
-    float clearDepth = 1.0f;
+    float clearDepth = rhi::kDepthFar;
     bool store = true;
     VkImageView resolveView = VK_NULL_HANDLE;
 };

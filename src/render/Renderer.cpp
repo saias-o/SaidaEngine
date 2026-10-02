@@ -427,7 +427,7 @@ void Renderer::createWebCanvasWorldPipeline() {
     desc.samples = sampleCountValue(swapchain_->samples());
     desc.vertexInput = false;
     desc.depthWrite = false;
-    desc.depthCompare = rhi::CompareOp::LessOrEqual;
+    desc.depthCompare = rhi::kDepthCloserOrEqual;
     desc.cullMode = rhi::CullMode::None;
     desc.blendMode = rhi::BlendMode::Alpha;
     desc.topology = rhi::Topology::TriangleStrip;
@@ -1632,7 +1632,7 @@ void Renderer::createXrPipelines() {
         webDesc.bindGroupLayouts = {resources_.globalMaterialSetLayout()};  // raw bindless set
         webDesc.vertexInput = false;
         webDesc.depthWrite = false;
-        webDesc.depthCompare = rhi::CompareOp::LessOrEqual;
+        webDesc.depthCompare = rhi::kDepthCloserOrEqual;
         webDesc.cullMode = rhi::CullMode::None;
         webDesc.blendMode = rhi::BlendMode::Alpha;
         webDesc.topology = rhi::Topology::TriangleStrip;

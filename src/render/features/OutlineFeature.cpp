@@ -21,7 +21,7 @@ void OutlineFeature::createPipelines(const RenderContext& ctx) {
     desc.bindGroupLayouts = {&ctx.globalSetLayout};
     desc.samples = ctx.samples;
     desc.depthWrite = false;
-    desc.depthCompare = rhi::CompareOp::LessOrEqual;
+    desc.depthCompare = rhi::kDepthCloserOrEqual;
     desc.cullMode = rhi::CullMode::Front;
     desc.blendMode = rhi::BlendMode::Alpha;
     desc.pushConstantSize = sizeof(Push);

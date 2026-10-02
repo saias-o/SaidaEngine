@@ -291,6 +291,20 @@ the shadow pipeline therefore binds set 0, where that palette lives. Point light
 do not yet have a shadow cubemap. Lightmaps are regenerated
 and are not yet part of the durable package.
 
+**Reversed depth.** Scene depth runs from 1 at the near plane to 0 at the far
+plane (`rhi/PipelineState.hpp`: `kDepthFar`, `kDepthCloser`,
+`kDepthCloserOrEqual`). A float depth buffer is precise near 0 and perspective
+puts distance there, so a D32 buffer resolves about a centimetre at 100 km,
+where conventional depth stores a whole kilometre as one value
+(`saida_reversed_depth_tests`). The convention has three parts that must agree:
+`Camera::setPerspective` and `xr::projectionFromFov` build reversed
+projections, scene passes clear depth to `kDepthFar` (the attachment default),
+and pipelines keep the greater depth (the `Pipeline::Desc` default; the skybox
+draws at the far plane with `kDepthCloserOrEqual`). A post-process recognises a
+pixel nothing was drawn on by its depth being exactly the clear value, never by
+a threshold near it: a threshold takes distant ground for sky. Shadow maps keep
+conventional depth (clear 1, `Less`) and their own light projections.
+
 The RHI compiles to Vulkan or WebGPU. GLSL shaders are compiled to SPIR-V, then
 transpiled to WGSL with naga for the Web. The Web player has no MSAA. XR
 rendering uses the same renderer with stereo/multiview views.
