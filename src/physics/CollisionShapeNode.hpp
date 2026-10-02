@@ -60,7 +60,8 @@ public:
     // stable), but changing the mesh's scale/offset relative to the body — or the
     // identity→scaled transition right after a scene load — re-derives the shape.
     // No-op for non-Auto shapes. Returns true if detection just (re)ran —
-    // the body must then rebuild its Jolt shape.
+    // the body must then rebuild its Jolt shape. Box, Sphere and Capsule read
+    // no mesh: they return at once, without visiting the body's subtree.
     bool ensureResolved(const glm::mat4& invBodyTR, Node& bodyNode);
 
     // True while the referenced mesh is still waiting for its geometry

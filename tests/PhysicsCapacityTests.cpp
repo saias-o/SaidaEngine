@@ -4,7 +4,8 @@
 //   - a body refused for capacity is said once, counted, and not asked for
 //     again every frame: the refused node waits until the world has room;
 //   - a removed body makes room, and a waiting node takes it;
-//   - a compound of many shapes is one body, whatever it holds;
+//   - a compound of many shapes is one body, whatever it holds, and a frame
+//     costs it once per shape: its boxes do not each visit their siblings;
 //   - a character whose inner body is refused is reported as refused.
 #include "scene/Scene.hpp"
 #include "core/Log.hpp"
@@ -13,6 +14,8 @@
 #include "physics/PhysicsWorld.hpp"
 #include "physics/StaticBodyNode.hpp"
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -153,6 +156,39 @@ void testCompoundIsOneBody() {
     require(std::abs(hit.point.y - 4.0f) < 1e-3f, "the box sits at its own offset");
 }
 
+// The steady frame of a scene holding one compound of `count` boxes, built:
+// the best of several, so that a busy machine does not decide the result.
+double compoundFrameMs(int count) {
+    Scene scene;
+    auto* trunks = scene.createChild<StaticBodyNode>();
+    for (int i = 0; i < count; ++i) {
+        auto shape = std::make_unique<CollisionShapeNode>();
+        shape->shapeType = CollisionShapeType::Box;
+        shape->halfExtents = glm::vec3(0.25f, 2.0f, 0.25f);
+        shape->offset = glm::vec3(float(i % 64) * 4.0f, 2.0f, float(i / 64) * 4.0f);
+        trunks->addChild(std::move(shape));
+    }
+    step(scene, 2);
+    require(scene.physics()->bodyCount() == 1, "the timed compound is built");
+    double best = 1e300;
+    for (int i = 0; i < 12; ++i) {
+        const auto start = std::chrono::steady_clock::now();
+        scene.update(1.0f / 60.0f);
+        best = std::min(best, std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count());
+    }
+    return best;
+}
+
+// Each box of a compound used to walk the whole body for meshes, every frame:
+// N boxes cost N^2 node visits, and nine tiles of 600 tree trunks took 89 ms a
+// frame. Four times the boxes must cost about four times the frame, not
+// sixteen.
+void testCompoundFrameIsLinear() {
+    const double small = compoundFrameMs(1024), large = compoundFrameMs(4096);
+    std::printf("[physics-capacity] compound frame: 1024 boxes %.3f ms, 4096 boxes %.3f ms\n", small, large);
+    require(large < 8.0 * std::max(small, 0.05), "a compound's frame grows with its shapes, not their square");
+}
+
 void testCharacterInnerBodyRefused() {
     Scene scene;
     scene.setPhysicsCapacity({1, 64, 64});
@@ -179,6 +215,7 @@ int main() {
     testCapacityIsConfigured();
     testRefusalSaidOnceNotRetried();
     testCompoundIsOneBody();
+    testCompoundFrameIsLinear();
     testCharacterInnerBodyRefused();
     std::printf("[physics-capacity] PASS (%d checks)\n", gChecks);
     return 0;

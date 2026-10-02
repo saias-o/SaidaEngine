@@ -535,6 +535,10 @@ scale/rotation residual, avoiding subtraction of large world translations.
 Colliders built millions of metres from the origin therefore retain their local
 geometry after rebasing. Covered by the distant-frame mesh regression in
 `saida_scene_streaming_tests --gpu`, including a translated and scaled child.
+`Box`, `Sphere` and `Capsule` carry their own dimensions and read no mesh: they
+never wait for a loading mesh and never walk the body's subtree, so a frame
+costs a compound of N such shapes N visits, not N² (covered by
+`saida_physics_capacity_tests`).
 
 **Disabled bodies.** A body whose node, or an ancestor, is disabled leaves the
 Jolt world, not only the scene index: it is removed at once and rebuilt by its
