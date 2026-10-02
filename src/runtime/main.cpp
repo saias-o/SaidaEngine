@@ -107,6 +107,7 @@ int main(int argc, char** argv) {
                                       viewpoint.position[2]},
                                      {viewpoint.target[0], viewpoint.target[1],
                                       viewpoint.target[2]});
+        engine.setCameraFovOverride(viewpoint.fovDegrees);
         // A rejected viewpoint must stop the run here. Entering the loop with no
         // capture armed would never close the window: the process would hang
         // instead of reporting, which is the one outcome worse than a bad image.

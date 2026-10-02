@@ -85,6 +85,9 @@ public:
     // otherwise win — so the world also streams for the viewpoint that will be
     // photographed rather than for one nobody sees.
     void setCameraOverride(const glm::vec3& position, const glm::vec3& target);
+    // The lens of every drawn frame, as a vertical field of view in degrees;
+    // applied with the viewpoint override, after the director. 0 releases it.
+    void setCameraFovOverride(float degrees) { cameraOverrideFov_ = degrees; }
 
 #ifdef SAIDA_ENABLE_XR
     // XR preview is isolated so the editor never owns OpenXR presentation.
@@ -119,6 +122,7 @@ private:
     bool cameraOverride_ = false;
     glm::vec3 cameraOverridePosition_{0.0f};
     glm::vec3 cameraOverrideTarget_{0.0f};
+    float cameraOverrideFov_ = 0.0f;
 #ifdef SAIDA_ENABLE_XR
     void runXr();
 #endif

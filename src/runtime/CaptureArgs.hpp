@@ -19,6 +19,10 @@ struct CaptureViewpoint {
     bool set = false;
     float position[3]{0.0f, 0.0f, 0.0f};
     float target[3]{0.0f, 0.0f, 0.0f};
+    // The lens, as the camera's vertical field of view in degrees; 0 keeps the
+    // scene camera's own. A capture compared with a photograph must see what
+    // the photograph's lens saw, or every distance in it reads wrong.
+    float fovDegrees = 0.0f;
 };
 
 // Parses the screenshot flags shared by the editor (src/main.cpp) and the
@@ -36,6 +40,7 @@ struct CaptureViewpoint {
 //   --settle-timeout N       abandon after N frames still loading (default 600)
 //   --camera-pos x,y,z       put the camera here instead of the scene's own
 //   --camera-look x,y,z      and aim it at this world position
+//   --camera-fov degrees     vertical field of view, over 0 and under 180
 inline bool parseCaptureArgs(int argc, char** argv, CaptureRequest& request,
                              CaptureViewpoint& viewpoint, std::string& error) {
     // A screenshot is asked for in order to be compared with another one, so
@@ -125,6 +130,16 @@ inline bool parseCaptureArgs(int argc, char** argv, CaptureRequest& request,
         } else if (arg == "--camera-look" && i + 1 < argc) {
             if (!parseVec3(argv[++i], "--camera-look", viewpoint.target)) return false;
             sawCameraLook = true;
+        } else if (arg == "--camera-fov" && i + 1 < argc) {
+            double value = 0.0;
+            if (!parseNumber(argv[++i], "--camera-fov", value)) return false;
+            // A zero or straight angle has no projection: the frame would be
+            // black or NaN, which reads as a rendering bug.
+            if (!(value > 0.0 && value < 180.0)) {
+                error = "--camera-fov expects a vertical angle in degrees, over 0 and under 180";
+                return false;
+            }
+            viewpoint.fovDegrees = static_cast<float>(value);
         }
     }
 

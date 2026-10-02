@@ -124,6 +124,22 @@ void testMalformedVectorsAreRefused() {
             "an empty component is refused");
 }
 
+// The lens is part of the viewpoint: a capture laid beside a photograph must
+// see what its lens saw. Unset, the scene camera keeps its own.
+void testFieldOfView() {
+    require(parse({"--screenshot", "o.png"}).viewpoint.fovDegrees == 0.0f,
+            "no flag keeps the scene camera's lens");
+    const Parsed p = parse({"--camera-fov", "24.5"});
+    require(p.ok && p.viewpoint.fovDegrees == 24.5f, "a vertical angle parses");
+    require(!p.viewpoint.set, "a lens alone is not a viewpoint");
+    require(!parse({"--camera-fov", "0"}).ok, "a zero angle is refused");
+    require(!parse({"--camera-fov", "180"}).ok, "a straight angle is refused");
+    require(!parse({"--camera-fov", "-30"}).ok, "a negative angle is refused");
+    require(!parse({"--camera-fov", "30deg"}).ok, "a unit suffix is refused");
+    require(parse({"--camera-fov", "0"}).error.find("--camera-fov") != std::string::npos,
+            "the refusal names the flag");
+}
+
 // SAIDA_WINDOW_SIZE sets the capture's resolution; a malformed one must stop
 // the engine rather than fall back to a size nobody asked for.
 void testWindowSize() {
@@ -153,6 +169,7 @@ int main() {
     testViewpoint();
     testHalfAViewpointIsRefused();
     testMalformedVectorsAreRefused();
+    testFieldOfView();
     testWindowSize();
 
     std::cout << "[capture-args] OK (" << gChecks << " checks)\n";

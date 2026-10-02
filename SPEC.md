@@ -1389,6 +1389,12 @@ entered, so nothing is drawn and no image is left behind — a run that exits
 non-zero must not leave a plausible PNG a caller might read instead of the exit
 code.
 
+`--camera-fov <degrees>` sets the lens: the vertical field of view of every
+drawn frame, applied with the viewpoint after the director. It stands alone (it
+zooms the scene's own camera) or with the pair, and is what lets a capture be
+laid beside a photograph taken with a known focal length. It must be over 0 and
+under 180; anything else has no projection and is refused before the loop.
+
 Because both defaults are the reproducible ones, `--screenshot` alone produces a
 golden image. Its **resolution follows the window**, so a committed reference is
 taken headless (`SAIDA_WINDOW_HIDDEN=1`); a capture from a visible window is a

@@ -136,6 +136,7 @@ int main(int argc, char** argv) {
                                       viewpoint.position[2]},
                                      {viewpoint.target[0], viewpoint.target[1],
                                       viewpoint.target[2]});
+        engine.setCameraFovOverride(viewpoint.fovDegrees);
         // A rejected viewpoint stops the run before the loop (see runtime/main.cpp).
         if (engine.captureFailed()) return EXIT_FAILURE;
 

@@ -618,6 +618,7 @@ bool Engine::tick() {
             camera_.position = cameraOverridePosition_;
             camera_.lookAt(cameraOverrideTarget_);
         }
+        if (cameraOverrideFov_ > 0.0f) camera_.fovDegrees = cameraOverrideFov_;
         armFrameCapture();
         {
             SAIDA_PROFILE_SCOPE("Renderer/DrawFrame");
