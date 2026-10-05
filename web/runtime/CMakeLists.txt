@@ -118,6 +118,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/nodes/UICanvasNode.cpp
     ${SAIDA_ROOT}/src/nodes/UITextNode.cpp
     ${SAIDA_ROOT}/src/nodes/WaterNode.cpp
+    ${SAIDA_ROOT}/src/nodes/TerrainRingsNode.cpp  # indexed by the scene; drawn on desktop only
     ${SAIDA_ROOT}/src/ui/HudRasterizer.cpp
     ${SAIDA_ROOT}/src/ui/RmlUiRenderInterface.cpp
     ${SAIDA_ROOT}/src/ui/RmlUiRuntime.cpp

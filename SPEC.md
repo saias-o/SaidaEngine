@@ -309,6 +309,22 @@ The RHI compiles to Vulkan or WebGPU. GLSL shaders are compiled to SPIR-V, then
 transpiled to WGSL with naga for the Web. The Web player has no MSAA. XR
 rendering uses the same renderer with stereo/multiview views.
 
+`TerrainRingsNode` draws terrain to the horizon as nested square rings
+around a focus (geometry clipmaps, desktop only). Level k is a procedural grid
+of 128 x 128 cells of `baseSpacing * 2^k` metres, centred on the focus snapped
+to twice its spacing, with the finer level's square cut out; nine levels of
+16 m reach 262 km. The caller samples each level where `levelOrigin` says
+(129 x 129 heights and one layer index per cell) and hands it over with
+`setLevel`, which refuses and logs malformed data; the renderer rewrites a
+level's storage-buffer region only when its revision changes. The grid is
+generated in the vertex shader, so the terrain costs nothing in the geometry
+arena. Over the outer fifth of a ring odd samples slide onto even ones -- the
+next level's samples -- so rings meet without a crack
+(`saida_terrain_rings_tests` holds the alignment that requires). Each layer is
+an albedo and a roughness lit by the scene's lights. `innerRadius` and up to
+16 convex `holes` (node-local quadrilaterals) leave to the caller the ground it
+draws itself, exactly where it is.
+
 `WaterNode` uses the same water shading for its procedural square and an optional
 tile-local triangle surface (`surface`, space-separated xyz floats in groups of
 three vertices).

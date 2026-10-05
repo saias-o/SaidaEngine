@@ -9,6 +9,7 @@
 #endif
 #include "nodes/LightNode.hpp"
 #include "nodes/WaterNode.hpp"
+#include "nodes/TerrainRingsNode.hpp"
 #include "nodes/UICanvasNode.hpp"
 #include "nodes/UIImageNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
@@ -86,7 +87,7 @@ void SceneIndex::updateResources(Node& node, Entry& entry) {
 
 void SceneIndex::unpublish(Entry& e) {
     meshes.remove(e.mesh); lights.remove(e.light); canvases.remove(e.canvas);
-    webCanvases.remove(e.webCanvas); water.remove(e.water); particles.remove(e.particles);
+    webCanvases.remove(e.webCanvas); water.remove(e.water); terrains.remove(e.terrain); particles.remove(e.particles);
     bodies.remove(e.body); joints.remove(e.joint); preSteppers.remove(e.body);
     for (auto* b : e.behaviours) { behaviours.remove(b); physicsSteppers.remove(b); }
     e.behaviours.clear();
@@ -100,6 +101,7 @@ void SceneIndex::publish(Node& node, Entry& e) {
     e.light = node.asLight();
     e.canvas = dynamic_cast<UICanvasNode*>(&node);
     e.water = dynamic_cast<WaterNode*>(&node);
+    e.terrain = dynamic_cast<TerrainRingsNode*>(&node);
     e.particles = dynamic_cast<ParticleSystemNode*>(&node);
 #ifndef SAIDA_RHI_WEBGPU
     e.webCanvas = dynamic_cast<WebCanvasNode*>(&node);
@@ -132,7 +134,7 @@ void SceneIndex::publish(Node& node, Entry& e) {
     if (!e.visible) return;
     if (e.mesh && e.mesh->meshEnabled()) meshes.add(e.mesh);
     lights.add(e.light); canvases.add(e.canvas); webCanvases.add(e.webCanvas);
-    water.add(e.water); particles.add(e.particles);
+    water.add(e.water); terrains.add(e.terrain); particles.add(e.particles);
 }
 
 void SceneIndex::erase(Node* node) {

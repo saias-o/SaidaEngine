@@ -16,6 +16,7 @@
 #include "nodes/LightNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
 #include "nodes/WaterNode.hpp"
+#include "nodes/TerrainRingsNode.hpp"
 #include "behaviours/RotatorBehaviour.hpp"
 #include "behaviours/SpawnerBehaviour.hpp"
 #include "behaviours/StateMachineBehaviour.hpp"
@@ -81,6 +82,7 @@ void registerReflectedTypes() {
     registerBehaviour<ScenarioRunnerBehaviour>();
     registerNode<LightNode>();
     registerNode<WaterNode>();
+    registerNode<TerrainRingsNode>();
     registerNode<ParticleSystemNode>();
     registerNode<AreaNode>();
     // Physics joints (V1: fixed, point, hinge) — matrix {R, R, A, R}.

@@ -34,6 +34,7 @@
 #include "behaviours/SpawnerBehaviour.hpp"
 #include "behaviours/StateMachineBehaviour.hpp"
 #include "nodes/WaterNode.hpp"
+#include "nodes/TerrainRingsNode.hpp"
 #include "scene/animation/Animator.hpp"
 #include "scene/animation/SequenceDirectorBehaviour.hpp"
 #include "scripting/ScriptBehaviour.hpp"
@@ -85,6 +86,7 @@ void registerReflectedTypes() {
 
     registerNode<LightNode>();
     registerNode<WaterNode>();
+    registerNode<TerrainRingsNode>();
     registerNode<ParticleSystemNode>();
     registerNode<AreaNode>();
     // Physics joints (V1: fixed, point, hinge) — required in the web player.
