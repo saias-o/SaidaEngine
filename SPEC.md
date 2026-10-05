@@ -349,6 +349,18 @@ that light alone (`accumulateOccluded` in `lighting.glsl`), on top of its
 shadow map. The march runs again only when a level changes or the light turns
 by more than 0.1 degree, so a still scene pays nothing a frame.
 
+What the rings hide reaches the ground their caller draws too. The renderer
+owns a `SunOcclusionMap` (256 x 256, bound globally) and every lit surface reads
+it for one directional light (`sunOcclusionAt` in `lighting.glsl`). The first
+TerrainRingsNode fills it over its finest level's square
+(`terrain_rings_occlusion.comp`): each texel keeps the height below which that
+light is hidden, the highest terrain met on the way to the light less what the
+ray climbs to reach it, and the penumbra there. A roof above that line keeps
+the last Sun the street below has lost. The march starts two cells out, the
+near terrain being the shadow map's. It runs only when the rings' march does,
+after a barrier that lets earlier frames finish sampling the map; without
+rings the map is not read.
+
 `WaterNode` uses the same water shading for its procedural square and an optional
 tile-local triangle surface (`surface`, space-separated xyz floats in groups of
 three vertices).

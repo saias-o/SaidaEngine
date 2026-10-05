@@ -125,6 +125,10 @@ public:
     // WebGPU tracks this dependency automatically, so its equivalent is a no-op.
     void computeToGraphicsBarrier();
 
+    // What earlier frames' fragment and compute shaders read, before this
+    // compute pass rewrites it (a resource shared across frames in flight).
+    void graphicsToComputeBarrier();
+
     void computeToIndirectBarrier();
 
     void transferToComputeBarrier();

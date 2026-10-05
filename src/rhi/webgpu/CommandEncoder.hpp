@@ -108,6 +108,7 @@ public:
                     rhi::TextureAspect = rhi::TextureAspect::Auto) {}
     void storageBarrier() {}
     void computeToGraphicsBarrier() {}
+    void graphicsToComputeBarrier() {}
     void computeToIndirectBarrier() {}
     void transferToComputeBarrier() {}
 

@@ -164,6 +164,14 @@ void CommandEncoder::computeToGraphicsBarrier() {
         VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
 }
 
+void CommandEncoder::graphicsToComputeBarrier() {
+    memoryBarrier2(cmd_,
+        VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        VK_ACCESS_2_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+        VK_ACCESS_2_SHADER_WRITE_BIT);
+}
+
 void CommandEncoder::computeToIndirectBarrier() {
     memoryBarrier2(cmd_,
         VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,

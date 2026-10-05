@@ -153,6 +153,11 @@ float fogAltitude(vec3 v) {
     return lifted / (sqrt(max(rh * rh + 2.0 * rh * s + vv, 0.0)) + radius);
 }
 
+// Points of a ray the layered air's density is averaged over, and the lowest
+// altitude it is taken at (a curved world's far edge drops below the datum).
+const int FOG_SAMPLES = 8;
+const float FOG_LOWEST_ALTITUDE = -1000.0;
+
 // Optical depth per channel from the camera to `viewPos`, past `start`.
 // Uniform grey fog unless the air is layered; then the grey and the Rayleigh
 // densities are averaged over eight points of the fogged segment.
@@ -164,16 +169,15 @@ vec3 fogDepth(vec3 viewPos, float dist) {
     float rayleighHeight = push.fogRayleigh.w;
     float from = dist > 0.0 ? min(start / dist, 1.0) : 1.0;
     float grey = 0.0, air = 0.0;
-    const int SAMPLES = 8;
-    for (int i = 0; i < SAMPLES; ++i) {
-        float f = from + (1.0 - from) * (float(i) + 0.5) / float(SAMPLES);
+    for (int i = 0; i < FOG_SAMPLES; ++i) {
+        float f = from + (1.0 - from) * (float(i) + 0.5) / float(FOG_SAMPLES);
         // Below the datum the air is denser still, but not without bound.
-        float a = max(fogAltitude(viewPos * f), -1000.0);
+        float a = max(fogAltitude(viewPos * f), FOG_LOWEST_ALTITUDE);
         grey += greyHeight > 0.0 ? exp(-a / greyHeight) : 1.0;
         air += exp(-a / rayleighHeight);
     }
-    grey /= float(SAMPLES);
-    air /= float(SAMPLES);
+    grey /= float(FOG_SAMPLES);
+    air /= float(FOG_SAMPLES);
     return fogged * (push.fogParams.z * grey + push.fogRayleigh.rgb * air);
 }
 

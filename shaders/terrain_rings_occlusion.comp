@@ -1,0 +1,56 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// The rings' hold on the light over the ground they leave to their caller
+// (SunOcclusionMap, render/RenderFeature.hpp): for each texel of the finest
+// level's square, the height below which the light is hidden, and the
+// penumbra there. From the texel the march goes toward the light over the
+// heights of every level and keeps the highest terrain seen, less what the
+// ray climbs to reach it: whatever stands below that line is in the shadow
+// of something, whatever stands above is lit -- a roof catches the last Sun
+// the street has lost. The near terrain is left to the shadow map: the march
+// starts two cells out.
+
+#include "terrain_rings.glsl"
+
+layout(local_size_x = 8, local_size_y = 8) in;
+layout(set = 2, binding = 0, rgba16f) uniform writeonly image2D occlusion;
+
+// Cells of the finest level left to the shadow map before the march begins.
+const float NEAR_CELLS = 2.0;
+// Heights that stand for "nothing hides the light" and "the light is under
+// the horizon": past any ground, within half-float range.
+const float NOTHING_HIDES = -60000.0;
+const float ALL_HIDDEN = 60000.0;
+
+void main() {
+    ivec2 size = imageSize(occlusion);
+    ivec2 px = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThanEqual(px, size))) return;
+    GpuTerrain t = terrains.items[push.slot];
+    vec4 L0 = t.levels[0];
+    vec2 start = L0.xy + (vec2(px) + 0.5) / vec2(size) * (float(RES) * L0.z);
+
+    vec3 toLight = t.sun.xyz;
+    float horizontal = length(toLight.xz);
+    vec2 hold = vec2(NOTHING_HIDES, 0.0);
+    if (toLight.y <= 0.0) {
+        hold = vec2(ALL_HIDDEN, 0.0);
+    } else if (horizontal > 1e-4) {
+        vec2 dir = toLight.xz / horizontal;
+        float rise = toLight.y / horizontal;
+        float top = t.relief.x;
+        float travelled = NEAR_CELLS * L0.z;
+        for (int s = 0; s < MAX_SUN_STEPS; ++s) {
+            // Nothing farther can stand above the line already found.
+            if (top - rise * travelled <= hold.x) break;
+            vec2 p = start + dir * travelled;
+            int k = finestLevelHolding(t, p);
+            if (k < 0) break;
+            float line = ringHeight(t, push.slot, k, p) - rise * travelled;
+            if (line > hold.x) hold = vec2(line, travelled * SUN_PENUMBRA);
+            travelled += t.levels[k].z;
+        }
+    }
+    imageStore(occlusion, px, vec4(hold, 0.0, 0.0));
+}

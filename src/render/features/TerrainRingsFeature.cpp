@@ -15,6 +15,9 @@ namespace {
 // The light the rings shadow themselves from: the brightest directional one
 // that casts shadows, among those the lighting UBO holds (its index there is
 // its place in Scene::lights). Its direction toward the light, in world space.
+// The GPU layouts carry flags as floats: present at 1, absent at 0.
+bool flagged(float value) { return value > 0.5f; }
+
 int shadowingLight(Scene& scene, glm::vec3& toLight) {
     int best = -1;
     float strongest = 0.0f;
@@ -34,6 +37,20 @@ int shadowingLight(Scene& scene, glm::vec3& toLight) {
 }  // namespace
 
 TerrainRingsFeature::~TerrainRingsFeature() = default;
+
+bool TerrainRingsFeature::MarchedFor::holds(const MarchedFor& now) const {
+    return node == now.node && revisions == now.revisions && light == now.light &&
+           glm::dot(sun, now.sun) >= std::cos(kShadowTurn);
+}
+
+TerrainRingsFeature::MarchedFor TerrainRingsFeature::marchingNow(const FrameBuffers& f, uint32_t slot) const {
+    const GpuTerrain& g = packed_[slot];
+    const Uploaded& up = f.uploaded[slot];
+    MarchedFor now{up.node, {}, glm::vec3(g.sun), g.sun.w};
+    for (int k = 0; k < kLevels; ++k)
+        now.revisions[size_t(k)] = flagged(g.levels[k].w) ? up.revisions[size_t(k)] : 0u;
+    return now;
+}
 
 void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
     device_ = &ctx.device;
@@ -90,6 +107,11 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
     // The sun pass declares set 1 like the rings; set 0 is laid out, not bound.
     sunPipeline_ = std::make_unique<ComputePipeline>(*device_, shaderPath("terrain_rings_sun.comp.spv"),
         std::vector<rhi::vulkan::BindGroupLayoutRef>{ctx.globalSetLayout, *setLayout_}, uint32_t(sizeof(Push)));
+    occlusionLayout_ = std::make_unique<rhi::BindGroupLayout>(*device_,
+        std::vector<rhi::BindGroupLayoutEntry>{{0, rhi::BindingType::StorageImage, rhi::ShaderStages::Compute}});
+    occlusionPipeline_ = std::make_unique<ComputePipeline>(*device_, shaderPath("terrain_rings_occlusion.comp.spv"),
+        std::vector<rhi::vulkan::BindGroupLayoutRef>{ctx.globalSetLayout, *setLayout_, *occlusionLayout_},
+        uint32_t(sizeof(Push)));
 }
 
 void TerrainRingsFeature::prepare(Scene& scene, uint32_t frameIndex) {
@@ -130,7 +152,7 @@ void TerrainRingsFeature::prepare(Scene& scene, uint32_t frameIndex) {
         }
 
         Uploaded& up = f.uploaded[slot];
-        if (up.node != &node) up = Uploaded{&node, {}, {}, {}, 0.0f};
+        if (up.node != &node) up = Uploaded{&node, {}, {}};
         for (int k = 0; k < levels; ++k) {
             const TerrainRingsNode::Level* level = node.level(k);
             if (!level) continue;
@@ -151,41 +173,85 @@ void TerrainRingsFeature::prepare(Scene& scene, uint32_t frameIndex) {
 void TerrainRingsFeature::recordPrePass(const PrePassContext& pc) {
     prepare(pc.scene, pc.frameIndex);
     prepared_ = true;
-    if (count_ == 0) return;
+    if (count_ == 0) {
+        if (pc.sunOcclusion) pc.sunOcclusion->light = -1;
+        return;
+    }
 
     FrameBuffers& f = frames_[std::min<size_t>(pc.frameIndex, frames_.size() - 1)];
     bool dispatched = false;
     for (uint32_t slot = 0; slot < count_; ++slot) {
         const GpuTerrain& g = packed_[slot];
-        Uploaded& up = f.uploaded[slot];
-        if (g.sun.w < 0.5f) continue;
+        if (!flagged(g.sun.w)) continue;
         // Marched again when a level changed (a ring shadows the others) or
         // the light turned: never otherwise.
-        const glm::vec3 sun(g.sun);
-        bool stale = up.shadowLight != g.sun.w ||
-                     glm::dot(sun, up.shadowSun) < std::cos(kShadowTurn);
-        for (int k = 0; k < kLevels && !stale; ++k)
-            stale = up.shadowed[size_t(k)] != (g.levels[k].w > 0.5f ? up.revisions[size_t(k)] : 0u);
-        if (!stale) continue;
+        const MarchedFor now = marchingNow(f, slot);
+        Uploaded& up = f.uploaded[slot];
+        if (up.sunlight.holds(now)) continue;
 
         rhi::ComputePassEncoder cp = pc.encoder.beginComputePass();
         cp.setPipeline(*sunPipeline_);
         cp.setBindGroup(1, *f.set);
         const uint32_t groups = ComputePipeline::groupCount(uint32_t(TerrainRingsNode::kSamples) *
-                                                            TerrainRingsNode::kSamples, 64);
+                                                            TerrainRingsNode::kSamples, kSunGroupSize);
         for (int k = 0; k < kLevels; ++k) {
-            up.shadowed[size_t(k)] = g.levels[k].w > 0.5f ? up.revisions[size_t(k)] : 0u;
-            if (g.levels[k].w < 0.5f) continue;
+            if (!flagged(g.levels[k].w)) continue;
             Push push{slot, uint32_t(k)};
             cp.setPushConstants(&push, sizeof(Push));
             cp.dispatch(groups);
         }
         cp.end();
-        up.shadowSun = sun;
-        up.shadowLight = g.sun.w;
+        up.sunlight = now;
         dispatched = true;
     }
+    if (pc.sunOcclusion) {
+        if (recordOcclusion(pc, f)) dispatched = true;
+    }
     if (dispatched) pc.encoder.computeToGraphicsBarrier();
+}
+
+bool TerrainRingsFeature::recordOcclusion(const PrePassContext& pc, FrameBuffers& f) {
+    SunOcclusionMap& map = *pc.sunOcclusion;
+    const GpuTerrain& g = packed_[0];
+    // Only the first terrain, with its finest level, under a light it shadows.
+    if (count_ == 0 || !flagged(g.sun.w) || !flagged(g.levels[0].w) || !map.view) {
+        map.light = -1;
+        return false;
+    }
+    const glm::vec4 L0 = g.levels[0];
+    const float extent = float(TerrainRingsNode::kResolution) * L0.z;
+    glm::mat4 toMap(0.0f);  // node-local (x, y, z) -> (u, v, height)
+    toMap[0][0] = 1.0f / extent;
+    toMap[2][1] = 1.0f / extent;
+    toMap[1][2] = 1.0f;
+    toMap[3] = glm::vec4(-L0.x / extent, -L0.y / extent, 0.0f, 1.0f);
+    map.worldToMap = toMap * glm::inverse(g.localToWorld);
+    map.light = int(std::lround(g.sun.w)) - 1;
+
+    const MarchedFor now = marchingNow(f, 0);
+    if (occlusion_.holds(now)) return false;
+
+    if (!occlusionSet_ || occlusionView_ != map.view) {
+        rhi::BindGroupEntry image;
+        image.binding = 0;
+        image.view = map.view;
+        image.textureState = rhi::ResourceState::StorageReadWrite;
+        occlusionSet_ = std::make_unique<rhi::BindGroup>(*occlusionLayout_, std::vector<rhi::BindGroupEntry>{image});
+        occlusionView_ = map.view;
+    }
+    // Earlier frames still in flight sample the map: they finish first.
+    pc.encoder.graphicsToComputeBarrier();
+    rhi::ComputePassEncoder cp = pc.encoder.beginComputePass();
+    cp.setPipeline(*occlusionPipeline_);
+    cp.setBindGroup(1, *f.set);
+    cp.setBindGroup(2, *occlusionSet_);
+    Push push{0u, 0u};
+    cp.setPushConstants(&push, sizeof(Push));
+    const uint32_t groups = ComputePipeline::groupCount(SunOcclusionMap::kSize, kOcclusionGroupSize);
+    cp.dispatch(groups, groups);
+    cp.end();
+    occlusion_ = now;
+    return true;
 }
 
 void TerrainRingsFeature::record(FrameContext& fc) {
@@ -204,10 +270,10 @@ void TerrainRingsFeature::record(FrameContext& fc) {
     fc.pass.setPipeline(*pipeline_);
     fc.pass.setBindGroup(0, *fc.globalSet);
     fc.pass.setBindGroup(1, *f.set);
-    const uint32_t vertices = uint32_t(TerrainRingsNode::kResolution) * TerrainRingsNode::kResolution * 6u;
+    const uint32_t vertices = uint32_t(TerrainRingsNode::kResolution) * TerrainRingsNode::kResolution * kVerticesPerCell;
     for (uint32_t slot = 0; slot < count_; ++slot)
         for (int k = 0; k < kLevels; ++k) {
-            if (packed_[slot].levels[k].w < 0.5f) continue;
+            if (!flagged(packed_[slot].levels[k].w)) continue;
             Push pc{slot, uint32_t(k)};
             fc.pass.setPushConstants(&pc, sizeof(Push));
             fc.pass.draw(vertices);

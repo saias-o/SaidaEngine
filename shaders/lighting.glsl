@@ -31,6 +31,10 @@ layout(set = 0, binding = 1) uniform LightingUBO {
     // Order-2 SH of the environment's Lambertian irradiance, already folded with
     // the basis constants and the cosine convolution (see render/EnvironmentSH).
     vec4 environmentSH[9];
+    // The terrain's hold on one directional light (SunOcclusionMap): world
+    // position -> (u, v, height in the map's frame); x the light, -1 none.
+    mat4 sunOcclusionToMap;
+    vec4 sunOcclusion;
 } lights;
 
 DECL_SHADOW2DARRAY(0, 2, 8, shadowMap);
@@ -47,6 +51,22 @@ DECL_TEX3D(0, 6, 11, giVoxels);
 
 // Canonical equirectangular environment. Reused by skybox, IBL and DDGI misses.
 DECL_TEX2D(0, 7, 12, iblEnvironment);
+
+// Where the terrain hides the light: r the height below which a point is in
+// its shadow, g the penumbra there (metres of height), wider the farther away
+// what hides it stands.
+DECL_TEX2D(0, 13, 14, sunOcclusionMap);
+
+// The narrowest penumbra (m): what hides the light is never a knife edge.
+const float MIN_SUN_PENUMBRA = 1.0;
+
+// How much of the occluded light reaches `wp`, 1 outside the map.
+float sunOcclusionAt(vec3 wp) {
+    vec3 m = (lights.sunOcclusionToMap * vec4(wp, 1.0)).xyz;
+    if (any(lessThan(m.xy, vec2(0.0))) || any(greaterThan(m.xy, vec2(1.0)))) return 1.0;
+    vec2 hold = textureLod(TEX2D(sunOcclusionMap), m.xy, 0.0).rg;
+    return clamp(0.5 + (m.z - hold.x) / max(hold.y, MIN_SUN_PENUMBRA), 0.0, 1.0);
+}
 
 const float INV_TWO_PI = 0.15915494309;
 const float INV_PI = 0.31830988618;
@@ -291,10 +311,11 @@ LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, floa
 // Evaluates the full Cook-Torrance specular + Lambertian diffuse for one light,
 // with attenuation, spot cone falloff, and shadow already folded in.
 // `visibility` scales the light on top of its shadow map: what a surface
-// knows of its own shadow (TerrainRingsNode).
+// knows of its own shadow (TerrainRingsNode). `readSunOcclusion` false skips
+// the terrain's occlusion map for a surface that already counted it.
 LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
                                      vec3 albedo, float metallic, float roughness,
-                                     float visibility) {
+                                     float visibility, bool readSunOcclusion) {
     // Clamp roughness to avoid NaN from division-by-zero in GGX when alpha→0.
     roughness = max(roughness, 0.04);
 
@@ -326,6 +347,7 @@ LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
     if (lt.spotShadow.z >= 0.0)
         shadow = shadowFactor(int(lt.spotShadow.z + 0.5), wp, ndotl);
     shadow *= visibility;
+    if (readSunOcclusion && i == int(lights.sunOcclusion.x)) shadow *= sunOcclusionAt(wp);
     float vis = atten * shadow;
 
     // --- BRDF ---
@@ -362,7 +384,7 @@ LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
 
 LightTerms lightContribution(int i, vec3 N, vec3 V, vec3 wp,
                               vec3 albedo, float metallic, float roughness) {
-    return lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness, 1.0);
+    return lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness, 1.0, true);
 }
 
 // ---------------------------------------------------------------------------
@@ -412,7 +434,7 @@ LightTerms accumulateOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metall
     total.specular = env.specular;
     for (int i = 0; i < lights.counts.x; ++i) {
         LightTerms t = lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
-                                                 i == occluded ? visibility : 1.0);
+                                                 i == occluded ? visibility : 1.0, i != occluded);
         total.diffuse  += t.diffuse;
         total.specular += t.specular;
     }

@@ -38,12 +38,13 @@ uint layerOf(int base, int cx, int cz) {
 
 // What the ground is made of at a sample: the four cells that share it,
 // averaged, so a forest's edge is a gradient a cell wide, not a staircase.
+const float CELLS_AT_A_SAMPLE = 4.0;
 vec4 surfaceAt(GpuTerrain t, int base, ivec2 at) {
     vec4 sum = vec4(0.0);
     for (int dz = -1; dz <= 0; ++dz)
         for (int dx = -1; dx <= 0; ++dx)
             sum += t.layers[min(layerOf(base, at.x + dx, at.y + dz), uint(MAX_LAYERS - 1))];
-    return sum * 0.25;
+    return sum / CELLS_AT_A_SAMPLE;
 }
 
 float sunlightAt(int base, vec2 g) {

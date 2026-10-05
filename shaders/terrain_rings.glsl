@@ -9,6 +9,13 @@ const int MAX_LAYERS = 16;    // TerrainRingsNode::kMaxLayers
 const int MAX_TERRAINS = 2;   // TerrainRingsFeature::kMaxTerrains
 const int MAX_HOLES = 16;     // TerrainRingsNode::kMaxHoles
 
+// Marches toward the light (terrain_rings_sun.comp, terrain_rings_occlusion.comp):
+// at most this many steps, one cell of the level holding each point a step,
+// and a penumbra of about a degree -- the Sun's disc and what a cell cannot
+// place better -- as the tangent of its half-width.
+const int MAX_SUN_STEPS = 512;
+const float SUN_PENUMBRA = 0.018;
+
 struct GpuTerrain {
     mat4 localToWorld;
     vec4 focus;                 // x, z (node-local), innerRadius, level count
@@ -53,4 +60,28 @@ layout(push_constant) uniform Push {
 
 int levelBase(uint slot, uint level) {
     return int(slot * uint(MAX_LEVELS) + level);
+}
+
+// The finest level present that holds the node-local point p, -1 past them all.
+int finestLevelHolding(GpuTerrain t, vec2 p) {
+    int levels = int(t.focus.w);
+    for (int l = 0; l < levels; ++l) {
+        vec4 M = t.levels[l];
+        if (M.w < 0.5) continue;
+        vec2 g = (p - M.xy) / M.z;
+        if (all(greaterThanEqual(g, vec2(0.0))) && all(lessThanEqual(g, vec2(float(RES))))) return l;
+    }
+    return -1;
+}
+
+// Level `level`'s height at node-local p, bilinear between its samples.
+float ringHeight(GpuTerrain t, uint slot, int level, vec2 p) {
+    vec4 M = t.levels[level];
+    vec2 g = clamp((p - M.xy) / M.z, vec2(0.0), vec2(float(RES)));
+    ivec2 i0 = min(ivec2(floor(g)), ivec2(RES - 1));
+    vec2 f = g - vec2(i0);
+    int row = levelBase(slot, uint(level)) * SAMPLES * SAMPLES + i0.y * SAMPLES + i0.x;
+    float a = heights[row], b = heights[row + 1];
+    float c = heights[row + SAMPLES], d = heights[row + SAMPLES + 1];
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }

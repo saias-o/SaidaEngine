@@ -72,6 +72,21 @@ struct FrameContext {
     uint32_t drawCount = 0;
 };
 
+// Where the terrain hides one directional light, for every lit surface
+// (lighting.glsl, `sunOcclusionAt`). The renderer owns the map and binds it
+// globally; a feature that knows the terrain (TerrainRingsFeature) writes it
+// in its pre-pass and says how to read it. Each texel holds, at its x,z, the
+// height below which the light is hidden (r) and how far away what hides it
+// stands (g, for the penumbra). Unused, `light` is -1 and nothing is read.
+struct SunOcclusionMap {
+    static constexpr uint32_t kSize = 256;
+    static constexpr rhi::Format kFormat = rhi::Format::RGBA16Float;
+    rhi::TextureView view{};      // storage image, kSize x kSize, kFormat
+    // World position -> (u, v, height in the map's frame).
+    glm::mat4 worldToMap{1.0f};
+    int light = -1;               // index in the lighting UBO's lights
+};
+
 // Compute features run here because neither backend permits compute inside a render pass.
 struct PrePassContext {
     rhi::CommandEncoder& encoder;
@@ -82,6 +97,7 @@ struct PrePassContext {
     const Camera* camera = nullptr;
     const std::vector<EyeRenderInfo>* eyes = nullptr;
     rhi::Extent2D extent{};
+    SunOcclusionMap* sunOcclusion = nullptr;  // desktop; null where there is none
 };
 
 class ScenePassFeature {

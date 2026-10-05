@@ -229,6 +229,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, Window& window,
     shadowMap_ = std::make_unique<ShadowMap>(device_, globalSetLayout_.get());
     gi_ = std::make_unique<GIVolume>(device_, giDescForTier(device_.capabilities().tier),
                                      resources_.materialSetLayout(), *globalSetLayout_);
+    createSunOcclusion();
     createGlobalDescriptorSets();
     gpuProfiler_ = std::make_unique<GpuProfiler>(device_, kMaxFramesInFlight);
 }
@@ -256,6 +257,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, ResourceManager
     shadowMap_ = std::make_unique<ShadowMap>(device_, globalSetLayout_.get());
     gi_ = std::make_unique<GIVolume>(device_, giDescForTier(device_.capabilities().tier),
                                      resources_.materialSetLayout(), *globalSetLayout_);
+    createSunOcclusion();
     createGlobalDescriptorSets();
     gpuProfiler_ = std::make_unique<GpuProfiler>(device_, kMaxFramesInFlight);
 }
@@ -272,6 +274,7 @@ Renderer::Renderer(VulkanDevice& device, Window& window, ResourceManager& resour
     shadowMap_ = std::make_unique<ShadowMap>(device_, globalSetLayout_.get());
     gi_ = std::make_unique<GIVolume>(device_, giDescForTier(device_.capabilities().tier),
                                      resources_.materialSetLayout(), *globalSetLayout_);
+    createSunOcclusion();
     createGlobalDescriptorSets();
     createXrTargets();
     createXrPipelines();
@@ -355,6 +358,10 @@ void Renderer::createGlobalSetLayout() {
         e = {}; e.binding = b; e.type = rhi::BindingType::Sampler; e.visibility = FC;
         entries.push_back(e);
     }
+    e = {}; e.binding = 13; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
+    entries.push_back(e);
+    e = {}; e.binding = 14; e.type = rhi::BindingType::Sampler; e.visibility = FC;
+    entries.push_back(e);
     globalSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_, entries);
 #else
     globalSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
@@ -367,6 +374,7 @@ void Renderer::createGlobalSetLayout() {
             {5, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI visibility
             {6, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI voxel
             {7, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // environment
+            {13, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute}, // sun occlusion
         });
 #endif
 }
@@ -570,7 +578,21 @@ void Renderer::rebuildGlobalSet(int frame) {
     environmentEntry.sampler = environment->sampler();
 #endif
 
+    rhi::BindGroupEntry sunOcclusionEntry;
+    sunOcclusionEntry.binding = 13;
 #ifdef SAIDA_RHI_WEBGPU
+    sunOcclusionEntry.view = environment->imageView();  // never written on the Web: light stays -1
+#else
+    sunOcclusionEntry.view = sunOcclusionTexture_->view();
+    sunOcclusionEntry.sampler = gi_->sampler();
+    sunOcclusionEntry.textureState = rhi::ResourceState::StorageReadWrite;
+#endif
+
+#ifdef SAIDA_RHI_WEBGPU
+    rhi::BindGroupEntry sunOcclusionSamplerEntry;
+    sunOcclusionSamplerEntry.binding = 14;
+    sunOcclusionSamplerEntry.sampler = gi_->sampler();
+
     rhi::BindGroupEntry shadowSamplerEntry;
     shadowSamplerEntry.binding = 8;
     shadowSamplerEntry.sampler = shadowMap_->sampler();
@@ -595,7 +617,7 @@ void Renderer::rebuildGlobalSet(int frame) {
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
             giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry,
             shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
-            giVoxelSamplerEntry, environmentSamplerEntry});
+            giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry});
 
     // Variant for the DDGI compute pass. WebGPU merges every bound group's
     // resources into the dispatch usage scope, so having the current atlases
@@ -609,11 +631,11 @@ void Renderer::rebuildGlobalSet(int frame) {
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
             giIrradianceDummy, giVisibilityDummy, giVoxelEntry, environmentEntry,
             shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
-            giVoxelSamplerEntry, environmentSamplerEntry});
+            giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry});
 #else
     globalGroups_[frame] = std::make_unique<rhi::BindGroup>(*globalSetLayout_,
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
-            giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry});
+            giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry, sunOcclusionEntry});
 #endif
 
     cachedGiIrradianceView_[frame] = gi_->irradianceView();
@@ -621,6 +643,39 @@ void Renderer::rebuildGlobalSet(int frame) {
     cachedGiSampler_[frame] = gi_->sampler();
     cachedEnvironmentView_[frame] = environment->imageView();
     cachedEnvironmentSampler_[frame] = environment->sampler();
+}
+
+void Renderer::createSunOcclusion() {
+#ifndef SAIDA_RHI_WEBGPU
+    rhi::RenderTextureDesc desc;
+    desc.format = SunOcclusionMap::kFormat;
+    desc.width = desc.height = SunOcclusionMap::kSize;
+    desc.usage = rhi::TextureUsage::Storage | rhi::TextureUsage::Sampled;
+    desc.memoryCategory = "sun occlusion";
+    sunOcclusionTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
+    sunOcclusion_.view = sunOcclusionTexture_->view();
+#endif
+}
+
+// Out of Undefined once, before any feature writes or samples it.
+void Renderer::readySunOcclusion(rhi::CommandEncoder& encoder) {
+#ifndef SAIDA_RHI_WEBGPU
+    if (sunOcclusionReady_) return;
+    encoder.transition(sunOcclusionTexture_->image(), rhi::ResourceState::Undefined,
+                       rhi::ResourceState::StorageReadWrite);
+    sunOcclusionReady_ = true;
+#else
+    (void)encoder;
+#endif
+}
+
+// The map's reading, as the features left it this frame, into this frame's
+// lighting UBO: written after the pre-pass, over what gatherScene wrote.
+void Renderer::writeSunOcclusion(uint32_t frame) {
+    struct { glm::mat4 toMap; glm::vec4 params; } part{
+        sunOcclusion_.worldToMap, glm::vec4(float(sunOcclusion_.light), 0.0f, 0.0f, 0.0f)};
+    static_assert(offsetof(LightingUBO, sunOcclusion) == offsetof(LightingUBO, sunOcclusionToMap) + sizeof(glm::mat4));
+    lightingBuffers_[frame]->write(&part, sizeof(part), offsetof(LightingUBO, sunOcclusionToMap));
 }
 
 void Renderer::createGlobalDescriptorSets() {
@@ -1312,9 +1367,11 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
     // Compute features must run outside the scene render pass.
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Scene/FeaturesPrePass");
+        readySunOcclusion(encoder);
         PrePassContext ppc{encoder, currentFrame_, scene, Time::elapsed(), false,
-                           &camera, nullptr, extent};
+                           &camera, nullptr, extent, &sunOcclusion_};
         for (auto& f : features_) f->recordPrePass(ppc);
+        writeSunOcclusion(currentFrame_);
     }
 
 #ifdef SAIDA_RHI_WEBGPU
@@ -1735,9 +1792,11 @@ void Renderer::recordXrScenePass(rhi::CommandEncoder& encoder, Scene& scene,
 
     // Feature pre-pass compute (GPU particle sim) — outside any render pass.
     {
+        readySunOcclusion(encoder);
         PrePassContext ppc{encoder, currentFrame_, scene, Time::elapsed(), true,
-                           nullptr, &eyes, xrExtent_};
+                           nullptr, &eyes, xrExtent_, &sunOcclusion_};
         for (auto& f : features_) f->recordPrePass(ppc);
+        writeSunOcclusion(currentFrame_);
     }
 
     // Both eye layers come back from sampling with stale contents (cleared below).

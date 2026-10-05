@@ -78,6 +78,11 @@ struct LightingUBO {
     // Order-2 SH of the environment's Lambertian irradiance. Nine coefficients
     // are what give diffuse IBL a direction — see render/EnvironmentSH.hpp.
     glm::vec4 environmentSH[9]{};
+    // The terrain's hold on one directional light (SunOcclusionMap): world
+    // position -> (u, v, height in the map's frame), and x the light's index,
+    // -1 when no map is written.
+    glm::mat4 sunOcclusionToMap{1.0f};
+    glm::vec4 sunOcclusion{-1.0f, 0.0f, 0.0f, 0.0f};
 };
 
 class Renderer {
@@ -179,6 +184,16 @@ private:
     std::unique_ptr<ShadowMap> shadowMap_;
     std::unique_ptr<UIRenderer> uiRenderer_;
     std::unique_ptr<GIVolume> gi_;  // DDGI irradiance volume (the single GI primitive)
+    // Where the terrain hides a directional light, written by a feature's
+    // pre-pass (SunOcclusionMap) and sampled by every lit surface.
+#ifndef SAIDA_RHI_WEBGPU
+    std::unique_ptr<rhi::RenderTexture> sunOcclusionTexture_;
+    bool sunOcclusionReady_ = false;  // transitioned out of Undefined
+#endif
+    SunOcclusionMap sunOcclusion_;
+    void createSunOcclusion();
+    void readySunOcclusion(rhi::CommandEncoder& encoder);
+    void writeSunOcclusion(uint32_t frame);
     std::unique_ptr<GpuProfiler> gpuProfiler_;
 #ifndef SAIDA_RHI_WEBGPU
     // Owns its staging buffer and nothing else; allocated only once a capture
