@@ -37,6 +37,13 @@ namespace {
 // Smallest half-extent / radius we let through so Jolt's convex radius is valid.
 constexpr float kMinHalf = 0.02f;
 
+// Auto derives its primitive from the meshes' bounds, ConvexHull and Mesh are
+// built from their geometry; the other types carry their own dimensions.
+bool readsMeshes(CollisionShapeType type) {
+    return type == CollisionShapeType::Auto || type == CollisionShapeType::ConvexHull ||
+           type == CollisionShapeType::Mesh;
+}
+
 // One drawn mesh under a body, expressed in its unscaled physics frame.
 struct MeshInstance {
     Mesh* mesh = nullptr;
@@ -195,6 +202,15 @@ void CollisionShapeNode::autoDetectFrom(const Aabb& b) {
 }
 
 bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNode) {
+    // A primitive with explicit dimensions reads no mesh, so it neither waits
+    // for one nor walks the body's subtree. Every shape of a compound walked
+    // the whole body every frame: a compound of N boxes cost N^2 node visits
+    // a frame, 89 ms for nine tiles of 600 tree trunks each.
+    if (!readsMeshes(shapeType)) {
+        resolved_ = shapeType;
+        meshPending_ = false;
+        return false;
+    }
     // A mesh proxy that's still empty (async .obj loading) provides neither
     // bounds nor collision data: defer both resolution AND the body
     // (meshPending_) until the geometry arrives. The pending->loaded
