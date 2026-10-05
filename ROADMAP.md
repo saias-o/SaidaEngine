@@ -27,6 +27,11 @@ the corresponding contracts of `SPEC.md`.
   `saida_physics_capacity_tests` and R1World's offline Paris runs, which logged
   about 2.2 million refusals before the change and none after it.
 
+- [x] Resolve explicitly dimensioned boxes, spheres and capsules without
+  traversing their body's meshes. The compound regression measures 0.049 ms
+  for 1,024 boxes and 0.183 ms for 4,096 boxes; all 90 native CTest cases pass
+  on 2026-10-05. Mesh-derived shapes retain their loading and bounds checks.
+
 - [x] Release `CharacterVirtual` and its inner body when a character or its
   ancestor is disabled. Reconnect on reactivation; covered by the character
   disable/query/reactivate/move-and-slide regression and the R1World teleport
