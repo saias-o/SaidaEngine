@@ -20,13 +20,30 @@ layout(set = 0, binding = 0) uniform CameraUBO {
 layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragLocalXZ;
-layout(location = 3) flat out uint fragLayer;
+layout(location = 3) out vec4 fragSurface;  // albedo, roughness: the cells around, blended
 layout(location = 4) out float fragSunlight;
 
 float sampleAt(int base, int i, int j) {
     i = clamp(i, 0, RES);
     j = clamp(j, 0, RES);
     return heights[base * SAMPLES * SAMPLES + j * SAMPLES + i];
+}
+
+uint layerOf(int base, int cx, int cz) {
+    cx = clamp(cx, 0, RES - 1);
+    cz = clamp(cz, 0, RES - 1);
+    int cell = base * RES * RES + cz * RES + cx;
+    return (layerWords[cell >> 2] >> (uint(cell & 3) * 8u)) & 0xFFu;
+}
+
+// What the ground is made of at a sample: the four cells that share it,
+// averaged, so a forest's edge is a gradient a cell wide, not a staircase.
+vec4 surfaceAt(GpuTerrain t, int base, ivec2 at) {
+    vec4 sum = vec4(0.0);
+    for (int dz = -1; dz <= 0; ++dz)
+        for (int dx = -1; dx <= 0; ++dx)
+            sum += t.layers[min(layerOf(base, at.x + dx, at.y + dz), uint(MAX_LAYERS - 1))];
+    return sum * 0.25;
 }
 
 float sunlightAt(int base, vec2 g) {
@@ -72,7 +89,7 @@ void main() {
                 fragWorldPos = vec3(0.0);
                 fragNormal = vec3(0.0, 1.0, 0.0);
                 fragLocalXZ = vec2(0.0);
-                fragLayer = 0u;
+                fragSurface = vec4(0.0);
                 fragSunlight = 1.0;
                 return;
             }
@@ -103,8 +120,8 @@ void main() {
     fragLocalXZ = local.xz;
     fragSunlight = t.sun.w > 0.5 ? sunlightAt(base, gm) : 1.0;
 
-    int cell = base * RES * RES + qz * RES + qx;
-    fragLayer = (layerWords[cell >> 2] >> (uint(cell & 3) * 8u)) & 0xFFu;
+    // Morphed samples take the surface of the even sample they slide onto.
+    fragSurface = surfaceAt(t, base, ivec2(gm + 0.5));
 
 #ifdef MULTIVIEW
     int vi = gl_ViewIndex;

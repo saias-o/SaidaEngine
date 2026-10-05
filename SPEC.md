@@ -321,7 +321,9 @@ generated in the vertex shader, so the terrain costs nothing in the geometry
 arena. Over the outer fifth of a ring odd samples slide onto even ones -- the
 next level's samples -- so rings meet without a crack
 (`saida_terrain_rings_tests` holds the alignment that requires). Each layer is
-an albedo and a roughness lit by the scene's lights. `innerRadius` and up to
+an albedo and a roughness lit by the scene's lights; each vertex takes the
+average of the four cells that share it, so the edge between two layers is a
+gradient a cell wide rather than a staircase. `innerRadius` and up to
 16 convex `holes` (node-local quadrilaterals) leave to the caller the ground it
 draws itself, exactly where it is.
 

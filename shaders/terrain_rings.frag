@@ -12,7 +12,7 @@
 layout(location = 0) in vec3 fragWorldPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec2 fragLocalXZ;
-layout(location = 3) flat in uint fragLayer;
+layout(location = 3) in vec4 fragSurface;
 layout(location = 4) in float fragSunlight;
 
 layout(location = 0) out vec4 outColor;
@@ -38,7 +38,7 @@ void main() {
     for (int i = 0; i < t.holeCount.x; ++i)
         if (insideHole(t.holes[2 * i], t.holes[2 * i + 1], fragLocalXZ)) discard;
 
-    vec4 layer = t.layers[min(fragLayer, uint(MAX_LAYERS - 1))];
+    vec4 layer = fragSurface;
     vec3 N = normalize(fragNormal);
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
     LightTerms lit = accumulateOccluded(N, V, fragWorldPos, layer.rgb, 0.0, layer.a,
