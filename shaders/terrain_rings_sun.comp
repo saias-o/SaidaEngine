@@ -1,0 +1,84 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// How much of the directional light reaches each sample of one ring: a march
+// from the sample toward the light over the heights of every level, the
+// finest that holds each point, one of its cells a step. The rings are
+// curved by their caller (the drop is in the heights), so the straight ray is
+// the true one. Soft, not hard: the light is let through in proportion to
+// how far over the terrain the ray passes, as an angle -- a penumbra of about
+// a degree, the Sun's disc and what a coarse cell cannot place better.
+//
+// Run by TerrainRingsFeature only when a level changes or the light turns,
+// so its cost is not paid a frame.
+
+#define SUNLIGHT_WRITER
+#include "terrain_rings.glsl"
+
+layout(local_size_x = 64) in;
+
+const int MAX_STEPS = 512;
+// tan of the penumbra's half-width: about one degree.
+const float PENUMBRA = 0.018;
+
+float sampleAt(int base, int i, int j) {
+    i = clamp(i, 0, RES);
+    j = clamp(j, 0, RES);
+    return heights[base * SAMPLES * SAMPLES + j * SAMPLES + i];
+}
+
+float heightAt(int base, vec2 g) {
+    g = clamp(g, vec2(0.0), vec2(float(RES)));
+    ivec2 i0 = min(ivec2(floor(g)), ivec2(RES - 1));
+    vec2 f = g - vec2(i0);
+    float a = sampleAt(base, i0.x, i0.y), b = sampleAt(base, i0.x + 1, i0.y);
+    float c = sampleAt(base, i0.x, i0.y + 1), d = sampleAt(base, i0.x + 1, i0.y + 1);
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= uint(SAMPLES * SAMPLES)) return;
+    GpuTerrain t = terrains.items[push.slot];
+    int base = levelBase(push.slot, push.level);
+    int levels = int(t.focus.w);
+    int i = int(id) % SAMPLES, j = int(id) / SAMPLES;
+
+    vec3 toLight = t.sun.xyz;
+    float horizontal = length(toLight.xz);
+    float visible = 1.0;
+    if (toLight.y <= 0.0) {
+        visible = 0.0;  // the light is under the horizon plane
+    } else if (horizontal > 1e-4) {
+        vec4 L = t.levels[push.level];
+        vec2 start = L.xy + vec2(i, j) * L.z;
+        float h0 = heights[base * SAMPLES * SAMPLES + int(id)];
+        vec2 dir = toLight.xz / horizontal;
+        float rise = toLight.y / horizontal;
+        float top = t.relief.x;
+        float travelled = L.z;
+        for (int s = 0; s < MAX_STEPS; ++s) {
+            vec2 p = start + dir * travelled;
+            float ray = h0 + rise * travelled;
+            if (ray > top) break;
+            // The finest level present that holds p, a cell inside its edge.
+            int k = -1;
+            for (int l = 0; l < levels; ++l) {
+                vec4 M = t.levels[l];
+                if (M.w < 0.5) continue;
+                vec2 g = (p - M.xy) / M.z;
+                if (all(greaterThanEqual(g, vec2(0.0))) && all(lessThanEqual(g, vec2(float(RES))))) {
+                    k = l;
+                    break;
+                }
+            }
+            if (k < 0) break;  // past the outermost ring: nothing more to meet
+            vec4 M = t.levels[k];
+            float ground = heightAt(levelBase(push.slot, uint(k)), (p - M.xy) / M.z);
+            visible = min(visible, clamp(0.5 + (ray - ground) / (travelled * PENUMBRA), 0.0, 1.0));
+            if (visible <= 0.0) break;
+            travelled += M.z;
+        }
+    }
+    sunlight[base * SAMPLES * SAMPLES + int(id)] = visible;
+}

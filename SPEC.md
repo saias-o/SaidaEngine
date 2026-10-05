@@ -325,6 +325,16 @@ an albedo and a roughness lit by the scene's lights. `innerRadius` and up to
 16 convex `holes` (node-local quadrilaterals) leave to the caller the ground it
 draws itself, exactly where it is.
 
+The rings shadow themselves. Before the scene pass, `terrain_rings_sun.comp`
+marches from every sample toward the brightest shadow-casting directional
+light, one cell of the finest level holding each point a step, until the ray
+passes the highest sample (`TerrainRingsNode::highest`) or leaves the outermost
+ring. The light is let through in proportion to the ray's clearance as an
+angle, a penumbra of about one degree. The result, one float a sample, scales
+that light alone (`accumulateOccluded` in `lighting.glsl`), on top of its
+shadow map. The march runs again only when a level changes or the light turns
+by more than 0.1 degree, so a still scene pays nothing a frame.
+
 `WaterNode` uses the same water shading for its procedural square and an optional
 tile-local triangle surface (`surface`, space-separated xyz floats in groups of
 three vertices).

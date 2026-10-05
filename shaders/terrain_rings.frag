@@ -2,8 +2,9 @@
 #extension GL_GOOGLE_include_directive : require
 
 // A TerrainRingsNode's surface: its layer's albedo under the scene's lights,
-// the same Cook-Torrance terms as any lit mesh. Distance haze is the tonemap
-// pass's, from depth, like everything else drawn.
+// the same Cook-Torrance terms as any lit mesh, the directional light cut by
+// the rings' own shadow (terrain_rings_sun.comp). Distance haze is the
+// tonemap pass's, from depth, like everything else drawn.
 
 #include "lighting.glsl"
 #include "terrain_rings.glsl"
@@ -12,6 +13,7 @@ layout(location = 0) in vec3 fragWorldPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec2 fragLocalXZ;
 layout(location = 3) flat in uint fragLayer;
+layout(location = 4) in float fragSunlight;
 
 layout(location = 0) out vec4 outColor;
 
@@ -39,6 +41,7 @@ void main() {
     vec4 layer = t.layers[min(fragLayer, uint(MAX_LAYERS - 1))];
     vec3 N = normalize(fragNormal);
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
-    LightTerms lit = accumulate(N, V, fragWorldPos, layer.rgb, 0.0, layer.a);
+    LightTerms lit = accumulateOccluded(N, V, fragWorldPos, layer.rgb, 0.0, layer.a,
+                                        int(t.sun.w + 0.5) - 1, clamp(fragSunlight, 0.0, 1.0));
     outColor = vec4(lit.diffuse + lit.specular, 1.0);
 }

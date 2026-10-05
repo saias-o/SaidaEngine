@@ -163,6 +163,7 @@ set(SHADERS
     ${SHADER_DIR}/cartoon_water.frag
     ${SHADER_DIR}/terrain_rings.vert
     ${SHADER_DIR}/terrain_rings.frag
+    ${SHADER_DIR}/terrain_rings_sun.comp
     ${SHADER_DIR}/particle_render.vert
     ${SHADER_DIR}/particle_render.frag
     ${SHADER_DIR}/particle_init.comp

@@ -21,11 +21,22 @@ layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragLocalXZ;
 layout(location = 3) flat out uint fragLayer;
+layout(location = 4) out float fragSunlight;
 
 float sampleAt(int base, int i, int j) {
     i = clamp(i, 0, RES);
     j = clamp(j, 0, RES);
     return heights[base * SAMPLES * SAMPLES + j * SAMPLES + i];
+}
+
+float sunlightAt(int base, vec2 g) {
+    g = clamp(g, vec2(0.0), vec2(float(RES)));
+    ivec2 i0 = min(ivec2(floor(g)), ivec2(RES - 1));
+    vec2 f = g - vec2(i0);
+    int row = base * SAMPLES * SAMPLES + i0.y * SAMPLES + i0.x;
+    float a = sunlight[row], b = sunlight[row + 1];
+    float c = sunlight[row + SAMPLES], d = sunlight[row + SAMPLES + 1];
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
 // Bilinear between samples, at fractional grid coordinates.
@@ -62,6 +73,7 @@ void main() {
                 fragNormal = vec3(0.0, 1.0, 0.0);
                 fragLocalXZ = vec2(0.0);
                 fragLayer = 0u;
+                fragSunlight = 1.0;
                 return;
             }
         }
@@ -89,6 +101,7 @@ void main() {
     fragWorldPos = world.xyz;
     fragNormal = normalize(mat3(t.localToWorld) * n);
     fragLocalXZ = local.xz;
+    fragSunlight = t.sun.w > 0.5 ? sunlightAt(base, gm) : 1.0;
 
     int cell = base * RES * RES + qz * RES + qx;
     fragLayer = (layerWords[cell >> 2] >> (uint(cell & 3) * 8u)) & 0xFFu;

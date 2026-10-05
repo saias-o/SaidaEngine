@@ -28,6 +28,12 @@ namespace saida {
 //
 // Positions are node-local: x and z on the grid, y the height. A caller that
 // draws a curved world returns the drop below the plane in the height.
+//
+// The rings shadow themselves: from every sample the renderer marches toward
+// the scene's directional light over the heights it holds, finest level first
+// (terrain_rings_sun.comp), again only when a level changes or the light has
+// turned. A mountain darkens the valley behind it out to the horizon, at no
+// cost a frame.
 class TerrainRingsNode : public Node {
 public:
     TerrainRingsNode() : Node("TerrainRings") {}
@@ -74,6 +80,9 @@ public:
     bool setLevel(int k, Level level);
     void clearLevels();
     const Level* level(int k) const;
+    // The highest sample of the levels present: past it a ray toward the
+    // light meets nothing more. Lowest float when no level is.
+    float highest() const;
     // Bumped by every setLevel / clearLevels: what the renderer re-uploads.
     uint64_t revision(int k) const;
 
@@ -96,6 +105,7 @@ private:
     std::array<Level, kMaxLevels> levels_{};
     std::array<bool, kMaxLevels> present_{};
     std::array<uint64_t, kMaxLevels> revisions_{};
+    std::array<float, kMaxLevels> tops_{};
     std::array<Layer, kMaxLayers> layers_{};
     uint64_t layersRevision_ = 1;
     uint64_t nextRevision_ = 1;

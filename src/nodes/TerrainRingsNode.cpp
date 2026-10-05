@@ -2,7 +2,9 @@
 
 #include "core/Log.hpp"
 
+#include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace saida {
 
@@ -44,6 +46,7 @@ bool TerrainRingsNode::setLevel(int k, Level level) {
             Log::error("[TerrainRings] ", name(), ": level ", k, " refused: a height is not finite");
             return false;
         }
+    tops_[size_t(k)] = *std::max_element(level.heights.begin(), level.heights.end());
     levels_[size_t(k)] = std::move(level);
     present_[size_t(k)] = true;
     revisions_[size_t(k)] = ++nextRevision_;
@@ -61,6 +64,13 @@ void TerrainRingsNode::clearLevels() {
 const TerrainRingsNode::Level* TerrainRingsNode::level(int k) const {
     if (k < 0 || k >= kMaxLevels || !present_[size_t(k)]) return nullptr;
     return &levels_[size_t(k)];
+}
+
+float TerrainRingsNode::highest() const {
+    float top = std::numeric_limits<float>::lowest();
+    for (int k = 0; k < kMaxLevels; ++k)
+        if (present_[size_t(k)]) top = std::max(top, tops_[size_t(k)]);
+    return top;
 }
 
 uint64_t TerrainRingsNode::revision(int k) const {

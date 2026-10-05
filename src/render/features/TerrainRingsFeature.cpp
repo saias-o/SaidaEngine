@@ -1,12 +1,37 @@
 #include "render/features/TerrainRingsFeature.hpp"
 
 #include "core/Paths.hpp"
+#include "nodes/LightNode.hpp"
+#include "render/Renderer.hpp"  // kMaxLights: a light's index in the lighting UBO
 #include "scene/Scene.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 
 namespace saida {
+
+namespace {
+// The light the rings shadow themselves from: the brightest directional one
+// that casts shadows, among those the lighting UBO holds (its index there is
+// its place in Scene::lights). Its direction toward the light, in world space.
+int shadowingLight(Scene& scene, glm::vec3& toLight) {
+    int best = -1;
+    float strongest = 0.0f;
+    int index = 0;
+    for (LightNode* light : scene.lights()) {
+        if (index >= kMaxLights) break;
+        const float power = light->intensity * std::max({light->color.r, light->color.g, light->color.b});
+        if (light->type == LightType::Directional && light->castShadows && power > strongest) {
+            strongest = power;
+            best = index;
+            toLight = -glm::normalize(glm::mat3(light->worldTransform()) * light->direction);
+        }
+        ++index;
+    }
+    return best;
+}
+}  // namespace
 
 TerrainRingsFeature::~TerrainRingsFeature() = default;
 
@@ -14,14 +39,17 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
     device_ = &ctx.device;
     const uint32_t frames = std::max(1u, ctx.framesInFlight);
 
-    // set 1: the terrains' UBO (both stages), their heights and their layers
-    // (vertex stage), one copy per frame-in-flight so a frame never rewrites
-    // what the GPU still reads.
+    // set 1: the terrains' UBO, their heights, their layers and their
+    // sunlight, one copy per frame-in-flight so a frame never rewrites what
+    // the GPU still reads. The sun pass reads the first two and writes the
+    // last.
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(*device_,
         std::vector<rhi::BindGroupLayoutEntry>{
-            {0, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment},
-            {1, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},
+            {0, rhi::BindingType::UniformBuffer,
+             rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},
+            {1, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
             {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},
+            {3, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
         });
 
     const uint64_t uboBytes = sizeof(GpuTerrain) * kMaxTerrains;
@@ -34,10 +62,14 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
                                              MemoryUsage::HostVisible);
         f.layers = std::make_unique<Buffer>(*device_, layerBytes, rhi::BufferUsage::Storage,
                                             MemoryUsage::HostVisible);
-        std::vector<rhi::BindGroupEntry> entries(3);
+        // As many floats as heights; only the GPU writes and reads it.
+        f.sunlight = std::make_unique<Buffer>(*device_, heightBytes, rhi::BufferUsage::Storage,
+                                              MemoryUsage::GpuOnly);
+        std::vector<rhi::BindGroupEntry> entries(4);
         entries[0].binding = 0; entries[0].buffer = f.ubo.get(); entries[0].range = uboBytes;
         entries[1].binding = 1; entries[1].buffer = f.heights.get(); entries[1].range = heightBytes;
         entries[2].binding = 2; entries[2].buffer = f.layers.get(); entries[2].range = layerBytes;
+        entries[3].binding = 3; entries[3].buffer = f.sunlight.get(); entries[3].range = heightBytes;
         f.set = std::make_unique<rhi::BindGroup>(*setLayout_, entries);
     }
 
@@ -54,28 +86,40 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
     desc.pushConstantSize = sizeof(Push);
     desc.viewMask = ctx.viewMask;
     pipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+
+    // The sun pass declares set 1 like the rings; set 0 is laid out, not bound.
+    sunPipeline_ = std::make_unique<ComputePipeline>(*device_, shaderPath("terrain_rings_sun.comp.spv"),
+        std::vector<rhi::vulkan::BindGroupLayoutRef>{ctx.globalSetLayout, *setLayout_}, uint32_t(sizeof(Push)));
 }
 
-void TerrainRingsFeature::record(FrameContext& fc) {
+void TerrainRingsFeature::prepare(Scene& scene, uint32_t frameIndex) {
     std::array<TerrainRingsNode*, kMaxTerrains> nodes{};
-    uint32_t count = 0;
-    for (TerrainRingsNode* t : fc.scene.terrainRings()) {
+    count_ = 0;
+    for (TerrainRingsNode* t : scene.terrainRings()) {
         if (!t->isActiveInHierarchy() || !t->isVisibleInHierarchy()) continue;
-        if (count >= kMaxTerrains) break;
-        nodes[count++] = t;
+        if (count_ >= kMaxTerrains) break;
+        nodes[count_++] = t;
     }
-    if (count == 0) return;
+    if (count_ == 0) return;
 
-    FrameBuffers& f = frames_[std::min<size_t>(fc.frameIndex, frames_.size() - 1)];
-    std::array<GpuTerrain, kMaxTerrains> packed{};
-    for (uint32_t slot = 0; slot < count; ++slot) {
+    glm::vec3 toLight(0.0f, 1.0f, 0.0f);
+    const int light = shadowingLight(scene, toLight);
+
+    FrameBuffers& f = frames_[std::min<size_t>(frameIndex, frames_.size() - 1)];
+    packed_ = {};
+    for (uint32_t slot = 0; slot < count_; ++slot) {
         TerrainRingsNode& node = *nodes[slot];
-        GpuTerrain& g = packed[slot];
+        GpuTerrain& g = packed_[slot];
         g.localToWorld = node.worldTransform();
         const int levels = std::clamp(node.levels, 1, kLevels);
         g.focus = glm::vec4(float(node.focus.x), float(node.focus.y), node.innerRadius, float(levels));
         for (int i = 0; i < kLayers; ++i)
             g.layers[i] = glm::vec4(node.layers()[size_t(i)].albedo, node.layers()[size_t(i)].roughness);
+        if (light >= 0) {
+            const glm::vec3 local = glm::normalize(glm::inverse(glm::mat3(g.localToWorld)) * toLight);
+            g.sun = glm::vec4(local, float(light + 1));
+        }
+        g.relief = glm::vec4(node.highest(), 0.0f, 0.0f, 0.0f);
 
         const auto& holes = node.holes();
         g.holeCount = glm::ivec4(int(holes.size()), 0, 0, 0);
@@ -86,7 +130,7 @@ void TerrainRingsFeature::record(FrameContext& fc) {
         }
 
         Uploaded& up = f.uploaded[slot];
-        if (up.node != &node) up = Uploaded{&node, {}};
+        if (up.node != &node) up = Uploaded{&node, {}, {}, {}, 0.0f};
         for (int k = 0; k < levels; ++k) {
             const TerrainRingsNode::Level* level = node.level(k);
             if (!level) continue;
@@ -101,15 +145,69 @@ void TerrainRingsFeature::record(FrameContext& fc) {
             up.revisions[size_t(k)] = node.revision(k);
         }
     }
-    f.ubo->write(packed.data(), sizeof(GpuTerrain) * count);
+    f.ubo->write(packed_.data(), sizeof(GpuTerrain) * count_);
+}
 
+void TerrainRingsFeature::recordPrePass(const PrePassContext& pc) {
+    prepare(pc.scene, pc.frameIndex);
+    prepared_ = true;
+    if (count_ == 0) return;
+
+    FrameBuffers& f = frames_[std::min<size_t>(pc.frameIndex, frames_.size() - 1)];
+    bool dispatched = false;
+    for (uint32_t slot = 0; slot < count_; ++slot) {
+        const GpuTerrain& g = packed_[slot];
+        Uploaded& up = f.uploaded[slot];
+        if (g.sun.w < 0.5f) continue;
+        // Marched again when a level changed (a ring shadows the others) or
+        // the light turned: never otherwise.
+        const glm::vec3 sun(g.sun);
+        bool stale = up.shadowLight != g.sun.w ||
+                     glm::dot(sun, up.shadowSun) < std::cos(kShadowTurn);
+        for (int k = 0; k < kLevels && !stale; ++k)
+            stale = up.shadowed[size_t(k)] != (g.levels[k].w > 0.5f ? up.revisions[size_t(k)] : 0u);
+        if (!stale) continue;
+
+        rhi::ComputePassEncoder cp = pc.encoder.beginComputePass();
+        cp.setPipeline(*sunPipeline_);
+        cp.setBindGroup(1, *f.set);
+        const uint32_t groups = ComputePipeline::groupCount(uint32_t(TerrainRingsNode::kSamples) *
+                                                            TerrainRingsNode::kSamples, 64);
+        for (int k = 0; k < kLevels; ++k) {
+            up.shadowed[size_t(k)] = g.levels[k].w > 0.5f ? up.revisions[size_t(k)] : 0u;
+            if (g.levels[k].w < 0.5f) continue;
+            Push push{slot, uint32_t(k)};
+            cp.setPushConstants(&push, sizeof(Push));
+            cp.dispatch(groups);
+        }
+        cp.end();
+        up.shadowSun = sun;
+        up.shadowLight = g.sun.w;
+        dispatched = true;
+    }
+    if (dispatched) pc.encoder.computeToGraphicsBarrier();
+}
+
+void TerrainRingsFeature::record(FrameContext& fc) {
+    // A frame recorded without the pre-pass draws its rings unshadowed rather
+    // than over sunlight marched for other heights.
+    if (!prepared_) {
+        prepare(fc.scene, fc.frameIndex);
+        for (uint32_t slot = 0; slot < count_; ++slot) packed_[slot].sun.w = 0.0f;
+        FrameBuffers& f = frames_[std::min<size_t>(fc.frameIndex, frames_.size() - 1)];
+        if (count_ > 0) f.ubo->write(packed_.data(), sizeof(GpuTerrain) * count_);
+    }
+    prepared_ = false;
+    if (count_ == 0) return;
+
+    FrameBuffers& f = frames_[std::min<size_t>(fc.frameIndex, frames_.size() - 1)];
     fc.pass.setPipeline(*pipeline_);
     fc.pass.setBindGroup(0, *fc.globalSet);
     fc.pass.setBindGroup(1, *f.set);
     const uint32_t vertices = uint32_t(TerrainRingsNode::kResolution) * TerrainRingsNode::kResolution * 6u;
-    for (uint32_t slot = 0; slot < count; ++slot)
+    for (uint32_t slot = 0; slot < count_; ++slot)
         for (int k = 0; k < kLevels; ++k) {
-            if (packed[slot].levels[k].w < 0.5f) continue;
+            if (packed_[slot].levels[k].w < 0.5f) continue;
             Push pc{slot, uint32_t(k)};
             fc.pass.setPushConstants(&pc, sizeof(Push));
             fc.pass.draw(vertices);

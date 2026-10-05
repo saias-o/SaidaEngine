@@ -290,8 +290,11 @@ LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, floa
 
 // Evaluates the full Cook-Torrance specular + Lambertian diffuse for one light,
 // with attenuation, spot cone falloff, and shadow already folded in.
-LightTerms lightContribution(int i, vec3 N, vec3 V, vec3 wp,
-                              vec3 albedo, float metallic, float roughness) {
+// `visibility` scales the light on top of its shadow map: what a surface
+// knows of its own shadow (TerrainRingsNode).
+LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
+                                     vec3 albedo, float metallic, float roughness,
+                                     float visibility) {
     // Clamp roughness to avoid NaN from division-by-zero in GGX when alpha→0.
     roughness = max(roughness, 0.04);
 
@@ -322,6 +325,7 @@ LightTerms lightContribution(int i, vec3 N, vec3 V, vec3 wp,
     float shadow = 1.0;
     if (lt.spotShadow.z >= 0.0)
         shadow = shadowFactor(int(lt.spotShadow.z + 0.5), wp, ndotl);
+    shadow *= visibility;
     float vis = atten * shadow;
 
     // --- BRDF ---
@@ -354,6 +358,11 @@ LightTerms lightContribution(int i, vec3 N, vec3 V, vec3 wp,
     t.diffuse  = diffBRDF  * radiance * NdotL * vis;
     t.specular = specBRDF  * radiance * NdotL * vis;
     return t;
+}
+
+LightTerms lightContribution(int i, vec3 N, vec3 V, vec3 wp,
+                              vec3 albedo, float metallic, float roughness) {
+    return lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness, 1.0);
 }
 
 // ---------------------------------------------------------------------------
@@ -393,15 +402,23 @@ LightTerms directLighting(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, 
 }
 
 // Full realtime lighting in a single loop (diffuse incl. ambient, + specular).
-LightTerms accumulate(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, float roughness) {
+// As `accumulate`, light `occluded` (an index into lights.lights; -1 for
+// none) scaled by `visibility`.
+LightTerms accumulateOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
+                              float roughness, int occluded, float visibility) {
     LightTerms total;
     LightTerms env = environmentLighting(N, V, albedo, metallic, roughness);
     total.diffuse = giIndirectDiffuse(wp, N, V, albedo) + env.diffuse;
     total.specular = env.specular;
     for (int i = 0; i < lights.counts.x; ++i) {
-        LightTerms t = lightContribution(i, N, V, wp, albedo, metallic, roughness);
+        LightTerms t = lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
+                                                 i == occluded ? visibility : 1.0);
         total.diffuse  += t.diffuse;
         total.specular += t.specular;
     }
     return total;
+}
+
+LightTerms accumulate(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, float roughness) {
+    return accumulateOccluded(N, V, wp, albedo, metallic, roughness, -1, 1.0);
 }

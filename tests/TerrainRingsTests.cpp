@@ -101,12 +101,32 @@ void testMalformedLevelsAreRefused() {
     require(node.level(0) == nullptr && node.revision(0) > before, "clearing drops every level");
 }
 
+// The shadow march stops once a ray toward the light is over the highest
+// sample: what the node reports must be the highest of the levels present.
+void testHighestIsTheTopOfThePresentLevels() {
+    TerrainRingsNode node;
+    require(node.highest() == std::numeric_limits<float>::lowest(), "no level, no top");
+    auto low = flatLevel(node, 0, {0.0, 0.0});
+    low.heights[17] = 812.5f;
+    auto high = flatLevel(node, 3, {0.0, 0.0});
+    high.heights[4000] = 2043.0f;
+    high.heights[4001] = -6000.0f;  // a curved world's far edge drops below the plane
+    require(node.setLevel(0, low) && node.setLevel(3, high), "levels accepted");
+    require(node.highest() == 2043.0f, "the highest sample of any level");
+    auto lower = flatLevel(node, 3, {0.0, 0.0});
+    require(node.setLevel(3, lower), "level replaced");
+    require(node.highest() == 812.5f, "a replaced level's top goes with it");
+    node.clearLevels();
+    require(node.highest() == std::numeric_limits<float>::lowest(), "cleared, no top");
+}
+
 }  // namespace
 
 int main() {
     testLevelsNestOnEachOthersSamples();
     testReachIsTheHorizon();
     testMalformedLevelsAreRefused();
+    testHighestIsTheTopOfThePresentLevels();
     std::cout << "[terrain-rings] OK (" << gChecks << " checks)\n";
     return 0;
 }
