@@ -18,6 +18,9 @@ PUSH_QUALIFIER PushConstants {
     vec4 sourceRect;      // xy = source UV origin, zw = source UV size
     vec4 projectionParams; // x invP00, y invP11, z invP23, w invP33
     vec4 projectionParams2; // x invP22, y invP32
+    vec4 fogRayleigh;     // rgb extinction at altitude 0 (1/m), w its scale height
+    vec4 fogHeight;       // x grey scale height (0 uniform), y camera altitude, z planet radius, w layered
+    vec4 fogUp;           // xyz the camera's up, view space
 } push;
 
 layout(location = 0) in vec2 fragUV;
@@ -136,6 +139,44 @@ vec3 bloom(vec2 uv) {
     return texture(TEX2D(bloomInput), clamp(uv, vec2(0.0), vec2(1.0))).rgb * push.bloomParams.z;
 }
 
+// Altitude of the view-space point `v`: over the sphere when there is one
+// (written so that no two numbers near the planet's radius are subtracted),
+// along the up vector otherwise.
+float fogAltitude(vec3 v) {
+    float h0 = push.fogHeight.y;
+    float s = dot(v, push.fogUp.xyz);
+    float radius = push.fogHeight.z;
+    if (radius <= 0.0) return h0 + s;
+    float rh = radius + h0;
+    float vv = dot(v, v);
+    float lifted = 2.0 * radius * h0 + h0 * h0 + 2.0 * rh * s + vv;  // |c + v|^2 - R^2
+    return lifted / (sqrt(max(rh * rh + 2.0 * rh * s + vv, 0.0)) + radius);
+}
+
+// Optical depth per channel from the camera to `viewPos`, past `start`.
+// Uniform grey fog unless the air is layered; then the grey and the Rayleigh
+// densities are averaged over eight points of the fogged segment.
+vec3 fogDepth(vec3 viewPos, float dist) {
+    float start = push.fogParams.y;
+    float fogged = max(dist - start, 0.0);
+    if (push.fogHeight.w < 0.5) return vec3(fogged * push.fogParams.z);
+    float greyHeight = push.fogHeight.x;
+    float rayleighHeight = push.fogRayleigh.w;
+    float from = dist > 0.0 ? min(start / dist, 1.0) : 1.0;
+    float grey = 0.0, air = 0.0;
+    const int SAMPLES = 8;
+    for (int i = 0; i < SAMPLES; ++i) {
+        float f = from + (1.0 - from) * (float(i) + 0.5) / float(SAMPLES);
+        // Below the datum the air is denser still, but not without bound.
+        float a = max(fogAltitude(viewPos * f), -1000.0);
+        grey += greyHeight > 0.0 ? exp(-a / greyHeight) : 1.0;
+        air += exp(-a / rayleighHeight);
+    }
+    grey /= float(SAMPLES);
+    air /= float(SAMPLES);
+    return fogged * (push.fogParams.z * grey + push.fogRayleigh.rgb * air);
+}
+
 vec3 applyFog(vec3 color, vec2 uv) {
     if (push.fogParams.x < 0.5) return color;
 
@@ -143,9 +184,10 @@ vec3 applyFog(vec3 color, vec2 uv) {
     if (nothingDrawn(depth)) return color;
 
     vec3 viewPos = reconstructViewPosition(uv, depth);
-    float distanceFog = max(length(viewPos) - push.fogParams.y, 0.0);
-    float fogAmount = 1.0 - exp(-distanceFog * push.fogParams.z);
-    return mix(color, push.fogColor.rgb, clamp(fogAmount, 0.0, 1.0));
+    // Per channel: clear air takes blue several times faster than red, and
+    // what it takes is replaced by the colour of the air itself.
+    vec3 transmitted = exp(-fogDepth(viewPos, length(viewPos)));
+    return color * transmitted + push.fogColor.rgb * (1.0 - transmitted);
 }
 
 void main() {

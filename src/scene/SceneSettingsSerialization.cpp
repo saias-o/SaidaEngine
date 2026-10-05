@@ -75,6 +75,11 @@ void writeSceneSettings(const SceneSettings& s, json& out) {
         {"fogColor", vec3ToJson(s.fogColor)},
         {"fogStart", s.fogStart},
         {"fogDensity", s.fogDensity},
+        {"fogScaleHeight", s.fogScaleHeight},
+        {"fogRayleigh", vec3ToJson(s.fogRayleigh)},
+        {"fogRayleighScaleHeight", s.fogRayleighScaleHeight},
+        {"fogPlanetRadius", s.fogPlanetRadius},
+        {"fogPlanetCentre", vec3ToJson(s.fogPlanetCentre)},
         {"bloomEnabled", s.bloomEnabled},
         {"bloomThreshold", s.bloomThreshold},
         {"bloomIntensity", s.bloomIntensity},
@@ -130,6 +135,13 @@ void applySceneSettings(const json& j, SceneSettings& out, const AssetPathResolv
     readInto(j, "fogEnabled", out.fogEnabled);
     readInto(j, "fogStart", out.fogStart);
     readInto(j, "fogDensity", out.fogDensity);
+    readInto(j, "fogScaleHeight", out.fogScaleHeight);
+    if (auto it = j.find("fogRayleigh"); it != j.end())
+        out.fogRayleigh = jsonToVec3(*it, out.fogRayleigh);
+    readInto(j, "fogRayleighScaleHeight", out.fogRayleighScaleHeight);
+    readInto(j, "fogPlanetRadius", out.fogPlanetRadius);
+    if (auto it = j.find("fogPlanetCentre"); it != j.end())
+        out.fogPlanetCentre = jsonToVec3(*it, out.fogPlanetCentre);
 
     readInto(j, "bloomEnabled", out.bloomEnabled);
     readInto(j, "bloomThreshold", out.bloomThreshold);

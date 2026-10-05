@@ -1104,7 +1104,7 @@ void Renderer::recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageInd
     rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
-        tonemapPass_->record(rp, scene.settings(), camera.projection(), renderRect,
+        tonemapPass_->record(rp, scene.settings(), camera.view(), camera.projection(), renderRect,
                              sourceRect, exposure_);
     }
     {
@@ -1843,7 +1843,7 @@ void Renderer::recordXrTonemap(rhi::CommandEncoder& encoder, Scene& scene,
         rp.setPipeline(*xrTonemapPipeline_);
         rp.setBindGroup(0, *xrTonemapSets_[i]);
         TonemapPass::PushConstants push =
-            TonemapPass::pushConstants(scene.settings(), eye.projection, exposure_);
+            TonemapPass::pushConstants(scene.settings(), eye.view, eye.projection, exposure_);
         {
             SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
             rp.setPushConstants(&push, sizeof(TonemapPass::PushConstants));

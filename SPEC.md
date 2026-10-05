@@ -325,6 +325,18 @@ an albedo and a roughness lit by the scene's lights. `innerRadius` and up to
 16 convex `holes` (node-local quadrilaterals) leave to the caller the ground it
 draws itself, exactly where it is.
 
+Fog is a uniform grey haze by default (`fogDensity`, per metre past
+`fogStart`, toward `fogColor`). It becomes layered air when `fogScaleHeight`
+or `fogRayleigh` is set: `fogDensity` is then the grey extinction at altitude
+0, thinning by e every `fogScaleHeight` metres, and `fogRayleigh` adds a
+per-channel extinction thinning every `fogRayleighScaleHeight` metres, so blue
+fades faster than red and far ground turns blue. The tonemap averages both
+densities over eight points of each pixel's ray and applies each channel's
+transmittance on its own. Altitude is world y, or, with `fogPlanetRadius` set,
+the height above that sphere around `fogPlanetCentre`: a ray that skims a
+curved world climbs out of the dense air. The camera's altitude is taken in
+double on the CPU.
+
 The rings shadow themselves. Before the scene pass, `terrain_rings_sun.comp`
 marches from every sample toward the brightest shadow-casting directional
 light, one cell of the finest level holding each point a step, until the ray

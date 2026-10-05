@@ -115,6 +115,21 @@ void SceneSettings::describe(reflect::TypeBuilder<SceneSettings>& t) {
         .tooltip("metres before fog begins to accumulate");
     t.property("fogDensity", &SceneSettings::fogDensity)
         .group("Fog").range(0.0, 1.0);
+    t.property("fogScaleHeight", &SceneSettings::fogScaleHeight)
+        .group("Fog").range(0.0, 100000.0)
+        .tooltip("metres over which the grey fog thins by e; 0 keeps it uniform");
+    t.property("fogRayleigh", &SceneSettings::fogRayleigh)
+        .group("Fog")
+        .tooltip("clear air's extinction per channel at altitude 0 (1/m), added to the grey fog");
+    t.property("fogRayleighScaleHeight", &SceneSettings::fogRayleighScaleHeight)
+        .group("Fog").range(1.0, 100000.0)
+        .tooltip("metres over which clear air thins by e");
+    t.property("fogPlanetRadius", &SceneSettings::fogPlanetRadius)
+        .group("Fog").range(0.0, 1.0e8)
+        .tooltip("0: altitude is world y; else the height above this sphere");
+    t.property("fogPlanetCentre", &SceneSettings::fogPlanetCentre)
+        .group("Fog")
+        .tooltip("world-space centre of the sphere altitude is measured from");
 
     t.property("bloomEnabled", &SceneSettings::bloomEnabled).group("Bloom");
     t.property("bloomThreshold", &SceneSettings::bloomThreshold)

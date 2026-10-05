@@ -123,6 +123,7 @@ void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::T
 }
 
 TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& settings,
+                                                      const glm::mat4& view,
                                                       const glm::mat4& projection,
                                                       float exposure) {
     PushConstants push{};
@@ -135,6 +136,30 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
     push.fogParams = glm::vec4(settings.fogEnabled ? 1.0f : 0.0f,
                                std::max(settings.fogStart, 0.0f),
                                std::max(settings.fogDensity, 0.0f), exposure);
+    // The layered air needs the camera's altitude and which way is up in
+    // view space. Both come from the planet when there is one, in double: a
+    // camera a few metres up is a difference of two numbers near 6.4e6.
+    const bool layered = settings.fogScaleHeight > 0.0f ||
+                         glm::dot(settings.fogRayleigh, glm::vec3(1.0f)) > 0.0f;
+    if (layered) {
+        const glm::dmat4 toWorld = glm::inverse(glm::dmat4(view));
+        const glm::dvec3 eye(toWorld[3]);
+        glm::dvec3 up(0.0, 1.0, 0.0);
+        double altitude = eye.y;
+        const double radius = std::max(double(settings.fogPlanetRadius), 0.0);
+        if (radius > 0.0) {
+            const glm::dvec3 fromCentre = eye - glm::dvec3(settings.fogPlanetCentre);
+            const double length = glm::length(fromCentre);
+            if (length > 0.0) up = fromCentre / length;
+            altitude = length - radius;
+        }
+        const glm::vec3 upView = glm::normalize(glm::mat3(view) * glm::vec3(up));
+        push.fogRayleigh = glm::vec4(glm::max(settings.fogRayleigh, glm::vec3(0.0f)),
+                                     std::max(settings.fogRayleighScaleHeight, 1.0f));
+        push.fogHeight = glm::vec4(std::max(settings.fogScaleHeight, 0.0f), float(altitude),
+                                   float(radius), 1.0f);
+        push.fogUp = glm::vec4(upView, 0.0f);
+    }
     push.bloomParams = glm::vec4(settings.bloomEnabled ? 1.0f : 0.0f,
                                  std::max(settings.bloomThreshold, 0.0f),
                                  std::max(settings.bloomIntensity, 0.0f),
@@ -151,7 +176,7 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
 }
 
 void TonemapPass::record(rhi::RenderPassEncoder& rp, const SceneSettings& settings,
-                         const glm::mat4& projection, const rhi::Rect2D& renderRect,
+                         const glm::mat4& view, const glm::mat4& projection, const rhi::Rect2D& renderRect,
                          const glm::vec4& sourceRect, float exposure) const {
     if (!ready()) return;
     rp.setPipeline(*pipeline_);
@@ -162,7 +187,7 @@ void TonemapPass::record(rhi::RenderPassEncoder& rp, const SceneSettings& settin
     rp.setScissor(renderRect.offset.x, renderRect.offset.y,
                   renderRect.extent.width, renderRect.extent.height);
     rp.setBindGroup(0, *set_);
-    PushConstants push = pushConstants(settings, projection, exposure);
+    PushConstants push = pushConstants(settings, view, projection, exposure);
     push.sourceRect = sourceRect;
     rp.setPushConstants(&push, sizeof(PushConstants));
     rp.draw(3);

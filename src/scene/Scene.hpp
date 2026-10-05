@@ -85,6 +85,20 @@ struct SceneSettings {
     glm::vec4 fogColor{0.55f, 0.62f, 0.72f, 1.0f};
     float fogStart = 8.0f;
     float fogDensity = 0.035f;
+    // The air as an atmosphere rather than a uniform haze. `fogDensity` is
+    // then the grey extinction (aerosols, 1/m) at altitude 0, thinning by e
+    // every `fogScaleHeight` metres (0 keeps it uniform, as it always was).
+    // `fogRayleigh` adds clear air's own extinction per channel at altitude 0
+    // -- blue several times red, which is why far mountains turn blue --
+    // thinning every `fogRayleighScaleHeight` metres. Altitude is world y, or,
+    // with `fogPlanetRadius` > 0, the height above a sphere centred on
+    // `fogPlanetCentre` (world space), so a ray that skims a curved world
+    // climbs out of the dense air as it does.
+    float fogScaleHeight = 0.0f;
+    glm::vec3 fogRayleigh{0.0f};
+    float fogRayleighScaleHeight = 8434.0f;
+    float fogPlanetRadius = 0.0f;
+    glm::vec3 fogPlanetCentre{0.0f};
 
     bool bloomEnabled = true;
     float bloomThreshold = 1.0f;

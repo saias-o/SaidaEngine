@@ -16,11 +16,15 @@
 #include "core/Reflection.hpp"
 #include "scene/Scene.hpp"
 #include "scene/SceneSettingsSerialization.hpp"
+#include "render/TonemapPass.hpp"
+
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <nlohmann/json.hpp>
 
 #include <cassert>
 #include <cmath>
+#include <cstdlib>
 #include <set>
 #include <string>
 
@@ -78,6 +82,11 @@ saida::SceneSettings distinctive() {
     s.fogColor = {0.77f, 0.66f, 0.55f, 1.0f};
     s.fogStart = 31.0f;
     s.fogDensity = 0.099f;
+    s.fogScaleHeight = 1200.0f;
+    s.fogRayleigh = {5.8e-6f, 1.35e-5f, 3.31e-5f};
+    s.fogRayleighScaleHeight = 8000.0f;
+    s.fogPlanetRadius = 6378137.0f;
+    s.fogPlanetCentre = {0.0f, -6378137.0f, 0.0f};
     s.bloomEnabled = false;
     s.bloomThreshold = 1.9f;
     s.bloomIntensity = 0.66f;
@@ -122,6 +131,13 @@ void expectEqual(const saida::SceneSettings& a, const saida::SceneSettings& b) {
     assert(near(a.fogColor.b, b.fogColor.b));
     assert(near(a.fogStart, b.fogStart));
     assert(near(a.fogDensity, b.fogDensity));
+    assert(near(a.fogScaleHeight, b.fogScaleHeight));
+    for (int i = 0; i < 3; ++i) {
+        assert(near(a.fogRayleigh[i], b.fogRayleigh[i]));
+        assert(near(a.fogPlanetCentre[i], b.fogPlanetCentre[i]));
+    }
+    assert(near(a.fogRayleighScaleHeight, b.fogRayleighScaleHeight));
+    assert(near(a.fogPlanetRadius, b.fogPlanetRadius));
     assert(a.bloomEnabled == b.bloomEnabled);
     assert(near(a.bloomThreshold, b.bloomThreshold));
     assert(near(a.bloomIntensity, b.bloomIntensity));
@@ -390,8 +406,27 @@ void testInternalStateIsNotReflected() {
 
 } // namespace
 
+// The layered fog's camera: its altitude over the planet, measured in double
+// (two numbers near 6.4e6 apart by metres), and which way is up in view space.
+void testLayeredFogKnowsTheCameraAltitude() {
+    saida::SceneSettings s;
+    s.fogRayleigh = {5.8e-6f, 1.35e-5f, 3.31e-5f};
+    s.fogPlanetRadius = 6378137.0f;
+    s.fogPlanetCentre = {0.0f, -6378137.0f, 0.0f};
+    const glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 412.5f, 0.0f), glm::vec3(1000.0f, 412.5f, 0.0f),
+                                       glm::vec3(0.0f, 1.0f, 0.0f));
+    const auto push = saida::TonemapPass::pushConstants(s, view, glm::mat4(1.0f), 1.0f);
+    if (!(push.fogHeight.w == 1.0f && std::abs(push.fogHeight.y - 412.5f) < 0.01f &&
+          push.fogHeight.z == 6378137.0f && std::abs(push.fogUp.y - 1.0f) < 1e-5f))
+        std::abort();
+    // No layering asked: the fog stays the uniform haze it always was.
+    const auto plain = saida::TonemapPass::pushConstants(saida::SceneSettings{}, view, glm::mat4(1.0f), 1.0f);
+    if (plain.fogHeight.w != 0.0f) std::abort();
+}
+
 int main() {
     testRoundTripKeepsEveryField();
+    testLayeredFogKnowsTheCameraAltitude();
     testSkyboxByPathResolvesThroughTheProject();
     testBlendSkyboxByPathResolvesThroughTheProject();
     testSkyboxByIdIsKeptVerbatim();

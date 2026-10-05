@@ -35,6 +35,10 @@ public:
         glm::vec4 sourceRect{0.0f, 0.0f, 1.0f, 1.0f};
         glm::vec4 projectionParams{0.0f};
         glm::vec4 projectionParams2{0.0f};
+        glm::vec4 fogRayleigh{0.0f};     // rgb extinction at altitude 0 (1/m), w its scale height
+        glm::vec4 fogHeight{0.0f};       // x grey scale height (0 uniform), y camera altitude,
+                                         // z planet radius (0 flat), w 1 when the air is layered
+        glm::vec4 fogUp{0.0f};           // xyz the camera's up (away from the planet), view space
     };
 
     TonemapPass(rhi::Device& device, rhi::Format outputFormat);
@@ -58,14 +62,14 @@ public:
     // resets that state is not something the RHI documents, so the order is
     // preserved deliberately rather than assumed irrelevant.
     void record(rhi::RenderPassEncoder& rp, const SceneSettings& settings,
-                const glm::mat4& projection, const rhi::Rect2D& renderRect,
+                const glm::mat4& view, const glm::mat4& projection, const rhi::Rect2D& renderRect,
                 const glm::vec4& sourceRect, float exposure) const;
 
     // Static: the XR tonemap draws this same shader once per eye and still
     // lives in Renderer until XrRenderer is extracted (ROADMAP §3). It needs
     // the same constants without owning an instance, and sharing the builder is
     // what keeps one shader from drifting into two interpretations.
-    static PushConstants pushConstants(const SceneSettings& settings,
+    static PushConstants pushConstants(const SceneSettings& settings, const glm::mat4& view,
                                        const glm::mat4& projection, float exposure);
 
 private:

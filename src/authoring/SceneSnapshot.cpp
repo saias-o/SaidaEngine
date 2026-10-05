@@ -296,6 +296,11 @@ json sceneSettingsToJson(const Scene& scene) {
         {"fogColor", vec3ToJson(glm::vec3(s.fogColor))},
         {"fogStart", s.fogStart},
         {"fogDensity", s.fogDensity},
+        {"fogScaleHeight", s.fogScaleHeight},
+        {"fogRayleigh", vec3ToJson(s.fogRayleigh)},
+        {"fogRayleighScaleHeight", s.fogRayleighScaleHeight},
+        {"fogPlanetRadius", s.fogPlanetRadius},
+        {"fogPlanetCentre", vec3ToJson(s.fogPlanetCentre)},
         {"bloomEnabled", s.bloomEnabled},
         {"bloomThreshold", s.bloomThreshold},
         {"bloomIntensity", s.bloomIntensity},
@@ -549,6 +554,11 @@ void loadSceneSettings(Scene& scene, const json& s) {
         out.fogColor = glm::vec4(jsonToVec3(s.value("fogColor", json())), 1.0f);
     out.fogStart = s.value("fogStart", 8.0f);
     out.fogDensity = s.value("fogDensity", 0.035f);
+    out.fogScaleHeight = s.value("fogScaleHeight", 0.0f);
+    out.fogRayleigh = jsonToVec3(s.value("fogRayleigh", json()), glm::vec3(0.0f));
+    out.fogRayleighScaleHeight = s.value("fogRayleighScaleHeight", 8434.0f);
+    out.fogPlanetRadius = s.value("fogPlanetRadius", 0.0f);
+    out.fogPlanetCentre = jsonToVec3(s.value("fogPlanetCentre", json()), glm::vec3(0.0f));
     out.bloomEnabled = s.value("bloomEnabled", true);
     out.bloomThreshold = s.value("bloomThreshold", 1.0f);
     out.bloomIntensity = s.value("bloomIntensity", 0.25f);
