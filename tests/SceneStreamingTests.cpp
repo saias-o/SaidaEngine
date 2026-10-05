@@ -9,6 +9,7 @@
 #include "authoring/SceneSnapshot.hpp"
 #include "nodes/MeshNode.hpp"
 #include "nodes/UIImageNode.hpp"
+#include "nodes/TerrainRingsNode.hpp"
 #include "behaviours/LODGroupBehaviour.hpp"
 #include "physics/CollisionShapeNode.hpp"
 #include "physics/RigidBodyNode.hpp"
@@ -325,6 +326,19 @@ void gpuLodGroups() {
     gpuCollisionFrames(resources);
     Scene scene;
     auto* root = scene.createChild<Node>();
+    auto* terrain = root->createChild<TerrainRingsNode>();
+    MaterialDesc terrainDesc;
+    terrainDesc.baseColor = {0.2f, 0.18f, 0.15f, 1.0f};
+    Material* terrainMaterial = resources.getMaterial(terrainDesc);
+    TerrainRingsNode::Layer layer;
+    layer.material = terrainMaterial;
+    terrain->setLayer(0, layer);
+    terrain->setVisible(false);
+    scene.refreshHierarchy();
+    require(scene.resourceUsage().materials.count(terrainMaterial), "hidden terrain retains its material");
+    terrain->setLayer(0, {});
+    scene.refreshHierarchy();
+    require(!scene.resourceUsage().materials.count(terrainMaterial), "replaced terrain releases its material");
     auto* close = root->createChild<Node>("Near");
     close->createChild<MeshNode>("Left", mesh, nullptr)->transform().position.x = -1.f;
     close->createChild<MeshNode>("Right", mesh, nullptr)->transform().position.x = 1.f;

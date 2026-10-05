@@ -8,12 +8,17 @@
 
 #include "lighting.glsl"
 #include "terrain_rings.glsl"
+#ifdef BINDLESS
+#include "terrain_material.glsl"
+#endif
 
 layout(location = 0) in vec3 fragWorldPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec2 fragLocalXZ;
 layout(location = 3) in vec4 fragSurface;
 layout(location = 4) in float fragSunlight;
+layout(location = 5) in vec3 fragLocalPos;
+layout(location = 6) in vec3 fragLocalNormal;
 
 layout(location = 0) out vec4 outColor;
 
@@ -32,6 +37,9 @@ bool insideHole(vec4 ab, vec4 cd, vec2 p) {
 
 void main() {
     GpuTerrain t = terrains.items[push.slot];
+#ifdef BINDLESS
+    vec3 dx = dFdx(fragLocalPos), dy = dFdy(fragLocalPos);
+#endif
     // Closer than the inner radius, or over a hole, the caller draws its own,
     // finer ground.
     if (length(fragLocalXZ - t.focus.xy) < t.focus.z) discard;
@@ -40,8 +48,30 @@ void main() {
 
     vec4 layer = fragSurface;
     vec3 N = normalize(fragNormal);
+    float metallic = 0.0;
+#ifdef BINDLESS
+    vec4 level = t.levels[push.level];
+    TerrainSurface surface = terrainSurface(t, levelBase(push.slot, push.level),
+        (fragLocalXZ - level.xy) / level.z, fragLocalPos, normalize(fragLocalNormal), dx, dy);
+    if (push.level + 1u < uint(t.focus.w)) {
+        vec4 next = t.levels[push.level + 1u];
+        vec2 fromCentre = abs((fragLocalXZ - level.xy) / level.z - 0.5 * float(RES)) / (0.5 * float(RES));
+        float blend = smoothstep(RING_MORPH_START, RING_MORPH_END, max(fromCentre.x, fromCentre.y));
+        if (next.w > 0.5 && blend > 0.0) {
+            TerrainSurface coarse = terrainSurface(t, levelBase(push.slot, push.level + 1u),
+                (fragLocalXZ - next.xy) / next.z, fragLocalPos, normalize(fragLocalNormal), dx, dy);
+            surface.albedo = mix(surface.albedo, coarse.albedo, blend);
+            surface.normal = normalize(mix(surface.normal, coarse.normal, blend));
+            surface.roughness = mix(surface.roughness, coarse.roughness, blend);
+            surface.metallic = mix(surface.metallic, coarse.metallic, blend);
+        }
+    }
+    layer = vec4(surface.albedo, surface.roughness);
+    N = normalize(mat3(t.localToWorld) * surface.normal);
+    metallic = surface.metallic;
+#endif
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
-    LightTerms lit = accumulateOccluded(N, V, fragWorldPos, layer.rgb, 0.0, layer.a,
+    LightTerms lit = accumulateOccluded(N, V, fragWorldPos, layer.rgb, metallic, layer.a,
                                         int(t.sun.w + 0.5) - 1, clamp(fragSunlight, 0.0, 1.0));
     outColor = vec4(lit.diffuse + lit.specular, 1.0);
 }

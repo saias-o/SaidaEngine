@@ -5,30 +5,7 @@
 
 #ifdef BINDLESS
 
-struct MaterialData {
-    vec4 baseColor;
-    float metallic;
-    float roughness;
-    float ao;
-    uint albedoTexIdx;
-    uint normalTexIdx;
-    uint metallicRoughnessTexIdx;
-    uint emissiveTexIdx;
-    uint materialType;  // mirrors MaterialType (0 = Lit, 1 = Unlit)
-    float alphaCutoff;  // 0 = opaque: no sample is below it, so the test is free
-    float _pad0;
-    float _pad1;
-    float _pad2;
-    vec4 emissive;
-};
-
-#extension GL_EXT_nonuniform_qualifier : require
-
-layout(set = 1, binding = 0) uniform sampler2D globalTextures[8192];
-
-layout(std430, set = 1, binding = 1) readonly buffer MaterialBuffer {
-    MaterialData materials[];
-};
+#include "material_data.glsl"
 
 #else
 

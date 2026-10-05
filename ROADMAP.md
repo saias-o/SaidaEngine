@@ -11,6 +11,13 @@ the corresponding contracts of `SPEC.md`.
 
 ## Streaming integration — verified 2026-10-01
 
+- [x] Add physical-scale triplanar PBR layers to native terrain rings, filtered
+  macro albedo/normals, and resource ownership for hidden terrain materials.
+  Keep indirect probe lighting inside its measured volume. Verified 2026-10-05:
+  90/90 CTest cases, terrain layer validation, 71 GPU streaming checks, and
+  R1World's offline Grenoble/Cape Town/Rio captures. The layer API remains
+  runtime-only; terrain rings still have no Web backend (SPEC section 2).
+
 - [x] Construct mesh, hull and Auto geometry in the body's local frame without
   cancellation of large world translations. The GPU streaming regression builds
   a wall millions of metres away, rebases it, and checks front/back rays and

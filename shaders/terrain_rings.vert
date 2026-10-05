@@ -22,18 +22,13 @@ layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragLocalXZ;
 layout(location = 3) out vec4 fragSurface;  // albedo, roughness: the cells around, blended
 layout(location = 4) out float fragSunlight;
+layout(location = 5) out vec3 fragLocalPos;
+layout(location = 6) out vec3 fragLocalNormal;
 
 float sampleAt(int base, int i, int j) {
     i = clamp(i, 0, RES);
     j = clamp(j, 0, RES);
     return heights[base * SAMPLES * SAMPLES + j * SAMPLES + i];
-}
-
-uint layerOf(int base, int cx, int cz) {
-    cx = clamp(cx, 0, RES - 1);
-    cz = clamp(cz, 0, RES - 1);
-    int cell = base * RES * RES + cz * RES + cx;
-    return (layerWords[cell >> 2] >> (uint(cell & 3) * 8u)) & 0xFFu;
 }
 
 // What the ground is made of at a sample: the four cells that share it,
@@ -92,6 +87,8 @@ void main() {
                 fragLocalXZ = vec2(0.0);
                 fragSurface = vec4(0.0);
                 fragSunlight = 1.0;
+                fragLocalPos = vec3(0.0);
+                fragLocalNormal = vec3(0.0, 1.0, 0.0);
                 return;
             }
         }
@@ -105,7 +102,8 @@ void main() {
     // even sample before them, fully by 95% of the half-extent.
     float halfRes = 0.5 * float(RES);
     vec2 fromCentre = abs(g - vec2(halfRes)) / halfRes;
-    float alpha = clamp((max(fromCentre.x, fromCentre.y) - 0.8) / 0.15, 0.0, 1.0);
+    float alpha = clamp((max(fromCentre.x, fromCentre.y) - RING_MORPH_START) /
+                        (RING_MORPH_END - RING_MORPH_START), 0.0, 1.0);
     vec2 odd = mod(g, 2.0);
     vec2 gm = g - odd * alpha;
 
@@ -119,6 +117,8 @@ void main() {
     fragWorldPos = world.xyz;
     fragNormal = normalize(mat3(t.localToWorld) * n);
     fragLocalXZ = local.xz;
+    fragLocalPos = local;
+    fragLocalNormal = n;
     fragSunlight = t.sun.w > 0.5 ? sunlightAt(base, gm) : 1.0;
 
     // Morphed samples take the surface of the even sample they slide onto.

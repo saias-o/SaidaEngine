@@ -323,9 +323,28 @@ next level's samples -- so rings meet without a crack
 (`saida_terrain_rings_tests` holds the alignment that requires). Each layer is
 an albedo and a roughness lit by the scene's lights; each vertex takes the
 average of the four cells that share it, so the edge between two layers is a
-gradient a cell wide rather than a staircase. `innerRadius` and up to
+gradient a cell wide rather than a staircase. Desktop devices with descriptor
+indexing also accept an optional `Layer::material` (runtime C++ API): its PBR
+colour, roughness/metallic and normal maps use triplanar projection in node-local
+metres (`textureScale`, repeats/metre). Continuous coordinate warping breaks
+repetition; analytic texture gradients select mips through the warp, and normal
+detail fades before a repeat becomes smaller than two pixels. Cell-centred
+material weights merge equal IDs before sampling; the outer morph band also
+blends the next ring's material. `macroSize` is in metres, `macroVariation`
+changes albedo around its mean, and `macroNormalStrength` adds filtered normal
+detail without displacement. Both strengths default to zero and must be finite
+in [0,1]; scales must be finite and positive. Hidden terrain nodes retain their
+materials and textures through the scene's resource ownership snapshot. Devices
+without descriptor indexing keep the albedo/roughness path and log that fallback
+once when a material is supplied. Terrain rings remain
+desktop-only and this runtime layer API has no serialized authoring contract.
+`innerRadius` and up to
 16 convex `holes` (node-local quadrilaterals) leave to the caller the ground it
 draws itself, exactly where it is.
+
+Indirect probe lighting fades to the ambient fallback across the volume's last
+probe cell and uses that fallback outside its bounds. Distant surfaces never
+sample clamped edge probes; the directional environment lighting still applies.
 
 Fog is a uniform grey haze by default (`fogDensity`, per metre past
 `fogStart`, toward `fogColor`). It becomes layered air when `fogScaleHeight`

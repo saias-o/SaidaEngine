@@ -90,8 +90,16 @@ void TerrainRingsNode::setLayer(int index, Layer layer) {
         Log::error("[TerrainRings] ", name(), ": layer ", index, " is past the ", kMaxLayers, " a node holds");
         return;
     }
+    if (!std::isfinite(layer.textureScale) || layer.textureScale <= 0.0f ||
+        !std::isfinite(layer.macroSize) || layer.macroSize <= 0.0f ||
+        !std::isfinite(layer.macroVariation) || layer.macroVariation < 0.0f || layer.macroVariation > 1.0f ||
+        !std::isfinite(layer.macroNormalStrength) || layer.macroNormalStrength < 0.0f || layer.macroNormalStrength > 1.0f) {
+        Log::error("[TerrainRings] ", name(), ": invalid texture scale or variation for layer ", index);
+        return;
+    }
     layers_[size_t(index)] = layer;
     ++layersRevision_;
+    markResourcesChanged();
 }
 
 } // namespace saida

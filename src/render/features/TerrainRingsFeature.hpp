@@ -55,6 +55,8 @@ private:
         glm::vec4 focus{0.0f};
         glm::vec4 levels[kLevels]{};
         glm::vec4 layers[kLayers]{};
+        glm::vec4 textures[kLayers]{}; // material slot + 1, UV scale, reserved
+        glm::vec4 macros[kLayers]{};   // frequency, albedo variation, normal strength, reserved
         glm::vec4 holes[TerrainRingsNode::kMaxHoles * 2]{};
         glm::ivec4 holeCount{0};
         glm::vec4 sun{0.0f};     // xyz toward the shadowing light, node-local; w its index + 1, 0 none
@@ -101,6 +103,9 @@ private:
     MarchedFor marchingNow(const FrameBuffers& f, uint32_t slot) const;
 
     rhi::Device* device_ = nullptr;
+    ResourceManager* resources_ = nullptr;
+    bool textured_ = false;
+    bool materialFallbackReported_ = false;
     std::unique_ptr<Pipeline> pipeline_;
     std::unique_ptr<ComputePipeline> sunPipeline_;
     std::unique_ptr<ComputePipeline> occlusionPipeline_;

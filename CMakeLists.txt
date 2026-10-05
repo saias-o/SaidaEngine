@@ -238,7 +238,8 @@ foreach(SHADER ${SHADERS})
         list(APPEND SHADER_SPIRV_WEB ${WEB_SPV_OUTPUT})
     endif()
 
-    if(SHADER_NAME STREQUAL "shader.vert" OR SHADER_NAME STREQUAL "shader.frag")
+    if(SHADER_NAME STREQUAL "shader.vert" OR SHADER_NAME STREQUAL "shader.frag"
+       OR SHADER_NAME STREQUAL "terrain_rings.frag")
         set(BINDLESS_OUTPUT ${SHADER_OUT_DIR}/bindless.${SHADER_NAME}.spv)
         add_custom_command(
             OUTPUT ${BINDLESS_OUTPUT}

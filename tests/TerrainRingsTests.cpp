@@ -120,6 +120,34 @@ void testHighestIsTheTopOfThePresentLevels() {
     require(node.highest() == std::numeric_limits<float>::lowest(), "cleared, no top");
 }
 
+void testTextureSettingsAreFiniteAndPhysical() {
+    TerrainRingsNode node;
+    TerrainRingsNode::Layer rock;
+    rock.textureScale = 1.0f / 27.0f;
+    rock.macroVariation = 0.35f;
+    const auto before = node.resourceRevision();
+    node.setLayer(2, rock);
+    require(node.resourceRevision() > before, "changing a terrain material updates resource ownership");
+    const auto accepted = node.layersRevision();
+    for (float scale : {0.0f, -1.0f, std::numeric_limits<float>::quiet_NaN(),
+                        std::numeric_limits<float>::infinity()}) {
+        rock.textureScale = scale;
+        node.setLayer(2, rock);
+        require(node.layersRevision() == accepted, "a nonphysical texture scale is refused");
+    }
+    rock.textureScale = 1.0f;
+    rock.macroVariation = 1.5f;
+    node.setLayer(2, rock);
+    require(node.layersRevision() == accepted, "unbounded macro variation is refused");
+    rock.macroVariation = 0.35f;
+    for (float strength : {-1.0f, 1.5f, std::numeric_limits<float>::quiet_NaN()}) {
+        rock.macroNormalStrength = strength;
+        node.setLayer(2, rock);
+        require(node.layersRevision() == accepted, "invalid macro normals are refused");
+    }
+    require(node.layers()[2].textureScale == 1.0f / 27.0f, "a refused layer keeps the accepted material");
+}
+
 }  // namespace
 
 int main() {
@@ -127,6 +155,7 @@ int main() {
     testReachIsTheHorizon();
     testMalformedLevelsAreRefused();
     testHighestIsTheTopOfThePresentLevels();
+    testTextureSettingsAreFiniteAndPhysical();
     std::cout << "[terrain-rings] OK (" << gChecks << " checks)\n";
     return 0;
 }

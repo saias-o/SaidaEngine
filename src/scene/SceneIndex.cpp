@@ -61,6 +61,8 @@ void SceneIndex::updateResources(Node& node, Entry& entry) {
             if (level.mesh) usage.meshes.insert(level.mesh);
             material(level.material);
         }
+    } else if (auto* terrain = dynamic_cast<const TerrainRingsNode*>(&node)) {
+        for (const auto& layer : terrain->layers()) material(layer.material);
     } else if (std::strcmp(node.typeName(), "UIImageNode") == 0) {
         const AssetID id = static_cast<UIImageNode&>(node).texture();
         if (id != kAssetInvalid) usage.textures.insert(id);

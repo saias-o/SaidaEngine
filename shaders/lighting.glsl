@@ -159,10 +159,18 @@ vec3 sampleIrradianceVolume(vec3 wp, vec3 N, vec3 V) {
 // constant when the volume is disabled (giOrigin.w == 0), so the engine still
 // renders without GI.
 vec3 giIndirectDiffuse(vec3 wp, vec3 N, vec3 V, vec3 albedo) {
+    vec3 fallback = lights.ambient.rgb * albedo;
     if (lights.giOrigin.w < 0.5)
-        return lights.ambient.rgb * albedo;
+        return fallback;
+    // A probe volume measures its own bounds. Clamping a distant mountain to
+    // its edge would apply the lighting of a nearby room to the whole horizon.
+    // Fade across one probe cell; IBL still supplies the directional sky term.
+    vec3 grid = (wp - lights.giOrigin.xyz) / lights.giSpacing.xyz;
+    vec3 edge = min(grid, vec3(lights.giCounts.xyz - 1) - grid);
+    float coverage = clamp(min(edge.x, min(edge.y, edge.z)), 0.0, 1.0);
+    if (coverage == 0.0) return fallback;
     // Probes store cosine-weighted mean incident radiance; pi cancels for Lambert.
-    return sampleIrradianceVolume(wp, N, V) * albedo * lights.giSpacing.w;
+    return mix(fallback, sampleIrradianceVolume(wp, N, V) * albedo * lights.giSpacing.w, coverage);
 }
 
 // Hardware-PCF shadow lookup. Returns the lit fraction in [0,1] (1 = fully lit).

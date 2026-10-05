@@ -8,6 +8,8 @@ const int MAX_LEVELS = 12;    // TerrainRingsNode::kMaxLevels
 const int MAX_LAYERS = 16;    // TerrainRingsNode::kMaxLayers
 const int MAX_TERRAINS = 2;   // TerrainRingsFeature::kMaxTerrains
 const int MAX_HOLES = 16;     // TerrainRingsNode::kMaxHoles
+const float RING_MORPH_START = 0.8;
+const float RING_MORPH_END = 0.95;
 
 // Marches toward the light (terrain_rings_sun.comp, terrain_rings_occlusion.comp):
 // at most this many steps, one cell of the level holding each point a step,
@@ -21,6 +23,8 @@ struct GpuTerrain {
     vec4 focus;                 // x, z (node-local), innerRadius, level count
     vec4 levels[MAX_LEVELS];    // originX, originZ, spacing, present (0/1)
     vec4 layers[MAX_LAYERS];    // rgb albedo, roughness
+    vec4 textures[MAX_LAYERS];  // material slot + 1, UV scale, reserved
+    vec4 macros[MAX_LAYERS];    // frequency, albedo variation, normal strength, reserved
     vec4 holes[MAX_HOLES * 2];  // per hole: (x0, z0, x1, z1), (x2, z2, x3, z3), node-local
     ivec4 holeCount;            // x
     vec4 sun;                   // xyz toward the shadowing light (node-local, unit); w its index + 1, 0 none
@@ -60,6 +64,13 @@ layout(push_constant) uniform Push {
 
 int levelBase(uint slot, uint level) {
     return int(slot * uint(MAX_LEVELS) + level);
+}
+
+uint layerOf(int base, int cx, int cz) {
+    cx = clamp(cx, 0, RES - 1);
+    cz = clamp(cz, 0, RES - 1);
+    int cell = base * RES * RES + cz * RES + cx;
+    return min((layerWords[cell >> 2] >> (uint(cell & 3) * 8u)) & 0xFFu, uint(MAX_LAYERS - 1));
 }
 
 // The finest level present that holds the node-local point p, -1 past them all.

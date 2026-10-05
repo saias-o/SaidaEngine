@@ -1,6 +1,9 @@
 #include "render/features/TerrainRingsFeature.hpp"
 
 #include "core/Paths.hpp"
+#include "core/Log.hpp"
+#include "graphics/Material.hpp"
+#include "graphics/ResourceManager.hpp"
 #include "nodes/LightNode.hpp"
 #include "render/Renderer.hpp"  // kMaxLights: a light's index in the lighting UBO
 #include "scene/Scene.hpp"
@@ -54,6 +57,8 @@ TerrainRingsFeature::MarchedFor TerrainRingsFeature::marchingNow(const FrameBuff
 
 void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
     device_ = &ctx.device;
+    resources_ = &ctx.resources;
+    textured_ = resources_->globalMaterialSet() != VK_NULL_HANDLE;
     const uint32_t frames = std::max(1u, ctx.framesInFlight);
 
     // set 1: the terrains' UBO, their heights, their layers and their
@@ -65,7 +70,7 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
             {0, rhi::BindingType::UniformBuffer,
              rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},
             {1, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
-            {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},
+            {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment},
             {3, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
         });
 
@@ -92,10 +97,11 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
 
     Pipeline::Desc desc;
     desc.vertPath = shaderPath(ctx.stereo() ? "multiview.terrain_rings.vert.spv" : "terrain_rings.vert.spv");
-    desc.fragPath = shaderPath("terrain_rings.frag.spv");
+    desc.fragPath = shaderPath(textured_ ? "bindless.terrain_rings.frag.spv" : "terrain_rings.frag.spv");
     desc.colorFormats = {ctx.colorFormat};
     desc.depthFormat = ctx.depthFormat;
     desc.bindGroupLayouts = {&ctx.globalSetLayout, setLayout_.get()};
+    if (textured_) desc.bindGroupLayouts.push_back(resources_->globalMaterialSetLayout());
     desc.samples = ctx.samples;
     desc.vertexInput = false;
     // Seen from a summit or from under a ridge alike: no face is culled.
@@ -135,8 +141,17 @@ void TerrainRingsFeature::prepare(Scene& scene, uint32_t frameIndex) {
         g.localToWorld = node.worldTransform();
         const int levels = std::clamp(node.levels, 1, kLevels);
         g.focus = glm::vec4(float(node.focus.x), float(node.focus.y), node.innerRadius, float(levels));
-        for (int i = 0; i < kLayers; ++i)
-            g.layers[i] = glm::vec4(node.layers()[size_t(i)].albedo, node.layers()[size_t(i)].roughness);
+        for (int i = 0; i < kLayers; ++i) {
+            const auto& layer = node.layers()[size_t(i)];
+            if (layer.material && !textured_ && !materialFallbackReported_) {
+                Log::warn("[TerrainRings] descriptor indexing unavailable; using layer albedo/roughness");
+                materialFallbackReported_ = true;
+            }
+            g.layers[i] = glm::vec4(layer.albedo, layer.roughness);
+            g.textures[i] = glm::vec4(layer.material ? float(layer.material->bindlessIndex() + 1u) : 0.0f,
+                                      layer.textureScale, 0.0f, 0.0f);
+            g.macros[i] = glm::vec4(1.0f / layer.macroSize, layer.macroVariation, layer.macroNormalStrength, 0.0f);
+        }
         if (light >= 0) {
             const glm::vec3 local = glm::normalize(glm::inverse(glm::mat3(g.localToWorld)) * toLight);
             g.sun = glm::vec4(local, float(light + 1));
@@ -270,6 +285,7 @@ void TerrainRingsFeature::record(FrameContext& fc) {
     fc.pass.setPipeline(*pipeline_);
     fc.pass.setBindGroup(0, *fc.globalSet);
     fc.pass.setBindGroup(1, *f.set);
+    if (textured_) fc.pass.setBindGroup(2, resources_->globalMaterialSet());
     const uint32_t vertices = uint32_t(TerrainRingsNode::kResolution) * TerrainRingsNode::kResolution * kVerticesPerCell;
     for (uint32_t slot = 0; slot < count_; ++slot)
         for (int k = 0; k < kLevels; ++k) {

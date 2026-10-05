@@ -12,6 +12,8 @@
 
 namespace saida {
 
+class Material;
+
 // Terrain to the horizon, as nested square rings around a focus (geometry
 // clipmaps). Level k is a grid of kResolution x kResolution cells, each
 // `baseSpacing * 2^k` metres, centred on the focus snapped to two of its
@@ -62,10 +64,17 @@ public:
         std::vector<uint8_t> layers;
     };
 
-    // How a layer looks: a measured albedo and a roughness.
+    // Optional PBR material, projected in node-local metres on all three axes.
+    // Without a material the layer keeps its albedo/roughness. Macro variation
+    // is zero by default; its scale is in metres, independent of ring spacing.
     struct Layer {
         glm::vec3 albedo{0.2f};
         float roughness = 0.9f;
+        Material* material = nullptr;
+        float textureScale = 1.0f;  // texture repeats per metre
+        float macroSize = 128.0f;
+        float macroVariation = 0.0f;
+        float macroNormalStrength = 0.0f; // dimensionless slope; no displacement
     };
 
     // The spacing of level k, and the node-local x,z of its sample (0,0) when

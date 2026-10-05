@@ -72,6 +72,7 @@ int main() {
     const std::filesystem::path shaders = root / "shaders";
     const std::string culling = readText(shaders / "culling.comp");
     const std::string fragment = readText(shaders / "shader.frag");
+    const std::string materialData = readText(shaders / "material_data.glsl");
     if (!require(!culling.empty())) return 1;
     if (!require(!fragment.empty())) return 2;
 
@@ -86,7 +87,8 @@ int main() {
 
     // One bindless MDI pipeline must preserve the classic unlit equation rather
     // than accidentally routing MaterialType::Unlit through PBR lighting.
-    if (!require(contains(fragment, "uint materialType;"))) return 9;
+    if (!require(contains(fragment, "#include \"material_data.glsl\"") &&
+                 contains(materialData, "uint materialType;"))) return 9;
     if (!require(contains(fragment, "if (mat.materialType == 1u)"))) return 10;
 
     const std::string vertex = readText(shaders / "shader.vert");
