@@ -12,7 +12,7 @@ the corresponding contracts of `SPEC.md`.
 ## Streaming integration — verified 2026-10-01
 
 - [x] Bind the selected sky texture when rebuilding the global IBL descriptor,
-  instead of resetting it to the white fallback. Verified 2026-10-06: 90/90
+  instead of resetting it to the white fallback. Verified 2026-10-06: 91/91
   native CTest cases, `verify_ibl_environment.py` red/blue metallic pixel checks,
   material sidedness captures, and R1World's metallic car capture. Native GPU
   output was inspected; Web and headset output were not exercised by this fix.
