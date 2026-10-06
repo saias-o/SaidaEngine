@@ -11,6 +11,12 @@ the corresponding contracts of `SPEC.md`.
 
 ## Streaming integration — verified 2026-10-01
 
+- [x] Bind the selected sky texture when rebuilding the global IBL descriptor,
+  instead of resetting it to the white fallback. Verified 2026-10-06: 90/90
+  native CTest cases, `verify_ibl_environment.py` red/blue metallic pixel checks,
+  material sidedness captures, and R1World's metallic car capture. Native GPU
+  output was inspected; Web and headset output were not exercised by this fix.
+
 - [x] Add physical-scale triplanar PBR layers to native terrain rings, filtered
   macro albedo/normals, and resource ownership for hidden terrain materials.
   Keep indirect probe lighting inside its measured volume. Verified 2026-10-05:

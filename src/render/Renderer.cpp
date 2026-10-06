@@ -523,7 +523,7 @@ void Renderer::createCullingPipeline() {
 #endif
 }
 
-void Renderer::rebuildGlobalSet(int frame) {
+void Renderer::rebuildGlobalSet(int frame, Texture* environment) {
     rhi::BindGroupEntry cameraEntry;
     cameraEntry.binding = 0;
     cameraEntry.buffer = uniformBuffers_[frame].get();
@@ -570,7 +570,7 @@ void Renderer::rebuildGlobalSet(int frame) {
     giVoxelEntry.sampler = gi_->sampler();
 #endif
 
-    Texture* environment = resources_.defaultWhiteTexture();
+    if (!environment) environment = resources_.defaultWhiteTexture();
     rhi::BindGroupEntry environmentEntry;
     environmentEntry.binding = 7;
     environmentEntry.view = environment->imageView();
@@ -737,7 +737,7 @@ void Renderer::updateEnvironmentDescriptor(Scene& scene) {
         cachedEnvironmentSampler_[currentFrame_] == environment->sampler()) {
         return;
     }
-    rebuildGlobalSet(currentFrame_);
+    rebuildGlobalSet(currentFrame_, environment);
 }
 
 bool Renderer::shouldUpdateRealtimeGI(bool dirty) const {

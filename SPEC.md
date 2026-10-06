@@ -291,6 +291,13 @@ the shadow pipeline therefore binds set 0, where that palette lives. Point light
 do not yet have a shadow cubemap. Lightmaps are regenerated
 and are not yet part of the durable package.
 
+The global scene descriptor binds the resolved `skyboxTexture` for IBL and
+environment reflections. Rebuilding that descriptor retains the selected
+texture and sampler for each in-flight frame; white is only the missing-sky
+fallback. `tools/verify_ibl_environment.py` checks metallic surfaces against
+coloured environments and a dark dielectric reference, with ambient and direct
+light disabled. It can use the native GPU or a specified Vulkan ICD.
+
 **Reversed depth.** Scene depth runs from 1 at the near plane to 0 at the far
 plane (`rhi/PipelineState.hpp`: `kDepthFar`, `kDepthCloser`,
 `kDepthCloserOrEqual`). A float depth buffer is precise near 0 and perspective
