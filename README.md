@@ -19,6 +19,11 @@ engine testing and feedback. They are not stable releases and may contain
 blocking defects. Each round of fixes receives a new beta; release candidates
 start only after the manual qualification is satisfactory.
 
+The immutable Beta 4 tag and current `main` are different snapshots. `main`
+contains later streaming, terrain, surface, grass and PBR fixes; see
+[CHANGELOG.md](CHANGELOG.md). These additions are not included in the tagged
+Beta 4 downloads, even while the development product string still says Beta 4.
+
 The Windows installer is not an officially qualified distribution until its
 Authenticode signature has been verified. Beta 4 nevertheless provides an
 explicitly unsigned portable ZIP and per-user installer for qualification; the

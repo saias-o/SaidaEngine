@@ -5,7 +5,10 @@ implements the release contract in [SPEC.md](SPEC.md) and
 [CONTRIBUTING.md](CONTRIBUTING.md). Do not substitute remembered steps or reuse
 an old proof. Published releases are normally immutable.
 
-The current target is `v1.0.0-beta.4`. Its Windows assets and tag are immutable.
+The procedure below records the `v1.0.0-beta.4` publication. Its Windows assets
+and tag are immutable. Current `main` contains later changes; its next
+publication must choose a new version and update the examples below rather
+than reuse the Beta 4 tag or replace its Windows assets.
 The repository owner explicitly authorized one additive exception: a Linux
 x86_64 editor package may be appended to the existing Beta 4 release without
 moving its tag. Its manifest must record the different source commit; no

@@ -298,6 +298,11 @@ fallback. `tools/verify_ibl_environment.py` checks metallic surfaces against
 coloured environments and a dark dielectric reference, with ambient and direct
 light disabled. It can use the native GPU or a specified Vulkan ICD.
 
+The metallic-roughness material has no separate automotive clearcoat lobe.
+Its environment reflection samples the sky texture, not a capture of nearby
+scene geometry; restoring that binding does not add local reflection probes
+or screen-space reflections.
+
 **Reversed depth.** Scene depth runs from 1 at the near plane to 0 at the far
 plane (`rhi/PipelineState.hpp`: `kDepthFar`, `kDepthCloser`,
 `kDepthCloserOrEqual`). A float depth buffer is precise near 0 and perspective

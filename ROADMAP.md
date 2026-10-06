@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-08-25. This file is the engine's **single backlog**: everything
+Updated: 2026-10-06. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -9,7 +9,7 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
-## Streaming integration — verified 2026-10-01
+## Streaming and rendering integration — verified through 2026-10-06
 
 - [x] Bind the selected sky texture when rebuilding the global IBL descriptor,
   instead of resetting it to the white fallback. Verified 2026-10-06: 91/91
@@ -72,12 +72,18 @@ The **V1** effort is complete on the engine side: gates P0.1 through P0.6 are
 closed, the V1 refactor derived from the quality audit is closed
 (ResourceManager 1102 → 414 lines, EditorUI 1933 → 384 lines, McpBridge
 1401 → 77 lines, split of `src/scene/`, named Input/Renderer constants), and
-final validation has passed: clean native build, 84/84 CTest, three Web builds
+the original V1 qualification passed: clean native build, 84/84 CTest, three Web builds
 (player, runtime, authoring WASM), Witness E2E, `witness_editor_play`,
 `witness_editor_build`, Web staging and a real MCP TCP smoke test (45 tools).
 
 The public beta cycle is open. The remaining Windows distribution work before a
 qualified stable publication is tracked in §1.
+
+The latest native integration verification on 2026-10-06 passed 91/91 CTest
+cases and the IBL/environment and material-sidedness pixel checks. This extends
+the native record only; it is not a fresh Web, XR or release qualification.
+`main` includes work after the immutable Beta 4 tag; the product version string
+still reads Beta 4 and must be advanced as part of the next release procedure.
 
 Reminder of the release criteria: the same WitnessGame must run in the editor,
 standalone desktop and Web; old projects must migrate or be rejected without
@@ -370,7 +376,7 @@ Post-V1 unless the scope changes explicitly.
   count rather than a constant, and report an overrun once per swapchain
   lifetime with the number that would have sufficed.
 
-- [ ] Vehicle: nothing drives itself. All 30 cars are driveable and none is
+- [ ] GTAClone sample: nothing drives itself. All 30 cars are driveable and none is
   driven — the streets are still. The seam is already the right shape
   (`readsInput` off plus `vehicleDrive` through a `NodeRef`, which is what
   `scripts/driver.js` uses), so a traffic system is a script holding a car and a
@@ -384,6 +390,16 @@ Post-V1 unless the scope changes explicitly.
   back-face shading normals. The instance ABI retains its existing size.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.
+- [ ] Streaming: move glTF CPU decoding and streamed memory-mesh preparation
+  off the main thread, then budget GPU uploads incrementally. R1World's native
+  captures still show full-tile import spikes over 16.7 ms (game README,
+  Performance); the existing asynchronous texture/OBJ path does not settle
+  this case. Preserve ownership, readiness and collider lifetime contracts.
+- [ ] Rendering: add a separate clearcoat lobe and evaluate bounded local
+  reflections for smooth materials. The current PBR path reflects the HDR sky
+  only (SPEC 4.1); automotive paint and nearby street reflections remain a
+  quality gap. Choose the reflection technique after measuring its cost on
+  the target hardware and respect the visual-safety prerequisite in §3.
 - [ ] Rendering: point-light cubemap shadows and lightmap persistence if
   included in the product promise.
 - [ ] MikkTSpace tangents (the normal map stays disabled without author

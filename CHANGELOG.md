@@ -4,7 +4,19 @@ All notable changes to SaidaEngine. Versions follow the scheme described in
 [CONTRIBUTING.md](CONTRIBUTING.md#versioning): each manual test and correction
 cycle receives its own immutable beta tag.
 
-## v1.0.0-beta.4 (unreleased)
+## Unreleased — changes after v1.0.0-beta.4
+
+These changes are on `main`, outside the immutable Beta 4 tag. No new release
+version is assigned here; the next publication must update the product version
+and create a new tag under `RELEASE.md`.
+
+### PBR environment reflections
+
+- Rebuilding the global scene descriptor keeps the selected HDR sky texture
+  and sampler for IBL instead of replacing them with white. Metallic surfaces
+  now reflect the scene environment. Native red/blue environment captures with
+  a dark dielectric reference guard this behavior (`verify_ibl_environment.py`).
+  Web and XR output were not exercised for this correction.
 
 ### Surfaces that vary, windows set back, and grass
 
@@ -60,6 +72,8 @@ cycle receives its own immutable beta tag.
 - Both new textures are saved by path, snapshotted, counted as resources in use
   and editable in the Inspector; the reflected settings round-trip like every
   other (`saida_scene_settings_tests`).
+
+## v1.0.0-beta.4 (tagged 2026-08-25)
 
 ### Windows editor distribution
 
