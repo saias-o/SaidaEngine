@@ -21,14 +21,21 @@ struct MaterialParams {
     float ao;
     float alphaCutoff;   // 0 = opaque; was padding, now carries the alpha test
     glm::vec4 emissive;
+    glm::vec4 variation; // SurfaceVariation: warp, macroScale, macroAlbedo, macroNormal
+    glm::vec4 detail;    // x normal strength, y environment reflection
 };
+
+MaterialParams paramsOf(const MaterialDesc& d) {
+    return {d.baseColor, d.metallic, d.roughness, d.ao, d.alphaCutoff, d.emissiveColor,
+            glm::vec4(d.variation.warp, d.variation.macroScale, d.variation.macroAlbedo, d.variation.macroNormal),
+            glm::vec4(d.normalStrength, d.environmentReflection, 0.0f, 0.0f)};
+}
 }
 
 Material::Material(rhi::Device& device, ResourceManager& manager, const MaterialDesc& desc)
     : device_(device), desc_(desc) {
 
-    MaterialParams params{desc.baseColor, desc.metallic, desc.roughness, desc.ao,
-                          desc.alphaCutoff, desc.emissiveColor};
+    const MaterialParams params = paramsOf(desc);
     paramsBuffer_ = std::make_unique<Buffer>(device_, sizeof(MaterialParams),
         rhi::BufferUsage::Uniform, MemoryUsage::HostVisible);
     paramsBuffer_->write(&params, sizeof(params));
@@ -37,14 +44,7 @@ Material::Material(rhi::Device& device, ResourceManager& manager, const Material
 
     // 2. GPU-Driven Path: Register into global MaterialData SSBO
     if (device_.capabilities().descriptorIndexing) {
-        bindlessIndex_ = manager.registerMaterialData(
-            desc.baseColor, desc.emissiveColor, desc.metallic, desc.roughness, desc.ao,
-            manager.ensureBindlessTextureIndex(albedo_),
-            manager.ensureBindlessTextureIndex(normalMap_),
-            manager.ensureBindlessTextureIndex(metallicRoughnessMap_),
-            manager.ensureBindlessTextureIndex(emissiveMap_),
-            desc.type, desc.alphaCutoff
-        );
+        bindlessIndex_ = manager.registerMaterialData(desc, textureSlots(manager));
     }
 }
 
@@ -54,14 +54,15 @@ void Material::rebindTextures(ResourceManager& manager) {
     manager.retireBindGroup(std::move(descriptorSet_));
     bindTextures(manager);
     if (device_.capabilities().descriptorIndexing) {
-        manager.updateMaterialData(bindlessIndex_,
-            desc_.baseColor, desc_.emissiveColor, desc_.metallic, desc_.roughness, desc_.ao,
-            manager.ensureBindlessTextureIndex(albedo_),
-            manager.ensureBindlessTextureIndex(normalMap_),
+        manager.updateMaterialData(bindlessIndex_, desc_, textureSlots(manager));
+    }
+}
+
+MaterialTextureSlots Material::textureSlots(ResourceManager& manager) const {
+    return {manager.ensureBindlessTextureIndex(albedo_), manager.ensureBindlessTextureIndex(normalMap_),
             manager.ensureBindlessTextureIndex(metallicRoughnessMap_),
             manager.ensureBindlessTextureIndex(emissiveMap_),
-            desc_.type, desc_.alphaCutoff);
-    }
+            manager.ensureBindlessTextureIndex(heightMap_)};
 }
 
 void Material::bindTextures(ResourceManager& manager) {
@@ -78,6 +79,9 @@ void Material::bindTextures(ResourceManager& manager) {
 
     emissiveMap_ = manager.getTexture(desc.emissiveId);
     if (!emissiveMap_) emissiveMap_ = manager.defaultWhiteTexture();
+
+    heightMap_ = manager.getTexture(desc.heightId, false);
+    if (!heightMap_) heightMap_ = manager.defaultWhiteTexture();
 
     // 1. Classic Path: set 1 (albedo/normal/metallic-roughness/params/emissive).
     rhi::BindGroupEntry albedoEntry;

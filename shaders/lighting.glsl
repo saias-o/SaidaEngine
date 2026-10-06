@@ -312,6 +312,27 @@ LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, floa
     return env;
 }
 
+// Roughness over which the environment's reflection fades out of
+// `environmentReflection`: a rough surface's reflection of the sky is a blur
+// the ambient term already stands for, so only a surface smooth enough to
+// mirror it adds it.
+const float MIRROR_ROUGHNESS_FULL = 0.2;
+const float MIRROR_ROUGHNESS_NONE = 0.45;
+
+// The environment's specular term alone, at the scene's specular intensity,
+// whether or not image-based lighting is on (MaterialDesc::environmentReflection).
+vec3 environmentReflection(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness) {
+    float mirror = 1.0 - smoothstep(MIRROR_ROUGHNESS_FULL, MIRROR_ROUGHNESS_NONE, roughness);
+    if (mirror <= 0.0) return vec3(0.0);
+    roughness = clamp(roughness, 0.04, 1.0);
+    float NdotV = max(dot(N, V), 0.001);
+    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    vec3 R = reflect(-V, N);
+    float lod = pow(roughness, IBL_SPECULAR_MIP_CURVE) * environmentMaxLod();
+    return sampleEnvironmentLod(R, lod) * environmentBRDF(F0, roughness, NdotV) *
+           lights.environmentParams.z * mirror;
+}
+
 // ---------------------------------------------------------------------------
 // Per-light contribution (Cook-Torrance GGX)
 // ---------------------------------------------------------------------------

@@ -16,6 +16,7 @@ class WebCanvasNode;
 class WaterNode;
 class ParticleSystemNode;
 class TerrainRingsNode;
+class GrassNode;
 class CollisionObjectNode;
 class JointNode;
 class LODGroupBehaviour;
@@ -63,6 +64,7 @@ public:
     SceneMembers<WebCanvasNode> webCanvases;
     SceneMembers<WaterNode> water;
     SceneMembers<TerrainRingsNode> terrains;
+    SceneMembers<GrassNode> grass;
     SceneMembers<ParticleSystemNode> particles;
     SceneMembers<Behaviour> behaviours;
     SceneMembers<CollisionObjectNode> bodies;
@@ -86,6 +88,7 @@ private:
         WebCanvasNode* webCanvas = nullptr;
         WaterNode* water = nullptr;
         TerrainRingsNode* terrain = nullptr;
+        GrassNode* grass = nullptr;
         ParticleSystemNode* particles = nullptr;
         CollisionObjectNode* body = nullptr;
         JointNode* joint = nullptr;

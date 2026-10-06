@@ -16,6 +16,7 @@
 #include "scene/Scene.hpp"
 #include "nodes/WaterNode.hpp"
 #include "nodes/TerrainRingsNode.hpp"
+#include "nodes/GrassNode.hpp"
 
 #include <nlohmann/json.hpp>
 #include <glm/glm.hpp>
@@ -76,6 +77,7 @@ const reflect::TypeDesc* reflectedNodeDesc(Node& n) {
     if (type == LightNode::reflectName()) return &reflect::localDesc<LightNode>();
     if (type == WaterNode::reflectName()) return &reflect::localDesc<WaterNode>();
     if (type == TerrainRingsNode::reflectName()) return &reflect::localDesc<TerrainRingsNode>();
+    if (type == GrassNode::reflectName()) return &reflect::localDesc<GrassNode>();
     if (type == ParticleSystemNode::reflectName()) return &reflect::localDesc<ParticleSystemNode>();
     return nullptr;
 }

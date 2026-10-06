@@ -141,6 +141,7 @@ class WebCanvasNode;
 class WaterNode;
 class ParticleSystemNode;
 class TerrainRingsNode;
+class GrassNode;
 class SceneTree;
 
 // A Scene is simply the root Node of a tree (cf. Godot: a scene is a node).
@@ -185,6 +186,7 @@ public:
     const std::vector<WebCanvasNode*>& webCanvases() const { return index_.webCanvases.values(); }
     const std::vector<WaterNode*>& waterNodes() const { return index_.water.values(); }
     const std::vector<TerrainRingsNode*>& terrainRings() const { return index_.terrains.values(); }
+    const std::vector<GrassNode*>& grassFields() const { return index_.grass.values(); }
     const std::vector<ParticleSystemNode*>& particleSystems() const { return index_.particles.values(); }
 
     // The per-scene physics world (created lazily once a body exists; null until then).

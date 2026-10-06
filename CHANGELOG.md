@@ -6,6 +6,20 @@ cycle receives its own immutable beta tag.
 
 ## v1.0.0-beta.4 (unreleased)
 
+### Surfaces that vary, windows set back, and grass
+
+- `MaterialDesc::variation` breaks a tiled texture's repetition with a warp
+  whose Jacobian selects the mips, and lays three octaves of macro noise over
+  its albedo and normal, mean zero; `normalStrength` scales the normal map.
+- `MaterialDesc::heightId` and `parallaxDepth`: parallax occlusion mapping on
+  the bindless scene path, fading out with the pixel's footprint.
+- `MaterialDesc::environmentReflection`: glazing reflects the sky even where
+  the scene's image-based lighting is off; only smooth surfaces add it.
+- `GrassNode` and `GrassFeature`: grass blades made in the vertex shader on a
+  caller's heightfield and cover, three rings around the camera, wind, and
+  benders that push them aside. Desktop only; `saida_grass_tests`.
+- The lattice noise water used moves to `shaders/noise.glsl`, shared.
+
 ### Realistic water that never reads as tiles
 
 - `WaterNode`'s realistic waves fan around the wind at irregular offsets with

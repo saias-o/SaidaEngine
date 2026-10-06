@@ -406,6 +406,56 @@ rejects only the backs of single-sided materials in its fragment shader.
 Back-face lighting reverses the complete normal after normal-map evaluation.
 The GPU ABI sizes and durable material format are unchanged.
 
+A lit material can also vary across its surface, all runtime-only fields of
+`MaterialDesc` (no durable format carries them), off by default and costing a
+branch when off; a material that sets none draws exactly as before:
+
+- `variation` (`SurfaceVariation`, `shaders/surface_variation.glsl`): a warp
+  of the texture coordinates by a slowly varying amount, so no two repeats of
+  a tiled texture line up, its analytic Jacobian carried into the gradients
+  that select mips; and three octaves of macro noise, in texture-coordinate
+  cells, varying albedo by +/- `macroAlbedo` (mean zero) and tilting the
+  normal by `macroNormal`. Octaves a pixel can no longer show fade to their
+  mean. A material with variation also fades its normal map as one repeat
+  shrinks below a few pixels, and scales it by `normalStrength`.
+- `heightId` and `parallaxDepth`: parallax occlusion mapping. The height map
+  is 1 at the surface drawn and 0 `parallaxDepth` texture-coordinate units
+  below it; the ray steps 6 to 24 times (more at grazing angles), refines
+  between its last two steps, and fades out as the pixel's footprint passes
+  0.004 to 0.012 units, or where the texture coordinates are degenerate.
+  Bindless scene path only; elsewhere the surface stays flat.
+- `environmentReflection`: the environment's specular reflection on this
+  material, as a multiple of `iblSpecularIntensity` (times the sky exposure),
+  drawn even where the scene's IBL is off, so glazing shows the sky without
+  every surface taking the sky's light. It is weighed by the material's own
+  Fresnel and split-sum term, and only where the material is smooth enough to
+  mirror (roughness 0.2 to 0.45 fades it out): a rough surface's blurred
+  reflection is what the ambient term already stands for. Where the scene's
+  IBL is on, `accumulate` has already added it and nothing is added twice.
+
+These add a vec4 to the std430 `MaterialData` (96 to 112 bytes; the normal
+strength, height texture index and parallax depth take the former padding) and
+two vec4 to the classic material UBO.
+
+`GrassNode` (desktop only, like `TerrainRingsNode`) draws grass blades around
+the camera with no geometry: the caller gives a field -- a heightfield of up to
+65 x 65 node-local heights over the unit square of a parameter (u, v), split
+into triangles as a ground mesh on the same grid is, an affine map from
+node-local (x, z) to (u, v), and an RGBA8 cover of up to 512 x 512 texels,
+sRGB colour and density -- and `GrassFeature` makes each blade in
+`grass.vert` from a hash of its world-fixed cell: where in the cell, facing,
+height, lean, wind sway (a drifting gust field and a flutter) and the push of
+up to four `benders` (a character, a wheel). Three rings of 192 x 192 cells
+share one centre snapped to twice the coarsest spacing, each ring's blades
+twice as far apart and 1.7 times wider, the ring inside cut out exactly
+(`saida_grass_tests`); a ring is drawn only over the cells where the field
+and the camera's `radius` meet, and blades shorten to nothing over the last
+30 % of it, where the ground's own colour takes over. Blades are lit like any
+surface, their normal leaning to the ground's, darker toward the root, with
+the directional light's transmission from behind. Nine fields are drawn at
+once at most, said in the log when more are in reach; a field's ground and
+cover are re-uploaded only when its revision changes.
+
 The GPU-driven path has bindless materials, indirect draw, compute culling and
 tested binding contracts. It is not the active universal path: some
 `useGpuDriven=false` remain. Its activation must become an explicit setting/cap

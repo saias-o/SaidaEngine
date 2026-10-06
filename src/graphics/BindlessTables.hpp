@@ -58,16 +58,9 @@ public:
     // --- material facet -----------------------------------------------------
     // Allocates a slot (reusing recycled ones first) and writes it. Returns the
     // slot index, 0 on overflow or when inactive.
-    uint32_t allocMaterialSlot(const glm::vec4& baseColor, const glm::vec4& emissive,
-                               float metallic, float roughness, float ao,
-                               uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                               uint32_t emissiveIdx, MaterialType type, float alphaCutoff);
+    uint32_t allocMaterialSlot(const MaterialDesc& desc, const MaterialTextureSlots& textures);
     // Rewrites an already-allocated slot (material rebind after an async load).
-    void writeMaterialSlot(uint32_t index, const glm::vec4& baseColor,
-                           const glm::vec4& emissive,
-                           float metallic, float roughness, float ao,
-                           uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                           uint32_t emissiveIdx, MaterialType type, float alphaCutoff);
+    void writeMaterialSlot(uint32_t index, const MaterialDesc& desc, const MaterialTextureSlots& textures);
     void recycleMaterialSlot(uint32_t index) { freeMaterialIndices_.push_back(index); }
 
     // --- accessors ----------------------------------------------------------

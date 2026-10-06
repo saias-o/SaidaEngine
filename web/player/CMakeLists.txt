@@ -129,6 +129,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/nodes/UITextNode.cpp
     ${SAIDA_ROOT}/src/nodes/WaterNode.cpp
     ${SAIDA_ROOT}/src/nodes/TerrainRingsNode.cpp  # indexed by the scene; drawn on desktop only
+    ${SAIDA_ROOT}/src/nodes/GrassNode.cpp         # indexed by the scene; drawn on desktop only
     ${SAIDA_ROOT}/src/physics/CollisionObjectNode.cpp
     ${SAIDA_ROOT}/src/physics/CollisionShapeNode.cpp
     ${SAIDA_ROOT}/src/physics/CharacterBodyNode.cpp

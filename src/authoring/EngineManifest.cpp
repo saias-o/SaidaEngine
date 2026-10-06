@@ -10,6 +10,7 @@
 #include "scene/Scene.hpp"
 #include "nodes/WaterNode.hpp"
 #include "nodes/TerrainRingsNode.hpp"
+#include "nodes/GrassNode.hpp"
 
 #ifndef __EMSCRIPTEN__
 #include "scene/ReflectedTypes.hpp"
@@ -121,6 +122,7 @@ nlohmann::json buildEngineManifest() {
         reflectedNodeManifest<ParticleSystemNode>(),
         reflectedNodeManifest<WaterNode>(),
         reflectedNodeManifest<TerrainRingsNode>(),
+        reflectedNodeManifest<GrassNode>(),
     });
     m["behaviours"] = nlohmann::json::array();
 #endif

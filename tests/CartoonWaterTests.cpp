@@ -63,7 +63,8 @@ int main() {
     if (!contains(waves, "waterTrainShown")) return 22;
     if (!contains(readText(shaderRoot / "water.vert"), "waterPixelFootprint")) return 23;
     if (!contains(realistic, "waterTrainShown")) return 24;
-    if (!contains(realistic, "float hash21(ivec2")) return 25;
+    if (!contains(realistic, "#include \"noise.glsl\"") ||
+        !contains(readText(shaderRoot / "noise.glsl"), "float hash21(ivec2")) return 25;
     if (!contains(realistic, "footprint")) return 26;
 
     return 0;

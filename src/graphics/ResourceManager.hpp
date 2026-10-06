@@ -204,19 +204,13 @@ public:
 
     // Rewrites the MaterialData slot of an already-registered material
     // (rebind after one of its textures finishes async loading).
-    void updateMaterialData(uint32_t index, const glm::vec4& baseColor, const glm::vec4& emissive,
-                            float metallic, float roughness, float ao,
-                            uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx, uint32_t emissiveIdx,
-                            MaterialType type, float alphaCutoff);
+    void updateMaterialData(uint32_t index, const MaterialDesc& desc, const MaterialTextureSlots& textures);
 
     // Register a texture in the bindless array if needed, returns its index.
     uint32_t ensureBindlessTextureIndex(Texture* texture);
     
     // Register material data in the global SSBO, returns its index.
-    uint32_t registerMaterialData(const glm::vec4& baseColor, const glm::vec4& emissive,
-                                  float metallic, float roughness, float ao,
-                                  uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx, uint32_t emissiveIdx,
-                                  MaterialType type, float alphaCutoff);
+    uint32_t registerMaterialData(const MaterialDesc& desc, const MaterialTextureSlots& textures);
 
 private:
     void finalizePendingAnimationAssets();

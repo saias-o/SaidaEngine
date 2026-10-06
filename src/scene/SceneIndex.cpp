@@ -10,6 +10,7 @@
 #include "nodes/LightNode.hpp"
 #include "nodes/WaterNode.hpp"
 #include "nodes/TerrainRingsNode.hpp"
+#include "nodes/GrassNode.hpp"
 #include "nodes/UICanvasNode.hpp"
 #include "nodes/UIImageNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
@@ -51,7 +52,7 @@ void SceneIndex::updateResources(Node& node, Entry& entry) {
         if (!m) return;
         usage.materials.insert(m);
         const auto& d = m->desc();
-        for (AssetID id : {d.albedoId, d.normalId, d.metallicRoughnessId, d.emissiveId})
+        for (AssetID id : {d.albedoId, d.normalId, d.metallicRoughnessId, d.emissiveId, d.heightId})
             if (id != kAssetInvalid) usage.textures.insert(id);
     };
     if (auto* mesh = dynamic_cast<const MeshNode*>(&node)) {
@@ -89,7 +90,7 @@ void SceneIndex::updateResources(Node& node, Entry& entry) {
 
 void SceneIndex::unpublish(Entry& e) {
     meshes.remove(e.mesh); lights.remove(e.light); canvases.remove(e.canvas);
-    webCanvases.remove(e.webCanvas); water.remove(e.water); terrains.remove(e.terrain); particles.remove(e.particles);
+    webCanvases.remove(e.webCanvas); water.remove(e.water); terrains.remove(e.terrain); grass.remove(e.grass); particles.remove(e.particles);
     bodies.remove(e.body); joints.remove(e.joint); preSteppers.remove(e.body);
     for (auto* b : e.behaviours) { behaviours.remove(b); physicsSteppers.remove(b); }
     e.behaviours.clear();
@@ -104,6 +105,7 @@ void SceneIndex::publish(Node& node, Entry& e) {
     e.canvas = dynamic_cast<UICanvasNode*>(&node);
     e.water = dynamic_cast<WaterNode*>(&node);
     e.terrain = dynamic_cast<TerrainRingsNode*>(&node);
+    e.grass = dynamic_cast<GrassNode*>(&node);
     e.particles = dynamic_cast<ParticleSystemNode*>(&node);
 #ifndef SAIDA_RHI_WEBGPU
     e.webCanvas = dynamic_cast<WebCanvasNode*>(&node);

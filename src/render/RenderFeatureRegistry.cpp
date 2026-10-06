@@ -7,6 +7,7 @@
 #ifndef SAIDA_RHI_WEBGPU
 // Distant terrain reads storage buffers in its vertex stage: desktop-only.
 #include "render/features/TerrainRingsFeature.hpp"
+#include "render/features/GrassFeature.hpp"
 // Editor overlays (selection outline, debug gizmos): desktop-only.
 #include "render/features/DebugLinesFeature.hpp"
 #include "render/features/OutlineFeature.hpp"
@@ -43,6 +44,7 @@ void registerBuiltinRenderFeatures() {
     auto& r = RenderFeatureRegistry::instance();
 #ifndef SAIDA_RHI_WEBGPU
     r.add(90, [] { return std::make_unique<TerrainRingsFeature>(); }); // opaque, writes depth
+    r.add(95, [] { return std::make_unique<GrassFeature>(); });        // opaque, writes depth
 #endif
     r.add(100, [] { return std::make_unique<WaterFeature>(); });      // before sky: writes depth
 #ifndef SAIDA_RHI_WEBGPU

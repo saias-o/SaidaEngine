@@ -27,12 +27,14 @@ struct MaterialData {
     uint32_t emissiveTexIdx;
     uint32_t materialType;
     float alphaCutoff;   // 0 = opaque (no sample is below it, so the test is free)
-    float _pad0;
-    float _pad1;
-    float _pad2;
+    float normalStrength;
+    uint32_t heightTexIdx;
+    float parallaxDepth;
     glm::vec4 emissive;
+    glm::vec4 variation; // warp, macroScale, macroAlbedo, macroNormal
+    glm::vec4 reflection; // x environment reflection; yzw reserved
 };
-static_assert(sizeof(MaterialData) == 80, "MaterialData must match shader.frag std430 layout");
+static_assert(sizeof(MaterialData) == 112, "MaterialData must match shader.frag std430 layout");
 } // namespace
 
 BindlessTables::BindlessTables(rhi::Device& device, uint32_t maxTextures,
@@ -227,23 +229,10 @@ void BindlessTables::recycleTextureIndex(uint32_t index, Texture* defaultWhite) 
     freeTextureIndices_.push_back(index);
 }
 
-uint32_t BindlessTables::allocMaterialSlot(const glm::vec4& baseColor, const glm::vec4& emissive,
-                                           float metallic, float roughness, float ao,
-                                           uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                           uint32_t emissiveIdx, MaterialType type,
-                                           float alphaCutoff) {
+uint32_t BindlessTables::allocMaterialSlot(const MaterialDesc& desc, const MaterialTextureSlots& textures) {
 #ifdef SAIDA_RHI_WEBGPU
-    (void)baseColor;
-    (void)emissive;
-    (void)metallic;
-    (void)roughness;
-    (void)ao;
-    (void)albedoIdx;
-    (void)normalIdx;
-    (void)mrIdx;
-    (void)emissiveIdx;
-    (void)type;
-    (void)alphaCutoff;
+    (void)desc;
+    (void)textures;
     return 0;
 #else
     if (!materialBuffer_) return 0;
@@ -261,46 +250,39 @@ uint32_t BindlessTables::allocMaterialSlot(const glm::vec4& baseColor, const glm
         }
     }
 
-    writeMaterialSlot(index, baseColor, emissive, metallic, roughness, ao,
-                      albedoIdx, normalIdx, mrIdx, emissiveIdx, type, alphaCutoff);
+    writeMaterialSlot(index, desc, textures);
     return index;
 #endif
 }
 
-void BindlessTables::writeMaterialSlot(uint32_t index, const glm::vec4& baseColor,
-                                       const glm::vec4& emissive,
-                                       float metallic, float roughness, float ao,
-                                       uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                       uint32_t emissiveIdx, MaterialType type,
-                                       float alphaCutoff) {
+void BindlessTables::writeMaterialSlot(uint32_t index, const MaterialDesc& desc,
+                                       const MaterialTextureSlots& textures) {
 #ifdef SAIDA_RHI_WEBGPU
     (void)index;
-    (void)baseColor;
-    (void)emissive;
-    (void)metallic;
-    (void)roughness;
-    (void)ao;
-    (void)albedoIdx;
-    (void)normalIdx;
-    (void)mrIdx;
-    (void)emissiveIdx;
-    (void)type;
-    (void)alphaCutoff;
+    (void)desc;
+    (void)textures;
 #else
     if (!materialBuffer_) return;
 
     MaterialData data{};
-    data.baseColor = baseColor;
-    data.emissive = emissive;
-    data.metallic = metallic;
-    data.roughness = roughness;
-    data.ao = ao;
-    data.albedoTexIdx = albedoIdx;
-    data.normalTexIdx = normalIdx;
-    data.mrTexIdx = mrIdx;
-    data.emissiveTexIdx = emissiveIdx;
-    data.materialType = static_cast<uint32_t>(type);
-    data.alphaCutoff = alphaCutoff;
+    data.baseColor = desc.baseColor;
+    data.emissive = desc.emissiveColor;
+    data.metallic = desc.metallic;
+    data.roughness = desc.roughness;
+    data.ao = desc.ao;
+    data.albedoTexIdx = textures.albedo;
+    data.normalTexIdx = textures.normal;
+    data.mrTexIdx = textures.metallicRoughness;
+    data.emissiveTexIdx = textures.emissive;
+    data.materialType = static_cast<uint32_t>(desc.type);
+    data.alphaCutoff = desc.alphaCutoff;
+    data.normalStrength = desc.normalStrength;
+    data.heightTexIdx = textures.height;
+    // A texture still loading is the default white: flat, as if no height.
+    data.parallaxDepth = desc.heightId == kAssetInvalid ? 0.0f : desc.parallaxDepth;
+    data.reflection = glm::vec4(desc.environmentReflection, 0.0f, 0.0f, 0.0f);
+    data.variation = glm::vec4(desc.variation.warp, desc.variation.macroScale,
+                               desc.variation.macroAlbedo, desc.variation.macroNormal);
 
     void* mapped = materialBuffer_->mapped();
     if (mapped) {

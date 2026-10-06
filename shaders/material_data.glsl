@@ -16,10 +16,12 @@ struct MaterialData {
     uint emissiveTexIdx;
     uint materialType;
     float alphaCutoff;
-    float _pad0;
-    float _pad1;
-    float _pad2;
+    float normalStrength;
+    uint heightTexIdx;
+    float parallaxDepth;  // texture-coordinate units; 0 draws the surface flat
     vec4 emissive;
+    vec4 variation;  // MaterialDesc::variation: warp, macroScale, macroAlbedo, macroNormal
+    vec4 reflection; // x MaterialDesc::environmentReflection
 };
 
 layout(set = MATERIAL_SET, binding = 0) uniform sampler2D globalTextures[8192];

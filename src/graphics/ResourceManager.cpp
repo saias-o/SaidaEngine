@@ -144,25 +144,13 @@ uint32_t ResourceManager::ensureBindlessTextureIndex(Texture* texture) {
     return bindlessTables_.ensureTextureIndex(texture);
 }
 
-uint32_t ResourceManager::registerMaterialData(const glm::vec4& baseColor, const glm::vec4& emissive,
-                                               float metallic, float roughness, float ao,
-                                               uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                               uint32_t emissiveIdx, MaterialType type,
-                                               float alphaCutoff) {
-    return bindlessTables_.allocMaterialSlot(baseColor, emissive, metallic, roughness, ao,
-                                             albedoIdx, normalIdx, mrIdx, emissiveIdx, type,
-                                             alphaCutoff);
+uint32_t ResourceManager::registerMaterialData(const MaterialDesc& desc, const MaterialTextureSlots& textures) {
+    return bindlessTables_.allocMaterialSlot(desc, textures);
 }
 
-void ResourceManager::updateMaterialData(uint32_t index, const glm::vec4& baseColor,
-                                         const glm::vec4& emissive,
-                                         float metallic, float roughness, float ao,
-                                         uint32_t albedoIdx, uint32_t normalIdx, uint32_t mrIdx,
-                                         uint32_t emissiveIdx, MaterialType type,
-                                         float alphaCutoff) {
-    bindlessTables_.writeMaterialSlot(index, baseColor, emissive, metallic, roughness, ao,
-                                      albedoIdx, normalIdx, mrIdx, emissiveIdx, type,
-                                      alphaCutoff);
+void ResourceManager::updateMaterialData(uint32_t index, const MaterialDesc& desc,
+                                         const MaterialTextureSlots& textures) {
+    bindlessTables_.writeMaterialSlot(index, desc, textures);
 }
 
 Mesh* ResourceManager::loadMesh(AssetID id) {
@@ -196,7 +184,8 @@ Texture* ResourceManager::getTexture(AssetID id, bool srgb) {
 void ResourceManager::rebindMaterialsUsing(AssetID textureId) {
     for (auto& [desc, material] : materials_) {
         if (desc.albedoId == textureId || desc.normalId == textureId ||
-            desc.metallicRoughnessId == textureId || desc.emissiveId == textureId)
+            desc.metallicRoughnessId == textureId || desc.emissiveId == textureId ||
+            desc.heightId == textureId)
             material->rebindTextures(*this);
     }
 }

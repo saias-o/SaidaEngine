@@ -165,6 +165,8 @@ set(SHADERS
     ${SHADER_DIR}/terrain_rings.frag
     ${SHADER_DIR}/terrain_rings_sun.comp
     ${SHADER_DIR}/terrain_rings_occlusion.comp
+    ${SHADER_DIR}/grass.vert
+    ${SHADER_DIR}/grass.frag
     ${SHADER_DIR}/particle_render.vert
     ${SHADER_DIR}/particle_render.frag
     ${SHADER_DIR}/particle_init.comp
@@ -257,6 +259,7 @@ foreach(SHADER ${SHADERS})
        OR SHADER_NAME STREQUAL "water.vert" OR SHADER_NAME STREQUAL "water_surface.vert"
        OR SHADER_NAME STREQUAL "cartoon_water.vert" OR SHADER_NAME STREQUAL "cartoon_water_surface.vert"
        OR SHADER_NAME STREQUAL "outline.vert" OR SHADER_NAME STREQUAL "terrain_rings.vert"
+       OR SHADER_NAME STREQUAL "grass.vert"
        OR SHADER_NAME STREQUAL "particle_render.vert")
         set(MULTIVIEW_OUTPUT ${SHADER_OUT_DIR}/multiview.${SHADER_NAME}.spv)
         add_custom_command(
@@ -538,6 +541,7 @@ add_library(saida_engine STATIC
     src/fx/ParticleRuntime.cpp
     src/render/features/WaterFeature.cpp
     src/render/features/TerrainRingsFeature.cpp
+    src/render/features/GrassFeature.cpp
     src/render/features/ParticleFeature.cpp
     src/render/features/OutlineFeature.cpp
     src/render/features/SkyboxFeature.cpp
@@ -562,6 +566,7 @@ add_library(saida_engine STATIC
     src/behaviours/HealthBehaviour.cpp
     src/nodes/WaterNode.cpp
     src/nodes/TerrainRingsNode.cpp
+    src/nodes/GrassNode.cpp
     src/behaviours/SpawnerBehaviour.cpp
     src/behaviours/RotatorBehaviour.cpp
     src/scene/Blackboard.cpp
@@ -879,6 +884,12 @@ if (BUILD_TESTING)
     target_link_libraries(saida_terrain_rings_tests PRIVATE saida_engine)
     target_compile_options(saida_terrain_rings_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_terrain_rings_tests COMMAND $<TARGET_FILE:saida_terrain_rings_tests>)
+
+    add_executable(saida_grass_tests tests/GrassTests.cpp)
+    saida_test_target(saida_grass_tests)
+    target_link_libraries(saida_grass_tests PRIVATE saida_engine)
+    target_compile_options(saida_grass_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_grass_tests COMMAND $<TARGET_FILE:saida_grass_tests>)
 
     add_executable(saida_cartoon_water_tests tests/CartoonWaterTests.cpp)
     saida_test_target(saida_cartoon_water_tests)
