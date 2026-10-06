@@ -36,14 +36,17 @@ void main() {
     vec2 cell = (vec2(float(qx), float(qz)) + OFF[corner]) / float(RES);  // [0,1]
     vec2 xz = w.area.xz + (cell - 0.5) * 2.0 * w.area.w;
 
-    vec3 pos;
-    waterWaveAt(xz, w.area.y, w, push.time, pos, fragNormal, fragCrest);
-    fragWorldPos = pos;
-
 #ifdef MULTIVIEW
     int vi = gl_ViewIndex;
 #else
     int vi = 0;
 #endif
+    // The grid carries the trains its vertices, and the pixels they cover,
+    // can draw; the fragment shader draws the rest.
+    float distance = length(waterCameraPosition(cam.view[vi]) - vec3(xz.x, w.area.y, xz.y));
+    float spacing = max(2.0 * w.area.w / float(RES), 3.0 * waterPixelFootprint(cam.proj[vi], distance));
+    vec3 pos;
+    waterWaveAt(xz, w.area.y, w, push.time, spacing, pos, fragNormal, fragCrest);
+    fragWorldPos = pos;
     gl_Position = cam.proj[vi] * cam.view[vi] * vec4(pos, 1.0);
 }

@@ -6,6 +6,27 @@ cycle receives its own immutable beta tag.
 
 ## v1.0.0-beta.4 (unreleased)
 
+### Realistic water that never reads as tiles
+
+- `WaterNode`'s realistic waves fan around the wind at irregular offsets with
+  an irrational wavelength ratio, so their sum never repeats. Headings in
+  37-degree steps with a 1.87 ratio closed into a lattice that read as tiles
+  from the air.
+- The mesh carries only the trains it has eight vertices for, and the trains
+  shorter than a few pixels; the fragment shader draws every train and ripple
+  octave as normals, each faded by the pixel's footprint (from the view ray,
+  continuous across triangles), and turns what it no longer draws into
+  roughness: a far sea is a broad glitter path under the Sun.
+- Gusts hundreds of metres across vary ripple height and gloss; the sun glint
+  is GGX on the filtered roughness; light passes through the crests when the
+  view faces the Sun.
+- The ripple noise is quintic with an integer lattice hash: the cubic's slope
+  creased along every lattice line, and the float hash gave one corner two
+  values when a compiler rounded its two paths differently.
+- ALU only, no texture or binding added; the GPU water layout is unchanged.
+  Desktop, multiview and Web (WGSL) variants compile, and
+  `saida_cartoon_water_tests` guards the anti-tiling properties.
+
 ### A sky that changes with the hour
 
 - The skybox crossfades two skies: `SceneSettings::skyboxBlendTexture`,

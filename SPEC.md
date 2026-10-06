@@ -387,6 +387,18 @@ The shaped surface follows the node transform and keeps the shader's waves,
 normal detail, Fresnel reflection and sun sparkle. An empty surface retains the
 procedural square used by ocean scenes.
 
+Realistic water is filtered so that it never repeats. Its five wave trains fan
+around the wind at irregular offsets with an irrational wavelength ratio
+(`water_wave.glsl`). The vertex shader displaces only the trains its mesh
+spacing and the local pixel size can carry (eight vertices a wavelength); the
+fragment shader draws every train and ripple octave as a normal, fading each by
+the pixel's footprint on the water (from the view ray's derivative, continuous
+across triangles) and adding the slope variance it drops to the roughness that
+drives the GGX sun glint and the environment reflection's level. Large gust
+patches vary ripple height and gloss. The ripple noise is quintic value noise
+on an integer hash. The shading is arithmetic only: no texture, binding or
+change to the 64-entry water UBO.
+
 `MaterialDesc::doubleSided` controls scene visibility on desktop, Web and XR.
 Classic draws select a no-cull pipeline for two-sided materials; the mixed
 bindless pipeline carries the flag at byte 88 of each 96-byte instance and

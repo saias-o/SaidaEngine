@@ -21,11 +21,15 @@ layout(location = 2) out float fragCrest;
 void main() {
     GpuWater w = waters.items[push.index];
     vec3 base = (w.localToWorld * vec4(inPosition, 1.0)).xyz;
-    waterWaveAt(base.xz, base.y, w, push.time, fragWorldPos, fragNormal, fragCrest);
 #ifdef MULTIVIEW
     int vi = gl_ViewIndex;
 #else
     int vi = 0;
 #endif
+    // A shaped surface's vertices are where its outline put them, not on a
+    // grid: only the pixels they cover bound what it can carry.
+    float distance = length(waterCameraPosition(cam.view[vi]) - base);
+    float spacing = 3.0 * waterPixelFootprint(cam.proj[vi], distance);
+    waterWaveAt(base.xz, base.y, w, push.time, spacing, fragWorldPos, fragNormal, fragCrest);
     gl_Position = cam.proj[vi] * cam.view[vi] * vec4(fragWorldPos, 1.0);
 }

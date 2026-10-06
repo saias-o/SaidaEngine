@@ -52,5 +52,19 @@ int main() {
     if (!contains(readText(shaderRoot / "water_surface.vert"), "waterWaveAt")) return 18;
     if (!contains(readText(shaderRoot / "cartoon_water_surface.vert"), "localToWorld")) return 19;
 
+    // Realistic water must never read as tiles from the air: no wave train on
+    // a commensurate heading lattice, every train filtered by what the mesh
+    // and the pixel can carry, and a lattice hash that is exact (integer), so
+    // a noise corner has one value whichever cell reaches it.
+    const std::string waves = readText(shaderRoot / "water_wave.glsl");
+    const std::string realistic = readText(shaderRoot / "water.frag");
+    if (waves.empty() || realistic.empty()) return 20;
+    if (contains(waves, "36.87")) return 21;
+    if (!contains(waves, "waterTrainShown")) return 22;
+    if (!contains(readText(shaderRoot / "water.vert"), "waterPixelFootprint")) return 23;
+    if (!contains(realistic, "waterTrainShown")) return 24;
+    if (!contains(realistic, "float hash21(ivec2")) return 25;
+    if (!contains(realistic, "footprint")) return 26;
+
     return 0;
 }
