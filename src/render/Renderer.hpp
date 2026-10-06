@@ -29,6 +29,7 @@ class Camera;
 class Mesh;
 class Project;
 class Material;
+class Texture;
 class ResourceManager;
 class ShadowMap;
 class UIRenderer;
@@ -151,7 +152,7 @@ private:
     void createUniformBuffers();
     void createGlobalDescriptorSets();
     // Bind groups are immutable, so changed inputs require a new group.
-    void rebuildGlobalSet(int frame);
+    void rebuildGlobalSet(int frame, Texture* environment = nullptr);
     void createGpuDrivenBuffers();
     void createCullingPipeline();
     void uploadGpuDrivenDraws();
