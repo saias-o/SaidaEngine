@@ -31,9 +31,10 @@ namespace saida {
 //   the ground under it is drawn with, so that where blades thin out with
 //   distance nothing changes), a the density, 0 none to 255 the most.
 //
-// Blades grow out to `radius` metres from the camera, at `density` blades a
-// square metre near it, thinning in three rings each twice the last; past
-// the radius the ground's own colour is the grass.
+// Blades grow in tufts of `tuftBlades`, `density` tufts a square metre near
+// the camera, out to `radius` metres, thinning in three rings each twice the
+// last; past the radius the ground's own colour is the grass. Gusts run
+// across the field along `windDirection` and lay it down as they pass.
 class GrassNode : public Node {
 public:
     GrassNode() : Node("Grass") {}
@@ -43,12 +44,15 @@ public:
     static constexpr int kMaxGroundSamples = 65;  // MAX_GROUND in grass.glsl
     static constexpr int kMaxCoverSize = 512;     // MAX_COVER in grass.glsl
     static constexpr int kMaxBenders = 4;         // MAX_BENDERS in grass.glsl
+    static constexpr int kMaxTuftBlades = 8;
 
-    float density = 48.0f;      // blades a square metre, nearest ring
-    float bladeHeight = 0.32f;  // metres, at full density; each blade varies about it
-    float bladeWidth = 0.035f;  // metres at the root, nearest ring
-    float radius = 36.0f;       // metres from the camera past which none is drawn
-    float wind = 0.35f;         // metres a blade's tip sways at most
+    float density = 16.0f;      // tufts a square metre, nearest ring
+    int tuftBlades = 5;         // blades a tuft
+    float bladeHeight = 0.45f;  // metres, at full density; each blade varies about it
+    float bladeWidth = 0.06f;   // metres at the root, nearest ring
+    float radius = 70.0f;       // metres from the camera past which none is drawn
+    float wind = 0.35f;         // a blade's sway, in blade heights
+    float gust = 0.7f;          // how hard the passing gusts lay the grass down, 0 to 1
     glm::vec2 windDirection{1.0f, 0.3f};  // node-local x, z
 
     struct Field {

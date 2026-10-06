@@ -23,8 +23,8 @@ public:
     static constexpr uint32_t kMaxFields = 9;    // MAX_FIELDS in grass.glsl
     static constexpr int kRingCells = 192;       // RING_CELLS in grass.glsl; divisible by 4
     static constexpr int kRings = 3;
-    // A blade's vertices in each ring: three segments near, two, then one.
-    static constexpr std::array<uint32_t, kRings> kBladeVertices{15u, 9u, 3u};
+    // A blade's vertices in each ring: two segments and a tip near, the tip alone past it.
+    static constexpr std::array<uint32_t, kRings> kBladeVertices{9u, 3u, 3u};
 
     ~GrassFeature() override;
     void createPipelines(const RenderContext& ctx) override;
@@ -52,6 +52,7 @@ private:
         glm::vec4 wind{0.0f};
         glm::vec4 camera{0.0f};
         glm::ivec4 sizes{0};
+        glm::vec4 tuft{0.0f};
         glm::vec4 benders[GrassNode::kMaxBenders]{};
     };
     struct Push {
@@ -78,6 +79,7 @@ private:
     };
     struct Drawn {
         uint32_t slot;
+        uint32_t tuftBlades;
         float density, radius;
         glm::vec2 eye, lo, hi;
     };

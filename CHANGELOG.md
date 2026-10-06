@@ -15,9 +15,12 @@ cycle receives its own immutable beta tag.
   the bindless scene path, fading out with the pixel's footprint.
 - `MaterialDesc::environmentReflection`: glazing reflects the sky even where
   the scene's image-based lighting is off; only smooth surfaces add it.
-- `GrassNode` and `GrassFeature`: grass blades made in the vertex shader on a
-  caller's heightfield and cover, three rings around the camera, wind, and
-  benders that push them aside. Desktop only; `saida_grass_tests`.
+- `GrassNode` and `GrassFeature`: tufts of grass blades made in the vertex
+  shader on a caller's heightfield and cover, three rings around the camera,
+  gusts that run across the field and lay it down, and benders that push it
+  aside; a tuft the view, the cover or the radius drops costs a few
+  instructions a vertex. Every setting is reflected, so any project tunes it
+  in the editor or its scene. Desktop only; `saida_grass_tests`.
 - The lattice noise water used moves to `shaders/noise.glsl`, shared.
 
 ### Realistic water that never reads as tiles

@@ -442,17 +442,26 @@ the camera with no geometry: the caller gives a field -- a heightfield of up to
 65 x 65 node-local heights over the unit square of a parameter (u, v), split
 into triangles as a ground mesh on the same grid is, an affine map from
 node-local (x, z) to (u, v), and an RGBA8 cover of up to 512 x 512 texels,
-sRGB colour and density -- and `GrassFeature` makes each blade in
-`grass.vert` from a hash of its world-fixed cell: where in the cell, facing,
-height, lean, wind sway (a drifting gust field and a flutter) and the push of
-up to four `benders` (a character, a wheel). Three rings of 192 x 192 cells
-share one centre snapped to twice the coarsest spacing, each ring's blades
-twice as far apart and 1.7 times wider, the ring inside cut out exactly
-(`saida_grass_tests`); a ring is drawn only over the cells where the field
-and the camera's `radius` meet, and blades shorten to nothing over the last
-30 % of it, where the ground's own colour takes over. Blades are lit like any
-surface, their normal leaning to the ground's, darker toward the root, with
-the directional light's transmission from behind. Nine fields are drawn at
+sRGB colour and density -- and `GrassFeature` grows a tuft of `tuftBlades`
+blades in each world-fixed cell of `grass.vert`, `density` tufts a square
+metre near the camera. What decides a whole tuft -- the ring's hole, the
+radius, the field, the cover's density, the view frustum -- is tested before
+any blade is built; each blade then takes from a hash where it roots in the
+cell, its facing, height, width and lean out of the tuft, and bends with the
+wind: gusts of noise a few tens of metres across run along `windDirection` and
+lay the grass down as they pass (`gust`), over a steady sway (`wind`, in blade
+heights) and a flutter, a blade keeping its length as it bends; up to four
+`benders` (a character, a wheel) push it aside. Three rings of 192 x 192
+cells share one centre snapped to twice the coarsest spacing, each ring's
+tufts twice as far apart and their blades 1.7 times wider, the ring inside
+cut out exactly (`saida_grass_tests`); a blade has two segments and a tip in
+the nearest ring and the tip alone past it. A ring is drawn only over the
+cells where the field and the camera's `radius` meet, and blades shorten to
+nothing over the last 30 % of it, where the ground's own colour takes over.
+Blades are lit like any surface, their normal leaning to the ground's, darker
+toward the root and lighter at the tip, paler where a gust lays them down,
+with the directional light's transmission from behind. The defaults (16 tufts
+a square metre of 5 blades 45 cm tall, out to 70 m) are a knee-high meadow. Nine fields are drawn at
 once at most, said in the log when more are in reach; a field's ground and
 cover are re-uploaded only when its revision changes.
 

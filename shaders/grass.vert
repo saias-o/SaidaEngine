@@ -1,12 +1,15 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 
-// One ring of a GrassNode's blades. A blade is made here from a hash of the
-// cell it grows in: where in the cell, which way it faces, how tall, how it
-// leans; it stands on the field's ground, triangle for triangle, and takes
-// the colour and density of the cover under it. No vertex input, nothing
-// stored: a ring is RING_CELLS^2 cells around the camera, the ring inside it
-// cut out, each ring's blades twice as far apart and wider than the last.
+// One ring of a GrassNode's blades. Each cell grows a tuft: its blades are
+// made here from a hash of the cell -- where in it, which way each faces,
+// how tall, how it leans -- standing on the field's ground, triangle for
+// triangle, in the colour and density of the cover under them. No vertex
+// input, nothing stored: a ring is RING_CELLS^2 cells around the camera, the
+// ring inside it cut out, each ring's tufts twice as far apart and their
+// blades wider than the last's. What decides a whole tuft -- its cell, its
+// cover, the view -- is tested before any blade is built, so a dropped tuft
+// costs a handful of instructions a vertex.
 
 #ifdef MULTIVIEW
 #extension GL_EXT_multiview : require
@@ -24,14 +27,18 @@ layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragColor;
 layout(location = 3) out float fragHeight;  // 0 at the root, 1 at the tip
+layout(location = 4) out float fragGust;    // how hard the passing gust lays it, 0 to 1
 
 const float PI = 3.14159265359;
 const float ROOT_SINK = 0.02;        // m below the ground, so no root floats over a crease
-const float HEIGHT_SPREAD = 0.55;    // a blade's height, 1 +/- this times half
-const float LEAN = 0.35;             // the tip's lean, in blade heights
+const float HEIGHT_SPREAD = 0.6;     // a blade's height, 1 +/- this times half
+const float LEAN = 0.3;              // the tip's lean, in blade heights
+const float TUFT_SPREAD = 0.9;       // of a cell, the square a tuft's blades root in
 const float RING_WIDENING = 1.7;     // a ring's blades this much wider than the last's
 const float FADE_START = 0.7;        // of the radius: blades shorten from here to nothing at it
-const float CULL_MARGIN = 1.2;       // clip space: a blade's root this far outside the view is dropped
+const float CULL_MARGIN = 1.25;      // clip space: a tuft this far outside the view is dropped
+const float GUST_SCALE = 0.045;      // gust cells a metre: waves a few tens of metres across
+const float GUST_SPEED = 0.45;       // gust cells a second, along the wind
 
 uint hashCell(ivec2 cell, uint salt) {
     uvec2 u = uvec2(cell);
@@ -73,53 +80,66 @@ vec4 coverAt(GpuGrass g, vec2 uv) {
 
 void drop() {
     gl_Position = vec4(0.0, 0.0, 0.0, 1.0);  // every corner the same: no area, nothing drawn
-    fragWorldPos = vec3(0.0); fragNormal = vec3(0.0, 1.0, 0.0); fragColor = vec3(0.0); fragHeight = 0.0;
+    fragWorldPos = vec3(0.0); fragNormal = vec3(0.0, 1.0, 0.0); fragColor = vec3(0.0);
+    fragHeight = 0.0; fragGust = 0.0;
 }
 
 void main() {
     GpuGrass g = grass.items[push.slot];
-    uint blade = uint(gl_VertexIndex) / push.vertices;
-    uint corner = uint(gl_VertexIndex) % push.vertices;
-    ivec2 cell = push.cellMin + ivec2(int(blade % push.cellsX), int(blade / push.cellsX));
-    // The world-fixed cell, so a blade keeps its place as the rings move.
+    uint blades = uint(g.tuft.x);
+    uint perTuft = push.vertices * blades;
+    uint tuft = uint(gl_VertexIndex) / perTuft;
+    uint inTuft = uint(gl_VertexIndex) % perTuft;
+    uint bladeIndex = inTuft / push.vertices;
+    uint corner = inTuft % push.vertices;
+    ivec2 cell = push.cellMin + ivec2(int(tuft % push.cellsX), int(tuft / push.cellsX));
+    // The world-fixed cell, so a tuft keeps its place as the rings move.
     ivec2 key = ivec2(floor(push.origin / push.spacing + 0.5)) + cell;
 
-    vec2 local = push.origin + (vec2(cell) + vec2(random(key, 1u), random(key, 2u))) * push.spacing;
-    vec2 fromCamera = local - g.camera.xz;
+    // The tuft: kept or dropped before any blade is built.
+    vec2 centre = push.origin + (vec2(cell) + 0.5) * push.spacing;
     // The ring inside draws this square.
-    if (push.hole.x > 0.0 && all(lessThan(abs(local - (push.origin + 0.5 * float(RING_CELLS) * push.spacing)),
+    if (push.hole.x > 0.0 && all(lessThan(abs(centre - (push.origin + 0.5 * float(RING_CELLS) * push.spacing)),
                                           push.hole))) { drop(); return; }
-    float distance = length(fromCamera);
+    float distance = length(centre - g.camera.xz);
     float radius = g.blades.w;
     if (distance > radius) { drop(); return; }
-
-    vec2 uv = vec2(dot(vec3(local, 1.0), g.uvFromLocalU.xyz), dot(vec3(local, 1.0), g.uvFromLocalV.xyz));
+    vec2 uv = vec2(dot(vec3(centre, 1.0), g.uvFromLocalU.xyz), dot(vec3(centre, 1.0), g.uvFromLocalV.xyz));
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) { drop(); return; }
     vec4 here = coverAt(g, uv);
-    // The cover's density is the share of cells that grow a blade.
+    // The cover's density is the share of cells that grow a tuft.
     if (random(key, 3u) >= here.a) { drop(); return; }
+    float ground = groundAt(g, uv);
+    vec4 clip = cam.proj[0] * cam.view[0] * g.localToWorld *
+                vec4(centre.x, ground + 0.5 * g.blades.y, centre.y, 1.0);
+    if (clip.w > 0.0 && any(greaterThan(abs(clip.xy), vec2(CULL_MARGIN * clip.w)))) { drop(); return; }
 
-    float y = groundAt(g, uv) - ROOT_SINK;
-    vec4 rootClip = cam.proj[0] * cam.view[0] * g.localToWorld * vec4(local.x, y, local.y, 1.0);
-    if (rootClip.w > 0.0 && any(greaterThan(abs(rootClip.xy), vec2(CULL_MARGIN * rootClip.w)))) {
-        drop(); return;
-    }
+    // One blade of it.
+    ivec2 bladeKey = key * 8 + ivec2(int(bladeIndex), int(bladeIndex) * 3);
+    vec2 local = centre + (vec2(random(bladeKey, 1u), random(bladeKey, 2u)) - 0.5) * TUFT_SPREAD * push.spacing;
+    vec2 bladeUv = vec2(dot(vec3(local, 1.0), g.uvFromLocalU.xyz), dot(vec3(local, 1.0), g.uvFromLocalV.xyz));
+    float y = groundAt(g, clamp(bladeUv, vec2(0.0), vec2(1.0))) - ROOT_SINK;
 
     float fade = 1.0 - smoothstep(FADE_START * radius, radius, distance);
-    float height = g.blades.y * (1.0 + HEIGHT_SPREAD * (random(key, 4u) - 0.5)) * fade * mix(0.6, 1.0, here.a);
-    float width = g.blades.z * pow(RING_WIDENING, float(push.ring)) * mix(0.7, 1.3, random(key, 5u));
-    float facing = random(key, 6u) * 2.0 * PI;
+    float height = g.blades.y * (1.0 + HEIGHT_SPREAD * (random(bladeKey, 4u) - 0.5)) * fade *
+                   mix(0.55, 1.0, here.a);
+    float width = g.blades.z * pow(RING_WIDENING, float(push.ring)) * mix(0.7, 1.3, random(bladeKey, 5u));
+    float facing = random(bladeKey, 6u) * 2.0 * PI;
     vec2 side = vec2(cos(facing), sin(facing));
-    vec2 leanDir = vec2(-side.y, side.x) * (random(key, 7u) - 0.5) * 2.0;
+    // Out of the tuft's centre, as a tuft opens.
+    vec2 outward = local - centre;
+    vec2 leanDir = (length(outward) > 1e-4 ? normalize(outward) : side) * (0.4 + 0.6 * random(bladeKey, 7u));
 
-    // Wind: a gust field drifting along the wind, felt most at the tip.
+    // Wind: waves of gusts running across the field, each laying the grass
+    // down as it passes, over a steady sway and each blade's own flutter.
     vec2 windDir = g.wind.xy;
-    float gust = noised(local * 0.08 - windDir * g.wind.w * 0.6).x;
-    float flutter = sin(g.wind.w * 2.7 + dot(local, windDir) * 0.9 + random(key, 8u) * 6.2831);
-    vec2 sway = windDir * g.wind.z * (0.6 * gust + 0.25 * flutter);
+    float gust = noised(local * GUST_SCALE - windDir * g.wind.w * GUST_SPEED).x;
+    float wave = smoothstep(0.45, 0.85, gust) * g.tuft.y;
+    float flutter = sin(g.wind.w * 3.1 + dot(local, windDir) * 1.3 + random(bladeKey, 8u) * 6.2831);
+    vec2 sway = windDir * g.wind.z * (0.35 + 1.4 * wave) + vec2(-windDir.y, windDir.x) * g.wind.z * 0.15 * flutter;
 
     // Pushed aside by what walks through it.
-    vec2 push2 = vec2(0.0);
+    vec2 pushed = vec2(0.0);
     float flatten = 0.0;
     for (int i = 0; i < MAX_BENDERS; ++i) {
         vec4 b = g.benders[i];
@@ -128,17 +148,16 @@ void main() {
         float d = length(away);
         if (d >= b.w || abs(y - b.y) > b.w + height) continue;
         float k = 1.0 - d / b.w;
-        push2 += (d > 1e-4 ? away / d : side) * k;
+        pushed += (d > 1e-4 ? away / d : side) * k;
         flatten = max(flatten, k);
     }
 
-    // Segments up the blade: ring 0 three, ring 1 two, ring 2 one.
-    uint segments = (push.vertices - 3u) / 6u + 1u;
+    // Segments up the blade: in the nearest ring two and a tip, past it the tip alone.
+    uint segments = (push.vertices + 3u) / 6u;
     uint triangle = corner / 3u, vertex = corner % 3u;
     uint level;
     float across;
     if (triangle + 1u == segments * 2u - 1u) {
-        // The tip: a single triangle.
         level = vertex == 2u ? segments : segments - 1u;
         across = vertex == 0u ? -1.0 : vertex == 1u ? 1.0 : 0.0;
     } else {
@@ -151,8 +170,10 @@ void main() {
     }
     float t = float(level) / float(segments);
     float bend = t * t;
-    vec2 offset = (leanDir * LEAN * height + sway) * bend + push2 * height * 0.9 * t;
-    float rise = height * t * (1.0 - 0.7 * flatten);
+    vec2 offset = (leanDir * LEAN * height + sway * height) * bend + pushed * height * 0.9 * t;
+    // A blade keeps its length as it bends: what leans over comes down.
+    float leaning = length(offset) / max(height, 1e-3);
+    float rise = height * t * (1.0 - 0.7 * flatten) * inversesqrt(1.0 + leaning * leaning);
     float halfWidth = 0.5 * width * (1.0 - t * 0.85);
     vec2 xz = local + side * across * halfWidth + offset;
     vec3 position = vec3(xz.x, y + rise, xz.y);
@@ -161,7 +182,7 @@ void main() {
     // the ground's up: a meadow is lit like the ground it covers.
     vec3 face = normalize(vec3(-side.y, 0.0, side.x) + vec3(side.x, 0.0, side.y) * across * 0.5 +
                           vec3(0.0, 0.4, 0.0));
-    vec3 normal = normalize(mix(face, vec3(0.0, 1.0, 0.0), 0.55));
+    vec3 normal = normalize(mix(face, vec3(0.0, 1.0, 0.0), 0.6));
 
     vec4 world = g.localToWorld * vec4(position, 1.0);
 #ifdef MULTIVIEW
@@ -172,7 +193,7 @@ void main() {
     gl_Position = cam.proj[viewIndex] * cam.view[viewIndex] * world;
     fragWorldPos = world.xyz;
     fragNormal = normalize(mat3(g.localToWorld) * normal);
-    float shade = mix(0.85, 1.15, random(key, 9u));
-    fragColor = here.rgb * shade;
+    fragColor = here.rgb * mix(0.85, 1.15, random(bladeKey, 9u));
     fragHeight = t;
+    fragGust = wave;
 }

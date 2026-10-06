@@ -134,6 +134,8 @@ void GrassFeature::record(FrameContext& fc) {
         g.wind = glm::vec4(wind, node->wind, fc.time);
         g.camera = glm::vec4(eye, 0.0f);
         g.sizes = glm::ivec4(field->groundSamples, field->coverSize, 0, 0);
+        const int tuftBlades = std::clamp(node->tuftBlades, 1, GrassNode::kMaxTuftBlades);
+        g.tuft = glm::vec4(float(tuftBlades), std::clamp(node->gust, 0.0f, 1.0f), 0.0f, 0.0f);
         for (int i = 0; i < GrassNode::kMaxBenders; ++i) g.benders[i] = node->benders[size_t(i)];
         if (f.nodes[slot] != node || f.revisions[slot] != node->revision()) {
             f.ground->write(field->heights.data(), field->heights.size() * sizeof(float), slot * kGroundBytes);
@@ -141,7 +143,7 @@ void GrassFeature::record(FrameContext& fc) {
             f.nodes[slot] = node;
             f.revisions[slot] = node->revision();
         }
-        drawn_.push_back({slot, node->density, node->radius, xz, lo, hi});
+        drawn_.push_back({slot, uint32_t(tuftBlades), node->density, node->radius, xz, lo, hi});
     }
     if (count == 0) return;
     f.ubo->write(packed_.data(), sizeof(GpuGrass) * count);
@@ -157,7 +159,7 @@ void GrassFeature::record(FrameContext& fc) {
             Push push{r.origin, r.spacing, d.slot, r.cellMin, uint32_t(r.cells.x), uint32_t(ring), r.hole,
                       vertices, 0u};
             fc.pass.setPushConstants(&push, sizeof(Push));
-            fc.pass.draw(uint32_t(r.cells.x) * uint32_t(r.cells.y) * vertices);
+            fc.pass.draw(uint32_t(r.cells.x) * uint32_t(r.cells.y) * vertices * d.tuftBlades);
         }
 }
 

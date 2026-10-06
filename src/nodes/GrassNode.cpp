@@ -8,13 +8,16 @@ namespace saida {
 
 void GrassNode::describe(reflect::TypeBuilder<GrassNode>& t) {
     t.doc("Grass blades made in the vertex shader around the camera, on a field the game supplies.");
-    t.property("density", &GrassNode::density).range(1.0, 400.0)
-        .tooltip("blades a square metre in the nearest ring");
+    t.property("density", &GrassNode::density).range(1.0, 100.0)
+        .tooltip("tufts a square metre in the nearest ring");
+    t.property("tuftBlades", &GrassNode::tuftBlades).range(1, kMaxTuftBlades).tooltip("blades a tuft");
     t.property("bladeHeight", &GrassNode::bladeHeight).range(0.02, 3.0).tooltip("metres");
     t.property("bladeWidth", &GrassNode::bladeWidth).range(0.002, 0.5).tooltip("metres at the root");
     t.property("radius", &GrassNode::radius).range(1.0, 200.0)
         .tooltip("metres from the camera past which no blade is drawn");
-    t.property("wind", &GrassNode::wind).range(0.0, 2.0).tooltip("metres a tip sways at most");
+    t.property("wind", &GrassNode::wind).range(0.0, 2.0).tooltip("a blade's sway, in blade heights");
+    t.property("gust", &GrassNode::gust).range(0.0, 1.0)
+        .tooltip("how hard the gusts running across the field lay it down");
 }
 
 bool GrassNode::setField(Field field) {

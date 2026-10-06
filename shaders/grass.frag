@@ -11,12 +11,15 @@ layout(location = 0) in vec3 fragWorldPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragColor;
 layout(location = 3) in float fragHeight;
+layout(location = 4) in float fragGust;
 
 layout(location = 0) out vec4 outColor;
 
 const float ROUGHNESS = 0.8;
 const float ROOT_SHADE = 0.35;      // light reaching the root, of the tip's
 const float TRANSMISSION = 0.25;    // share of the light behind a blade that comes through it
+const float TIP_LIGHT = 0.3;        // a tip is this much lighter than the blade's middle: thinner, sunlit
+const float GUST_SHEEN = 0.45;      // a blade laid down by a gust shows its paler side
 
 void main() {
     vec3 N = normalize(fragNormal);
@@ -24,7 +27,8 @@ void main() {
     // Seen from its back, a blade is lit on the side facing the eye.
     if (dot(N, V) < 0.0) N = normalize(N - 2.0 * dot(N, V) * V);
     float occlusion = mix(ROOT_SHADE, 1.0, fragHeight);
-    vec3 albedo = fragColor * occlusion;
+    float light = (1.0 + TIP_LIGHT * fragHeight * fragHeight) * (1.0 + GUST_SHEEN * fragGust * fragHeight);
+    vec3 albedo = fragColor * occlusion * light;
     LightTerms t = accumulate(N, V, fragWorldPos, albedo, 0.0, ROUGHNESS);
     vec3 lit = t.diffuse + t.specular;
     // Through the blade: the directional lights from behind, as diffuse.
