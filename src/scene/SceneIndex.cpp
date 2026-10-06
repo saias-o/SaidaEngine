@@ -138,7 +138,7 @@ void SceneIndex::publish(Node& node, Entry& e) {
     if (!e.visible) return;
     if (e.mesh && e.mesh->meshEnabled()) meshes.add(e.mesh);
     lights.add(e.light); canvases.add(e.canvas); webCanvases.add(e.webCanvas);
-    water.add(e.water); terrains.add(e.terrain); particles.add(e.particles);
+    water.add(e.water); terrains.add(e.terrain); grass.add(e.grass); particles.add(e.particles);
 }
 
 void SceneIndex::erase(Node* node) {

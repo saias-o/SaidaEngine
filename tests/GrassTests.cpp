@@ -1,5 +1,6 @@
 #include "nodes/GrassNode.hpp"
 #include "render/features/GrassFeature.hpp"
+#include "scene/Scene.hpp"
 
 #include <cmath>
 #include <cstdlib>
@@ -94,12 +95,35 @@ void testOnlyTheFieldAndTheReachAreDrawn() {
     require(far.cells.x == 0 || far.cells.y == 0, "a field out of reach draws nothing");
 }
 
+// The renderer draws the fields the scene lists: a grass node in the tree
+// must be in that list, and leave it when it is disabled or hidden. Missing
+// from it, every field was culled before the GPU saw it, without a word.
+void testTheSceneListsItsFields() {
+    Scene scene;
+    Node* tile = scene.createChild<Node>();
+    auto* grass = tile->createChild<GrassNode>();
+    scene.update(0.01f);
+    require(scene.grassFields().size() == 1 && scene.grassFields().front() == grass,
+            "a grass node in the tree is listed for the renderer");
+    grass->setVisible(false);
+    scene.refreshHierarchy();
+    require(scene.grassFields().empty(), "a hidden grass node is not listed");
+    grass->setVisible(true);
+    tile->setEnabled(false);
+    scene.update(0.01f);
+    require(scene.grassFields().empty(), "a grass node under a disabled tile is not listed");
+    tile->setEnabled(true);
+    scene.update(0.01f);
+    require(scene.grassFields().size() == 1, "enabled again, it is listed again");
+}
+
 }  // namespace
 
 int main() {
     testFieldsAreCheckedBeforeTheyAreDrawn();
     testRingsNestExactly();
     testOnlyTheFieldAndTheReachAreDrawn();
+    testTheSceneListsItsFields();
     std::cout << "[grass] " << gChecks << " checks passed\n";
     return 0;
 }
