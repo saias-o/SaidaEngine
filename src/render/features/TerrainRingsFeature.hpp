@@ -57,6 +57,7 @@ private:
         glm::vec4 layers[kLayers]{};
         glm::vec4 textures[kLayers]{}; // material slot + 1, UV scale, reserved
         glm::vec4 macros[kLayers]{};   // frequency, albedo variation, normal strength, reserved
+        glm::vec4 waterDynamics[kLayers]{}; // wave type, intensity, wind angle, gusts
         glm::vec4 holes[TerrainRingsNode::kMaxHoles * 2]{};
         glm::ivec4 holeCount{0};
         glm::vec4 sun{0.0f};     // xyz toward the shadowing light, node-local; w its index + 1, 0 none
@@ -65,6 +66,7 @@ private:
     struct Push {
         uint32_t slot;
         uint32_t level;
+        float time = 0.0f;
     };
 
     // What a march toward the light was run for: it holds while the terrain,

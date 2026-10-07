@@ -25,6 +25,7 @@ struct GpuTerrain {
     vec4 layers[MAX_LAYERS];    // rgb albedo, roughness
     vec4 textures[MAX_LAYERS];  // material slot + 1, UV scale, reserved
     vec4 macros[MAX_LAYERS];    // frequency, albedo variation, normal strength, reserved
+    vec4 waterDynamics[MAX_LAYERS]; // wave type, intensity, wind angle, gusts
     vec4 holes[MAX_HOLES * 2];  // per hole: (x0, z0, x1, z1), (x2, z2, x3, z3), node-local
     ivec4 holeCount;            // x
     vec4 sun;                   // xyz toward the shadowing light (node-local, unit); w its index + 1, 0 none
@@ -60,6 +61,7 @@ layout(std430, set = 1, binding = 3) readonly buffer SunlightBuffer {
 layout(push_constant) uniform Push {
     uint slot;
     uint level;
+    float time;
 } push;
 
 int levelBase(uint slot, uint level) {

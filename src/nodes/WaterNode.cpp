@@ -16,7 +16,15 @@ void WaterNode::describe(reflect::TypeBuilder<WaterNode>& t) {
     t.property("reflectivity", &WaterNode::reflectivity).range(0.0, 2.0)
         .tooltip("Fresnel sky-reflection strength");
 
-    t.property("amplitude", &WaterNode::amplitude).range(0.0, 5.0).tooltip("wave height (m)");
+    t.property("waveType", &WaterNode::waveType).enumValues({"Swell", "Wind sea", "Chop"})
+        .group("Waves").tooltip("Long aligned swell, crossed wind waves, or short steep chop");
+    t.property("waveIntensity", &WaterNode::waveIntensity).range(0.0, 3.0)
+        .group("Waves").tooltip("Overall wave and ripple intensity; zero gives still water");
+    t.property("windAngle", &WaterNode::windAngle).range(0.0, 360.0)
+        .group("Waves").tooltip("Open-water wave heading in world degrees; shore waves follow the shore");
+    t.property("gustStrength", &WaterNode::gustStrength).range(0.0, 1.0)
+        .group("Waves").tooltip("Moving wave groups and variable wind intensity; zero is steady wind");
+    t.property("amplitude", &WaterNode::amplitude).range(0.0, 5.0).tooltip("primary wave amplitude (m), before intensity and profile");
     t.property("wavelength", &WaterNode::wavelength).range(0.5, 200.0)
         .tooltip("distance between primary crests (m)");
     t.property("waveSpeed", &WaterNode::waveSpeed).range(0.0, 10.0);

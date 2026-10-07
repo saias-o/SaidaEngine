@@ -93,8 +93,14 @@ void TerrainRingsNode::setLayer(int index, Layer layer) {
     if (!std::isfinite(layer.textureScale) || layer.textureScale <= 0.0f ||
         !std::isfinite(layer.macroSize) || layer.macroSize <= 0.0f ||
         !std::isfinite(layer.macroVariation) || layer.macroVariation < 0.0f || layer.macroVariation > 1.0f ||
-        !std::isfinite(layer.macroNormalStrength) || layer.macroNormalStrength < 0.0f || layer.macroNormalStrength > 1.0f) {
-        Log::error("[TerrainRings] ", name(), ": invalid texture scale or variation for layer ", index);
+        !std::isfinite(layer.macroNormalStrength) || layer.macroNormalStrength < 0.0f || layer.macroNormalStrength > 1.0f ||
+        !std::isfinite(layer.waveAmplitude) || layer.waveAmplitude < 0.0f ||
+        !std::isfinite(layer.wavelength) || layer.wavelength <= 0.0f ||
+        !std::isfinite(layer.waveIntensity) || layer.waveIntensity < 0.0f || layer.waveIntensity > 3.0f ||
+        !std::isfinite(layer.windAngle) ||
+        !std::isfinite(layer.gustStrength) || layer.gustStrength < 0.0f || layer.gustStrength > 1.0f ||
+        int(layer.waveType) < 0 || int(layer.waveType) > 2) {
+        Log::error("[TerrainRings] ", name(), ": invalid texture, variation or water settings for layer ", index);
         return;
     }
     layers_[size_t(index)] = layer;

@@ -2,6 +2,7 @@
 
 #include "scene/Node.hpp"
 #include "core/Reflection.hpp"
+#include "nodes/WaterNode.hpp"
 
 #include <glm/glm.hpp>
 
@@ -75,6 +76,15 @@ public:
         float macroSize = 128.0f;
         float macroVariation = 0.0f;
         float macroNormalStrength = 0.0f; // dimensionless slope; no displacement
+        // Distant water uses WaterNode's shading in world metres on the ring's
+        // existing surface (including planetary curvature), without displacement.
+        bool water = false;
+        float waveAmplitude = 0.25f;
+        float wavelength = 15.0f;
+        WaterNode::WaveType waveType = WaterNode::WaveType::WindSea;
+        float waveIntensity = 1.0f;
+        float windAngle = 21.2505f;
+        float gustStrength = 0.35f;
     };
 
     // The spacing of level k, and the node-local x,z of its sample (0,0) when

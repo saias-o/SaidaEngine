@@ -8,6 +8,9 @@
 
 #include "lighting.glsl"
 #include "terrain_rings.glsl"
+#include "water_types.glsl"
+#include "water_shading.glsl"
+#include "water_distant.glsl"
 #ifdef BINDLESS
 #include "terrain_material.glsl"
 #endif
@@ -37,6 +40,7 @@ bool insideHole(vec4 ab, vec4 cd, vec2 p) {
 
 void main() {
     GpuTerrain t = terrains.items[push.slot];
+    float footprint = waterFootprint(fragWorldPos, normalize(fragNormal));
 #ifdef BINDLESS
     vec3 dx = dFdx(fragLocalPos), dy = dFdy(fragLocalPos);
 #endif
@@ -46,11 +50,33 @@ void main() {
     for (int i = 0; i < t.holeCount.x; ++i)
         if (insideHole(t.holes[2 * i], t.holes[2 * i + 1], fragLocalXZ)) discard;
 
+    vec4 level = t.levels[push.level];
+    vec2 grid = (fragLocalXZ-level.xy)/level.z;
+    float waterWeight; vec4 waterBody; vec2 waterWaves; vec4 waterDynamics;
+    terrainWaterLayer(t,levelBase(push.slot,push.level),grid,waterWeight,waterBody,waterWaves,waterDynamics);
+    if (push.level+1u < uint(t.focus.w)) {
+        vec4 next = t.levels[push.level+1u];
+        vec2 edge = abs(grid-.5*float(RES))/(.5*float(RES));
+        float blend = smoothstep(RING_MORPH_START,RING_MORPH_END,max(edge.x,edge.y));
+        if (next.w > .5 && blend > 0.0) {
+            float weight; vec4 body; vec2 waves; vec4 dynamics;
+            terrainWaterLayer(t,levelBase(push.slot,push.level+1u),(fragLocalXZ-next.xy)/next.z,weight,body,waves,dynamics);
+            float merged = mix(waterWeight,weight,blend);
+            waterBody = mix(waterBody*waterWeight,body*weight,blend)/max(merged,.0001);
+            waterWaves = mix(waterWaves*waterWeight,waves*weight,blend)/max(merged,.0001);
+            waterDynamics = mix(waterDynamics*waterWeight,dynamics*weight,blend)/max(merged,.0001);
+            waterWeight = merged;
+        }
+    }
+    vec4 waterColor = vec4(0);
+    if (waterWeight > .0001) {
+        waterColor = shadeWater(fragWorldPos,normalize(fragNormal),distantWater(waterBody,waterWaves,waterDynamics),push.time,footprint);
+        if (waterWeight > .9999) { outColor = waterColor; return; }
+    }
     vec4 layer = fragSurface;
     vec3 N = normalize(fragNormal);
     float metallic = 0.0;
 #ifdef BINDLESS
-    vec4 level = t.levels[push.level];
     TerrainSurface surface = terrainSurface(t, levelBase(push.slot, push.level),
         (fragLocalXZ - level.xy) / level.z, fragLocalPos, normalize(fragLocalNormal), dx, dy);
     if (push.level + 1u < uint(t.focus.w)) {
@@ -73,5 +99,5 @@ void main() {
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
     LightTerms lit = accumulateOccluded(N, V, fragWorldPos, layer.rgb, metallic, layer.a,
                                         int(t.sun.w + 0.5) - 1, clamp(fragSunlight, 0.0, 1.0));
-    outColor = vec4(lit.diffuse + lit.specular, 1.0);
+    outColor = mix(vec4(lit.diffuse + lit.specular, 1.0),waterColor,waterWeight);
 }

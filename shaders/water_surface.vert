@@ -26,10 +26,11 @@ void main() {
 #else
     int vi = 0;
 #endif
-    // A shaped surface's vertices are where its outline put them, not on a
-    // grid: only the pixels they cover bound what it can carry.
-    float distance = length(waterCameraPosition(cam.view[vi]) - base);
-    float spacing = 3.0 * waterPixelFootprint(cam.proj[vi], distance);
-    waterWaveAt(base.xz, base.y, w, push.time, spacing, fragWorldPos, fragNormal, fragCrest);
+    // Arbitrary shoreline triangles have no sampling bound: displacing their
+    // corners creates kilometre-wide ramps and cracks at independently clipped
+    // edges. Keep this coverage mesh fixed; shadeWater supplies all wave detail.
+    fragWorldPos = base;
+    fragNormal = vec3(0,1,0);
+    fragCrest = 0.0;
     gl_Position = cam.proj[vi] * cam.view[vi] * vec4(fragWorldPos, 1.0);
 }

@@ -30,6 +30,15 @@ int main() {
     if (!type.findProperty("cartoonShoreFrequency")) return 6;
     const auto* surface = type.findProperty("surface");
     if (!surface) return 16;
+    for (const char* name : {"waveType", "waveIntensity", "windAngle", "gustStrength"}) {
+        const auto* property = type.findProperty(name);
+        if (!property) return 27;
+        const nlohmann::json value = std::string(name) == "waveType" ? 2.0 : .5;
+        property->set(&water,value);
+        nlohmann::json readback;
+        property->get(&water,readback);
+        if (readback != value) return 28;
+    }
     const nlohmann::json triangle = "0 2 0 1 2 0 0 2 1";
     surface->set(&water, triangle);
     nlohmann::json roundTrip;
@@ -49,7 +58,7 @@ int main() {
     if (!contains(fragment, "shoreLine")) return 13;
     if (!contains(fragment, "cartoonWave")) return 14;
     if (!contains(fragment, "cartoonShore")) return 15;
-    if (!contains(readText(shaderRoot / "water_surface.vert"), "waterWaveAt")) return 18;
+    if (!contains(readText(shaderRoot / "water_surface.vert"), "fragWorldPos = base")) return 18;
     if (!contains(readText(shaderRoot / "cartoon_water_surface.vert"), "localToWorld")) return 19;
 
     // Realistic water must never read as tiles from the air: no wave train on
@@ -57,13 +66,13 @@ int main() {
     // and the pixel can carry, and a lattice hash that is exact (integer), so
     // a noise corner has one value whichever cell reaches it.
     const std::string waves = readText(shaderRoot / "water_wave.glsl");
-    const std::string realistic = readText(shaderRoot / "water.frag");
+    const std::string realistic = readText(shaderRoot / "water_shading.glsl");
     if (waves.empty() || realistic.empty()) return 20;
     if (contains(waves, "36.87")) return 21;
     if (!contains(waves, "waterTrainShown")) return 22;
     if (!contains(readText(shaderRoot / "water.vert"), "waterPixelFootprint")) return 23;
     if (!contains(realistic, "waterTrainShown")) return 24;
-    if (!contains(realistic, "#include \"noise.glsl\"") ||
+    if (!contains(readText(shaderRoot / "water_noise.glsl"), "#include \"noise.glsl\"") ||
         !contains(readText(shaderRoot / "noise.glsl"), "float hash21(ivec2")) return 25;
     if (!contains(realistic, "footprint")) return 26;
 

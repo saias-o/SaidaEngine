@@ -19,6 +19,7 @@ public:
     enum class Style { Realistic = 0, Cartoon = 1 };
     // Analytic shore shape used by the water shaders.
     enum class ShoreMode { None = 0, Beach = 1, Lake = 2 };
+    enum class WaveType { Swell = 0, WindSea = 1, Chop = 2 };
 
     Style style = Style::Realistic;
     float size = 300.0f;          // half-extent of the plane (m)
@@ -32,6 +33,10 @@ public:
     float reflectivity = 0.55f;    // strength of the Fresnel sky reflection
 
     // Big rolling waves (vertex displacement).
+    WaveType waveType = WaveType::WindSea;
+    float waveIntensity = 1.0f;    // global wave/ripple gain; 0 = still water
+    float windAngle = 21.2505f;    // open-water propagation heading (degrees)
+    float gustStrength = 0.35f;    // spatial/temporal wave-group modulation (0..1)
     float amplitude = 0.25f;       // wave height (m)
     float wavelength = 15.0f;      // distance between primary crests (m)
     float waveSpeed = 0.7f;        // scroll speed (kept from before)

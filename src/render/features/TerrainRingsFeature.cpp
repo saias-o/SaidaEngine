@@ -149,8 +149,9 @@ void TerrainRingsFeature::prepare(Scene& scene, uint32_t frameIndex) {
             }
             g.layers[i] = glm::vec4(layer.albedo, layer.roughness);
             g.textures[i] = glm::vec4(layer.material ? float(layer.material->bindlessIndex() + 1u) : 0.0f,
-                                      layer.textureScale, 0.0f, 0.0f);
-            g.macros[i] = glm::vec4(1.0f / layer.macroSize, layer.macroVariation, layer.macroNormalStrength, 0.0f);
+                                      layer.textureScale, layer.waveAmplitude, layer.wavelength);
+            g.macros[i] = glm::vec4(1.0f / layer.macroSize, layer.macroVariation, layer.macroNormalStrength, layer.water ? 1.0f : 0.0f);
+            g.waterDynamics[i] = glm::vec4(float(layer.waveType),layer.waveIntensity,layer.windAngle,layer.gustStrength);
         }
         if (light >= 0) {
             const glm::vec3 local = glm::normalize(glm::inverse(glm::mat3(g.localToWorld)) * toLight);
@@ -290,7 +291,7 @@ void TerrainRingsFeature::record(FrameContext& fc) {
     for (uint32_t slot = 0; slot < count_; ++slot)
         for (int k = 0; k < kLevels; ++k) {
             if (!flagged(packed_[slot].levels[k].w)) continue;
-            Push pc{slot, uint32_t(k)};
+            Push pc{slot, uint32_t(k), fc.time};
             fc.pass.setPushConstants(&pc, sizeof(Push));
             fc.pass.draw(vertices);
         }

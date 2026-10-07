@@ -1,3 +1,5 @@
+#include "water_noise.glsl"
+
 // Shared ocean and shaped-water waves; only the input surface differs.
 //
 // Five Gerstner trains. Their headings fan around the wind at irregular
@@ -26,21 +28,26 @@ struct WaterTrain {
 
 WaterTrain waterTrain(int i, GpuWater w, vec2 baseDir) {
     int mode = int(w.shoreMode.x + 0.5);
-    // Open water: offsets from the wind spread over +-70 degrees by the golden
-    // ratio's sequence (0, -53, +33, -20, +66 degrees). A shore keeps its waves
-    // running at it, within a narrow fan.
+    int profile = int(w.dynamics.x + .5);
+    float spread = profile == 0 ? .28 : (profile == 2 ? 1.9 : 1.2217);
+    float lengthScale = profile == 0 ? 1.8 : (profile == 2 ? .45 : 1.0);
+    float heightScale = profile == 2 ? .65 : 1.0;
     const float FAN[5] = float[5](0.0, 13.0, -10.0, 18.0, -6.0);
-    float offset = (mode == 0) ? (fract(0.5 + float(i) * 0.6180340) * 2.0 - 1.0) * 1.2217
+    float offset = (mode == 0) ? (fract(0.5 + float(i) * 0.6180340) * 2.0 - 1.0) * spread
                                : radians(FAN[i]);
     WaterTrain tr;
     tr.dir = rotate2(baseDir, offset);
     float scale = pow(WATER_TRAIN_RATIO, float(i));
     // Equal steepness: a train's height is in proportion to its length.
-    tr.amp = w.waveA.x * scale;
-    tr.wn = 6.2831853 / (max(w.waveA.y, 0.01) * scale);
+    tr.amp = w.waveA.x * w.dynamics.y * scale * heightScale;
+    if (profile == 0) tr.amp *= pow(.65,float(i));
+    tr.wn = 6.2831853 / (max(w.waveA.y, 0.01) * scale * lengthScale);
+    // Bound the sum of horizontal steepness below one: extreme authored
+    // amplitude/intensity cannot fold the Gerstner mesh over itself.
+    tr.amp = min(tr.amp,.75/(float(WATER_TRAINS)*tr.wn*max(w.waveA.w,.01)));
     tr.phase = float(i) * 2.399963;
     // Deep water disperses: a longer train runs faster (c ~ sqrt(lambda)).
-    tr.celerity = w.waveA.z * sqrt(scale);
+    tr.celerity = w.waveA.z * sqrt(9.81 / tr.wn);
     return tr;
 }
 
@@ -54,6 +61,18 @@ float waterTrainShown(float wn, float spacing) {
     return smoothstep(4.0, 8.0, samples);
 }
 
+// Bend wavefronts continuously over several wavelengths. Both passes use the
+// same domain and its Jacobian, so the silhouette and shading travel together.
+void waterWaveDomain(vec2 p, GpuWater w, float time, out vec2 q, out mat2 jacobian, out vec3 group) {
+    float scale = 1.0 / max(w.waveA.y * 3.7, 1.0);
+    float amount = max(w.waveA.y, .01) * (.18 + .35 * w.misc.x);
+    vec3 a = waterNoise(p * scale + vec2(time * w.waveA.z * .018, 7.1));
+    vec3 b = waterNoise(p * scale + vec2(19.7, -time * w.waveA.z * .012));
+    q = p + amount * (vec2(a.x, b.x) - .5);
+    jacobian = mat2(1) + amount * scale * mat2(a.y, b.y, a.z, b.z);
+    group = vec3(1.0 + w.dynamics.w * 1.6 * (a.x-.5), w.dynamics.w * 1.6 * scale * a.yz);
+}
+
 // The waves the mesh carries at `xz`. `spacing` is the coarser of the mesh's
 // vertex spacing and a few of the pixels it covers there.
 void waterWaveAt(vec2 xz, float baseY, GpuWater w, float t, float spacing,
@@ -64,20 +83,25 @@ void waterWaveAt(vec2 xz, float baseY, GpuWater w, float t, float spacing,
         : smoothstep(0.0, max(w.shoreTune.w, 0.01), depth);
     vec2 baseDir = waveDirAt(xz, w);
     float chop = w.waveA.w;
+    vec2 domain; mat2 jacobian; vec3 group;
+    waterWaveDomain(xz, w, t, domain, jacobian, group);
     float h = 0.0, dhdx = 0.0, dhdz = 0.0, full = 0.0;
     vec2 disp = vec2(0.0);
     for (int i = 0; i < WATER_TRAINS; ++i) {
         WaterTrain tr = waterTrain(i, w, baseDir);
-        float ang = dot(tr.dir, xz) * tr.wn + t * tr.celerity * tr.wn + tr.phase;
+        float ang = dot(tr.dir, domain) * tr.wn - t * tr.celerity * tr.wn + tr.phase;
         float a = tr.amp * waterTrainShown(tr.wn, spacing);
         float s = sin(ang), c = cos(ang);
         h    += a * s;
-        dhdx += a * tr.wn * tr.dir.x * c;
-        dhdz += a * tr.wn * tr.dir.y * c;
+        vec2 gradient = transpose(jacobian) * tr.dir;
+        dhdx += a * tr.wn * gradient.x * c;
+        dhdz += a * tr.wn * gradient.y * c;
         disp -= tr.dir * (a * chop * c);
         full += tr.amp;
     }
-    h *= shallow; dhdx *= shallow; dhdz *= shallow; disp *= shallow;
+    dhdx = (dhdx*group.x + h*group.y)*shallow;
+    dhdz = (dhdz*group.x + h*group.z)*shallow;
+    h *= shallow*group.x; disp *= shallow*group.x;
     vec2 xzC = xz + disp;
     pos = vec3(xzC.x, baseY + h, xzC.y);
     normal = normalize(vec3(-dhdx, 1.0, -dhdz));
@@ -89,8 +113,7 @@ vec3 waterCameraPosition(mat4 view) {
     return -(transpose(mat3(view)) * view[3].xyz);
 }
 
-// Metres one pixel covers at `distance` (a 1080-line image; the filter only
-// needs the order of magnitude).
-float waterPixelFootprint(mat4 proj, float distance) {
-    return distance * 2.0 / (max(abs(proj[1][1]), 1e-3) * 1080.0);
+// Metres one pixel covers at `distance`, using the actual render resolution.
+float waterPixelFootprint(mat4 proj, float distance, float viewportHeight) {
+    return distance * 2.0 / (max(abs(proj[1][1]), 1e-3) * max(viewportHeight,1.0));
 }

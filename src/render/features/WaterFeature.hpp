@@ -39,8 +39,10 @@ private:
         glm::vec4 cartoonDetail;
         glm::vec4 cartoonLook;
         glm::vec4 cartoonShore;
+        glm::vec4 dynamics;    // wave type, global intensity, wind angle, gust strength
         glm::mat4 localToWorld;
     };
+    static_assert(sizeof(GpuWater) == 336, "water_types.glsl std140 array stride");
 
     // Tiny per-draw push: which water entry + the animation clock.
     struct Push {

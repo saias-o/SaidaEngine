@@ -146,6 +146,23 @@ void testTextureSettingsAreFiniteAndPhysical() {
         require(node.layersRevision() == accepted, "invalid macro normals are refused");
     }
     require(node.layers()[2].textureScale == 1.0f / 27.0f, "a refused layer keeps the accepted material");
+    TerrainRingsNode::Layer water;
+    water.water = true;
+    water.waveAmplitude = .12f;
+    water.wavelength = 9.0f;
+    node.setLayer(3,water);
+    const auto wet = node.layersRevision();
+    require(node.layers()[3].water && node.layers()[3].wavelength == 9.0f,
+            "water layers retain their wave scale");
+    for (float invalid : {0.0f,-1.0f,std::numeric_limits<float>::quiet_NaN()}) {
+        water.wavelength = invalid;
+        node.setLayer(3,water);
+        require(node.layersRevision() == wet,"invalid water wavelengths are refused");
+    }
+    water.wavelength = 9.0f;
+    water.waveAmplitude = -1.0f;
+    node.setLayer(3,water);
+    require(node.layersRevision() == wet,"negative wave amplitude is refused");
 }
 
 }  // namespace

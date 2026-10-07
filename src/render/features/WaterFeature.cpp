@@ -168,7 +168,7 @@ void WaterFeature::record(FrameContext& fc) {
         }
         g.shoreTune = glm::vec4(w->foamWidth, w->swashSpeed, w->swashAmount, w->waveFlatten);
         g.shoreMode = glm::vec4(static_cast<float>(mode), w->shoreFoam,
-                               static_cast<float>(w->style), 0.0f);
+                               static_cast<float>(w->style), float(std::max(fc.extent.height,1u)));
         g.cartoonWave = glm::vec4(w->cartoonWaveScale, w->cartoonWaveSpeed,
                                   w->cartoonWaveAngle, w->cartoonWaveSharpness);
         g.cartoonDetail = glm::vec4(w->cartoonDetailScale, w->cartoonDetailSpeed,
@@ -180,6 +180,8 @@ void WaterFeature::record(FrameContext& fc) {
                                    w->cartoonShoreSharpness,
                                    w->cartoonShoreBands);
         g.localToWorld = w->worldTransform();
+        g.dynamics = glm::vec4(static_cast<float>(w->waveType),
+            std::clamp(w->waveIntensity,0.0f,3.0f),w->windAngle,std::clamp(w->gustStrength,0.0f,1.0f));
     }
     if (waterCount == 0) return;
 

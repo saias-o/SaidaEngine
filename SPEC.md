@@ -409,24 +409,56 @@ near terrain being the shadow map's. It runs only when the rings' march does,
 after a barrier that lets earlier frames finish sampling the map; without
 rings the map is not read.
 
-`WaterNode` uses the same water shading for its procedural square and an optional
-tile-local triangle surface (`surface`, space-separated xyz floats in groups of
-three vertices).
-The shaped surface follows the node transform and keeps the shader's waves,
-normal detail, Fresnel reflection and sun sparkle. An empty surface retains the
-procedural square used by ocean scenes.
+`WaterNode` draws a procedural square or an optional tile-local triangle surface
+(`surface`, space-separated xyz floats in groups of three vertices). Realistic
+shading is shared in `water_shading.glsl`; the cartoon path remains separate.
+Arbitrary shaped surfaces follow their node transform and keep their coverage
+mesh fixed: displacing long outline triangles exposed facets and split clipped
+edges. Their wave normals and foam are evaluated per pixel. Squares above 64 m
+half-extent concentrate the existing 128 x 128 grid around the camera with a
+logarithmic distribution, preserve their authored bounds and taper displacement
+to zero at patch boundaries. Vertex wave filtering uses local grid spacing and
+the actual viewport height. This is visual water, with no fluid simulation or
+buoyancy/readback contract.
 
-Realistic water is filtered so that it never repeats. Its five wave trains fan
-around the wind at irregular offsets with an irrational wavelength ratio
-(`water_wave.glsl`). The vertex shader displaces only the trains its mesh
-spacing and the local pixel size can carry (eight vertices a wavelength); the
-fragment shader draws every train and ripple octave as a normal, fading each by
-the pixel's footprint on the water (from the view ray's derivative, continuous
-across triangles) and adding the slope variance it drops to the roughness that
-drives the GGX sun glint and the environment reflection's level. Large gust
-patches vary ripple height and gloss. The ripple noise is quintic value noise
-on an integer hash. The shading is arithmetic only: no texture, binding or
-change to the 64-entry water UBO.
+Realistic water exposes `waveType` (0 Swell, 1 Wind sea, 2 Chop),
+`waveIntensity` (0..3, zero stops wave/ripple shading and displacement),
+`windAngle` (degrees in world XZ) and `gustStrength` (0..1). Defaults are wind sea,
+1, 21.2505 and 0.35. Swell narrows the directional spectrum and suppresses its
+short-wave tail; chop shortens wavelengths and broadens the headings. Existing
+`amplitude`, `wavelength`, `waveSpeed` and `choppiness` remain independent controls.
+Long waves travel faster using deep-water dispersion; a moving analytic envelope
+varies their amplitude, and its derivative contributes to the normal. These
+properties are reflected, serialized and script-accessible like other node
+properties. They affect realistic water only.
+
+Five analytic wave trains use domain deformation to bend their crests. Their
+horizontal steepness is bounded to prevent folded geometry at extreme settings.
+Compact gradient noise supplies ripples; octave gradients are transformed back
+to world axes. Waves, ripples and wind patches are filtered by pixel footprint,
+with unresolved slope variance broadening the GGX highlight. Foam and crest
+lighting never depend on interpolated vertex crests. Shore tint follows
+exponential absorption, and directional shadows attenuate the sun contribution.
+Unlit water no longer supplies its own sun or ambient illumination. Reflections
+use the bound HDR sky pair (including blend, rotation and exposure); this does
+**not** add reflections of nearby geometry or scene-depth refraction.
+The surface uses bounded shader work, no simulation textures or additional
+render pass. The 64-entry water UBO has a 336-byte entry including wave dynamics.
+
+Native terrain rings can mark a runtime `Layer` as `water`, supplying body tint,
+roughness, `waveAmplitude`, `wavelength`, `waveType`, `waveIntensity`, `windAngle`
+and `gustStrength`. The ring retains its sampled height and planetary curvature
+and invokes the same water shader in world metres, on both material backends.
+Water coverage/parameters blend between neighbouring cells and across ring
+transitions. The runtime layer API remains desktop-only, as do terrain rings;
+WaterNode's shaders also compile to WebGPU. The underlying coast classification
+is still limited by the caller's terrain samples.
+
+`tools/verify_water.py --checks` captures near/aerial views, compares alternate
+triangulations, checks animation, distinct wave profiles, zero/intensified waves,
+red/blue environment response and absence of self-illumination. It also records
+GPU traces. `tools/verify_water_web.mjs` validates the four translated water
+pipelines in a real WebGPU browser; this is separate from a full Web player build.
 
 `MaterialDesc::doubleSided` controls scene visibility on desktop, Web and XR.
 Classic draws select a no-cull pipeline for two-sided materials; the mixed
