@@ -424,7 +424,21 @@ void testLayeredFogKnowsTheCameraAltitude() {
     if (plain.fogHeight.w != 0.0f) std::abort();
 }
 
+void testDisplayTransferMatchesAttachment() {
+    for (auto format : {saida::rhi::Format::RGBA8Srgb, saida::rhi::Format::BGRA8Srgb,
+                        saida::rhi::Format::RGBA8Unorm, saida::rhi::Format::BGRA8Unorm,
+                        saida::rhi::Format::RGBA16Float}) {
+        const auto push = saida::TonemapPass::pushConstants(saida::SceneSettings{},
+            glm::mat4(1.0f), glm::mat4(1.0f), 1.0f, format);
+        const bool shaderTransfer = format == saida::rhi::Format::RGBA8Unorm ||
+                                    format == saida::rhi::Format::BGRA8Unorm;
+        if (push.outputParams.x != (shaderTransfer ? 1.0f : 0.0f)) std::abort();
+    }
+    static_assert(sizeof(saida::TonemapPass::PushConstants) <= 256);
+}
+
 int main() {
+    testDisplayTransferMatchesAttachment();
     testRoundTripKeepsEveryField();
     testLayeredFogKnowsTheCameraAltitude();
     testSkyboxByPathResolvesThroughTheProject();

@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-08-18. This document is the engine's technical truth. It describes
+Updated: 2026-10-07. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -291,17 +291,34 @@ the shadow pipeline therefore binds set 0, where that palette lives. Point light
 do not yet have a shadow cubemap. Lightmaps are regenerated
 and are not yet part of the durable package.
 
-The global scene descriptor binds the resolved `skyboxTexture` for IBL and
-environment reflections. Rebuilding that descriptor retains the selected
-texture and sampler for each in-flight frame; white is only the missing-sky
-fallback. `tools/verify_ibl_environment.py` checks metallic surfaces against
-coloured environments and a dark dielectric reference, with ambient and direct
-light disabled. It can use the native GPU or a specified Vulkan ICD.
+The global scene descriptor binds the resolved `skyboxTexture` and
+`skyboxBlendTexture` for IBL, environment reflections and DDGI misses. These
+follow the background's linear crossfade, independent rotations and exposure;
+without a resident secondary sky the primary is used alone. Diffuse IBL uses
+each image's order-2 Lambert SH, projected only when the image pair changes and
+reused when the previous secondary becomes primary. GI invalidation includes
+the secondary sky, blend and rotation. Each in-flight frame retains both texture
+views and samplers; white is only the missing-primary fallback.
+
+ACES produces linear display RGB. The output is encoded to sRGB exactly once:
+an sRGB attachment (normally Vulkan desktop/XR) encodes on store; an 8-bit UNORM
+attachment (WebGPU's surface) uses the shader's IEC sRGB transfer, including its
+linear toe. Floating-point outputs retain linear RGB. Coverage alpha is unchanged.
+Normal maps, including the default neutral normal, are linear UNORM data rather
+than sRGB colour.
+
+`tools/verify_ibl_environment.py` checks metallic/dielectric response, HDR display
+levels, diffuse/specular crossfades, independent secondary rotations and the
+missing-secondary fallback, with ambient and direct light disabled. It can use
+the native GPU or a specified Vulkan ICD.
 
 The metallic-roughness material has no separate automotive clearcoat lobe.
 Its environment reflection samples the sky texture, not a capture of nearby
 scene geometry; restoring that binding does not add local reflection probes
 or screen-space reflections.
+Specular roughness currently selects ordinary equirectangular mip levels; these
+are not a GGX convolution. Local bright sources can therefore blur or alias
+incorrectly. A proper GGX-prefiltered environment remains rendering work.
 
 **Reversed depth.** Scene depth runs from 1 at the near plane to 0 at the far
 plane (`rhi/PipelineState.hpp`: `kDepthFar`, `kDepthCloser`,

@@ -126,6 +126,7 @@ Use the dedicated Witness harnesses for end-to-end work:
 ./tools/witness_web_stage.sh
 ./tools/witness_golden_image.sh   # renderer/shader/HUD changes; needs Lavapipe
 python tools/verify_material_sidedness.py --build build  # Pillow; native front/back pixel check
+python tools/verify_ibl_environment.py --build build    # Pillow; HDR transfer and environment pixel checks
 ```
 
 The desktop and Web restart checks must restore the saved progression and reach
@@ -163,6 +164,13 @@ structural test while remaining obvious from a grazing angle.
 
 Do not leave GUI applications or local verification servers running after the
 check.
+
+The environment check isolates direct light, ambient and GI. It checks HDR
+greys against ACES plus one IEC sRGB transfer, then diffuse/specular crossfades,
+secondary rotations and missing-secondary fallback. The directional sky case
+also catches a neutral normal map accidentally sampled as sRGB. The sidedness
+check uses explicit ambient illumination so display calibration cannot hide
+otherwise correctly culled panels below its colour threshold.
 
 ## Web verification
 

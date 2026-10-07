@@ -28,9 +28,11 @@ layout(set = 0, binding = 1) uniform LightingUBO {
     ivec4 giCounts;     // xyz = probe counts per axis, w = probesPerRow in atlas
     ivec4 giAtlas;      // x = irradiance texels/probe, y = visibility texels/probe
     vec4 environmentParams; // x enabled, y diffuse intensity, z specular intensity, w rotation
+    vec4 environmentBlendParams; // x blend, y second sky rotation
     // Order-2 SH of the environment's Lambertian irradiance, already folded with
     // the basis constants and the cosine convolution (see render/EnvironmentSH).
     vec4 environmentSH[9];
+    vec4 environmentBlendSH[9];
     // The terrain's hold on one directional light (SunOcclusionMap): world
     // position -> (u, v, height in the map's frame); x the light, -1 none.
     mat4 sunOcclusionToMap;
@@ -51,6 +53,7 @@ DECL_TEX3D(0, 6, 11, giVoxels);
 
 // Canonical equirectangular environment. Reused by skybox, IBL and DDGI misses.
 DECL_TEX2D(0, 7, 12, iblEnvironment);
+DECL_TEX2D(0, 15, 16, iblBlendEnvironment);
 
 // Where the terrain hides the light: r the height below which a point is in
 // its shadow, g the penumbra there (metres of height), wider the farther away
@@ -137,7 +140,9 @@ vec3 sampleIrradianceVolume(vec3 wp, vec3 N, vec3 V) {
         wDir *= wDir;
 
         // 3. Chebyshev visibility from the probe.
-        vec2  vis  = texture(TEX2D(giVisibility), giProbeUV(idx, -dir, visT, visAtlas)).rg;
+        // These atlases have one mip. Explicit LOD also permits the per-pixel
+        // volume coverage branch in WGSL without implicit derivatives.
+        vec2  vis  = textureLod(TEX2D(giVisibility), giProbeUV(idx, -dir, visT, visAtlas), 0.0).rg;
         float mean = vis.x;
         float wVis = 1.0;
         if (dist > mean) {
@@ -148,7 +153,7 @@ vec3 sampleIrradianceVolume(vec3 wp, vec3 N, vec3 V) {
         }
 
         float w   = wTri * wDir * wVis + 1e-4;   // epsilon avoids all-zero weights
-        vec3  irr = texture(TEX2D(giIrradiance), giProbeUV(idx, N, irrT, irrAtlas)).rgb;
+        vec3  irr = textureLod(TEX2D(giIrradiance), giProbeUV(idx, N, irrT, irrAtlas), 0.0).rgb;
         sumIrr += irr * w;
         sumW   += w;
     }
@@ -226,26 +231,41 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness) {
     return F0 + (grazing - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
-vec3 rotateEnvironmentDir(vec3 dir) {
-    float s = sin(lights.environmentParams.w);
-    float c = cos(lights.environmentParams.w);
+vec3 rotateEnvironmentDir(vec3 dir, float rotation) {
+    float s = sin(rotation);
+    float c = cos(rotation);
     dir.xz = mat2(c, -s, s, c) * dir.xz;
     return dir;
 }
 
-vec2 environmentUV(vec3 dir) {
-    dir = rotateEnvironmentDir(normalize(dir));
+vec2 environmentUV(vec3 dir, float rotation) {
+    dir = rotateEnvironmentDir(normalize(dir), rotation);
     vec2 uv = vec2(atan(dir.z, dir.x), asin(-dir.y));
     uv *= vec2(INV_TWO_PI, INV_PI);
     return uv + 0.5;
 }
 
 float environmentMaxLod() {
-    return max(float(textureQueryLevels(TEX2D(iblEnvironment)) - 1), 0.0);
+    float levels = float(textureQueryLevels(TEX2D(iblEnvironment)) - 1);
+    if (lights.environmentBlendParams.x > 0.0)
+        levels = max(levels, float(textureQueryLevels(TEX2D(iblBlendEnvironment)) - 1));
+    return max(levels, 0.0);
 }
 
 vec3 sampleEnvironmentLod(vec3 dir, float lod) {
-    return textureLod(TEX2D(iblEnvironment), environmentUV(dir), lod).rgb;
+    // Match the background's linear crossfade and independent rotations.
+    // Normalize LOD so skies with different resolutions have the same blur.
+    float fraction = lod / max(environmentMaxLod(), 1.0);
+    float primaryLod = fraction * float(textureQueryLevels(TEX2D(iblEnvironment)) - 1);
+    vec3 color = textureLod(TEX2D(iblEnvironment),
+        environmentUV(dir, lights.environmentParams.w), primaryLod).rgb;
+    if (lights.environmentBlendParams.x > 0.0) {
+        float secondaryLod = fraction * float(textureQueryLevels(TEX2D(iblBlendEnvironment)) - 1);
+        vec3 other = textureLod(TEX2D(iblBlendEnvironment),
+            environmentUV(dir, lights.environmentBlendParams.y), secondaryLod).rgb;
+        color = mix(color, other, lights.environmentBlendParams.x);
+    }
+    return color;
 }
 
 vec3 environmentMissRadiance(vec3 dir) {
@@ -261,20 +281,31 @@ vec3 environmentMissRadiance(vec3 dir) {
 // with no horizon: a floor and a ceiling receive the same light. Nine
 // coefficients restore the direction for a few multiply-adds, which is the whole
 // reason diffuse IBL is worth having.
-vec3 environmentIrradiance(vec3 N) {
-    vec3 n = normalize(rotateEnvironmentDir(N));
-    vec3 e = lights.environmentSH[0].rgb
-           + lights.environmentSH[1].rgb * n.y
-           + lights.environmentSH[2].rgb * n.z
-           + lights.environmentSH[3].rgb * n.x
-           + lights.environmentSH[4].rgb * (n.x * n.y)
-           + lights.environmentSH[5].rgb * (n.y * n.z)
-           + lights.environmentSH[6].rgb * (3.0 * n.z * n.z - 1.0)
-           + lights.environmentSH[7].rgb * (n.x * n.z)
-           + lights.environmentSH[8].rgb * (n.x * n.x - n.y * n.y);
+vec3 evaluateEnvironmentSH(vec3 n, vec4 coefficients[9]) {
+    vec3 e = coefficients[0].rgb
+           + coefficients[1].rgb * n.y
+           + coefficients[2].rgb * n.z
+           + coefficients[3].rgb * n.x
+           + coefficients[4].rgb * (n.x * n.y)
+           + coefficients[5].rgb * (n.y * n.z)
+           + coefficients[6].rgb * (3.0 * n.z * n.z - 1.0)
+           + coefficients[7].rgb * (n.x * n.z)
+           + coefficients[8].rgb * (n.x * n.x - n.y * n.y);
     // A truncated SH series can ring below zero on high-contrast skies; negative
     // light is not a thing.
     return max(e, vec3(0.0));
+}
+
+vec3 environmentIrradiance(vec3 N) {
+    vec3 n = normalize(N);
+    vec3 color = evaluateEnvironmentSH(rotateEnvironmentDir(n, lights.environmentParams.w),
+                                       lights.environmentSH);
+    if (lights.environmentBlendParams.x > 0.0) {
+        vec3 other = evaluateEnvironmentSH(rotateEnvironmentDir(n, lights.environmentBlendParams.y),
+                                           lights.environmentBlendSH);
+        color = mix(color, other, lights.environmentBlendParams.x);
+    }
+    return color;
 }
 
 // Split-sum BRDF approximation for environment specular.

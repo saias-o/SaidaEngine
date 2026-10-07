@@ -192,9 +192,11 @@ void TextureCache::ensureDefaultTextures() {
         registerBindless(defaultWhite_.get());
     }
     if (!defaultNormal_) {
+        // Normal vectors are linear data: decoding 128 as sRGB turns a neutral
+        // tangent-plane component into -0.568 and tilts every untextured normal.
         const uint8_t normal[] = {128, 128, 255, 255};
         defaultNormal_ = std::make_unique<Texture>(
-            device_, normal, 1, 1, rhi::Format::RGBA8Srgb);
+            device_, normal, 1, 1, rhi::Format::RGBA8Unorm);
         registerBindless(defaultNormal_.get());
     }
 }

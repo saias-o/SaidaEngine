@@ -49,7 +49,13 @@ def main():
     (project / "assets" / "models" / "panels.gltf").write_text(json.dumps(model), encoding="utf-8")
     node = {"type": "Node", "name": "Panels", "id": 2, "enabled": True,
             "behaviours": [], "children": [], "importedFrom": "assets/models/panels.gltf"}
-    scene = {"schema": 2, "version": 2, "scene": {"type": "Scene", "name": "Sidedness", "id": 1, "enabled": True, "behaviours": [], "children": [node]}}
+    # This checks culling, so give both views identical explicit illumination.
+    # Default scene lighting and display calibration must not determine whether
+    # an authored red/green panel reaches the colour-classification threshold.
+    settings = {"changeRenderingAtLoad": True, "ambient": [1, 1, 1],
+                "giEnabled": False, "iblEnabled": False, "aoEnabled": False,
+                "bloomEnabled": False, "fogEnabled": False}
+    scene = {"schema": 2, "version": 2, "scene": {"type": "Scene", "name": "Sidedness", "id": 1, "enabled": True, "behaviours": [], "children": [node], "settings": settings}}
     (project / "scenes" / "main.scene").write_text(json.dumps(scene), encoding="utf-8")
     (project / "Sidedness.saidaproj").write_text(json.dumps({"schema": 1, "version": 1, "name": "Sidedness", "engineVersion": "0.1.0", "mainScene": "scenes/main.scene"}), encoding="utf-8")
     bundle = root / "bundle"

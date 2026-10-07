@@ -18,7 +18,8 @@ namespace {
 constexpr float kMinAoPower = 0.001f;
 } // namespace
 
-TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat) : device_(device) {
+TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
+    : device_(device), outputFormat_(outputFormat) {
 #ifdef SAIDA_RHI_WEBGPU
     using WE = rhi::webgpu::BindGroupLayoutEntry;
     const auto F = rhi::ShaderStages::Fragment;
@@ -125,8 +126,12 @@ void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::T
 TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& settings,
                                                       const glm::mat4& view,
                                                       const glm::mat4& projection,
-                                                      float exposure) {
+                                                      float exposure, rhi::Format outputFormat) {
     PushConstants push{};
+    // An sRGB attachment performs the transfer on store. WebGPU's UNORM
+    // surface needs the shader transfer instead; neither path may do it twice.
+    push.outputParams.x = outputFormat == rhi::Format::RGBA8Unorm ||
+                          outputFormat == rhi::Format::BGRA8Unorm ? 1.0f : 0.0f;
     push.invProjection = glm::inverse(projection);
     push.aoParams = glm::vec4(settings.aoEnabled ? 1.0f : 0.0f,
                               std::max(settings.aoRadius, 0.0f),
@@ -187,7 +192,7 @@ void TonemapPass::record(rhi::RenderPassEncoder& rp, const SceneSettings& settin
     rp.setScissor(renderRect.offset.x, renderRect.offset.y,
                   renderRect.extent.width, renderRect.extent.height);
     rp.setBindGroup(0, *set_);
-    PushConstants push = pushConstants(settings, view, projection, exposure);
+    PushConstants push = pushConstants(settings, view, projection, exposure, outputFormat_);
     push.sourceRect = sourceRect;
     rp.setPushConstants(&push, sizeof(PushConstants));
     rp.draw(3);

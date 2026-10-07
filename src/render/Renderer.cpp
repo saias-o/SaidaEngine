@@ -362,6 +362,10 @@ void Renderer::createGlobalSetLayout() {
     entries.push_back(e);
     e = {}; e.binding = 14; e.type = rhi::BindingType::Sampler; e.visibility = FC;
     entries.push_back(e);
+    e = {}; e.binding = 15; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
+    entries.push_back(e);
+    e = {}; e.binding = 16; e.type = rhi::BindingType::Sampler; e.visibility = FC;
+    entries.push_back(e);
     globalSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_, entries);
 #else
     globalSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
@@ -375,6 +379,7 @@ void Renderer::createGlobalSetLayout() {
             {6, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI voxel
             {7, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // environment
             {13, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute}, // sun occlusion
+            {15, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute}, // second environment
         });
 #endif
 }
@@ -523,7 +528,7 @@ void Renderer::createCullingPipeline() {
 #endif
 }
 
-void Renderer::rebuildGlobalSet(int frame, Texture* environment) {
+void Renderer::rebuildGlobalSet(int frame, Texture* environment, Texture* blendEnvironment) {
     rhi::BindGroupEntry cameraEntry;
     cameraEntry.binding = 0;
     cameraEntry.buffer = uniformBuffers_[frame].get();
@@ -571,11 +576,18 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment) {
 #endif
 
     if (!environment) environment = resources_.defaultWhiteTexture();
+    if (!blendEnvironment) blendEnvironment = environment;
     rhi::BindGroupEntry environmentEntry;
     environmentEntry.binding = 7;
     environmentEntry.view = environment->imageView();
 #ifndef SAIDA_RHI_WEBGPU
     environmentEntry.sampler = environment->sampler();
+#endif
+    rhi::BindGroupEntry blendEnvironmentEntry;
+    blendEnvironmentEntry.binding = 15;
+    blendEnvironmentEntry.view = blendEnvironment->imageView();
+#ifndef SAIDA_RHI_WEBGPU
+    blendEnvironmentEntry.sampler = blendEnvironment->sampler();
 #endif
 
     rhi::BindGroupEntry sunOcclusionEntry;
@@ -612,12 +624,16 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment) {
     rhi::BindGroupEntry environmentSamplerEntry;
     environmentSamplerEntry.binding = 12;
     environmentSamplerEntry.sampler = environment->sampler();
+    rhi::BindGroupEntry blendEnvironmentSamplerEntry;
+    blendEnvironmentSamplerEntry.binding = 16;
+    blendEnvironmentSamplerEntry.sampler = blendEnvironment->sampler();
 
     globalGroups_[frame] = std::make_unique<rhi::BindGroup>(*globalSetLayout_,
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
             giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry,
             shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
-            giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry});
+            giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry,
+            blendEnvironmentEntry, blendEnvironmentSamplerEntry});
 
     // Variant for the DDGI compute pass. WebGPU merges every bound group's
     // resources into the dispatch usage scope, so having the current atlases
@@ -631,11 +647,13 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment) {
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
             giIrradianceDummy, giVisibilityDummy, giVoxelEntry, environmentEntry,
             shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
-            giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry});
+            giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry,
+            blendEnvironmentEntry, blendEnvironmentSamplerEntry});
 #else
     globalGroups_[frame] = std::make_unique<rhi::BindGroup>(*globalSetLayout_,
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
-            giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry, sunOcclusionEntry});
+            giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry, sunOcclusionEntry,
+            blendEnvironmentEntry});
 #endif
 
     cachedGiIrradianceView_[frame] = gi_->irradianceView();
@@ -643,6 +661,8 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment) {
     cachedGiSampler_[frame] = gi_->sampler();
     cachedEnvironmentView_[frame] = environment->imageView();
     cachedEnvironmentSampler_[frame] = environment->sampler();
+    cachedBlendEnvironmentView_[frame] = blendEnvironment->imageView();
+    cachedBlendEnvironmentSampler_[frame] = blendEnvironment->sampler();
 }
 
 void Renderer::createSunOcclusion() {
@@ -707,22 +727,29 @@ void Renderer::updateGIDescriptors() {
 // Diffuse IBL needs the environment's irradiance per normal, which is a property
 // of the image rather than of the frame: it is projected once, from the source
 // file, and reused until the skybox itself changes.
-void Renderer::refreshEnvironmentSH(const SceneSettings& settings) {
-    const AssetID source = settings.iblEnabled ? settings.skyboxTexture : kAssetInvalid;
-    if (source == environmentShSource_) return;
-
-    environmentShSource_ = source;
-    environmentShValid_ = false;
-    environmentSH_ = EnvironmentSH{};
-
-    if (source == kAssetInvalid) return;
+void Renderer::refreshEnvironmentSH(const std::array<AssetID, 2>& sources) {
+    if (sources == environmentShSources_) return;
+    const auto previousSources = environmentShSources_;
+    const auto previousSH = environmentSH_;
+    environmentShSources_ = sources;
     AssetRegistry* registry = resources_.registry();
-    if (!registry) return;
-
-    const std::string path = registry->getAbsolutePath(source);
-    if (path.empty()) return;
-    environmentShValid_ = projectEquirectangularSH(path, environmentSH_);
-    if (!environmentShValid_) environmentSH_ = EnvironmentSH{};
+    for (size_t i = 0; i < sources.size(); ++i) {
+        environmentSH_[i] = EnvironmentSH{};
+        if (sources[i] == kAssetInvalid || !registry) continue;
+        // The next pair often promotes the previous secondary sky to primary.
+        // Reuse that projection; changing blend or rotation never decodes it.
+        const auto existing = std::find(previousSources.begin(), previousSources.end(), sources[i]);
+        if (existing != previousSources.end()) {
+            environmentSH_[i] = previousSH[existing - previousSources.begin()];
+            continue;
+        }
+        if (i == 1 && sources[1] == sources[0]) {
+            environmentSH_[1] = environmentSH_[0];
+            continue;
+        }
+        const std::string path = registry->getAbsolutePath(sources[i]);
+        if (!path.empty()) projectEquirectangularSH(path, environmentSH_[i]);
+    }
 }
 
 void Renderer::updateEnvironmentDescriptor(Scene& scene) {
@@ -732,12 +759,18 @@ void Renderer::updateEnvironmentDescriptor(Scene& scene) {
             environment = skybox;
         }
     }
+    Texture* blendEnvironment = nullptr;
+    if (scene.settings().skyboxBlendTexture != kAssetInvalid)
+        blendEnvironment = resources_.getTexture(scene.settings().skyboxBlendTexture);
+    if (!blendEnvironment) blendEnvironment = environment;
 
     if (cachedEnvironmentView_[currentFrame_] == environment->imageView() &&
-        cachedEnvironmentSampler_[currentFrame_] == environment->sampler()) {
+        cachedEnvironmentSampler_[currentFrame_] == environment->sampler() &&
+        cachedBlendEnvironmentView_[currentFrame_] == blendEnvironment->imageView() &&
+        cachedBlendEnvironmentSampler_[currentFrame_] == blendEnvironment->sampler()) {
         return;
     }
-    rebuildGlobalSet(currentFrame_, environment);
+    rebuildGlobalSet(currentFrame_, environment, blendEnvironment);
 }
 
 bool Renderer::shouldUpdateRealtimeGI(bool dirty) const {
@@ -772,6 +805,9 @@ uint64_t Renderer::giDirtySignature(const Scene& scene) const {
     hashCombine(h, static_cast<uint64_t>(settings.skyboxTexture));
     hashFloat(h, settings.skyboxExposure);
     hashFloat(h, settings.skyboxRotation);
+    hashCombine(h, static_cast<uint64_t>(settings.skyboxBlendTexture));
+    hashFloat(h, settings.skyboxBlend);
+    hashFloat(h, settings.skyboxBlendRotation);
     hashCombine(h, settings.iblEnabled ? 1ull : 0ull);
     hashFloat(h, settings.iblDiffuseIntensity);
     hashFloat(h, settings.iblSpecularIntensity);
@@ -869,8 +905,17 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
         std::max(settings.iblDiffuseIntensity, 0.0f) * environmentExposure,
         std::max(settings.iblSpecularIntensity, 0.0f) * environmentExposure,
         settings.skyboxRotation);
-    refreshEnvironmentSH(settings);
-    for (int i = 0; i < 9; ++i) ubo.environmentSH[i] = environmentSH_.coefficients[i];
+    const bool blendReady = settings.skyboxBlendTexture != kAssetInvalid &&
+                            resources_.getTexture(settings.skyboxBlendTexture) != nullptr;
+    ubo.environmentBlendParams = glm::vec4(
+        blendReady ? std::clamp(settings.skyboxBlend, 0.0f, 1.0f) : 0.0f,
+        settings.skyboxBlendRotation, 0.0f, 0.0f);
+    refreshEnvironmentSH({iblActive ? settings.skyboxTexture : kAssetInvalid,
+                          iblActive && blendReady ? settings.skyboxBlendTexture : kAssetInvalid});
+    for (int i = 0; i < 9; ++i) {
+        ubo.environmentSH[i] = environmentSH_[0].coefficients[i];
+        ubo.environmentBlendSH[i] = environmentSH_[1].coefficients[i];
+    }
 
     auto getAnimatorInParent = [](Node* n) -> Animator* {
         while (n) {
@@ -1902,7 +1947,8 @@ void Renderer::recordXrTonemap(rhi::CommandEncoder& encoder, Scene& scene,
         rp.setPipeline(*xrTonemapPipeline_);
         rp.setBindGroup(0, *xrTonemapSets_[i]);
         TonemapPass::PushConstants push =
-            TonemapPass::pushConstants(scene.settings(), eye.view, eye.projection, exposure_);
+            TonemapPass::pushConstants(scene.settings(), eye.view, eye.projection, exposure_,
+                                       rhi::vulkan::fromVk(xrColorFormat_));
         {
             SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
             rp.setPushConstants(&push, sizeof(TonemapPass::PushConstants));

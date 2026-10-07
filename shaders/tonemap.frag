@@ -21,6 +21,7 @@ PUSH_QUALIFIER PushConstants {
     vec4 fogRayleigh;     // rgb extinction at altitude 0 (1/m), w its scale height
     vec4 fogHeight;       // x grey scale height (0 uniform), y camera altitude, z planet radius, w layered
     vec4 fogUp;           // xyz the camera's up, view space
+    vec4 outputParams;    // x: shader encodes sRGB (UNORM target only)
 } push;
 
 layout(location = 0) in vec2 fragUV;
@@ -206,10 +207,15 @@ void main() {
 
     vec3 mapped = acesFilmic(hdr);
 
-    // Approximate linear -> sRGB conversion.
-    vec3 srgb = pow(mapped, vec3(1.0 / 2.2));
+    // Exactly one display transfer: sRGB attachments encode on store; an
+    // UNORM surface (WebGPU) needs the IEC sRGB transfer here, including its toe.
+    vec3 outputRGB = mapped;
+    if (push.outputParams.x > 0.5) {
+        outputRGB = mix(1.055 * pow(mapped, vec3(1.0 / 2.4)) - 0.055,
+                        12.92 * mapped, lessThanEqual(mapped, vec3(0.0031308)));
+    }
 
     // Preserve scene coverage in alpha so XR passthrough composites correctly
     // (transparent where nothing was drawn). Ignored by the desktop swapchain.
-    outColor = vec4(srgb, hdr4.a);
+    outColor = vec4(outputRGB, hdr4.a);
 }

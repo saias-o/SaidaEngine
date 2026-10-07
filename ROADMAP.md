@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-06. This file is the engine's **single backlog**: everything
+Updated: 2026-10-07. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -9,7 +9,29 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
-## Streaming and rendering integration — verified through 2026-10-06
+## Streaming and rendering integration — verified through 2026-10-07
+
+- [x] Encode display RGB once, load the neutral normal as linear data, and make
+  diffuse/specular IBL and DDGI misses follow the visible sky pair, exposure and
+  rotations. Verified 2026-10-07: 91/91 native CTest, HDR numerical levels and
+  environment binding/crossfade/rotation/fallback pixels in
+  `build-rel/ibl-environment-run/run-oios0s4m`, and sidedness pixels with explicit illumination
+  in `build-rel/material-sidedness-run/run-a7m82mgg`. Native and WGSL shader
+  variants compile. XR headset output and the Lavapipe golden gate were not
+  exercised (no Lavapipe ICD installed on this host).
+
+- [x] Restore Web player boot against the declared runtime matrix by omitting
+  desktop-only Grass/TerrainRings registrations, and make single-mip GI atlas
+  reads valid under non-uniform WGSL control flow. Verified 2026-10-07: Web player
+  build and Chrome headless pixel capture in `build-rel/ibl-web-verified-run`.
+  The player reports ready, with no browser or shader validation errors; its
+  grey environment produces RGB 142 versus ACES/sRGB's expected 141.60.
+  This is a rendering check, not a fresh Witness gameplay/release qualification.
+
+- [ ] Replace the roughness-selected ordinary equirectangular mip chain with
+  a GGX-prefiltered specular environment. Keep offline/once-per-source work,
+  bounded memory, and prove constant-radiance conservation, localized bright
+  source response and native/Web parity before replacing the current path.
 
 - [x] Bind the selected sky texture when rebuilding the global IBL descriptor,
   instead of resetting it to the white fallback. Verified 2026-10-06: 91/91
@@ -79,7 +101,7 @@ the original V1 qualification passed: clean native build, 84/84 CTest, three Web
 The public beta cycle is open. The remaining Windows distribution work before a
 qualified stable publication is tracked in §1.
 
-The latest native integration verification on 2026-10-06 passed 91/91 CTest
+The latest native integration verification on 2026-10-07 passed 91/91 CTest
 cases and the IBL/environment and material-sidedness pixel checks. This extends
 the native record only; it is not a fresh Web, XR or release qualification.
 `main` includes work after the immutable Beta 4 tag; the product version string

@@ -52,8 +52,8 @@ struct SceneSettings {
     // mix(skyboxTexture, skyboxBlendTexture, skyboxBlend), each image turned by
     // its own rotation so two photographs whose Sun sits at different azimuths
     // can both be aligned on one light. A day/night cycle walks through a set of
-    // skies by moving the pair and the blend. Only the sky pass reads it; IBL and
-    // the reflection environment keep sampling `skyboxTexture` alone.
+    // skies by moving the pair and the blend. The background, IBL and reflection
+    // environment use the same pair, linear blend and independent rotations.
     AssetID skyboxBlendTexture = kAssetInvalid;
     float skyboxBlend = 0.0f;
     float skyboxBlendRotation = 0.0f;

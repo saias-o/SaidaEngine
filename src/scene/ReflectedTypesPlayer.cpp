@@ -34,8 +34,6 @@
 #include "behaviours/SpawnerBehaviour.hpp"
 #include "behaviours/StateMachineBehaviour.hpp"
 #include "nodes/WaterNode.hpp"
-#include "nodes/TerrainRingsNode.hpp"
-#include "nodes/GrassNode.hpp"
 #include "scene/animation/Animator.hpp"
 #include "scene/animation/SequenceDirectorBehaviour.hpp"
 #include "scripting/ScriptBehaviour.hpp"
@@ -87,8 +85,9 @@ void registerReflectedTypes() {
 
     registerNode<LightNode>();
     registerNode<WaterNode>();
-    registerNode<TerrainRingsNode>();
-    registerNode<GrassNode>();
+    // Desktop-only render nodes are absent in RuntimeTypeMatrix::PlayerWeb.
+    // Registering them here makes the boot-time registry contract reject every
+    // Web game, including scenes that do not contain either type.
     registerNode<ParticleSystemNode>();
     registerNode<AreaNode>();
     // Physics joints (V1: fixed, point, hinge) — required in the web player.

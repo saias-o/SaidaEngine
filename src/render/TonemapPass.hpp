@@ -39,6 +39,7 @@ public:
         glm::vec4 fogHeight{0.0f};       // x grey scale height (0 uniform), y camera altitude,
                                          // z planet radius (0 flat), w 1 when the air is layered
         glm::vec4 fogUp{0.0f};           // xyz the camera's up (away from the planet), view space
+        glm::vec4 outputParams{0.0f};    // x: shader encodes sRGB (UNORM target only)
     };
 
     TonemapPass(rhi::Device& device, rhi::Format outputFormat);
@@ -70,10 +71,12 @@ public:
     // the same constants without owning an instance, and sharing the builder is
     // what keeps one shader from drifting into two interpretations.
     static PushConstants pushConstants(const SceneSettings& settings, const glm::mat4& view,
-                                       const glm::mat4& projection, float exposure);
+                                       const glm::mat4& projection, float exposure,
+                                       rhi::Format outputFormat = rhi::Format::BGRA8Srgb);
 
 private:
     rhi::Device& device_;
+    rhi::Format outputFormat_;
     std::unique_ptr<rhi::BindGroupLayout> setLayout_;
     std::unique_ptr<rhi::Sampler> colorSampler_;   // linear (HDR + bloom)
     std::unique_ptr<rhi::Sampler> depthSampler_;   // nearest (AO depth)

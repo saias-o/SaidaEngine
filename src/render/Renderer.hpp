@@ -10,6 +10,7 @@
 #include "core/Camera.hpp"
 #include "project/AssetRegistry.hpp"
 #include "graphics/Material.hpp"     // MaterialType
+#include "graphics/Texture.hpp"      // backend-specific Texture class/alias
 #include "render/EnvironmentSH.hpp"
 #include "render/GpuDrivenLayout.hpp"
 #include "render/RenderFeature.hpp"  // EyeRenderInfo, RenderContext, FrameContext, ScenePassFeature
@@ -29,7 +30,6 @@ class Camera;
 class Mesh;
 class Project;
 class Material;
-class Texture;
 class ResourceManager;
 class ShadowMap;
 class UIRenderer;
@@ -76,9 +76,11 @@ struct LightingUBO {
     glm::ivec4 giCounts{0};     // xyz = probe counts, w = probesPerRow in atlas
     glm::ivec4 giAtlas{0};      // x = irradiance texels/probe, y = visibility texels/probe
     glm::vec4 environmentParams{0.0f}; // x enabled, y diffuse, z specular, w rotation
+    glm::vec4 environmentBlendParams{0.0f}; // x blend, y second sky rotation
     // Order-2 SH of the environment's Lambertian irradiance. Nine coefficients
     // are what give diffuse IBL a direction — see render/EnvironmentSH.hpp.
     glm::vec4 environmentSH[9]{};
+    glm::vec4 environmentBlendSH[9]{};
     // The terrain's hold on one directional light (SunOcclusionMap): world
     // position -> (u, v, height in the map's frame), and x the light's index,
     // -1 when no map is written.
@@ -152,7 +154,8 @@ private:
     void createUniformBuffers();
     void createGlobalDescriptorSets();
     // Bind groups are immutable, so changed inputs require a new group.
-    void rebuildGlobalSet(int frame, Texture* environment = nullptr);
+    void rebuildGlobalSet(int frame, Texture* environment = nullptr,
+                          Texture* blendEnvironment = nullptr);
     void createGpuDrivenBuffers();
     void createCullingPipeline();
     void uploadGpuDrivenDraws();
@@ -291,13 +294,14 @@ private:
     std::array<rhi::SamplerHandle, 2> cachedGiSampler_{};
     std::array<rhi::TextureView, 2> cachedEnvironmentView_{};
     std::array<rhi::SamplerHandle, 2> cachedEnvironmentSampler_{};
+    std::array<rhi::TextureView, 2> cachedBlendEnvironmentView_{};
+    std::array<rhi::SamplerHandle, 2> cachedBlendEnvironmentSampler_{};
 
     // The environment's irradiance is projected from the source image on the
     // CPU, which is only worth doing when the skybox actually changes.
-    EnvironmentSH environmentSH_{};
-    AssetID environmentShSource_ = kAssetInvalid;
-    bool environmentShValid_ = false;
-    void refreshEnvironmentSH(const SceneSettings& settings);
+    std::array<EnvironmentSH, 2> environmentSH_{};
+    std::array<AssetID, 2> environmentShSources_{kAssetInvalid, kAssetInvalid};
+    void refreshEnvironmentSH(const std::array<AssetID, 2>& sources);
 
 #ifdef SAIDA_ENABLE_XR
     bool xrMode_ = false;
