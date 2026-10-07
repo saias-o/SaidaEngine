@@ -34,6 +34,12 @@ bool GrassNode::setField(Field field) {
             Log::error("[Grass] ", name(), ": field refused: a height is not finite");
             return false;
         }
+    for (int i = 0; i < 4; ++i)
+        if (!std::isfinite(field.variation[i]) || (i < 3 && !std::isfinite(field.materialUvFromLocal[i][0] +
+                                                                           field.materialUvFromLocal[i][1]))) {
+            Log::error("[Grass] ", name(), ": field refused: its ground variation is not finite");
+            return false;
+        }
     field_ = std::move(field);
     present_ = true;
     ++revision_;

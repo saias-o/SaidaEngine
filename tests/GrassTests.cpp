@@ -50,6 +50,17 @@ void testFieldsAreCheckedBeforeTheyAreDrawn() {
     GrassNode::Field nan = flatField(5, 4);
     nan.heights[3] = std::nanf("");
     require(!node.setField(nan), "a height that is not finite is refused");
+    GrassNode::Field varied = flatField(5, 4);
+    varied.variation = glm::vec4(1.5f, 0.02f, 0.3f, 0.0f);
+    varied.materialUvFromLocal = glm::mat3(glm::vec3(0.7f, 0.0f, 0.0f), glm::vec3(0.0f, -0.7f, 0.0f),
+                                           glm::vec3(0.0f, 0.0f, 1.0f));
+    GrassNode probe;
+    require(probe.setField(varied), "a field carrying its ground's variation is taken");
+    varied.variation.z = std::nanf("");
+    require(!probe.setField(varied), "a ground variation that is not finite is refused");
+    varied.variation.z = 0.3f;
+    varied.materialUvFromLocal[2][0] = INFINITY;
+    require(!probe.setField(varied), "ground texture coordinates that are not finite are refused");
     require(node.field() != nullptr && node.field()->groundSamples == 41, "a refusal keeps the field there was");
     node.clearField();
     require(node.field() == nullptr, "a cleared node has no field");

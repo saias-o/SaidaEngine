@@ -16,6 +16,9 @@ struct GpuGrass {
     vec4 camera;        // xyz the camera, node-local
     ivec4 sizes;        // x ground samples a side, y cover texels a side
     vec4 tuft;          // x blades a tuft, y how hard gusts lay the grass down (0 to 1)
+    vec4 materialU;     // the ground material's s = dot(xyz, (x, z, 1))
+    vec4 materialV;     // and t
+    vec4 variation;     // the ground material's MaterialDesc::variation
     vec4 benders[MAX_BENDERS];  // node-local centre, radius
 };
 

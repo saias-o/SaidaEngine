@@ -53,6 +53,9 @@ private:
         glm::vec4 camera{0.0f};
         glm::ivec4 sizes{0};
         glm::vec4 tuft{0.0f};
+        glm::vec4 materialU{0.0f};  // the ground material's (s, t) of node-local (x, z, 1)
+        glm::vec4 materialV{0.0f};
+        glm::vec4 variation{0.0f};  // MaterialDesc::variation
         glm::vec4 benders[GrassNode::kMaxBenders]{};
     };
     struct Push {

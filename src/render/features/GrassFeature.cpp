@@ -136,6 +136,10 @@ void GrassFeature::record(FrameContext& fc) {
         g.sizes = glm::ivec4(field->groundSamples, field->coverSize, 0, 0);
         const int tuftBlades = std::clamp(node->tuftBlades, 1, GrassNode::kMaxTuftBlades);
         g.tuft = glm::vec4(float(tuftBlades), std::clamp(node->gust, 0.0f, 1.0f), 0.0f, 0.0f);
+        const glm::mat3& s = field->materialUvFromLocal;
+        g.materialU = glm::vec4(s[0][0], s[1][0], s[2][0], 0.0f);
+        g.materialV = glm::vec4(s[0][1], s[1][1], s[2][1], 0.0f);
+        g.variation = field->variation;
         for (int i = 0; i < GrassNode::kMaxBenders; ++i) g.benders[i] = node->benders[size_t(i)];
         if (f.nodes[slot] != node || f.revisions[slot] != node->revision()) {
             f.ground->write(field->heights.data(), field->heights.size() * sizeof(float), slot * kGroundBytes);

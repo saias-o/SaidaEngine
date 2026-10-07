@@ -33,7 +33,11 @@ namespace saida {
 //
 // Blades grow in tufts of `tuftBlades`, `density` tufts a square metre near
 // the camera, out to `radius` metres, thinning in three rings each twice the
-// last; past the radius the ground's own colour is the grass. Gusts run
+// last; past the radius the ground's own colour is the grass. So that nothing
+// marks where they stop, a blade's own look -- darker root, paler tip, its
+// lean, its sheen, the light through it -- gives way with distance to the
+// ground's shading, before the blades shorten to nothing: by then they are
+// lit as the ground they hand over to, in its colour and its variation. Gusts run
 // across the field along `windDirection` and lay it down as they pass.
 class GrassNode : public Node {
 public:
@@ -61,6 +65,14 @@ public:
         glm::mat3 uvFromLocal{1.0f};  // (u, v, 1) = M * (x, z, 1)
         int coverSize = 0;
         std::vector<uint32_t> cover;  // RGBA8, r in the low byte
+        // The ground material's surface variation (MaterialDesc::variation:
+        // warp in repeats, macro cells a repeat, albedo amplitude, slope) and
+        // its texture coordinates, in repeats, of node-local (x, z). The
+        // blades take the brightness the ground under them is drawn with, so
+        // the ground's light and dark patches do not stop where they do.
+        // Zero variation: none.
+        glm::mat3 materialUvFromLocal{1.0f};  // (s, t, 1) = M * (x, z, 1)
+        glm::vec4 variation{0.0f};
     };
     // Replaces the field. Refused, and said, when the arrays are not the
     // documented sizes, past the limits, or a height is not finite.

@@ -519,9 +519,21 @@ cut out exactly (`saida_grass_tests`); a blade has two segments and a tip in
 the nearest ring and the tip alone past it. A ring is drawn only over the
 cells where the field and the camera's `radius` meet, and blades shorten to
 nothing over the last 30 % of it, where the ground's own colour takes over.
-Blades are lit like any surface, their normal leaning to the ground's, darker
-toward the root and lighter at the tip, paler where a gust lays them down,
-with the directional light's transmission from behind. The defaults (16 tufts
+Blades are lit like any surface, their normal leaning to the ground's (the
+triangle of the field's heightfield under the root), darker toward the root
+and lighter at the tip, paler where a gust lays them down, with the
+directional light's transmission from behind. That shading moves light along
+the blade and takes none away from what is seen of it: it is divided by its
+own mean over the part of the blades the eye reaches -- whole blades looking
+down into the grass, the tips along it (`VIEW_DEPTH` blade heights per unit
+of the sight line's slope) -- so a meadow reflects the albedo it is given,
+its own shade included, as the ground under it does. From a quarter of the
+radius to where blades start to shorten, all of a blade's own look (shading,
+lean, sheen, transmission, per-blade tint) gives way to the ground's: its
+normal, a matt surface, its colour and, when the field carries one, the ground
+material's macro variation (`Field::variation` and `materialUvFromLocal`,
+`MaterialDesc::variation` in its texture coordinates), so nothing marks where
+the blades end. The cover's colour is decoded with the exact sRGB curve. The defaults (16 tufts
 a square metre of 5 blades 45 cm tall, out to 70 m) are a knee-high meadow. Nine fields are drawn at
 once at most, said in the log when more are in reach; a field's ground and
 cover are re-uploaded only when its revision changes.
