@@ -743,6 +743,15 @@ void InspectorPanel::draw(EditorUI* editor) {
             pe.checkbox("Cast Shadows",
                         [](Node& n) { return n.asLight()->castShadows; },
                         [](Node& n, bool v) { n.asLight()->castShadows = v; });
+
+        if (light->type == LightType::Directional) {
+            pe.checkbox("Lens Flare",
+                        [](Node& n) { return n.asLight()->lensFlare; },
+                        [](Node& n, bool v) { n.asLight()->lensFlare = v; });
+            pe.checkbox("Sun Star",
+                        [](Node& n) { return n.asLight()->sunStar; },
+                        [](Node& n, bool v) { n.asLight()->sunStar = v; });
+        }
     }
 
     if (dynamic_cast<CameraNode*>(node)) {

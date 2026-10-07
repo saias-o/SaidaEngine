@@ -55,6 +55,12 @@ public:
     // it (Point shadows would need a cube map — out of scope for now).
     bool castShadows = true;
 
+    // Directional only: lens effects the tonemap draws where the light's source
+    // is visible on screen (SPEC §4.1). Off by default, so a scene that never
+    // asked for them renders exactly as before.
+    bool lensFlare = false;  // ghosts and a halo across the optical centre
+    bool sunStar = false;    // diffraction spikes and a glow around the source
+
     LightBakeMode bakeMode = LightBakeMode::Realtime;
 };
 

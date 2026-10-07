@@ -18,6 +18,10 @@ void LightNode::describe(reflect::TypeBuilder<LightNode>& t) {
         .tooltip("Spot cone outer half-angle (deg)");
     t.property("castShadows", &LightNode::castShadows)
         .tooltip("Directional/Spot only");
+    t.property("lensFlare", &LightNode::lensFlare)
+        .tooltip("Directional only: lens ghosts and halo while the source is on screen");
+    t.property("sunStar", &LightNode::sunStar)
+        .tooltip("Directional only: diffraction star around the source while on screen");
     t.property("bakeMode", &LightNode::bakeMode)
         .enumValues({"Realtime", "Baked", "Mixed"});
 }

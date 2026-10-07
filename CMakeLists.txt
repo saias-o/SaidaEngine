@@ -536,6 +536,7 @@ add_library(saida_engine STATIC
     src/render/CaptureScheduler.cpp
     src/render/EnvironmentSH.cpp
     src/render/PostProcessor.cpp
+    src/render/LensFlare.cpp
     src/render/TonemapPass.cpp
     src/render/RenderFeatureRegistry.cpp
     src/fx/ParticleRuntime.cpp
@@ -919,6 +920,12 @@ if (BUILD_TESTING)
     target_link_libraries(saida_scene_settings_tests PRIVATE saida_engine)
     target_compile_options(saida_scene_settings_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_scene_settings_tests COMMAND $<TARGET_FILE:saida_scene_settings_tests>)
+
+    add_executable(saida_lens_flare_tests tests/LensFlareTests.cpp)
+    saida_test_target(saida_lens_flare_tests)
+    target_link_libraries(saida_lens_flare_tests PRIVATE saida_engine)
+    target_compile_options(saida_lens_flare_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_lens_flare_tests COMMAND $<TARGET_FILE:saida_lens_flare_tests>)
 
     add_executable(saida_scene_timer_tests tests/SceneTimerQueueTests.cpp)
     saida_test_target(saida_scene_timer_tests)

@@ -16,6 +16,27 @@ namespace {
 // A zero exponent would make the AO term constant; clamping keeps a
 // hand-edited scene from silently disabling the effect it asked for.
 constexpr float kMinAoPower = 0.001f;
+// A source this close to the camera plane (or behind it) has no screen
+// position; one further than this outside the viewport cannot reach its edge
+// with the visibility probe (tonemap.vert) and draws nothing anyway.
+constexpr float kMinFlareClipW = 1e-6f;
+constexpr float kFlareScreenMargin = 0.05f;
+
+// Where the source lands in viewport UV, with the shader's convention
+// (uv = ndc * 0.5 + 0.5, the one its depth reconstruction inverts); zeroes
+// when the source is behind the camera or well off screen.
+void writeLensFlare(TonemapPass::PushConstants& push, const LensFlareSource& flare,
+                    const glm::mat4& view, const glm::mat4& projection) {
+    if (!flare.active()) return;
+    const glm::vec4 clip = projection * view * glm::vec4(flare.towardLight, 0.0f);
+    if (!(clip.w > kMinFlareClipW)) return;
+    const glm::vec2 uv = glm::vec2(clip) / clip.w * 0.5f + 0.5f;
+    const glm::vec2 margin(kFlareScreenMargin);
+    if (glm::any(glm::lessThan(uv, -margin)) || glm::any(glm::greaterThan(uv, 1.0f + margin)))
+        return;
+    push.flareSource = glm::vec4(uv, flare.lensFlare ? 1.0f : 0.0f, flare.sunStar ? 1.0f : 0.0f);
+    push.flareRadiance = glm::vec4(glm::max(flare.radiance, glm::vec3(0.0f)), 0.0f);
+}
 } // namespace
 
 TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
@@ -27,14 +48,16 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
     WE e{};
     e.binding = 0; e.type = rhi::BindingType::SampledTexture; e.visibility = F;
     entries.push_back(e);
-    e = {}; e.binding = 1; e.type = rhi::BindingType::SampledTexture; e.visibility = F;
+    // Depth is also read by the vertex shader: the lens flare's visibility.
+    const auto VF = rhi::ShaderStages::VertexFragment;
+    e = {}; e.binding = 1; e.type = rhi::BindingType::SampledTexture; e.visibility = VF;
     e.unfilterable = true;
     entries.push_back(e);
     e = {}; e.binding = 2; e.type = rhi::BindingType::SampledTexture; e.visibility = F;
     entries.push_back(e);
     e = {}; e.binding = 3; e.type = rhi::BindingType::Sampler; e.visibility = F;
     entries.push_back(e);
-    e = {}; e.binding = 4; e.type = rhi::BindingType::Sampler; e.visibility = F;
+    e = {}; e.binding = 4; e.type = rhi::BindingType::Sampler; e.visibility = VF;
     e.nonFilteringSampler = true;
     entries.push_back(e);
     e = {}; e.binding = 5; e.type = rhi::BindingType::Sampler; e.visibility = F;
@@ -44,7 +67,8 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
         std::vector<rhi::BindGroupLayoutEntry>{
             {0, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // HDR
-            {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // depth (AO)
+            // depth: AO and fog, and the lens flare's visibility in the vertex shader
+            {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::VertexFragment},
             {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // bloom
         });
 #endif
@@ -126,13 +150,14 @@ void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::T
 TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& settings,
                                                       const glm::mat4& view,
                                                       const glm::mat4& projection,
-                                                      float exposure, rhi::Format outputFormat) {
+                                                      float exposure, rhi::Format outputFormat,
+                                                      const LensFlareSource& flare) {
     PushConstants push{};
     // An sRGB attachment performs the transfer on store. WebGPU's UNORM
     // surface needs the shader transfer instead; neither path may do it twice.
     push.outputParams.x = outputFormat == rhi::Format::RGBA8Unorm ||
                           outputFormat == rhi::Format::BGRA8Unorm ? 1.0f : 0.0f;
-    push.invProjection = glm::inverse(projection);
+    const glm::mat4 invProjection = glm::inverse(projection);
     push.aoParams = glm::vec4(settings.aoEnabled ? 1.0f : 0.0f,
                               std::max(settings.aoRadius, 0.0f),
                               std::max(settings.aoIntensity, 0.0f),
@@ -170,19 +195,17 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
                                  std::max(settings.bloomIntensity, 0.0f),
                                  std::max(settings.bloomRadius, 0.0f));
     push.sourceRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-    push.projectionParams = glm::vec4(push.invProjection[0][0],
-                                      push.invProjection[1][1],
-                                      push.invProjection[2][3],
-                                      push.invProjection[3][3]);
-    push.projectionParams2 = glm::vec4(push.invProjection[2][2],
-                                       push.invProjection[3][2],
-                                       0.0f, 0.0f);
+    push.projectionParams = glm::vec4(invProjection[0][0], invProjection[1][1],
+                                      invProjection[2][3], invProjection[3][3]);
+    push.projectionParams2 = glm::vec4(invProjection[2][2], invProjection[3][2], 0.0f, 0.0f);
+    writeLensFlare(push, flare, view, projection);
     return push;
 }
 
 void TonemapPass::record(rhi::RenderPassEncoder& rp, const SceneSettings& settings,
                          const glm::mat4& view, const glm::mat4& projection, const rhi::Rect2D& renderRect,
-                         const glm::vec4& sourceRect, float exposure) const {
+                         const glm::vec4& sourceRect, float exposure,
+                         const LensFlareSource& flare) const {
     if (!ready()) return;
     rp.setPipeline(*pipeline_);
     // After setPipeline, as the pre-extraction code did — see the header.
@@ -192,7 +215,7 @@ void TonemapPass::record(rhi::RenderPassEncoder& rp, const SceneSettings& settin
     rp.setScissor(renderRect.offset.x, renderRect.offset.y,
                   renderRect.extent.width, renderRect.extent.height);
     rp.setBindGroup(0, *set_);
-    PushConstants push = pushConstants(settings, view, projection, exposure, outputFormat_);
+    PushConstants push = pushConstants(settings, view, projection, exposure, outputFormat_, flare);
     push.sourceRect = sourceRect;
     rp.setPushConstants(&push, sizeof(PushConstants));
     rp.draw(3);

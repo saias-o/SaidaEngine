@@ -14,6 +14,7 @@
 #include "graphics/ResourceManager.hpp"
 #include "render/FrameCapture.hpp"
 #include "render/GIVolume.hpp"
+#include "render/LensFlare.hpp"
 #include "render/PostProcessor.hpp"
 #include "render/FrustumCulling.hpp"
 #include "graphics/UIRenderer.hpp"
@@ -1205,7 +1206,7 @@ void Renderer::recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageInd
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
         tonemapPass_->record(rp, scene.settings(), camera.view(), camera.projection(), renderRect,
-                             sourceRect, exposure_);
+                             sourceRect, exposure_, pickLensFlareSource(scene));
     }
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/UI");
@@ -1749,7 +1750,8 @@ void Renderer::createXrPipelines() {
         xrTonemapSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
             std::vector<rhi::BindGroupLayoutEntry>{
                 {0, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // HDR
-                {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // depth (AO)
+                // depth: AO and fog, and the lens flare's visibility in the vertex shader
+                {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::VertexFragment},
                 {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // bloom
             });
 
@@ -1919,6 +1921,7 @@ void Renderer::recordXrTonemap(rhi::CommandEncoder& encoder, Scene& scene,
                        rhi::ResourceState::ShaderRead, 0, xrViewCount_);
 
     const uint32_t n = std::min<uint32_t>(static_cast<uint32_t>(eyes.size()), xrViewCount_);
+    const LensFlareSource flare = pickLensFlareSource(scene);
     {
     SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "GPU/Tonemap+EditorUI");
     for (uint32_t i = 0; i < n; ++i) {
@@ -1948,7 +1951,7 @@ void Renderer::recordXrTonemap(rhi::CommandEncoder& encoder, Scene& scene,
         rp.setBindGroup(0, *xrTonemapSets_[i]);
         TonemapPass::PushConstants push =
             TonemapPass::pushConstants(scene.settings(), eye.view, eye.projection, exposure_,
-                                       rhi::vulkan::fromVk(xrColorFormat_));
+                                       rhi::vulkan::fromVk(xrColorFormat_), flare);
         {
             SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
             rp.setPushConstants(&push, sizeof(TonemapPass::PushConstants));

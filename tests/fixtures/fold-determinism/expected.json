@@ -20,11 +20,13 @@
         "enabled": true,
         "id": "2",
         "intensity": 5.0,
+        "lensFlare": false,
         "lightType": 0,
         "name": "Sun",
         "range": 10.0,
         "spotInnerAngle": 25.0,
         "spotOuterAngle": 35.0,
+        "sunStar": false,
         "transform": {
           "position": [
             0.0,
@@ -68,11 +70,13 @@
             "enabled": true,
             "id": "4",
             "intensity": 1.0,
+            "lensFlare": false,
             "lightType": 0,
             "name": "Lamp",
             "range": 10.0,
             "spotInnerAngle": 25.0,
             "spotOuterAngle": 35.0,
+            "sunStar": false,
             "transform": {
               "position": [
                 1.5,
@@ -107,11 +111,13 @@
         "enabled": true,
         "id": "3",
         "intensity": 1.0,
+        "lensFlare": false,
         "lightType": 0,
         "name": "Rig",
         "range": 10.0,
         "spotInnerAngle": 25.0,
         "spotOuterAngle": 35.0,
+        "sunStar": false,
         "transform": {
           "position": [
             0.0,

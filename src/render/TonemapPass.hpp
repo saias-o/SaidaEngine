@@ -1,5 +1,6 @@
 #pragma once
 
+#include "render/LensFlare.hpp"
 #include "rhi/Rhi.hpp"
 
 #ifdef SAIDA_RHI_WEBGPU
@@ -15,7 +16,8 @@ namespace saida {
 class SceneSettings;
 
 // Resolves the HDR scene target onto the swapchain: the tonemap curve itself,
-// plus the AO and fog it evaluates from depth and the bloom it composites.
+// plus the AO and fog it evaluates from depth, the bloom it composites and the
+// lens effects of one directional light (LensFlare.hpp).
 //
 // It does NOT open a render pass. The same pass carries the UI and the editor
 // overlay afterwards, and only Renderer::drawFrame sequences that (ROADMAP §3:
@@ -27,7 +29,6 @@ public:
     // Every field the shader reads. Public because the XR path builds one too,
     // through the static builder below.
     struct PushConstants {
-        glm::mat4 invProjection{1.0f};
         glm::vec4 aoParams{0.0f};        // x enabled, y radius, z intensity, w power
         glm::vec4 fogColor{0.0f};
         glm::vec4 fogParams{0.0f};       // x enabled, y start, z density, w exposure
@@ -40,7 +41,14 @@ public:
                                          // z planet radius (0 flat), w 1 when the air is layered
         glm::vec4 fogUp{0.0f};           // xyz the camera's up (away from the planet), view space
         glm::vec4 outputParams{0.0f};    // x: shader encodes sRGB (UNORM target only)
+        glm::vec4 flareSource{0.0f};     // xy the source in viewport UV, z lens flare, w sun star
+        glm::vec4 flareRadiance{0.0f};   // rgb the source's linear radiance
     };
+    // Vulkan guarantees only 128 bytes of push constants; this block relies on
+    // the 256 desktop drivers offer and must not outgrow it. (WebGPU emulates
+    // push constants with a uniform slice and has no such ceiling.)
+    static constexpr size_t kMaxPushConstantBytes = 256;
+    static_assert(sizeof(PushConstants) <= kMaxPushConstantBytes);
 
     TonemapPass(rhi::Device& device, rhi::Format outputFormat);
     ~TonemapPass();
@@ -64,7 +72,8 @@ public:
     // preserved deliberately rather than assumed irrelevant.
     void record(rhi::RenderPassEncoder& rp, const SceneSettings& settings,
                 const glm::mat4& view, const glm::mat4& projection, const rhi::Rect2D& renderRect,
-                const glm::vec4& sourceRect, float exposure) const;
+                const glm::vec4& sourceRect, float exposure,
+                const LensFlareSource& flare = {}) const;
 
     // Static: the XR tonemap draws this same shader once per eye and still
     // lives in Renderer until XrRenderer is extracted (ROADMAP §3). It needs
@@ -72,7 +81,8 @@ public:
     // what keeps one shader from drifting into two interpretations.
     static PushConstants pushConstants(const SceneSettings& settings, const glm::mat4& view,
                                        const glm::mat4& projection, float exposure,
-                                       rhi::Format outputFormat = rhi::Format::BGRA8Srgb);
+                                       rhi::Format outputFormat = rhi::Format::BGRA8Srgb,
+                                       const LensFlareSource& flare = {});
 
 private:
     rhi::Device& device_;

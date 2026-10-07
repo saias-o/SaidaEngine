@@ -1,39 +1,21 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
 
-#include "web_compat.glsl"
+#include "tonemap_common.glsl"
 
-// HDR -> LDR tonemap pass with AO, fog and bloom.
+// HDR -> LDR tonemap pass with AO, fog, bloom and lens effects.
 
 DECL_TEX2D(0, 0, 3, hdrInput);
-DECL_TEX2D(0, 1, 4, depthInput);
 DECL_TEX2D(0, 2, 5, bloomInput);
 
-PUSH_QUALIFIER PushConstants {
-    mat4 invProjection;
-    vec4 aoParams;        // x enabled, y radius, z intensity, w power
-    vec4 fogColor;        // rgb = linear HDR fog color
-    vec4 fogParams;       // x enabled, y start, z density, w exposure
-    vec4 bloomParams;     // x enabled, y threshold, z intensity, w radius px
-    vec4 sourceRect;      // xy = source UV origin, zw = source UV size
-    vec4 projectionParams; // x invP00, y invP11, z invP23, w invP33
-    vec4 projectionParams2; // x invP22, y invP32
-    vec4 fogRayleigh;     // rgb extinction at altitude 0 (1/m), w its scale height
-    vec4 fogHeight;       // x grey scale height (0 uniform), y camera altitude, z planet radius, w layered
-    vec4 fogUp;           // xyz the camera's up, view space
-    vec4 outputParams;    // x: shader encodes sRGB (UNORM target only)
-} push;
-
 layout(location = 0) in vec2 fragUV;
+layout(location = 1) flat in float flareVisibility;  // tonemap.vert
 layout(location = 0) out vec4 outColor;
 
 const int AO_DIR_COUNT = 8;
 const int AO_STEP_COUNT = 2;
 const float AO_BIAS = 0.03;
 const float AO_NORMAL_EPSILON = 1e-4;
-vec2 sourceUV(vec2 viewportUV) {
-    return push.sourceRect.xy + clamp(viewportUV, vec2(0.0), vec2(1.0)) * push.sourceRect.zw;
-}
 
 vec4 sampleHdr(vec2 viewportUV) {
     return texture(TEX2D(hdrInput), sourceUV(viewportUV));
@@ -59,14 +41,6 @@ vec3 acesFilmic(vec3 x) {
     const float d = 0.59;
     const float e = 0.14;
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
-
-// Depth is reversed (rhi/PipelineState.hpp): the clear value 0 is the far
-// plane, and only a pixel nothing was drawn on holds it exactly. A threshold
-// near it would take distant ground for sky: the conventional test this
-// replaces, depth >= 0.9999, left everything past a kilometre unfogged.
-bool nothingDrawn(float depth) {
-    return depth <= 0.0;
 }
 
 vec3 reconstructViewPosition(vec2 uv, float depth) {
@@ -195,6 +169,96 @@ vec3 applyFog(vec3 color, vec2 uv) {
     return color * transmitted + push.fogColor.rgb * (1.0 - transmitted);
 }
 
+// Lens effects of one directional light (LightNode lensFlare / sunStar), in
+// scene radiance before exposure. Lengths are in viewport heights so that
+// circles stay round; every gain is a fraction of the source's radiance.
+const float TWO_PI = 6.28318530718;
+const float LENS_EPSILON = 1e-4;
+
+// Sun star: the diffraction of an aperture of STAR_POINTS / 2 straight blades,
+// two spikes per blade, alternate spikes shorter, red spreading wider than blue.
+const float STAR_POINTS = 8.0;
+const float STAR_ROTATION = 0.2618;    // radians: no spike lies along a screen axis
+const float STAR_LENGTH = 0.30;
+const float STAR_SHORT = 0.55;         // the short spikes' share of STAR_LENGTH
+const float STAR_WIDTH = 0.0025;       // a spike's half-width at its root
+const vec3 STAR_SPREAD = vec3(1.12, 1.0, 0.88);
+const float STAR_GAIN = 0.5;
+const float STAR_GLOW_RADIUS = 0.03;
+const float STAR_GLOW_GAIN = 0.3;
+
+vec3 sunStar(vec2 q) {
+    float r = length(q);
+    float sector = TWO_PI / STAR_POINTS;
+    float angle = r > LENS_EPSILON ? atan(q.y, q.x) - STAR_ROTATION : 0.0;
+    float spike = floor(angle / sector + 0.5);
+    float offset = angle - spike * sector;
+    float along = r * cos(offset);
+    float across = r * sin(offset);
+    float reach = fract(spike * 0.5) < 0.25 ? STAR_LENGTH : STAR_LENGTH * STAR_SHORT;
+    float rest = clamp(1.0 - along / reach, 0.0, 1.0);
+    vec3 width = STAR_WIDTH * (0.3 + 0.7 * rest) * STAR_SPREAD;
+    vec3 spikes = exp(-(across * across) / (width * width)) * (rest * rest);
+    return STAR_GAIN * spikes + vec3(STAR_GLOW_GAIN * exp(-r / STAR_GLOW_RADIUS));
+}
+
+// Lens flare: ghosts, the source re-imaged by reflections between lens
+// elements on the line through the optical centre (the viewport's), each at
+// `scale` times the source's offset from it -- negative across the centre --
+// and tinted by the coatings; and a halo ringing the centre on the source's side.
+const float GHOST_GAIN = 0.05;
+const float HALO_RADIUS = 0.45;
+const float HALO_WIDTH = 0.035;
+const vec3 HALO_SPREAD = vec3(1.0, 0.97, 0.94);  // the ring's radius per channel
+const float HALO_GAIN = 0.04;
+const float HALO_FULL_OFFSET = 0.2;              // source offset at which the halo is whole
+
+// A ghost is brightest at its rim, where the iris that clips it is in focus.
+float ghostProfile(float d) {
+    return (1.0 - smoothstep(0.8, 1.0, d)) * (0.4 + 0.6 * d * d);
+}
+
+// The ghosts that pass the aperture take its hexagonal shape.
+float hexagon(vec2 q) {
+    q = abs(q);
+    return max(q.x * 0.8660254 + q.y * 0.5, q.y);
+}
+
+vec3 discGhost(vec2 p, vec2 source, float scale, float radius, vec3 tint) {
+    return tint * ghostProfile(length(p - source * scale) / radius);
+}
+
+vec3 hexGhost(vec2 p, vec2 source, float scale, float radius, vec3 tint) {
+    return tint * ghostProfile(hexagon(p - source * scale) / radius);
+}
+
+vec3 lensFlare(vec2 p, vec2 source) {
+    vec3 ghosts = discGhost(p, source, 0.55, 0.030, vec3(1.00, 0.70, 0.40))
+                + hexGhost(p, source, 0.22, 0.055, vec3(0.45, 0.85, 0.55))
+                + discGhost(p, source, -0.18, 0.022, vec3(0.65, 0.55, 1.00))
+                + hexGhost(p, source, -0.42, 0.085, vec3(0.40, 0.65, 1.00))
+                + discGhost(p, source, -0.70, 0.045, vec3(1.00, 0.55, 0.75))
+                + hexGhost(p, source, -1.10, 0.120, vec3(0.50, 0.90, 0.70));
+    float fromCentre = length(p);
+    float offset = length(source);
+    float facing = max(dot(p / max(fromCentre, LENS_EPSILON), source / max(offset, LENS_EPSILON)), 0.0);
+    vec3 ring = (vec3(fromCentre) - HALO_RADIUS * HALO_SPREAD) / HALO_WIDTH;
+    vec3 halo = exp(-ring * ring) * (facing * facing * min(offset / HALO_FULL_OFFSET, 1.0));
+    return GHOST_GAIN * ghosts + HALO_GAIN * halo;
+}
+
+vec3 lensEffects(vec2 uv) {
+    if (flareVisibility <= 0.0) return vec3(0.0);
+    vec2 pixels = viewportPixels();
+    vec2 toHeights = vec2(pixels.x / pixels.y, 1.0);
+    vec2 p = (uv - 0.5) * toHeights;
+    vec2 source = (push.flareSource.xy - 0.5) * toHeights;
+    vec3 effects = vec3(0.0);
+    if (push.flareSource.z > 0.5) effects += lensFlare(p, source);
+    if (push.flareSource.w > 0.5) effects += sunStar(p - source);
+    return effects * push.flareRadiance.rgb * flareVisibility;
+}
+
 void main() {
     vec4 hdr4 = sampleHdr(fragUV);
     vec3 hdr = hdr4.rgb;
@@ -202,6 +266,7 @@ void main() {
     hdr *= ambientOcclusion(fragUV);
     hdr = applyFog(hdr, fragUV);
     hdr += bloom(fragUV);
+    hdr += lensEffects(fragUV);
 
     hdr *= push.fogParams.w;
 
