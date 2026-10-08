@@ -53,6 +53,18 @@ struct MeshData {
     std::vector<uint32_t> indices;
 };
 
+struct MeshCollisionData {
+    std::vector<glm::vec3> positions;
+    std::vector<uint32_t> indices;
+};
+struct PreparedMesh {
+    MeshData geometry;
+    Aabb bounds;
+    std::shared_ptr<const MeshCollisionData> collision;
+};
+// Pure CPU work; callers can prepare procedural geometry on their worker.
+std::shared_ptr<PreparedMesh> prepareMesh(MeshData data);
+
 // Owns device-local vertex and index buffers and knows how to bind/draw itself.
 class Mesh {
 public:
@@ -71,9 +83,14 @@ public:
     // and collision data). Called on the main thread once the asynchronous
     // parse has finished.
     void upload(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+    void beginUpload(const PreparedMesh& data);
+    void uploadRange(const PreparedMesh& data, size_t vertexStart, size_t vertices,
+                     size_t indexStart, size_t indices);
+    void finishUpload(const PreparedMesh& data);
+    void cancelUpload();
 
     // False until a proxy has received its geometry.
-    bool loaded() const { return allocation_.indexCount != 0; }
+    bool loaded() const { return loaded_; }
 
     // GPU bytes used by the geometry (asset accounting for GPU resource tracking).
     uint64_t gpuBytes() const { return gpuBytes_; }
@@ -85,7 +102,7 @@ public:
     void bind(rhi::RenderPassEncoder& rp) const;
     void draw(rhi::RenderPassEncoder& rp) const;
 
-    GeometryAllocation geometryAllocation() const { return allocation_; }
+    GeometryAllocation geometryAllocation() const { return loaded_ ? allocation_ : GeometryAllocation{}; }
     const GeometryAllocation& allocation() const { return allocation_; }
 
     const Aabb& bounds() const { return bounds_; }
@@ -93,16 +110,16 @@ public:
     // Lightweight CPU copy of the geometry (positions + indices only) kept for the
     // physics layer to build convex-hull / triangle-mesh colliders. (~12 B/vertex
     // + 4 B/index; could be made opt-in for shipping/mobile.)
-    const std::vector<glm::vec3>& collisionVertices() const { return collisionVertices_; }
-    const std::vector<uint32_t>& collisionIndices() const { return collisionIndices_; }
+    const std::vector<glm::vec3>& collisionVertices() const { return collision_->positions; }
+    const std::vector<uint32_t>& collisionIndices() const { return collision_->indices; }
 
 private:
     GeometryRegistry& registry_;
     GeometryAllocation allocation_;
     Aabb bounds_;
     uint64_t gpuBytes_ = 0;
-    std::vector<glm::vec3> collisionVertices_;
-    std::vector<uint32_t> collisionIndices_;
+    bool loaded_ = false;
+    std::shared_ptr<const MeshCollisionData> collision_ = std::make_shared<MeshCollisionData>();
 };
 
 } // namespace saida

@@ -31,6 +31,7 @@
 #include <unordered_set>
 #include <vector>
 #include <string>
+#include <stdexcept>
 
 namespace saida {
 
@@ -94,14 +95,15 @@ static rhi::AddressMode gltfWrap(cgltf_texture* tex) {
     return (clampS || clampT) ? rhi::AddressMode::ClampToEdge : rhi::AddressMode::Repeat;
 }
 
-static AssetID loadGLTFTexture(cgltf_texture* tex, ResourceManager& resources, const std::filesystem::path& basePath, bool srgb = true) {
+static AssetID loadGLTFTexture(cgltf_texture* tex, ResourceManager& resources, const std::filesystem::path& basePath, bool srgb = true, bool streamed = false) {
     if (!tex || !tex->image) return kAssetInvalid;
 
     const rhi::AddressMode address = gltfWrap(tex);
     if (tex->image->buffer_view) {
         // Embedded texture
         const uint8_t* data = static_cast<const uint8_t*>(tex->image->buffer_view->buffer->data) + tex->image->buffer_view->offset;
-        return resources.registerMemoryTexture(data, tex->image->buffer_view->size, srgb, address);
+        return streamed ? resources.queueMemoryTexture(data, tex->image->buffer_view->size, srgb, address)
+                        : resources.registerMemoryTexture(data, tex->image->buffer_view->size, srgb, address);
     } else if (tex->image->uri) {
         std::filesystem::path uriPath = tex->image->uri;
         if (uriPath.is_absolute()) return resources.getOrRegister(uriPath.string(), AssetType::Texture, srgb, address);
@@ -239,11 +241,11 @@ static void processNode(cgltf_node* node, Node* parent, ResourceManager& resourc
     if (node->mesh) {
         size_t meshIdx = node->mesh - data->meshes;
         const auto& primitives = meshesPrimitives[meshIdx];
-        
+
         for (size_t i = 0; i < primitives.size(); ++i) {
             cgltf_primitive* prim = &node->mesh->primitives[i];
             Material* mat = resolvePrimitiveMaterial(prim, data, resources, materials);
-            
+
             std::string primName = (node->name ? std::string(node->name) : "Mesh") + "_prim" + std::to_string(i);
             MeshNode* mNode = neNode->createChild<MeshNode>(primName, resources.getMesh(primitives[i]), mat);
             buildLodChain(mNode, nodeIndex, i, node, data, meshesPrimitives, materials, resources, lodByNodeIndex);
@@ -437,44 +439,188 @@ bool GLTFLoader::loadAnimationData(const std::string& path, GltfAnimationData& o
     return true;
 }
 
-bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& resources,
-                      const GLTFLoadOptions& options) {
-    SAIDA_PROFILE_SCOPE("Resource/LoadGLTF");
-    const std::string loadPath = AutoLODBridge::resolveLoadPath(path, options.autoMeshLods);
-    Log::info("GLTFLoader: loading ", loadPath);
-    
-    cgltf_options cgltfOptions = {};
+struct PreparedGltf {
     cgltf_data* data = nullptr;
-    cgltf_result result = cgltf_parse_file(&cgltfOptions, loadPath.c_str(), &data);
-    
-    if (result != cgltf_result_success) {
-        Log::error("GLTFLoader: failed to parse ", loadPath, " — ",
-                   cgltfResultName(result));
-        return false;
+    std::vector<uint8_t> source;
+    std::string path;
+    std::vector<std::vector<std::shared_ptr<const PreparedMesh>>> meshes;
+    std::vector<std::unique_ptr<Rig>> rigs;
+    std::vector<std::unique_ptr<AnimationClip>> clips;
+    ~PreparedGltf() { if (data) cgltf_free(data); }
+};
+
+static std::shared_ptr<PreparedMesh> decodePrimitive(cgltf_primitive& prim) {
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+    bool hasTangents = false;
+
+    // Vertices
+    size_t vertexCount = 0;
+    for (size_t k = 0; k < prim.attributes_count; ++k) {
+        if (prim.attributes[k].type == cgltf_attribute_type_position) {
+            vertexCount = prim.attributes[k].data->count;
+        } else if (prim.attributes[k].type == cgltf_attribute_type_tangent) {
+            hasTangents = true;
+        }
     }
-    
-    result = cgltf_load_buffers(&cgltfOptions, data, loadPath.c_str());
-    if (result != cgltf_result_success) {
-        Log::error("GLTFLoader: Failed to load buffers for ", loadPath);
-        cgltf_free(data);
-        return false;
+    vertices.resize(vertexCount);
+    for (Vertex& vertex : vertices) {
+        vertex.color = glm::vec3(1.0f);
+        vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
+        vertex.tangent = glm::vec4(0.0f);
     }
 
-    // Hostile content: reject accessors/views outside the declared buffers
-    // before any read (an OOB read aborts the wasm player).
-    if (cgltf_validate(data) != cgltf_result_success) {
-        Log::error("GLTFLoader: validation failed for ", loadPath, " — refusing hostile/corrupt data");
-        cgltf_free(data);
-        return false;
+    for (size_t k = 0; k < prim.attributes_count; ++k) {
+        cgltf_attribute& attr = prim.attributes[k];
+        for (size_t v = 0; v < vertexCount; ++v) {
+            if (attr.type == cgltf_attribute_type_position) {
+                cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].pos), 3);
+            } else if (attr.type == cgltf_attribute_type_normal) {
+                cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].normal), 3);
+            } else if (attr.type == cgltf_attribute_type_texcoord && attr.index == 0) {
+                cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].texCoord), 2);
+            } else if (attr.type == cgltf_attribute_type_texcoord && attr.index == 1) {
+                cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].lightmapUV), 2);
+            } else if (attr.type == cgltf_attribute_type_tangent) {
+                cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].tangent), 4);
+            } else if (attr.type == cgltf_attribute_type_joints && attr.index == 0) {
+                uint32_t tmp[4] = {0,0,0,0};
+                cgltf_accessor_read_uint(attr.data, v, tmp, 4);
+                vertices[v].boneIndices = glm::ivec4(tmp[0], tmp[1], tmp[2], tmp[3]);
+            } else if (attr.type == cgltf_attribute_type_weights && attr.index == 0) {
+                cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].boneWeights), 4);
+            }
+        }
     }
 
-    // Decode meshopt-compressed buffer views in place (decoded data is owned by
-    // `data` and released by the cgltf_free below).
-    if (!decodeMeshoptBuffers(data)) {
-        cgltf_free(data);
-        return false;
+    // Indices
+    if (prim.indices) {
+        if (prim.type == cgltf_primitive_type_triangle_strip) {
+            indices.reserve((prim.indices->count > 2 ? prim.indices->count - 2 : 0) * 3);
+            for (size_t v = 0; v + 2 < prim.indices->count; ++v) {
+                uint32_t i0 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v));
+                uint32_t i1 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v + 1));
+                uint32_t i2 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v + 2));
+                if (i0 == i1 || i1 == i2 || i2 == i0) continue; // skip degenerate triangles
+                if (v % 2 == 0) {
+                    indices.push_back(i0); indices.push_back(i1); indices.push_back(i2);
+                } else {
+                    indices.push_back(i0); indices.push_back(i2); indices.push_back(i1);
+                }
+            }
+        } else if (prim.type == cgltf_primitive_type_triangle_fan) {
+            indices.reserve((prim.indices->count > 2 ? prim.indices->count - 2 : 0) * 3);
+            uint32_t i0 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, 0));
+            for (size_t v = 1; v + 1 < prim.indices->count; ++v) {
+                uint32_t i1 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v));
+                uint32_t i2 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v + 1));
+                if (i0 == i1 || i1 == i2 || i2 == i0) continue;
+                indices.push_back(i0); indices.push_back(i1); indices.push_back(i2);
+            }
+        } else {
+            indices.resize(prim.indices->count);
+            for (size_t v = 0; v < prim.indices->count; ++v) {
+                indices[v] = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v));
+            }
+        }
+    } else {
+        if (prim.type == cgltf_primitive_type_triangle_strip) {
+            indices.reserve((vertexCount > 2 ? vertexCount - 2 : 0) * 3);
+            for (size_t v = 0; v + 2 < vertexCount; ++v) {
+                uint32_t i0 = v, i1 = v + 1, i2 = v + 2;
+                if (v % 2 == 0) {
+                    indices.push_back(i0); indices.push_back(i1); indices.push_back(i2);
+                } else {
+                    indices.push_back(i0); indices.push_back(i2); indices.push_back(i1);
+                }
+            }
+        } else {
+            indices.resize(vertexCount);
+            for (size_t v = 0; v < vertexCount; ++v) indices[v] = static_cast<uint32_t>(v);
+        }
     }
 
+    for (uint32_t index : indices) if (index >= vertices.size())
+        throw std::runtime_error("glTF primitive index outside its vertex array");
+    if (!hasTangents) {
+        for (size_t tri = 0; tri + 2 < indices.size(); tri += 3) {
+            Vertex& v0 = vertices[indices[tri + 0]];
+            Vertex& v1 = vertices[indices[tri + 1]];
+            Vertex& v2 = vertices[indices[tri + 2]];
+
+            const glm::vec3 e1 = v1.pos - v0.pos;
+            const glm::vec3 e2 = v2.pos - v0.pos;
+            const glm::vec2 duv1 = v1.texCoord - v0.texCoord;
+            const glm::vec2 duv2 = v2.texCoord - v0.texCoord;
+            const float det = duv1.x * duv2.y - duv2.x * duv1.y;
+            if (std::abs(det) < 1e-8f) continue;
+            const glm::vec3 tangent = (e1 * duv2.y - e2 * duv1.y) / det;
+            if (!std::isfinite(tangent.x) || !std::isfinite(tangent.y) ||
+                !std::isfinite(tangent.z))
+                continue;
+            v0.tangent += glm::vec4(tangent, 0.0f);
+            v1.tangent += glm::vec4(tangent, 0.0f);
+            v2.tangent += glm::vec4(tangent, 0.0f);
+        }
+    }
+
+    for (Vertex& v : vertices) {
+        glm::vec3 n = glm::length(v.normal) > 1e-6f
+            ? glm::normalize(v.normal) : glm::vec3(0.0f, 1.0f, 0.0f);
+        glm::vec3 t = glm::vec3(v.tangent);
+        const float handedness = v.tangent.w < 0.0f ? -1.0f : 1.0f;
+        if (glm::length(t) < 1e-6f) {
+            glm::vec3 c1 = glm::cross(n, glm::vec3(0.0f, 0.0f, 1.0f));
+            glm::vec3 c2 = glm::cross(n, glm::vec3(0.0f, 1.0f, 0.0f));
+            t = glm::length(c1) > glm::length(c2) ? c1 : c2;
+        }
+        t = t - n * glm::dot(n, t);
+        if (glm::length(t) < 1e-6f) t = glm::vec3(1.0f, 0.0f, 0.0f);
+        v.normal = n;
+        v.tangent = glm::vec4(glm::normalize(t), handedness);
+    }
+
+    return prepareMesh({std::move(vertices), std::move(indices)});
+}
+
+static bool prepareGltf(PreparedGltf& prepared, std::string& error) {
+    auto* data = prepared.data;
+    cgltf_options options{};
+    if (cgltf_load_buffers(&options, data, prepared.path.c_str()) != cgltf_result_success ||
+        cgltf_validate(data) != cgltf_result_success || !decodeMeshoptBuffers(data)) {
+        error = "invalid glTF buffers/accessors or meshopt data: " + prepared.path;
+        return false;
+    }
+    prepared.meshes.resize(data->meshes_count);
+    for (size_t i = 0; i < data->meshes_count; ++i)
+        for (size_t j = 0; j < data->meshes[i].primitives_count; ++j)
+            prepared.meshes[i].push_back(decodePrimitive(data->meshes[i].primitives[j]));
+    for (size_t i = 0; i < data->skins_count; ++i) {
+        auto rig = buildRigFromSkin(data->skins[i], &error);
+        if (!rig) return false;
+        prepared.rigs.push_back(std::move(rig));
+    }
+    for (size_t i = 0; i < data->animations_count; ++i)
+        prepared.clips.push_back(buildClipFromAnimation(data->animations[i], i));
+    return true;
+}
+
+static std::unique_ptr<AnimationClip> copyClip(const AnimationClip& source) {
+    auto clip=std::make_unique<AnimationClip>(source.name(),source.duration());
+    for(const auto& bone:source.boneNames())for(const auto& track:*source.getTracks(bone)) {
+        if(const auto* vec=dynamic_cast<const TypedAnimTrack<glm::vec3>*>(track.get()))
+            clip->addTrack(bone,std::make_unique<TypedAnimTrack<glm::vec3>>(*vec));
+        else if(const auto* quat=dynamic_cast<const TypedAnimTrack<glm::quat>*>(track.get()))
+            clip->addTrack(bone,std::make_unique<TypedAnimTrack<glm::quat>>(*quat));
+        else throw std::runtime_error("unsupported glTF animation track");
+    }
+    return clip;
+}
+
+static bool instantiateGltf(PreparedGltf& prepared, Node& rootNode, ResourceManager& resources,
+                             const GLTFLoadOptions& options, bool streamed) {
+    auto* data = prepared.data;
+    const std::string& loadPath = prepared.path;
     std::filesystem::path basePath = std::filesystem::path(loadPath).parent_path();
 
     // 1. Load Materials
@@ -482,17 +628,17 @@ bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& 
     for (size_t i = 0; i < data->materials_count; ++i) {
         cgltf_material& mat = data->materials[i];
         MaterialDesc& desc = materials[i];
-        
+
         if (mat.has_pbr_metallic_roughness) {
             desc.baseColor = toVec4(mat.pbr_metallic_roughness.base_color_factor);
             desc.metallic = mat.pbr_metallic_roughness.metallic_factor;
             desc.roughness = mat.pbr_metallic_roughness.roughness_factor;
-            desc.albedoId = loadGLTFTexture(mat.pbr_metallic_roughness.base_color_texture.texture, resources, basePath, true);
-            desc.metallicRoughnessId = loadGLTFTexture(mat.pbr_metallic_roughness.metallic_roughness_texture.texture, resources, basePath, false);
+            desc.albedoId = loadGLTFTexture(mat.pbr_metallic_roughness.base_color_texture.texture, resources, basePath, true, streamed);
+            desc.metallicRoughnessId = loadGLTFTexture(mat.pbr_metallic_roughness.metallic_roughness_texture.texture, resources, basePath, false, streamed);
         }
-        
-        desc.normalId = loadGLTFTexture(mat.normal_texture.texture, resources, basePath, false);
-        desc.emissiveId = loadGLTFTexture(mat.emissive_texture.texture, resources, basePath, true);
+
+        desc.normalId = loadGLTFTexture(mat.normal_texture.texture, resources, basePath, false, streamed);
+        desc.emissiveId = loadGLTFTexture(mat.emissive_texture.texture, resources, basePath, true, streamed);
         desc.emissiveColor = glm::vec4(toVec3(mat.emissive_factor), 1.0f);
         desc.doubleSided = mat.double_sided;
 
@@ -515,150 +661,15 @@ bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& 
         }
     }
 
-    // 2. Load Meshes (Primitives)
     std::vector<std::vector<AssetID>> meshesPrimitives(data->meshes_count);
-    for (size_t i = 0; i < data->meshes_count; ++i) {
-        cgltf_mesh& mesh = data->meshes[i];
-        for (size_t j = 0; j < mesh.primitives_count; ++j) {
-            cgltf_primitive& prim = mesh.primitives[j];
-            
-            std::vector<Vertex> vertices;
-            std::vector<uint32_t> indices;
-            bool hasTangents = false;
-            
-            // Vertices
-            size_t vertexCount = 0;
-            for (size_t k = 0; k < prim.attributes_count; ++k) {
-                if (prim.attributes[k].type == cgltf_attribute_type_position) {
-                    vertexCount = prim.attributes[k].data->count;
-                } else if (prim.attributes[k].type == cgltf_attribute_type_tangent) {
-                    hasTangents = true;
-                }
-            }
-            vertices.resize(vertexCount);
-            for (Vertex& vertex : vertices) {
-                vertex.color = glm::vec3(1.0f);
-                vertex.normal = glm::vec3(0.0f, 1.0f, 0.0f);
-                vertex.tangent = glm::vec4(0.0f);
-            }
-            
-            for (size_t k = 0; k < prim.attributes_count; ++k) {
-                cgltf_attribute& attr = prim.attributes[k];
-                for (size_t v = 0; v < vertexCount; ++v) {
-                    if (attr.type == cgltf_attribute_type_position) {
-                        cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].pos), 3);
-                    } else if (attr.type == cgltf_attribute_type_normal) {
-                        cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].normal), 3);
-                    } else if (attr.type == cgltf_attribute_type_texcoord && attr.index == 0) {
-                        cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].texCoord), 2);
-                    } else if (attr.type == cgltf_attribute_type_texcoord && attr.index == 1) {
-                        cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].lightmapUV), 2);
-                    } else if (attr.type == cgltf_attribute_type_tangent) {
-                        cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].tangent), 4);
-                    } else if (attr.type == cgltf_attribute_type_joints && attr.index == 0) {
-                        uint32_t tmp[4] = {0,0,0,0};
-                        cgltf_accessor_read_uint(attr.data, v, tmp, 4);
-                        vertices[v].boneIndices = glm::ivec4(tmp[0], tmp[1], tmp[2], tmp[3]);
-                    } else if (attr.type == cgltf_attribute_type_weights && attr.index == 0) {
-                        cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].boneWeights), 4);
-                    }
-                }
-            }
-            
-            // Indices
-            if (prim.indices) {
-                if (prim.type == cgltf_primitive_type_triangle_strip) {
-                    indices.reserve((prim.indices->count - 2) * 3);
-                    for (size_t v = 0; v < prim.indices->count - 2; ++v) {
-                        uint32_t i0 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v));
-                        uint32_t i1 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v + 1));
-                        uint32_t i2 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v + 2));
-                        if (i0 == i1 || i1 == i2 || i2 == i0) continue; // skip degenerate triangles
-                        if (v % 2 == 0) {
-                            indices.push_back(i0); indices.push_back(i1); indices.push_back(i2);
-                        } else {
-                            indices.push_back(i0); indices.push_back(i2); indices.push_back(i1);
-                        }
-                    }
-                } else if (prim.type == cgltf_primitive_type_triangle_fan) {
-                    indices.reserve((prim.indices->count - 2) * 3);
-                    uint32_t i0 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, 0));
-                    for (size_t v = 1; v < prim.indices->count - 1; ++v) {
-                        uint32_t i1 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v));
-                        uint32_t i2 = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v + 1));
-                        if (i0 == i1 || i1 == i2 || i2 == i0) continue;
-                        indices.push_back(i0); indices.push_back(i1); indices.push_back(i2);
-                    }
-                } else {
-                    indices.resize(prim.indices->count);
-                    for (size_t v = 0; v < prim.indices->count; ++v) {
-                        indices[v] = static_cast<uint32_t>(cgltf_accessor_read_index(prim.indices, v));
-                    }
-                }
-            } else {
-                if (prim.type == cgltf_primitive_type_triangle_strip) {
-                    indices.reserve((vertexCount - 2) * 3);
-                    for (size_t v = 0; v < vertexCount - 2; ++v) {
-                        uint32_t i0 = v, i1 = v + 1, i2 = v + 2;
-                        if (v % 2 == 0) {
-                            indices.push_back(i0); indices.push_back(i1); indices.push_back(i2);
-                        } else {
-                            indices.push_back(i0); indices.push_back(i2); indices.push_back(i1);
-                        }
-                    }
-                } else {
-                    indices.resize(vertexCount);
-                    for (size_t v = 0; v < vertexCount; ++v) indices[v] = static_cast<uint32_t>(v);
-                }
-            }
-
-            if (!hasTangents) {
-                for (size_t tri = 0; tri + 2 < indices.size(); tri += 3) {
-                    Vertex& v0 = vertices[indices[tri + 0]];
-                    Vertex& v1 = vertices[indices[tri + 1]];
-                    Vertex& v2 = vertices[indices[tri + 2]];
-
-                    const glm::vec3 e1 = v1.pos - v0.pos;
-                    const glm::vec3 e2 = v2.pos - v0.pos;
-                    const glm::vec2 duv1 = v1.texCoord - v0.texCoord;
-                    const glm::vec2 duv2 = v2.texCoord - v0.texCoord;
-                    const float det = duv1.x * duv2.y - duv2.x * duv1.y;
-                    if (std::abs(det) < 1e-8f) continue;
-                    const glm::vec3 tangent = (e1 * duv2.y - e2 * duv1.y) / det;
-                    if (!std::isfinite(tangent.x) || !std::isfinite(tangent.y) ||
-                        !std::isfinite(tangent.z))
-                        continue;
-                    v0.tangent += glm::vec4(tangent, 0.0f);
-                    v1.tangent += glm::vec4(tangent, 0.0f);
-                    v2.tangent += glm::vec4(tangent, 0.0f);
-                }
-            }
-
-            for (Vertex& v : vertices) {
-                glm::vec3 n = glm::length(v.normal) > 1e-6f
-                    ? glm::normalize(v.normal) : glm::vec3(0.0f, 1.0f, 0.0f);
-                glm::vec3 t = glm::vec3(v.tangent);
-                const float handedness = v.tangent.w < 0.0f ? -1.0f : 1.0f;
-                if (glm::length(t) < 1e-6f) {
-                    glm::vec3 c1 = glm::cross(n, glm::vec3(0.0f, 0.0f, 1.0f));
-                    glm::vec3 c2 = glm::cross(n, glm::vec3(0.0f, 1.0f, 0.0f));
-                    t = glm::length(c1) > glm::length(c2) ? c1 : c2;
-                }
-                t = t - n * glm::dot(n, t);
-                if (glm::length(t) < 1e-6f) t = glm::vec3(1.0f, 0.0f, 0.0f);
-                v.normal = n;
-                v.tangent = glm::vec4(glm::normalize(t), handedness);
-            }
-            
-            // Stable key per sub-asset: a re-import (Play/Stop, scene cycles)
-            // yields the same AssetID — a restored snapshot stays resolvable.
-            const std::string meshKey =
-                loadPath + "#mesh" + std::to_string(i) + "_prim" + std::to_string(j);
-            AssetID meshId = resources.registerMemoryMesh(meshKey, vertices, indices);
-            Log::info("Loaded GLTF Primitive: ", vertexCount, " vertices, ", indices.size(), " indices, meshId=", meshId, " type=", prim.type);
-            meshesPrimitives[i].push_back(meshId);
+    for (size_t i = 0; i < prepared.meshes.size(); ++i)
+        for (size_t j = 0; j < prepared.meshes[i].size(); ++j) {
+            const auto& mesh = prepared.meshes[i][j];
+            const auto key = loadPath + "#mesh" + std::to_string(i) + "_prim" + std::to_string(j);
+            const auto id = streamed ? resources.queueMemoryMesh(mesh, key) :
+                resources.registerMemoryMesh(key, mesh->geometry.vertices, mesh->geometry.indices);
+            meshesPrimitives[i].push_back(id);
         }
-    }
 
     // 2b. Scan MSFT_lod metadata before building the scene graph.
     std::unordered_map<size_t, NodeLodInfo> lodByNodeIndex;
@@ -692,7 +703,7 @@ bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& 
     for (size_t i = 0; i < data->skins_count; ++i) {
         cgltf_skin& skin = data->skins[i];
         std::string rigError;
-        auto rig = buildRigFromSkin(skin, &rigError);
+        auto rig = std::make_unique<Rig>(*prepared.rigs[i]);
         if (!rig) {
             Log::error("GLTFLoader: invalid skin ", i, ": ", rigError);
             continue;
@@ -718,7 +729,7 @@ bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& 
     std::vector<AssetID> loadedClips;
     std::vector<std::string> clipNames;
     for (size_t i = 0; i < data->animations_count; ++i) {
-        auto clip = buildClipFromAnimation(data->animations[i], i);
+        auto clip = copyClip(*prepared.clips[i]);
         const std::string animName = clip->name();
         const float duration = clip->duration();
 
@@ -744,7 +755,56 @@ bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& 
         }
     }
 
-    cgltf_free(data);
+    return true;
+}
+
+bool GLTFLoader::load(const std::string& path, Node& rootNode, ResourceManager& resources,
+                      const GLTFLoadOptions& options) {
+    SAIDA_PROFILE_SCOPE("Resource/LoadGLTF");
+    PreparedGltf prepared;
+    prepared.path = AutoLODBridge::resolveLoadPath(path, options.autoMeshLods);
+    cgltf_options parseOptions{};
+    const auto result = cgltf_parse_file(&parseOptions, prepared.path.c_str(), &prepared.data);
+    std::string error;
+    if (result != cgltf_result_success || !prepareGltf(prepared, error)) {
+        Log::error("GLTFLoader: ", prepared.path, ": ", error.empty() ? cgltfResultName(result) : error);
+        return false;
+    }
+    return instantiateGltf(prepared, rootNode, resources, options, false);
+}
+
+AssetHandle GLTFLoader::request(const std::string& path, ResourceManager& resources) {
+    auto* registry = resources.registry();
+    if (!registry) return {};
+    const auto id = registry->registerAsset(path, AssetType::Mesh);
+    const auto absolute = registry->getAbsolutePath(id);
+    return resources.assetLoader().request(id, AssetLoadPriority::High, AssetPayloadKind::GltfModel,
+        [absolute](std::vector<uint8_t>&& bytes, AssetDecodeResult& out, std::string& error) {
+            SAIDA_PROFILE_SCOPE("Resource/DecodeGLTF");
+            auto prepared = std::make_shared<PreparedGltf>();
+            prepared->path = absolute;
+            prepared->source = std::move(bytes);
+            cgltf_options options{};
+            const auto result = cgltf_parse(&options, prepared->source.data(), prepared->source.size(), &prepared->data);
+            if (result != cgltf_result_success) { error = cgltfResultName(result); return false; }
+            if (!prepareGltf(*prepared, error)) return false;
+            out.bytes = prepared->source.size();
+            for (const auto& mesh : prepared->meshes) for (const auto& primitive : mesh)
+                out.bytes += primitive->geometry.vertices.size() * sizeof(Vertex) +
+                             primitive->geometry.indices.size() * sizeof(uint32_t) +
+                             primitive->collision->positions.size() * sizeof(glm::vec3) +
+                             primitive->collision->indices.size() * sizeof(uint32_t);
+            out.payload = std::move(prepared);
+            return true;
+        });
+}
+
+bool GLTFLoader::instantiate(AssetHandle& handle, Node& rootNode, ResourceManager& resources) {
+    SAIDA_PROFILE_SCOPE("Resource/InstantiateGLTF");
+    if (!handle.ready()) return false;
+    auto prepared = std::static_pointer_cast<PreparedGltf>(handle.payload());
+    if (!prepared || !instantiateGltf(*prepared, rootNode, resources, {}, true)) return false;
+    handle.reset();
     return true;
 }
 

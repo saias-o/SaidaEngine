@@ -5,6 +5,9 @@
 #include "graphics/BindlessTables.hpp"
 #include "graphics/GpuGraveyard.hpp"
 #include "graphics/Texture.hpp"
+#ifndef SAIDA_RHI_WEBGPU
+#include "graphics/VulkanDevice.hpp"
+#endif
 
 #include <stb_image.h>
 
@@ -85,7 +88,7 @@ Texture* TextureCache::get(AssetID id, bool srgb, AssetRegistry* registry,
     if (failed_.count(id)) return missing();
     if (!registry) return nullptr;
 
-    if (!pending_.count(id)) {
+    if (!pending_.count(id) && !uploading_.count(id)) {
         AssetHandle handle = loader.request(id, AssetLoadPriority::High,
                                             AssetPayloadKind::Image, makeImageDecoder());
         if (!handle) return nullptr;
@@ -95,6 +98,14 @@ Texture* TextureCache::get(AssetID id, bool srgb, AssetRegistry* registry,
 }
 
 void TextureCache::finalizePending(std::vector<AssetID>& completed) {
+    for (auto it = uploading_.begin(); it != uploading_.end();) {
+        if (!it->second->uploadReady()) { ++it; continue; }
+        registerBindless(it->second.get());
+        textures_.emplace(it->first, std::move(it->second));
+        completed.push_back(it->first);
+        it = uploading_.erase(it);
+    }
+    if (device_.pendingUploads() >= rhi::Device::kMaxPendingUploads) return;
     for (auto it = pending_.begin(); it != pending_.end();) {
         const AssetLoadState state = it->second.handle.state();
         if (state == AssetLoadState::Queued || state == AssetLoadState::Loading) {
@@ -116,17 +127,28 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
 #endif
                 auto texture = std::make_unique<Texture>(
                     device_, static_cast<const uint8_t*>(image->pixels),
-                    image->width, image->height, format, true, it->second.address);
-                registerBindless(texture.get());
+                    image->width, image->height, format, true, it->second.address, true);
                 residentBytes_ += texture->gpuBytes();
-                textures_.emplace(id, std::move(texture));
+                uploading_.emplace(id, std::move(texture));
                 created = true;
             }
         }
         if (!created) failed_.insert(id);
         it = pending_.erase(it);
-        completed.push_back(id);
+        if (!created) completed.push_back(id);
+        // Record at most one image/mip chain per pump; completion is polled.
+        if (created) break;
     }
+}
+AssetID TextureCache::queueMemory(const uint8_t* data, size_t size, bool srgb,
+                                  rhi::AddressMode address, AssetLoader& loader) {
+    static std::atomic<AssetID> dynamicId{0x8200000000000000ULL};
+    if (!data || !size) return kAssetInvalid;
+    const AssetID id = dynamicId++;
+    auto handle = loader.requestMemory(id, std::vector<uint8_t>(data, data + size),
+                                      AssetPayloadKind::Image, makeImageDecoder());
+    pending_.emplace(id, PendingTexture{srgb, address, std::move(handle)});
+    return id;
 }
 
 void TextureCache::setAddressMode(AssetID id, rhi::AddressMode address) {
@@ -274,6 +296,7 @@ uint64_t TextureCache::evict(AssetID id, GpuGraveyard& graveyard,
 }
 
 void TextureCache::clear() {
+    uploading_.clear();
     pending_.clear();
     failed_.clear();
     lastUse_.clear();

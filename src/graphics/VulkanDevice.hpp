@@ -6,6 +6,8 @@
 #include <vulkan/vulkan.h>
 
 #include <functional>
+#include <deque>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -75,6 +77,15 @@ public:
     // Waits for a one-shot batch so callers can safely use its result immediately.
     void withSingleTimeEncoder(const std::function<void(rhi::vulkan::CommandEncoder&)>& fn) const;
 
+    // Main-thread, ordered graphics-queue transfers. Own staging/old resources
+    // until the fence completes; polling never waits for the queue.
+    static constexpr size_t kMaxPendingUploads = 8;
+    uint64_t submitUpload(const std::function<void(rhi::vulkan::CommandEncoder&)>& fn,
+                          std::shared_ptr<void> keepAlive);
+    bool uploadComplete(uint64_t serial);
+    size_t pendingUploads();
+    void waitUpload(uint64_t serial); // shutdown or explicitly synchronous callers
+
     VkCommandBuffer beginSingleTimeCommands() const;
     void endSingleTimeCommands(VkCommandBuffer cmd) const;
 
@@ -116,6 +127,15 @@ private:
     rhi::Capabilities capabilities_;
     bool validationEnabled_ = false;
     VulkanDeviceCreator* creator_ = nullptr;  // non-null → custom/OpenXR-driven init
+    struct Upload {
+        uint64_t serial;
+        VkCommandBuffer command;
+        VkFence fence;
+        std::shared_ptr<void> keepAlive;
+    };
+    std::deque<Upload> uploads_;
+    uint64_t submittedUpload_ = 0, completedUpload_ = 0;
+    void collectUploads();
 };
 
 } // namespace saida

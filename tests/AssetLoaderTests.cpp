@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <thread>
+#include <stdexcept>
 
 namespace {
 
@@ -98,6 +99,19 @@ int main() {
     shared.reset();
     overBudget.reset();
     absent.reset();
+    assert(waitForResidentZero(loader));
+
+    auto memory = loader.requestMemory(0x9000, {1,2,3}, saida::AssetPayloadKind::Raw, {});
+    assert(waitForTerminal(memory) && memory.ready() && memory.bytes().size() == 3);
+    memory.reset();
+    assert(waitForResidentZero(loader));
+    auto throws = loader.requestMemory(0x9001, {4}, saida::AssetPayloadKind::Image,
+        [](std::vector<uint8_t>&&, saida::AssetDecodeResult&, std::string&) -> bool {
+            throw std::runtime_error("decoder rejected data");
+        });
+    assert(waitForTerminal(throws) && throws.failed());
+    assert(throws.error().find("decoder rejected data") != std::string::npos);
+    throws.reset();
     assert(waitForResidentZero(loader));
 
     for (int i = 0; i < 32; ++i) {

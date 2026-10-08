@@ -4,7 +4,11 @@
 #include "graphics/Mesh.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "graphics/Buffer.hpp"
+#include "graphics/Texture.hpp"
 #include "graphics/GeometryRegistry.hpp"
+#include "graphics/MeshCache.hpp"
+#include "graphics/GpuGraveyard.hpp"
+#include "scene/GLTFLoader.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "authoring/SceneSnapshot.hpp"
 #include "nodes/MeshNode.hpp"
@@ -22,6 +26,10 @@
 #include <cstdlib>
 #include <cmath>
 #include <stdexcept>
+#include <filesystem>
+#include <chrono>
+#include <thread>
+#include <cstring>
 
 using namespace saida;
 namespace {
@@ -298,6 +306,115 @@ void gpuCollisionFrames(ResourceManager& resources) {
 }
 
 // Optional device proof: --gpu. The default CTest suite stays headless.
+void gpuQueuedMeshes(ResourceManager& resources) {
+    MeshCache cache(resources.geometry());
+    const auto before=resources.geometryUsage();
+    std::vector<Vertex> vertices(4);
+    vertices[0].pos={-1,0,0};vertices[1].pos={1,0,0};vertices[2].pos={1,2,0};vertices[3].pos={-1,2,0};
+    const std::vector<uint32_t> indices{0,1,2,0,2,3};
+    const auto data=prepareMesh({vertices,indices});
+    AssetLoader loader;
+    auto id=cache.queueMemory(data,{},nullptr);
+    auto* proxy=cache.get(id,nullptr,loader,0);
+    require(proxy&&!proxy->loaded()&&proxy->collisionVertices().empty(),"queued mesh has stable empty proxy");
+    cache.pumpUploads(sizeof(Vertex),1000.);
+    require(!proxy->loaded()&&proxy->geometryAllocation().indexCount==0&&proxy->collisionVertices().empty(),
+            "partial GPU upload cannot draw or collide");
+    require(cache.hasPendingLoads(),"partial upload is not settled");
+    resources.geometry().compact();
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while(cache.hasPendingLoads()&&std::chrono::steady_clock::now()<deadline) {
+        cache.pumpUploads(sizeof(Vertex),1000.);std::this_thread::yield();
+    }
+    require(proxy->loaded()&&!cache.hasPendingLoads(),"bounded slices eventually publish Ready");
+    require(proxy->collisionIndices()==indices&&proxy->collisionVertices().size()==vertices.size(),"Ready publishes collision data");
+    require(proxy->bounds().max.y==2.f,"worker-prepared bounds are published with geometry");
+    require(cache.get(id,nullptr,loader,0)==proxy,"proxy address stays stable");
+    Buffer read(resources.device(),indices.size()*sizeof(uint32_t),rhi::BufferUsage::TransferDst,MemoryUsage::HostVisible);
+    resources.device().withSingleTimeEncoder([&](rhi::CommandEncoder& enc){
+        enc.copyBufferToBuffer(*resources.geometry().indexBuffer(),read,read.size(),uint64_t(proxy->allocation().firstIndex)*sizeof(uint32_t),0);
+    });
+    require(std::memcmp(read.mapped(),indices.data(),read.size())==0,"all uploaded index slices survive compaction");
+    const auto pending=cache.queueMemory(data,{},nullptr);
+    cache.pumpUploads(sizeof(Vertex),1000.);
+    require(!cache.get(pending,nullptr,loader,0)->loaded(),"second upload is partial");
+    GpuGraveyard graveyard;
+    cache.sweepUnused({proxy},graveyard,0);
+    require(!cache.hasPendingLoads(),"evicted scene cancels its partial upload");
+    require(resources.geometryUsage().vertices==before.vertices+vertices.size(),"cancellation releases reserved geometry");
+    cache.clear();
+    require(resources.geometryUsage().vertices==before.vertices,"streamed cache releases its allocations");
+}
+
+void gpuUploadLifetime(VulkanDevice& device) {
+    auto retained=std::make_shared<int>(7);std::weak_ptr<int> weak=retained;
+    const auto serial=device.submitUpload([](rhi::CommandEncoder&){},retained);
+    retained.reset();
+    require(!weak.expired(),"submitted uploads own temporary resources until completion is polled");
+    device.waitIdle();
+    require(device.uploadComplete(serial)&&weak.expired(),"completed fence releases command and temporary ownership");
+    const auto pending=device.pendingUploads();
+    bool failed=false;
+    try {device.submitUpload([](rhi::CommandEncoder&){throw std::runtime_error("record failure");},{});}
+    catch(const std::runtime_error&){failed=true;}
+    require(failed&&device.pendingUploads()==pending,"failed recording does not leave an in-flight upload");
+
+    std::vector<uint8_t> pixels(8*8*4);
+    for(size_t i=0;i<pixels.size();i+=4){pixels[i]=32;pixels[i+1]=64;pixels[i+2]=128;pixels[i+3]=255;}
+    Texture image(device,pixels.data(),8,8,rhi::Format::RGBA8Srgb,true,rhi::AddressMode::Repeat,true);
+    require(image.mipLevels()==4,"asynchronous texture keeps the full mip chain");
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while(!image.uploadReady()&&std::chrono::steady_clock::now()<deadline)std::this_thread::yield();
+    require(image.uploadReady(),"texture readiness follows its upload and mip fence");
+    Buffer read(device,16,rhi::BufferUsage::TransferDst,MemoryUsage::HostVisible);
+    device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc){
+        enc.transition(image.image(),rhi::ResourceState::ShaderRead,rhi::ResourceState::CopySrc);
+        enc.copyTextureToBuffer(image.image(),read,2,2,2);
+        enc.transition(image.image(),rhi::ResourceState::CopySrc,rhi::ResourceState::ShaderRead);
+    });
+    const auto* actual=static_cast<const uint8_t*>(read.mapped());
+    for(size_t i=0;i<16;++i)require(std::abs(int(actual[i])-int(pixels[i%4]))<=1,
+        "asynchronous mip generation preserves sampled texels");
+}
+
+void gpuAsyncGltf(VulkanDevice& device) {
+    AssetRegistry registry;
+    const auto root=std::filesystem::path(__FILE__).parent_path()/"fixtures";
+    require(registry.load(root.string()),"async glTF fixture registry");
+    ResourceManager resources(device,&registry,{4096,16384});
+    auto handle=GLTFLoader::request("animation/two_bone.gltf",resources);
+    require(bool(handle),"glTF request returns an async handle");
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+    while(!handle.ready()&&!handle.failed()&&std::chrono::steady_clock::now()<deadline)std::this_thread::yield();
+    require(handle.ready(),"worker decodes glTF mesh, rig and animation fixture");
+    Node animationRoot;
+    require(GLTFLoader::instantiate(handle,animationRoot,resources)&&!handle,"worker-prepared animation hierarchy instantiates");
+    require(!animationRoot.children().empty(),"animation-only glTF preserves its skeleton hierarchy");
+    handle=GLTFLoader::request("streaming/triangle.gltf",resources);
+    while(!handle.ready()&&!handle.failed()&&std::chrono::steady_clock::now()<deadline)std::this_thread::yield();
+    require(handle.ready(),"worker decodes textured triangle glTF fixture");
+    auto secondHandle=GLTFLoader::request("streaming/triangle.gltf",resources);
+    Node rootNode;
+    require(GLTFLoader::instantiate(handle,rootNode,resources)&&!handle,"main thread consumes prepared glTF");
+    require(!rootNode.children().empty(),"prepared glTF preserves hierarchy");
+    auto meshCount=0;
+    rootNode.traverse([&](Node& node,const glm::mat4&){if(node.mesh()){++meshCount;require(!node.mesh()->loaded(),"glTF GPU work is queued");}});
+    require(meshCount>0&&!resources.assetLoadsSettled(),"CPU readiness does not settle GPU queues");
+    Node secondRoot;
+    require(GLTFLoader::instantiate(secondHandle,secondRoot,resources),"deduplicated CPU payload supports two consumers");
+    Mesh* firstMesh=nullptr;Mesh* secondMesh=nullptr;
+    rootNode.traverse([&](Node& node,const glm::mat4&){if(node.mesh())firstMesh=node.mesh();});
+    secondRoot.traverse([&](Node& node,const glm::mat4&){if(node.mesh())secondMesh=node.mesh();});
+    require(firstMesh==secondMesh,"glTF instances keep stable shared GPU sub-assets");
+    while(!resources.assetLoadsSettled()&&std::chrono::steady_clock::now()<deadline) { resources.pumpAssetLoads(); std::this_thread::yield(); }
+    require(resources.assetLoadsSettled(),"async glTF GPU queues settle");
+    rootNode.traverse([&](Node& node,const glm::mat4&){if(node.mesh())require(node.mesh()->loaded(),"async glTF mesh is drawable");});
+    auto invalid=GLTFLoader::request("missing.gltf",resources);
+    while(!invalid.failed()&&std::chrono::steady_clock::now()<deadline)std::this_thread::yield();
+    require(invalid.failed()&&!GLTFLoader::instantiate(invalid,rootNode,resources),"missing glTF fails explicitly");
+    device.waitIdle();
+}
+
 void gpuLodGroups() {
     Window window(64, 64, "Streaming contracts", false);
     VulkanDevice device(window);
@@ -324,6 +441,9 @@ void gpuLodGroups() {
     require(told, "an upload the arena cannot hold says what it asked and what was left");
     gpuCompaction(device);
     gpuCollisionFrames(resources);
+    gpuUploadLifetime(device);
+    gpuQueuedMeshes(resources);
+    gpuAsyncGltf(device);
     Scene scene;
     auto* root = scene.createChild<Node>();
     auto* terrain = root->createChild<TerrainRingsNode>();

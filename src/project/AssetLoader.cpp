@@ -16,6 +16,8 @@ namespace saida {
 struct AssetHandle::Entry {
     AssetID id = kAssetInvalid;
     std::string path;
+    std::vector<uint8_t> memory;
+    bool fromMemory = false;
     std::atomic<AssetLoadState> state{AssetLoadState::Queued};
     mutable std::mutex mutex;
     std::vector<uint8_t> data;
@@ -123,7 +125,7 @@ AssetHandle AssetLoader::request(const std::string& path, AssetType type,
 
 AssetHandle AssetLoader::requestResolved(AssetID id, const std::string& absolutePath,
                                          AssetLoadPriority priority, AssetPayloadKind kind,
-                                         AssetDecoder decoder) {
+                                         AssetDecoder decoder, std::vector<uint8_t> memory, bool fromMemory) {
     std::lock_guard<std::mutex> lock(mutex_);
     const EntryKey key{id, kind};
     if (auto it = entries_.find(key); it != entries_.end()) {
@@ -133,13 +135,33 @@ AssetHandle AssetLoader::requestResolved(AssetID id, const std::string& absolute
     auto entry = std::make_shared<AssetHandle::Entry>();
     entry->id = id;
     entry->path = absolutePath;
+    entry->memory = std::move(memory);
+    entry->fromMemory = fromMemory;
     entry->kind = kind;
     entry->decoder = std::move(decoder);
     entry->accounting = accounting_;
     entries_[key] = entry;
+    if (fromMemory) {
+        const auto size = entry->memory.size();
+        const auto previous = accounting_->residentBytes.fetch_add(size, std::memory_order_relaxed);
+        if (previous + size > accounting_->budgetBytes.load(std::memory_order_relaxed)) {
+            accounting_->residentBytes.fetch_sub(size, std::memory_order_relaxed);
+            entry->memory.clear();
+            entry->error = "asset memory budget exceeded: " + absolutePath;
+            entry->state.store(AssetLoadState::Failed, std::memory_order_release);
+            failedTotal_.fetch_add(1, std::memory_order_relaxed);
+            return AssetHandle(std::move(entry));
+        }
+        entry->accountedBytes = size;
+    }
     jobs_.push({priority, nextSequence_++, entry});
     wake_.notify_one();
     return AssetHandle(std::move(entry));
+}
+AssetHandle AssetLoader::requestMemory(AssetID id, std::vector<uint8_t> bytes,
+                                       AssetPayloadKind kind, AssetDecoder decoder) {
+    return requestResolved(id, "memory:" + std::to_string(id), AssetLoadPriority::High,
+                           kind, std::move(decoder), std::move(bytes), true);
 }
 
 std::vector<AssetHandle> AssetLoader::preload(const std::vector<AssetID>& ids,
@@ -160,6 +182,11 @@ bool AssetLoader::popJob(Job& job) {
 
 void AssetLoader::load(const std::shared_ptr<AssetHandle::Entry>& entry) {
     entry->state.store(AssetLoadState::Loading, std::memory_order_release);
+    if (entry->fromMemory) {
+        accounting_->residentBytes.fetch_sub(entry->accountedBytes, std::memory_order_relaxed);
+        entry->accountedBytes = 0;
+        finishLoad(entry, std::move(entry->memory)); return;
+    }
     std::ifstream file(entry->path, std::ios::binary | std::ios::ate);
     if (!file) {
 #ifdef __EMSCRIPTEN__
@@ -216,7 +243,9 @@ void AssetLoader::finishLoad(const std::shared_ptr<AssetHandle::Entry>& entry,
     if (entry->decoder) {
         AssetDecodeResult decoded;
         std::string decodeError;
-        const bool ok = entry->decoder(std::move(entry->data), decoded, decodeError);
+        bool ok = false;
+        try { ok = entry->decoder(std::move(entry->data), decoded, decodeError); }
+        catch (const std::exception& e) { decodeError = e.what(); }
         entry->data.clear();
         // The raw bytes are consumed: accounting switches to the decoded
         // size (the budget applies to what actually stays resident, not to

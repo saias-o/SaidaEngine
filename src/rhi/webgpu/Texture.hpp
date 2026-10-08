@@ -21,7 +21,8 @@ public:
             rhi::AddressMode address = rhi::AddressMode::Repeat);
     Texture(Device& device, const uint8_t* pixels, uint32_t width, uint32_t height,
             rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true,
-            rhi::AddressMode address = rhi::AddressMode::Repeat);
+            rhi::AddressMode address = rhi::AddressMode::Repeat, bool asynchronous = false);
+    bool uploadReady() const { return true; } // queue writes precede later draws
     ~Texture();
     Texture(const Texture&) = delete;
     Texture& operator=(const Texture&) = delete;

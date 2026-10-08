@@ -123,7 +123,7 @@ Texture::Texture(VulkanDevice& device, const std::string& path, bool srgb,
 }
 
 Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format fmt, bool genMipmaps,
-                 rhi::AddressMode address)
+                 rhi::AddressMode address, bool asynchronous)
     : device_(device), width_(width), height_(height), address_(address) {
     SAIDA_PROFILE_SCOPE("Resource/CreateMemoryTexture");
     const VkFormat format = rhi::vulkan::toVk(fmt);
@@ -135,8 +135,8 @@ Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, ui
 
     VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * texelBytes;
 
-    Buffer staging(device_, imageSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
-    staging.write(pixels, imageSize);
+    auto staging = std::make_shared<Buffer>(device_, imageSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
+    staging->write(pixels, imageSize);
 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -163,20 +163,30 @@ Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, ui
     trackedCategory_ = "Texture/Dynamic";
     MemoryProfiler::registerAllocation(trackedCategory_, trackedBytes_);
 
-    device_.withSingleTimeEncoder([&](rhi::vulkan::CommandEncoder& enc) {
-        enc.transition(image_, rhi::ResourceState::Undefined, rhi::ResourceState::CopyDst);
-        enc.copyBufferToTexture(staging, image_, width_, height_);
-        if (mipLevels_ == 1)
-            enc.transition(image_, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
-    });
-
-    if (mipLevels_ > 1) generateMipmaps();
-
-    imageView_ = createImageView(format, VK_IMAGE_ASPECT_COLOR_BIT);
-    createSampler();
+    try {
+        imageView_ = createImageView(format, VK_IMAGE_ASPECT_COLOR_BIT);
+        createSampler();
+        const auto record = [&](rhi::vulkan::CommandEncoder& enc) {
+            enc.transition(image_, rhi::ResourceState::Undefined, rhi::ResourceState::CopyDst);
+            enc.copyBufferToTexture(*staging, image_, width_, height_);
+            if (mipLevels_ == 1)
+                enc.transition(image_, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
+            else recordMipmaps(enc.handle());
+        };
+        if (asynchronous) upload_ = device_.submitUpload(record, staging);
+        else device_.withSingleTimeEncoder(record);
+    } catch (...) {
+        MemoryProfiler::unregisterAllocation(trackedCategory_, trackedBytes_);
+        vkDestroySampler(device_.device(), sampler_, nullptr);
+        vkDestroyImageView(device_.device(), imageView_, nullptr);
+        vmaDestroyImage(device_.allocator(), image_, allocation_);
+        throw;
+    }
 }
 
+bool Texture::uploadReady() { return device_.uploadComplete(upload_); }
 Texture::~Texture() {
+    device_.waitUpload(upload_);
     MemoryProfiler::unregisterAllocation(trackedCategory_, trackedBytes_);
     vkDestroySampler(device_.device(), sampler_, nullptr);
     vkDestroyImageView(device_.device(), imageView_, nullptr);
@@ -229,6 +239,10 @@ VkImageView Texture::createImageView(VkFormat format, VkImageAspectFlags aspect)
 // Mip generation stays backend-local because the APIs expose different mechanisms.
 void Texture::generateMipmaps() {
     VkCommandBuffer cmd = device_.beginSingleTimeCommands();
+    recordMipmaps(cmd);
+    device_.endSingleTimeCommands(cmd);
+}
+void Texture::recordMipmaps(VkCommandBuffer cmd) {
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -297,7 +311,6 @@ void Texture::generateMipmaps() {
         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0,
         0, nullptr, 0, nullptr, 1, &barrier);
 
-    device_.endSingleTimeCommands(cmd);
 }
 
 void Texture::updatePixels(const uint8_t* pixels, size_t size) {

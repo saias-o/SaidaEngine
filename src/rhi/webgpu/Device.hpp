@@ -36,6 +36,15 @@ public:
     // the submit is ordered before any later frame submit, which is all the
     // callers rely on.
     void withSingleTimeEncoder(const std::function<void(CommandEncoder&)>& fn);
+    // WebGPU submissions retain their referenced resources in the driver and
+    // are ordered before subsequent draws; there is no CPU fence wait here.
+    static constexpr size_t kMaxPendingUploads = 8;
+    uint64_t submitUpload(const std::function<void(CommandEncoder&)>& fn, std::shared_ptr<void>) {
+        withSingleTimeEncoder(fn); return 0;
+    }
+    bool uploadComplete(uint64_t) { return true; }
+    size_t pendingUploads() { return 0; }
+    void waitUpload(uint64_t) {}
 
     void waitIdle() const {}  // driver-managed on web
 

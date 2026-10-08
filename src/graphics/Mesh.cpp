@@ -14,6 +14,7 @@
 #include <istream>
 #include <limits>
 #include <streambuf>
+#include <stdexcept>
 #include <unordered_map>
 
 namespace saida {
@@ -73,31 +74,64 @@ Mesh::Mesh(GeometryRegistry& registry, const std::vector<Vertex>& vertices,
 
 Mesh::Mesh(GeometryRegistry& registry) : registry_(registry) {}
 
-void Mesh::upload(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
-    // Cache the local-space AABB while the vertices are still on the CPU (they
-    // are GPU-only after allocate). Used by the physics layer for auto-shape.
-    if (!vertices.empty()) {
-        glm::vec3 mn(std::numeric_limits<float>::max());
-        glm::vec3 mx(std::numeric_limits<float>::lowest());
-        for (const Vertex& v : vertices) {
-            mn = glm::min(mn, v.pos);
-            mx = glm::max(mx, v.pos);
-        }
-        bounds_.min = mn;
-        bounds_.max = mx;
+static std::shared_ptr<const MeshCollisionData> prepareCollision(const std::vector<Vertex>& vertices,
+                                                                 const std::vector<uint32_t>& indices, Aabb& bounds) {
+    if (vertices.empty() || indices.empty()) throw std::invalid_argument("cannot prepare empty mesh geometry");
+    auto collision = std::make_shared<MeshCollisionData>();
+    bounds.min = glm::vec3(std::numeric_limits<float>::max());
+    bounds.max = glm::vec3(std::numeric_limits<float>::lowest());
+    collision->positions.reserve(vertices.size());
+    for (const Vertex& vertex : vertices) {
+        bounds.min = glm::min(bounds.min, vertex.pos);
+        bounds.max = glm::max(bounds.max, vertex.pos);
+        collision->positions.push_back(vertex.pos);
     }
+    for (uint32_t index : indices) if (index >= vertices.size())
+        throw std::invalid_argument("mesh index exceeds its vertex array");
+    collision->indices = indices;
+    return collision;
+}
 
-    // Retain positions + indices on the CPU for collider generation (the GPU
-    // buffers are write-only from here on).
-    collisionVertices_.clear();
-    collisionVertices_.reserve(vertices.size());
-    for (const Vertex& v : vertices) collisionVertices_.push_back(v.pos);
-    collisionIndices_ = indices;
-
-    if (allocation_.indexCount != 0) registry_.free(allocation_);
+void Mesh::upload(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
+    Aabb bounds;
+    auto collision = prepareCollision(vertices, indices, bounds);
+    cancelUpload();
     registry_.allocate(allocation_, vertices, indices);
-    gpuBytes_ = static_cast<uint64_t>(vertices.size()) * sizeof(Vertex) +
-                static_cast<uint64_t>(indices.size()) * sizeof(uint32_t);
+    bounds_ = bounds;
+    collision_ = std::move(collision);
+    gpuBytes_ = uint64_t(vertices.size()) * sizeof(Vertex) + uint64_t(indices.size()) * sizeof(uint32_t);
+    loaded_ = true;
+}
+
+std::shared_ptr<PreparedMesh> prepareMesh(MeshData data) {
+    auto prepared = std::make_shared<PreparedMesh>();
+    prepared->collision = prepareCollision(data.vertices, data.indices, prepared->bounds);
+    prepared->geometry = std::move(data);
+    return prepared;
+}
+
+void Mesh::beginUpload(const PreparedMesh& data) {
+    cancelUpload();
+    registry_.reserve(allocation_, data.geometry.vertices.size(), data.geometry.indices.size());
+}
+void Mesh::uploadRange(const PreparedMesh& data, size_t vertexStart, size_t vertices,
+                       size_t indexStart, size_t indices) {
+    registry_.uploadRange(allocation_, data.geometry.vertices.data() + vertexStart, vertices, vertexStart,
+                         data.geometry.indices.data() + indexStart, indices, indexStart);
+}
+void Mesh::finishUpload(const PreparedMesh& data) {
+    bounds_ = data.bounds;
+    collision_ = data.collision;
+    gpuBytes_ = uint64_t(data.geometry.vertices.size()) * sizeof(Vertex) +
+                uint64_t(data.geometry.indices.size()) * sizeof(uint32_t);
+    loaded_ = true;
+}
+void Mesh::cancelUpload() {
+    registry_.free(allocation_);
+    loaded_ = false;
+    bounds_ = {};
+    collision_ = std::make_shared<MeshCollisionData>();
+    gpuBytes_ = 0;
 }
 
 Mesh::~Mesh() {
@@ -234,6 +268,7 @@ void Mesh::bind(rhi::RenderPassEncoder& rp) const {
 }
 
 void Mesh::draw(rhi::RenderPassEncoder& rp) const {
+    if (!loaded_) return;
     rp.drawIndexed(allocation_.indexCount, 1, allocation_.firstIndex, allocation_.vertexOffset, 0);
 }
 

@@ -50,10 +50,12 @@ public:
     // materials without the cache depending on Material or ResourceManager.
     void finalizePending(std::vector<AssetID>& completed);
     // True while at least one texture is in flight and has not been finalized.
-    bool hasPendingLoads() const { return !pending_.empty(); }
+    bool hasPendingLoads() const { return !pending_.empty() || !uploading_.empty(); }
 
     AssetID registerMemory(const uint8_t* data, size_t size, bool srgb,
                            rhi::AddressMode address = rhi::AddressMode::Repeat);
+    AssetID queueMemory(const uint8_t* data, size_t size, bool srgb,
+                        rhi::AddressMode address, AssetLoader& loader);
     AssetID registerGenerated(const uint8_t* pixels, uint32_t width,
                               uint32_t height, rhi::Format format,
                               bool generateMipmaps);
@@ -91,6 +93,7 @@ private:
     BindlessTables& bindlessTables_;
     std::unordered_map<AssetID, std::unique_ptr<Texture>> textures_;
     std::unordered_map<AssetID, PendingTexture> pending_;
+    std::unordered_map<AssetID, std::unique_ptr<Texture>> uploading_;
     std::unordered_set<AssetID> failed_;
     std::unordered_map<AssetID, uint64_t> lastUse_;
     std::unique_ptr<Texture> defaultWhite_;

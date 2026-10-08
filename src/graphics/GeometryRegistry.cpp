@@ -66,6 +66,7 @@ GeometryRegistry::GeometryRegistry(rhi::Device& device, DeviceSize maxVertices, 
 }
 
 GeometryRegistry::~GeometryRegistry() {
+    device_.waitUpload(lastUpload_);
 #ifndef SAIDA_RHI_WEBGPU
     if (vertexBlock_) {
         vmaClearVirtualBlock(vertexBlock_);
@@ -102,73 +103,94 @@ bool GeometryRegistry::tryAllocate(GeometryAllocation& into, uint64_t vertexByte
 
 void GeometryRegistry::allocate(GeometryAllocation& into, const std::vector<Vertex>& vertices,
                                 const std::vector<uint32_t>& indices) {
+    reserve(into, vertices.size(), indices.size());
+    try {
+        uploadRange(into, vertices.data(), vertices.size(), 0, indices.data(), indices.size(), 0);
+    } catch (...) { free(into); throw; }
+}
+
+void GeometryRegistry::reserve(GeometryAllocation& into, size_t vertices, size_t indices) {
+    if (!vertices || !indices || vertices > capacity_.vertices || indices > capacity_.indices)
+        throw std::runtime_error(vertices > capacity_.vertices
+            ? refusal("vertex", vertices, usage(), capacity_) : refusal("index", indices, usage(), capacity_));
     GeometryAllocation alloc{};
-    alloc.indexCount = static_cast<uint32_t>(indices.size());
-    alloc.vertexCount = static_cast<uint32_t>(vertices.size());
-
-    const uint64_t vertexSize = vertices.size() * sizeof(Vertex);
-    const uint64_t indexSize = indices.size() * sizeof(uint32_t);
-
+    alloc.vertexCount = static_cast<uint32_t>(vertices);
+    alloc.indexCount = static_cast<uint32_t>(indices);
+    const uint64_t vertexSize = vertices * sizeof(Vertex), indexSize = indices * sizeof(uint32_t);
 #ifndef SAIDA_RHI_WEBGPU
     if (!tryAllocate(alloc, vertexSize, indexSize)) {
-        const GeometryUsage before = usage();
-        const bool fitsVertices = capacity_.vertices - before.vertices >= vertices.size();
-        const bool fitsIndices = capacity_.indices - before.indices >= indices.size();
-        // Enough room in total, only not in one piece: pack and try again.
-        if (!(fitsVertices && fitsIndices && compact() && tryAllocate(alloc, vertexSize, indexSize))) {
-            const GeometryUsage now = usage();
-            const bool vertexShort = now.largestFreeVertices < vertices.size();
-            throw std::runtime_error(vertexShort ? refusal("vertex", vertices.size(), now, capacity_)
-                                                 : refusal("index", indices.size(), now, capacity_));
+        const auto before = usage();
+        if (!(capacity_.vertices - before.vertices >= vertices &&
+              capacity_.indices - before.indices >= indices && compact() &&
+              tryAllocate(alloc, vertexSize, indexSize))) {
+            const auto now = usage();
+            throw std::runtime_error(now.largestFreeVertices < vertices
+                ? refusal("vertex", vertices, now, capacity_) : refusal("index", indices, now, capacity_));
         }
     }
-    const uint64_t vertexOffsetBytes = uint64_t(alloc.vertexOffset) * sizeof(Vertex);
-    const uint64_t indexOffsetBytes = uint64_t(alloc.firstIndex) * sizeof(uint32_t);
-
-    // Copy data to GPU
-    Buffer stagingVertex(device_, vertexSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
-    stagingVertex.write(vertices.data(), vertexSize);
-
-    Buffer stagingIndex(device_, indexSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
-    stagingIndex.write(indices.data(), indexSize);
-
-    device_.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) {
-        enc.copyBufferToBuffer(stagingVertex, *vertexBuffer_, vertexSize, 0, vertexOffsetBytes);
-        enc.copyBufferToBuffer(stagingIndex, *indexBuffer_, indexSize, 0, indexOffsetBytes);
-    });
     into = alloc;
     live_.insert(&into);
 #else
-    const uint64_t vertexOffsetBytes = vertexCursorBytes_;
-    const uint64_t indexOffsetBytes = indexCursorBytes_;
+    if (vertexCursorBytes_ + vertexSize > vertexBuffer_->size() ||
+        indexCursorBytes_ + indexSize > indexBuffer_->size())
+        throw std::runtime_error("failed to allocate space in web GeometryRegistry");
+    alloc.vertexVirtualAlloc = vertexCursorBytes_ + 1;
+    alloc.indexVirtualAlloc = indexCursorBytes_ + 1;
+    alloc.vertexOffset = static_cast<int32_t>(vertexCursorBytes_ / sizeof(Vertex));
+    alloc.firstIndex = static_cast<uint32_t>(indexCursorBytes_ / sizeof(uint32_t));
     vertexCursorBytes_ += vertexSize;
     indexCursorBytes_ += indexSize;
-    if (vertexCursorBytes_ > vertexBuffer_->size() || indexCursorBytes_ > indexBuffer_->size())
-        throw std::runtime_error("failed to allocate space in web GeometryRegistry");
-    alloc.vertexVirtualAlloc = vertexOffsetBytes + 1;
-    alloc.indexVirtualAlloc = indexOffsetBytes + 1;
-    alloc.vertexOffset = static_cast<int32_t>(vertexOffsetBytes / sizeof(Vertex));
-    alloc.firstIndex = static_cast<uint32_t>(indexOffsetBytes / sizeof(uint32_t));
-
-    Buffer stagingVertex(device_, vertexSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
-    stagingVertex.write(vertices.data(), vertexSize);
-
-    Buffer stagingIndex(device_, indexSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
-    stagingIndex.write(indices.data(), indexSize);
-
-    device_.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) {
-        enc.copyBufferToBuffer(stagingVertex, *vertexBuffer_, vertexSize, 0, vertexOffsetBytes);
-        enc.copyBufferToBuffer(stagingIndex, *indexBuffer_, indexSize, 0, indexOffsetBytes);
-    });
     into = alloc;
 #endif
 }
 
+void GeometryRegistry::uploadRange(const GeometryAllocation& into, const Vertex* vertices, size_t vertexCount,
+                                    size_t vertexStart, const uint32_t* indices, size_t indexCount, size_t indexStart) {
+    if (vertexStart > into.vertexCount || vertexCount > into.vertexCount - vertexStart ||
+        indexStart > into.indexCount || indexCount > into.indexCount - indexStart)
+        throw std::out_of_range("geometry upload slice exceeds its allocation");
+    std::unique_ptr<Buffer> stagingVertex, stagingIndex;
+    const uint64_t vertexSize = vertexCount * sizeof(Vertex), indexSize = indexCount * sizeof(uint32_t);
+    if (vertexSize) {
+        stagingVertex = std::make_unique<Buffer>(device_, vertexSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
+        stagingVertex->write(vertices, vertexSize);
+    }
+    if (indexSize) {
+        stagingIndex = std::make_unique<Buffer>(device_, indexSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
+        stagingIndex->write(indices, indexSize);
+    }
+    copies_.push_back({std::move(stagingVertex), std::move(stagingIndex), vertexSize, indexSize,
+        (uint64_t(into.vertexOffset) + vertexStart) * sizeof(Vertex),
+        (uint64_t(into.firstIndex) + indexStart) * sizeof(uint32_t)});
+    if (!batching_) { flushUploads(); device_.waitUpload(lastUpload_); }
+}
+void GeometryRegistry::beginUploadBatch() {
+    if (batching_) throw std::logic_error("nested geometry upload batch");
+    batching_ = true;
+}
+uint64_t GeometryRegistry::endUploadBatch() {
+    batching_ = false;
+    flushUploads();
+    return lastUpload_;
+}
+bool GeometryRegistry::uploadComplete(uint64_t serial) { return device_.uploadComplete(serial); }
+bool GeometryRegistry::canSubmitUploads() { return device_.pendingUploads() < rhi::Device::kMaxPendingUploads; }
+void GeometryRegistry::flushUploads() {
+    if (copies_.empty()) return;
+    auto copies = std::make_shared<std::vector<UploadCopy>>(std::move(copies_));
+    lastUpload_ = device_.submitUpload([&](rhi::CommandEncoder& enc) {
+        for (const auto& copy : *copies) {
+            if (copy.vertexBytes) enc.copyBufferToBuffer(*copy.vertices, *vertexBuffer_, copy.vertexBytes, 0, copy.vertexOffset);
+            if (copy.indexBytes) enc.copyBufferToBuffer(*copy.indices, *indexBuffer_, copy.indexBytes, 0, copy.indexOffset);
+        }
+    }, copies);
+}
+
 bool GeometryRegistry::compact() {
+    flushUploads();
 #ifndef SAIDA_RHI_WEBGPU
     const auto started = std::chrono::steady_clock::now();
     const GeometryUsage before = usage();
-    device_.waitIdle();
 
     // Oldest offsets first, so the packing is the same for the same arena.
     std::vector<GeometryAllocation*> order(live_.begin(), live_.end());
@@ -195,12 +217,16 @@ bool GeometryRegistry::compact() {
 
     auto vertices = std::make_unique<Buffer>(device_, vertexBuffer_->size(), kVertexArenaUsage, MemoryUsage::GpuOnly);
     auto indices = std::make_unique<Buffer>(device_, indexBuffer_->size(), kIndexArenaUsage, MemoryUsage::GpuOnly);
-    device_.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) {
+    // The queue orders this copy after preceding draws/uploads. Keep the old
+    // arenas alive until its fence signals instead of draining the GPU.
+    auto old = std::make_shared<std::vector<std::unique_ptr<Buffer>>>();
+    old->push_back(std::move(vertexBuffer_)); old->push_back(std::move(indexBuffer_));
+    lastUpload_ = device_.submitUpload([&](rhi::CommandEncoder& enc) {
         for (const Move& m : moves) {
-            if (m.vertexBytes) enc.copyBufferToBuffer(*vertexBuffer_, *vertices, m.vertexBytes, m.vertexFrom, m.vertexTo);
-            if (m.indexBytes) enc.copyBufferToBuffer(*indexBuffer_, *indices, m.indexBytes, m.indexFrom, m.indexTo);
+            if (m.vertexBytes) enc.copyBufferToBuffer(*(*old)[0], *vertices, m.vertexBytes, m.vertexFrom, m.vertexTo);
+            if (m.indexBytes) enc.copyBufferToBuffer(*(*old)[1], *indices, m.indexBytes, m.indexFrom, m.indexTo);
         }
-    });
+    }, old);
     vertexBuffer_ = std::move(vertices);
     indexBuffer_ = std::move(indices);
     ++compactions_;

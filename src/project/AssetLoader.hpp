@@ -28,7 +28,8 @@ enum class AssetPayloadKind : uint8_t {
     MeshObj = 2,
     RigAsset = 3,
     ClipView = 4,
-    AnimGraph = 5
+    AnimGraph = 5,
+    GltfModel = 6
 };
 
 // Result of a decode run on the worker (desktop) or inside pump() (web): an
@@ -107,6 +108,8 @@ public:
                                      AssetLoadPriority priority = AssetLoadPriority::High);
 
     void pump();
+    AssetHandle requestMemory(AssetID id, std::vector<uint8_t> bytes,
+                              AssetPayloadKind kind, AssetDecoder decoder);
     void collectGarbage();
     AssetLoadStats stats() const;
     void setBudget(uint64_t bytes);
@@ -146,7 +149,7 @@ private:
 
     AssetHandle requestResolved(AssetID id, const std::string& absolutePath,
                                 AssetLoadPriority priority, AssetPayloadKind kind,
-                                AssetDecoder decoder);
+                                AssetDecoder decoder, std::vector<uint8_t> memory = {}, bool fromMemory = false);
     bool popJob(Job& job);
     void load(const std::shared_ptr<AssetHandle::Entry>& entry);
     void finishLoad(const std::shared_ptr<AssetHandle::Entry>& entry,

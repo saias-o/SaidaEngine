@@ -1,6 +1,7 @@
 #include "graphics/VulkanDevice.hpp"
 
 #include "core/Log.hpp"
+#include "core/Profiler.hpp"
 #include "core/Window.hpp"
 #include "graphics/VulkanDeviceCreator.hpp"
 #include "rhi/vulkan/CommandEncoder.hpp"
@@ -95,6 +96,7 @@ VulkanDevice::VulkanDevice(Window& window, VulkanDeviceCreator* creator) : creat
 }
 
 VulkanDevice::~VulkanDevice() {
+    waitUpload(submittedUpload_);
     savePipelineCache();
     vkDestroyPipelineCache(device_, pipelineCache_, nullptr);
     if (computeCommandPool_ != commandPool_)
@@ -587,6 +589,80 @@ void VulkanDevice::withSingleTimeEncoder(
     endSingleTimeCommands(encoder.handle());
 }
 
+uint64_t VulkanDevice::submitUpload(
+    const std::function<void(rhi::vulkan::CommandEncoder&)>& fn, std::shared_ptr<void> keepAlive) {
+    SAIDA_PROFILE_SCOPE("GPU/SubmitUpload");
+    collectUploads();
+    const auto cmd = beginSingleTimeCommands();
+    VkFence fence = VK_NULL_HANDLE;
+    try {
+        rhi::vulkan::CommandEncoder encoder(cmd);
+        VkMemoryBarrier before{};
+        before.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        before.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+        before.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 1, &before, 0, nullptr, 0, nullptr);
+        fn(encoder);
+        // A later graphics submission can consume transfer writes without a
+        // CPU wait. The barrier also orders arena relocation behind old draws.
+        VkMemoryBarrier barrier{};
+        barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        barrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+            VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+        if (vkEndCommandBuffer(cmd) != VK_SUCCESS) throw std::runtime_error("upload command recording failed");
+        VkFenceCreateInfo info{};
+        info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        if (vkCreateFence(device_, &info, nullptr, &fence) != VK_SUCCESS)
+            throw std::runtime_error("upload fence creation failed");
+        // Allocate tracking before submission: an allocation failure must not
+        // lose ownership of an already submitted command or staging buffers.
+        uploads_.push_back({submittedUpload_ + 1, cmd, fence, std::move(keepAlive)});
+        VkSubmitInfo submit{};
+        submit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        submit.commandBufferCount = 1; submit.pCommandBuffers = &cmd;
+        if (vkQueueSubmit(graphicsQueue_, 1, &submit, fence) != VK_SUCCESS) {
+            uploads_.pop_back();
+            throw std::runtime_error("upload submission failed");
+        }
+        return ++submittedUpload_;
+    } catch (...) {
+        if (fence) vkDestroyFence(device_, fence, nullptr);
+        vkFreeCommandBuffers(device_, commandPool_, 1, &cmd);
+        throw;
+    }
+}
+
+void VulkanDevice::collectUploads() {
+    while (!uploads_.empty()) {
+        const auto status = vkGetFenceStatus(device_, uploads_.front().fence);
+        if (status == VK_NOT_READY) break;
+        if (status != VK_SUCCESS) throw std::runtime_error("upload fence polling failed");
+        auto& upload = uploads_.front();
+        vkDestroyFence(device_, upload.fence, nullptr);
+        vkFreeCommandBuffers(device_, commandPool_, 1, &upload.command);
+        completedUpload_ = upload.serial;
+        uploads_.pop_front();
+    }
+}
+bool VulkanDevice::uploadComplete(uint64_t serial) {
+    collectUploads();
+    return serial <= completedUpload_;
+}
+size_t VulkanDevice::pendingUploads() { collectUploads(); return uploads_.size(); }
+void VulkanDevice::waitUpload(uint64_t serial) {
+    if (uploadComplete(serial)) return;
+    SAIDA_PROFILE_SCOPE("GPU/WaitUpload");
+    for (const auto& upload : uploads_) if (upload.serial == serial) {
+        if (vkWaitForFences(device_, 1, &upload.fence, VK_TRUE, UINT64_MAX) != VK_SUCCESS)
+            throw std::runtime_error("upload fence wait failed");
+        collectUploads(); return;
+    }
+    throw std::logic_error("unknown upload serial");
+}
+
 VkImageView VulkanDevice::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspect) const {
     VkImageViewCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -612,16 +688,21 @@ VkCommandBuffer VulkanDevice::beginSingleTimeCommands() const {
     allocInfo.commandBufferCount = 1;
 
     VkCommandBuffer cmd;
-    vkAllocateCommandBuffers(device_, &allocInfo, &cmd);
+    if (vkAllocateCommandBuffers(device_, &allocInfo, &cmd) != VK_SUCCESS)
+        throw std::runtime_error("one-shot command allocation failed");
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    vkBeginCommandBuffer(cmd, &beginInfo);
+    if (vkBeginCommandBuffer(cmd, &beginInfo) != VK_SUCCESS) {
+        vkFreeCommandBuffers(device_, commandPool_, 1, &cmd);
+        throw std::runtime_error("one-shot command begin failed");
+    }
     return cmd;
 }
 
 void VulkanDevice::endSingleTimeCommands(VkCommandBuffer cmd) const {
+    SAIDA_PROFILE_SCOPE("GPU/WaitSingleTime");
     vkEndCommandBuffer(cmd);
 
     VkSubmitInfo submitInfo{};

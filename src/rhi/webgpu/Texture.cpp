@@ -93,7 +93,7 @@ Texture::Texture(Device& device, const std::string& path, bool srgb,
 }
 
 Texture::Texture(Device& device, const uint8_t* pixels, uint32_t width, uint32_t height,
-                 rhi::Format format, bool generateMipmaps, rhi::AddressMode address)
+                 rhi::Format format, bool generateMipmaps, rhi::AddressMode address, bool /*asynchronous*/)
     : device_(device), width_(width), height_(height), address_(address) {
     mipLevels_ = 1;
     if (generateMipmaps && (width > 1 || height > 1))

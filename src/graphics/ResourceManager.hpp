@@ -36,6 +36,7 @@ class Mesh;
 class Texture;
 #endif
 struct Vertex;
+struct PreparedMesh;
 class Rig;
 class AnimationClip;
 class ClipView;
@@ -89,6 +90,8 @@ public:
 
     AssetID registerMemoryTexture(const uint8_t* data, size_t size, bool srgb = true,
                                   rhi::AddressMode address = rhi::AddressMode::Repeat);
+    AssetID queueMemoryTexture(const uint8_t* data, size_t size, bool srgb = true,
+                              rhi::AddressMode address = rhi::AddressMode::Repeat);
     AssetID registerGeneratedTexture(const uint8_t* pixels, uint32_t width, uint32_t height,
                                      rhi::Format format = rhi::Format::RGBA8Srgb,
                                      bool generateMipmaps = true);
@@ -99,6 +102,9 @@ public:
     // idempotent like registerMemoryRig — re-importing yields the same id.
     AssetID registerMemoryMesh(const std::string& subPath, const std::vector<Vertex>& vertices,
                                const std::vector<uint32_t>& indices);
+    // Stable empty proxy until bounded per-frame uploads complete. Preparation
+    // is pure CPU (prepareMesh); drawing and colliders see it atomically Ready.
+    AssetID queueMemoryMesh(std::shared_ptr<const PreparedMesh> data, const std::string& subPath = {});
 
     // Register memory structures directly from loaders
     AssetID registerMemoryRig(const std::string& path, std::unique_ptr<Rig> rig);

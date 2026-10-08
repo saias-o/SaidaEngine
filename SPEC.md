@@ -584,6 +584,43 @@ Textures and `.obj` meshes follow this path: worker read/decode on desktop,
 is visible; a failure uses a magenta checkerboard. Mesh proxies stay stable and
 physics rebuilds the body when the mesh becomes available.
 
+`GLTFLoader::request` uses the same AssetLoader worker for glTF parsing, buffer
+and meshopt decoding, accessor conversion, tangent preparation, bounds,
+collision positions, skins and animation tracks. On Web this executes in the
+existing single-thread `pump()`. `instantiate` consumes a caller's ready handle
+on the main thread and creates the hierarchy/materials with queued mesh and
+embedded-texture uploads. Deduplicated CPU payloads support multiple consumers;
+GPU mesh sub-assets keep stable identities. The legacy `load` remains a
+synchronous editor/authoring path using the same CPU decoder.
+
+`prepareMesh` is pure CPU work. `queueMemoryMesh` returns a stable empty proxy
+and pins its prepared payload until completion or explicit scene trimming.
+Each resource pump copies at most 512 KiB of geometry, in slices at most
+256 KiB, stopping preparation after a soft 2 ms budget. Slices for different
+meshes share one ordered GPU submission. The allocation is reserved once, survives
+compaction between slices and exposes neither draw indices nor collision data
+until the last slice's fence signals. Trimming cancels partial uploads and releases their
+reservations. A failed upload is logged and leaves an empty proxy. The native
+transfer batch polls Vulkan fences without waiting for the queue. Staging buffers
+remain owned by the device until completion; submissions on the graphics queue
+include transfer/read dependencies. At eight outstanding uploads, resource pumps
+yield instead of waiting (an arena relocation can additionally flush a partial
+batch and submit its copy). Synchronous registration and shutdown can still wait
+for their requested transfer. This API is used during the main-thread resource
+phase, before recording the next frame.
+
+Embedded textures can use `queueMemoryTexture`: compressed bytes are owned and
+budgeted by the loader, decoded on the worker, then at most one ready texture is
+recorded per resource pump. Native base-level copies and the complete mip chain
+share one asynchronous submission; textures are bound and materials re-bound
+only after completion. Texture image allocation/staging remains indivisible CPU
+work. WebGPU retains its ordered queue writes and CPU mip generation; it has no
+CPU fence waits in this path.
+`assetLoadsSettled()` includes both CPU jobs and pending GPU geometry/textures;
+CPU Ready alone is not draw/collider readiness. Decoder exceptions become
+Failed handles rather than escaping the worker.
+
+
 The standalone animation files `.srig`, `.sclip` and `.sgraph` follow the same
 contract: JSON read and parse on the desktop worker or in Web `pump()`, typed
 payload finalized by `ResourceManager` on the main thread, state and diagnostic
@@ -676,8 +713,9 @@ startup allocation, not automatic growth or a replacement for the GPU byte budge
 largest free ranges. The largest free range bounds the biggest mesh that can
 still be uploaded. The native registry tracks every live allocation. When an
 upload fits in the free space as a whole but in no single range, the registry
-packs the resident geometry together (`GeometryRegistry::compact`: device idle,
-live ranges copied to fresh buffers in offset order, owners' offsets updated)
+packs the resident geometry together (`GeometryRegistry::compact`: ordered
+asynchronous copy to fresh buffers in offset order, owners' offsets updated,
+old buffers retained through the copy fence without a device-idle wait)
 and retries. A streamed world that frees and uploads meshes of every size
 otherwise ends with its free space in pieces, none of which fits the next tile.
 A refused upload names the request, the space in use, the largest free range

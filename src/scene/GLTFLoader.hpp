@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "project/AssetLoader.hpp"
 
 namespace saida {
 
@@ -27,6 +28,12 @@ class GLTFLoader {
 public:
     static bool load(const std::string& path, Node& rootNode, ResourceManager& resources,
                      const GLTFLoadOptions& options = {});
+    // CPU parsing, meshopt/accessor/tangent and collider preparation on the
+    // AssetLoader worker. The returned handle owns the prepared model.
+    static AssetHandle request(const std::string& path, ResourceManager& resources);
+    // Main-thread instantiation; GPU meshes/textures enter bounded queues.
+    // Consumes this handle on success; CPU Ready is distinct from GPU readiness.
+    static bool instantiate(AssetHandle& prepared, Node& rootNode, ResourceManager& resources);
 
     // Animation-only import (no GPU, no ResourceManager). Same construction code
     // as load(), so a pose golden-tested here is the pose the editor plays.

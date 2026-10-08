@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <deque>
 
 namespace saida {
 
@@ -17,6 +18,7 @@ class GeometryRegistry;
 class GpuGraveyard;
 class Mesh;
 struct Vertex;
+struct PreparedMesh;
 
 // Owns every cached mesh and keeps its pointer index, pending loads, resident
 // byte count, and LRU timestamps consistent for the lifetime of each entry.
@@ -36,7 +38,10 @@ public:
     Mesh* load(AssetID id, AssetRegistry* registry, AssetLoader& loader);
     void finalizePending(AssetRegistry* registry);
     // True while at least one mesh is in flight and has not been finalized.
-    bool hasPendingLoads() const { return !pending_.empty(); }
+    bool hasPendingLoads() const { return !pending_.empty() || !uploads_.empty() || !completing_.empty(); }
+    AssetID queueMemory(std::shared_ptr<const PreparedMesh> data, const std::string& subPath,
+                        AssetRegistry* registry);
+    void pumpUploads(size_t byteBudget = 512 * 1024, double timeBudgetMs = 2.0);
 
     AssetID registerMemory(const std::vector<Vertex>& vertices,
                            const std::vector<uint32_t>& indices);
@@ -69,6 +74,19 @@ private:
     std::unordered_map<AssetID, AssetHandle> pending_;
     std::unordered_map<AssetID, uint64_t> lastUse_;
     uint64_t residentBytes_ = 0;
+    struct Upload {
+        AssetID id;
+        std::shared_ptr<const PreparedMesh> data;
+        size_t vertex = 0, index = 0;
+        bool reserved = false;
+    };
+    std::deque<Upload> uploads_;
+    struct Completing {
+        AssetID id;
+        std::shared_ptr<const PreparedMesh> data;
+        uint64_t serial;
+    };
+    std::deque<Completing> completing_;
 };
 
 } // namespace saida

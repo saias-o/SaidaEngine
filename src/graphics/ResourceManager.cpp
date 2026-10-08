@@ -269,6 +269,7 @@ void ResourceManager::pumpAssetLoads() {
     for (AssetID id : completedTextures)
         rebindMaterialsUsing(id);
     meshCache_->finalizePending(registry_);
+    meshCache_->pumpUploads();
     finalizePendingAnimationAssets();
     gpuBudget_->enforce();
     SAIDA_PROFILE_COUNTER("Assets/GpuResidentBytes", gpuResidentBytes());
@@ -315,6 +316,9 @@ AssetID ResourceManager::registerMemoryTexture(const uint8_t* data, size_t size,
                                                rhi::AddressMode address) {
     return textureCache_->registerMemory(data, size, srgb, address);
 }
+AssetID ResourceManager::queueMemoryTexture(const uint8_t* data, size_t size, bool srgb, rhi::AddressMode address) {
+    return textureCache_->queueMemory(data, size, srgb, address, *assetLoader_);
+}
 
 AssetID ResourceManager::registerGeneratedTexture(const uint8_t* pixels, uint32_t width,
                                                   uint32_t height, rhi::Format format,
@@ -325,6 +329,9 @@ AssetID ResourceManager::registerGeneratedTexture(const uint8_t* pixels, uint32_
 
 AssetID ResourceManager::registerMemoryMesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
     return meshCache_->registerMemory(vertices, indices);
+}
+AssetID ResourceManager::queueMemoryMesh(std::shared_ptr<const PreparedMesh> data, const std::string& subPath) {
+    return meshCache_->queueMemory(std::move(data), subPath, registry_);
 }
 
 AssetID ResourceManager::registerMemoryMesh(const std::string& subPath,

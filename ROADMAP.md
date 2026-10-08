@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-07. This file is the engine's **single backlog**: everything
+Updated: 2026-10-08. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -9,7 +9,27 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
-## Streaming and rendering integration — verified through 2026-10-07
+## Streaming and rendering integration — verified through 2026-10-08
+
+- [x] Decode streamed glTF models and embedded images on the AssetLoader worker,
+  prepare procedural bounds/collision data off the main thread, and incrementally
+  upload stable mesh proxies through a shared 512 KiB/frame transfer batch.
+  Native transfers and complete mip chains now use polled fences; arena
+  relocation retains its old buffers through an ordered copy without draining
+  the device. Resource pumps yield at the pending-upload limit.
+  Verified 2026-10-08: 92/92 native CTest, 119 GPU streaming checks (partial
+  readiness, compaction, cancellation, staging ownership, mip readback,
+  glTF hierarchy and shared consumers),
+  native runtime contract and Web player build. R1World's local corpus is
+  `game/generated/streaming-validation`: Paris/Grenoble captures and the
+  Paris-to-Tunis walk/drive/teleport smoke pass. Environment-lighting/HDR and
+  material-sidedness pixel checks pass. In the local Paris arrival capture,
+  peak main-thread mesh upload time falls from 10.25 to 0.46 ms and texture
+  finalization from 12.06 to 2.39 ms. The final Paris trace contains no CPU
+  upload/queue waits during its frames; Grenoble retains one 0.40 ms legacy
+  queue wait. Texture image/staging allocation, legacy
+  synchronous registration and startup pipelines can still hitch;
+  target-hardware qualification is still open below.
 
 - [x] Encode display RGB once, load the neutral normal as linear data, and make
   diffuse/specular IBL and DDGI misses follow the visible sky pair, exposure and
@@ -412,11 +432,12 @@ Post-V1 unless the scope changes explicitly.
   back-face shading normals. The instance ABI retains its existing size.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.
-- [ ] Streaming: move glTF CPU decoding and streamed memory-mesh preparation
-  off the main thread, then budget GPU uploads incrementally. R1World's native
-  captures still show full-tile import spikes over 16.7 ms (game README,
-  Performance); the existing asynchronous texture/OBJ path does not settle
-  this case. Preserve ownership, readiness and collider lifetime contracts.
+- [ ] Streaming: budget large texture image/staging allocations and the
+  remaining legacy synchronous registrations, then qualify arrivals on the
+  reference hardware. Native queued transfers, mip generation and arena
+  relocation no longer drain the GPU; they do not yet guarantee a 16.7 ms
+  frame, and Web CPU mip generation remains indivisible. Preserve ownership,
+  readiness and collider lifetime contracts when extending the transfer path.
 - [ ] Rendering: add a separate clearcoat lobe and evaluate bounded local
   reflections for smooth materials. The current PBR path reflects the HDR sky
   only (SPEC 4.1); automotive paint and nearby street reflections remain a

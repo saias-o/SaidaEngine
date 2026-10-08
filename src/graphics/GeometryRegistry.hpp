@@ -62,13 +62,21 @@ public:
     // address until it is freed (a Mesh member, which is never copied).
     void allocate(GeometryAllocation& into, const std::vector<Vertex>& vertices,
                   const std::vector<uint32_t>& indices);
+    // Reserve once; upload bounded slices before publishing a mesh as ready.
+    void reserve(GeometryAllocation& into, size_t vertices, size_t indices);
+    void uploadRange(const GeometryAllocation& into, const Vertex* vertices, size_t vertexCount,
+                     size_t vertexStart, const uint32_t* indices, size_t indexCount, size_t indexStart);
+    void beginUploadBatch();
+    uint64_t endUploadBatch();
+    bool uploadComplete(uint64_t serial);
+    bool canSubmitUploads();
 
     // Frees a previously allocated geometry region and forgets `alloc`.
     void free(GeometryAllocation& alloc);
 
     // Packs every live allocation at the start of the arenas, largest free
-    // range last. Waits for the device to be idle first: it moves geometry the
-    // frames in flight may still be reading. Returns false where the backend
+    // range last. Old buffers survive an ordered asynchronous copy while
+    // frames in flight finish reading them. Returns false where the backend
     // cannot move geometry (WebGPU's linear arena).
     bool compact();
 
@@ -88,6 +96,14 @@ private:
     std::unique_ptr<Buffer> vertexBuffer_;
     std::unique_ptr<Buffer> indexBuffer_;
     uint32_t compactions_ = 0;
+    struct UploadCopy {
+        std::unique_ptr<Buffer> vertices, indices;
+        uint64_t vertexBytes = 0, indexBytes = 0, vertexOffset = 0, indexOffset = 0;
+    };
+    bool batching_ = false;
+    std::vector<UploadCopy> copies_;
+    uint64_t lastUpload_ = 0;
+    void flushUploads();
 #ifndef SAIDA_RHI_WEBGPU
     VmaVirtualBlock vertexBlock_ = VK_NULL_HANDLE;
     VmaVirtualBlock indexBlock_ = VK_NULL_HANDLE;

@@ -36,12 +36,15 @@ public:
     Texture(VulkanDevice& device, const std::string& path, bool srgb = true,
             rhi::AddressMode address = rhi::AddressMode::Repeat);
     Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true,
-            rhi::AddressMode address = rhi::AddressMode::Repeat);
+            rhi::AddressMode address = rhi::AddressMode::Repeat, bool asynchronous = false);
     ~Texture();
     Texture(const Texture&) = delete;
     Texture& operator=(const Texture&) = delete;
 
     VkImageView imageView() const { return imageView_; }
+    VkImage image() const { return image_; }
+    uint32_t mipLevels() const { return mipLevels_; }
+    bool uploadReady();
     VkSampler sampler() const { return sampler_; }
     uint32_t width() const { return width_; }
     uint32_t height() const { return height_; }
@@ -63,6 +66,7 @@ private:
     void createSampler();
     rhi::AddressMode address_ = rhi::AddressMode::Repeat;
     void generateMipmaps();
+    void recordMipmaps(VkCommandBuffer command);
     VkImageView createImageView(VkFormat format, VkImageAspectFlags aspect);
 
     VulkanDevice& device_;
@@ -74,6 +78,7 @@ private:
     uint32_t height_ = 0;
     uint32_t mipLevels_ = 1;
     uint64_t trackedBytes_ = 0;
+    uint64_t upload_ = 0;
     std::string trackedCategory_;
     
     uint32_t bindlessIndex_ = ~0u;
