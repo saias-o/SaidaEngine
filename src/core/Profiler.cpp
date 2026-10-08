@@ -67,6 +67,18 @@ void writeTraceEvent(std::ostream& out, bool& first, std::string_view name,
         << "}";
 }
 
+// A counter's value for one frame, as Chrome's trace viewer draws it: a
+// track per name beside the frames.
+void writeTraceCounter(std::ostream& out, bool& first, std::string_view name,
+                       double tsUs, double value) {
+    if (!first) out << ",\n";
+    first = false;
+    out << "{\"name\":\"" << jsonEscape(name)
+        << "\",\"cat\":\"Counter\",\"ph\":\"C\",\"pid\":1,\"tid\":0"
+        << ",\"ts\":" << std::fixed << std::setprecision(3) << tsUs
+        << ",\"args\":{\"value\":" << std::setprecision(6) << value << "}}";
+}
+
 bool sameName(const char* a, const char* b) {
     if (!a || !b) return a == b;
     return std::strcmp(a, b) == 0;
@@ -309,6 +321,9 @@ bool Profiler::exportChromeTrace(const std::string& path,
                 writeTraceEvent(out, first, event.name, "CPU",
                                 1, event.threadHash, startUs, durUs);
             }
+
+            for (const ProfileCounter& counter : frame.counters)
+                if (counter.name) writeTraceCounter(out, first, counter.name, frameBaseUs, counter.value);
 
             for (const GpuProfileZone& zone : frame.gpuZones) {
                 writeTraceEvent(out, first, zone.name, "GPU",

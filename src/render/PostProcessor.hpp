@@ -31,6 +31,8 @@ public:
     PostProcessor& operator=(const PostProcessor&) = delete;
 
     void setHdrInput(rhi::TextureView hdrInputView);
+    // Called after the surface has idled; formats/layouts and pipelines survive.
+    void resize(rhi::Extent2D extent, rhi::TextureView hdrInputView);
     void recordBloom(rhi::CommandEncoder& encoder, const SceneSettings& settings,
                      const glm::vec4& sourceRect, GpuProfiler* profiler);
 

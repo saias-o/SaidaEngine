@@ -16,7 +16,7 @@ layout(set = 0, binding = 0) uniform CameraUBO {
 
 PUSH_QUALIFIER PushConstants {
     mat4 model;
-    vec4 params;  // y = boneOffset
+    vec4 params;  // x = LOD cross-fade, y = boneOffset
 } push;
 
 #ifdef BINDLESS
@@ -25,7 +25,8 @@ struct InstanceData {
     vec4 boundingSphere;
     uint materialIndex;
     int boneOffset;
-    uint doubleSided, pad;
+    uint doubleSided;
+    float lodFade;
 };
 
 layout(std140, set = 2, binding = 0) readonly buffer InstanceBuffer {
@@ -53,6 +54,7 @@ layout(location = 6) out vec3 fragBitangent;
 #ifdef BINDLESS
 layout(location = 7) flat out uint fragMaterialIndex;
 layout(location = 8) flat out uint fragDoubleSided;
+layout(location = 9) flat out float fragLodFade;
 #endif
 
 void main() {
@@ -63,6 +65,7 @@ void main() {
     modelMat = instances[gl_InstanceIndex].model;
     fragMaterialIndex = instances[gl_InstanceIndex].materialIndex;
     fragDoubleSided = instances[gl_InstanceIndex].doubleSided;
+    fragLodFade = instances[gl_InstanceIndex].lodFade;
     boneOffset = instances[gl_InstanceIndex].boneOffset;
 #else
     modelMat = push.model;

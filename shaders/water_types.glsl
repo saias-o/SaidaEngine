@@ -22,6 +22,7 @@ struct GpuWater {
     vec4 cartoonLook;
     vec4 cartoonShore;
     vec4 dynamics;   // wave type, intensity, wind angle (degrees), gust strength
+    vec4 optics;     // x=transparency (0 opaque), yzw reserved
     mat4 localToWorld; // optional shaped surface vertices use the node transform
 };
 

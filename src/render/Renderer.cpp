@@ -10,6 +10,7 @@
 #include "graphics/Material.hpp"
 #include "graphics/Mesh.hpp"
 #include "graphics/Pipeline.hpp"
+#include "graphics/PipelineBatch.hpp"
 #include "graphics/ShadowMap.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "render/FrameCapture.hpp"
@@ -292,6 +293,7 @@ Renderer::~Renderer() {
         cleanupXrTargets();
     }
 #endif
+    postProcessor_.reset();
     cleanupHdrResources();
 
 }
@@ -400,15 +402,12 @@ void Renderer::createPipeline(rhi::BindGroupLayout& materialSetLayout) {
     classic.samples = sampleCountValue(swapchain_->samples());
 #endif
     classic.bindGroupLayouts = {globalSetLayout_.get(), &materialSetLayout};
-    pipeline_ = std::make_unique<rhi::Pipeline>(device_, classic);
-
     rhi::Pipeline::Desc unlit = classic;
     unlit.fragPath = shaderPath("unlit.frag.spv");
-    unlitPipeline_ = std::make_unique<rhi::Pipeline>(device_, unlit);
     auto twoSided = classic; twoSided.cullMode = rhi::CullMode::None;
-    twoSidedPipeline_ = std::make_unique<rhi::Pipeline>(device_, twoSided);
-    twoSided.fragPath = shaderPath("unlit.frag.spv");
-    twoSidedUnlitPipeline_ = std::make_unique<rhi::Pipeline>(device_, twoSided);
+    auto twoSidedUnlit = twoSided;
+    twoSidedUnlit.fragPath = shaderPath("unlit.frag.spv");
+    std::vector<rhi::Pipeline::Desc> descriptions{classic, unlit, twoSided, twoSidedUnlit};
 
 #ifndef SAIDA_RHI_WEBGPU
     if (gpuDrivenAvailable_) {
@@ -418,8 +417,16 @@ void Renderer::createPipeline(rhi::BindGroupLayout& materialSetLayout) {
         gpuDriven.fragPath = shaderPath("bindless.shader.frag.spv");
         gpuDriven.bindGroupLayouts = {globalSetLayout_.get(), resources_.globalMaterialSetLayout(),
                                       cullingSetLayout_.get()};
-        gpuDrivenPipeline_ = std::make_unique<rhi::Pipeline>(device_, gpuDriven);
+        descriptions.push_back(gpuDriven);
     }
+#endif
+    auto built = buildGraphicsPipelines(device_, descriptions);
+    pipeline_ = std::move(built[0]);
+    unlitPipeline_ = std::move(built[1]);
+    twoSidedPipeline_ = std::move(built[2]);
+    twoSidedUnlitPipeline_ = std::move(built[3]);
+#ifndef SAIDA_RHI_WEBGPU
+    if (gpuDrivenAvailable_) gpuDrivenPipeline_ = std::move(built[4]);
 #endif
 }
 
@@ -481,8 +488,10 @@ void Renderer::createGpuDrivenBuffers() {
         originalDrawCommandBuffers_.push_back(std::make_unique<rhi::Buffer>(device_, drawCommandBufferSize,
             rhi::BufferUsage::Storage, MemoryUsage::HostVisible));
         
+        // TransferDst: cleared before culling when the draw count is not read
+        // from the GPU (recordCommandBuffer).
         drawCommandBuffers_.push_back(std::make_unique<rhi::Buffer>(device_, drawCommandBufferSize,
-            rhi::BufferUsage::Storage | rhi::BufferUsage::Indirect,
+            rhi::BufferUsage::Storage | rhi::BufferUsage::Indirect | rhi::BufferUsage::TransferDst,
             MemoryUsage::GpuOnly));
             
         countBuffers_.push_back(std::make_unique<rhi::Buffer>(device_, sizeof(uint32_t),
@@ -972,6 +981,10 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
     if (shadowCount_ > 0) {
         for (MeshNode* node : scene.meshes()) {
             if (!node->castShadows()) continue;
+            // A level cross-fading casts its shadow only while it covers most
+            // of its pixels: one shadow throughout, and no shadow pass change.
+            const float fade = node->lodFade();
+            if ((fade > 0.0f && fade < 0.5f) || (fade < 0.0f && fade <= -0.5f)) continue;
             Mesh* mesh = node->mesh();
             if (!mesh) continue;
             const glm::mat4& world = node->worldTransform();
@@ -1019,6 +1032,7 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
                         (gpuFrameActive_ || inside) ? boneOffsetFor(node) : -1;
                     SceneDraw draw{drawMesh, drawMat, node, world, node->castShadows(),
                                    boneOffset, drawMat->desc().type};
+                    draw.lodFade = node->lodFade();
 
                     if (gpuFrameActive_) {
                         if (frameDraws_.gpuCandidates.size() == kMaxInstances) {
@@ -1093,7 +1107,7 @@ void Renderer::uploadGpuDrivenDraws() {
         instance.materialIndex = draw.material->bindlessIndex();
         instance.boneOffset = draw.boneOffset;
         instance.doubleSided = draw.material->desc().doubleSided ? 1u : 0u;
-        instance.pad = 0;
+        instance.lodFade = draw.lodFade;
 
         const GeometryAllocation allocation = draw.mesh->geometryAllocation();
         gpu_driven::DrawIndexedIndirectCommand& command = commands[index];
@@ -1151,7 +1165,8 @@ void Renderer::createHdrResources() {
         depthResolveTexture_ = std::make_unique<rhi::RenderTexture>(device_, depthDesc);
     }
 
-    postProcessor_ = std::make_unique<PostProcessor>(device_, extent,
+    if (postProcessor_) postProcessor_->resize(extent, hdrTexture_->view());
+    else postProcessor_ = std::make_unique<PostProcessor>(device_, extent,
         rhi::Format::RGBA16Float, hdrTexture_->view());
     if (tonemapPass_) {
         tonemapPass_->setInputs(
@@ -1162,7 +1177,6 @@ void Renderer::createHdrResources() {
 }
 
 void Renderer::cleanupHdrResources() {
-    postProcessor_.reset();
     depthResolveTexture_.reset();
     hdrMsaaTexture_.reset();
     hdrTexture_.reset();
@@ -1287,8 +1301,9 @@ void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstP
 
         PushConstants pc{};
         pc.model = draw.world;
-        // params.y: offset into the global bone matrix buffer, or -1.
-        pc.params = glm::vec4(0.0f, static_cast<float>(draw.boneOffset), 0.0f, 0.0f);
+        // params.x: the LOD cross-fade (MeshNode::lodFade); params.y: offset
+        // into the global bone matrix buffer, or -1.
+        pc.params = glm::vec4(draw.lodFade, static_cast<float>(draw.boneOffset), 0.0f, 0.0f);
         rp.setPushConstants(&pc, sizeof(PushConstants));
 
         draw.mesh->bind(rp);
@@ -1393,6 +1408,16 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
 
     if (gpuFrameActive_ && currentInstanceCount_ > 0) {
         encoder.fillBuffer(*countBuffers_[currentFrame_], 0, sizeof(uint32_t), 0);
+        if (!device_.capabilities().drawIndirectCount) {
+            // Culling compacts the visible commands into the first slots and
+            // leaves the rest untouched, yet without an indirect count every
+            // slot is drawn. Zeroed, the slots past the visible count are empty
+            // draws instead of commands left by an earlier frame.
+            encoder.fillBuffer(*drawCommandBuffers_[currentFrame_], 0,
+                               uint64_t(currentInstanceCount_) *
+                                   sizeof(gpu_driven::DrawIndexedIndirectCommand),
+                               0);
+        }
         encoder.transferToComputeBarrier();
 
         rhi::ComputePassEncoder cp = encoder.beginComputePass();
@@ -1496,7 +1521,7 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
                                             currentInstanceCount_,
                                             sizeof(gpu_driven::DrawIndexedIndirectCommand));
             } else {
-                // Culled commands use instanceCount = 0 when indirect-count is unavailable.
+                // The slots past the visible count were zeroed before culling.
                 rp.drawIndexedIndirect(*drawCommandBuffers_[currentFrame_], 0,
                                        currentInstanceCount_,
                                        sizeof(gpu_driven::DrawIndexedIndirectCommand));

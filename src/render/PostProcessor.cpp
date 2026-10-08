@@ -1,4 +1,5 @@
 #include "render/PostProcessor.hpp"
+#include "graphics/PipelineBatch.hpp"
 
 #include "core/Paths.hpp"
 #include "graphics/GpuProfiler.hpp"
@@ -42,6 +43,16 @@ PostProcessor::~PostProcessor() {
 void PostProcessor::setHdrInput(rhi::TextureView hdrInputView) {
     if (hdrInputView_ == hdrInputView) return;
     hdrInputView_ = hdrInputView;
+    updateDescriptorSets();
+}
+
+void PostProcessor::resize(rhi::Extent2D extent, rhi::TextureView hdrInputView) {
+    downsampleGroups_.clear();
+    upsampleGroups_.clear();
+    destroyTargets();
+    extent_ = extent;
+    hdrInputView_ = hdrInputView;
+    createTargets();
     updateDescriptorSets();
 }
 
@@ -156,7 +167,7 @@ void PostProcessor::createPipelines() {
     desc.fragPath = shaderPath("bloom_downsample.frag.spv");
 #endif
     desc.blendMode = rhi::BlendMode::None;
-    bloomDownsamplePipeline_ = std::make_unique<Pipeline>(device_, desc);
+    const auto downsample = desc;
 
 #ifdef SAIDA_RHI_WEBGPU
     desc.fragPath = "/shaders/bloom_upsample.frag.wgsl";
@@ -164,7 +175,9 @@ void PostProcessor::createPipelines() {
     desc.fragPath = shaderPath("bloom_upsample.frag.spv");
 #endif
     desc.blendMode = rhi::BlendMode::Additive;
-    bloomUpsamplePipeline_ = std::make_unique<Pipeline>(device_, desc);
+    auto built = buildGraphicsPipelines(device_, {downsample, desc});
+    bloomDownsamplePipeline_ = std::move(built[0]);
+    bloomUpsamplePipeline_ = std::move(built[1]);
 }
 
 void PostProcessor::transitionTarget(rhi::CommandEncoder& encoder, Target& target,

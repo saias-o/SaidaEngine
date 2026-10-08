@@ -141,8 +141,32 @@ void testWorkerScopesKeepTheirOriginFrame() {
 
 } // namespace
 
+// A trace carries each frame's counters as Chrome counter events, not only the
+// peaks the log reports.
+void testCountersReachTheTrace() {
+    const std::vector<saida::ProfileFrame> frames = {
+        frame(1, 10.0, {event("Frame", 0, 10)}, {{"Scene/LodCrossFades", 3}}),
+        frame(2, 10.0, {event("Frame", 0, 10)}, {{"Scene/LodCrossFades", 5}}),
+    };
+    const std::string path = "profiler-counter-trace.json";
+    require(saida::Profiler::instance().exportChromeTrace(path, frames), "trace written");
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    std::string text;
+    if (file) {
+        char buffer[4096];
+        size_t read = 0;
+        while ((read = std::fread(buffer, 1, sizeof buffer, file)) > 0) text.append(buffer, read);
+        std::fclose(file);
+    }
+    std::remove(path.c_str());
+    require(text.find("\"name\":\"Scene/LodCrossFades\",\"cat\":\"Counter\",\"ph\":\"C\"") != std::string::npos,
+            "a counter event per frame");
+    require(text.find("\"args\":{\"value\":5") != std::string::npos, "the frame's own value");
+}
+
 int main() {
     testScopesAreSummedAveragedAndRanked();
+    testCountersReachTheTrace();
     testNothingRecordedSummarizesToNothing();
     testTheFlag();
     testWorkerScopesKeepTheirOriginFrame();

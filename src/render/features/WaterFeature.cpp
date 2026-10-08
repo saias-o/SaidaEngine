@@ -4,6 +4,7 @@
 #include "core/Log.hpp"
 #include "graphics/Buffer.hpp"
 #include "graphics/Mesh.hpp"
+#include "graphics/PipelineBatch.hpp"
 #ifndef SAIDA_RHI_WEBGPU
 #include "graphics/VulkanDevice.hpp"
 #include "rhi/vulkan/Format.hpp"
@@ -94,7 +95,7 @@ void WaterFeature::createPipelines(const RenderContext& ctx) {
     // set 0 = global (camera + lighting + env); set 1 = the water UBO array. Look/feel
     // is data; the per-draw push is just the node index + time. Procedural grid (no
     // vertex input), depth-tested + depth-writing, two-sided, and ALPHA-BLENDED so the
-    // shore can dissolve into the wet sand.
+    // shore can dissolve into the wet sand and what was drawn beneath shows through.
     const char* vert = ctx.stereo() ? "multiview.water.vert.spv" : "water.vert.spv";
     Pipeline::Desc desc;
     desc.vertPath = shaderPath(vert);
@@ -108,25 +109,30 @@ void WaterFeature::createPipelines(const RenderContext& ctx) {
     desc.blendMode = rhi::BlendMode::Alpha;
     desc.pushConstantSize = sizeof(Push);
     desc.viewMask = ctx.viewMask;
-    realisticPipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+    std::vector<Pipeline::Desc> descriptions{desc};
 
     desc.vertPath = shaderPath(ctx.stereo()
         ? "multiview.cartoon_water.vert.spv"
         : "cartoon_water.vert.spv");
     desc.fragPath = shaderPath("cartoon_water.frag.spv");
-    cartoonPipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+    descriptions.push_back(desc);
 
     desc.vertexInput = true;
     desc.vertPath = shaderPath(ctx.stereo()
         ? "multiview.water_surface.vert.spv"
         : "water_surface.vert.spv");
     desc.fragPath = shaderPath("water.frag.spv");
-    realisticSurfacePipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+    descriptions.push_back(desc);
     desc.vertPath = shaderPath(ctx.stereo()
         ? "multiview.cartoon_water_surface.vert.spv"
         : "cartoon_water_surface.vert.spv");
     desc.fragPath = shaderPath("cartoon_water.frag.spv");
-    cartoonSurfacePipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+    descriptions.push_back(desc);
+    auto built = buildGraphicsPipelines(ctx.device, descriptions);
+    realisticPipeline_ = std::move(built[0]);
+    cartoonPipeline_ = std::move(built[1]);
+    realisticSurfacePipeline_ = std::move(built[2]);
+    cartoonSurfacePipeline_ = std::move(built[3]);
 }
 
 void WaterFeature::record(FrameContext& fc) {
@@ -182,6 +188,7 @@ void WaterFeature::record(FrameContext& fc) {
         g.localToWorld = w->worldTransform();
         g.dynamics = glm::vec4(static_cast<float>(w->waveType),
             std::clamp(w->waveIntensity,0.0f,3.0f),w->windAngle,std::clamp(w->gustStrength,0.0f,1.0f));
+        g.optics = glm::vec4(std::clamp(w->transparency,0.0f,0.95f),0.0f,0.0f,0.0f);
     }
     if (waterCount == 0) return;
 

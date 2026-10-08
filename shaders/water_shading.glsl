@@ -67,8 +67,11 @@ vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
     // GGX's alpha is perceptual roughness squared, hence its variance is r^4.
     float rough = clamp(pow(pow(baseRough,4.0) + .5 * variance, .25), .025,.65);
     bool hasEnv = lights.environmentParams.x > .5;
-    vec3 ambient = hasEnv ? sampleEnvironmentLod(up,environmentMaxLod()) * lights.environmentParams.y
-                          : lights.ambient.rgb;
+    // The sky light the body scatters back, as every lit material receives it
+    // (accumulate: the scene ambient plus the diffuse environment). A scene
+    // that turns diffuse IBL off still lights its water with its ambient.
+    vec3 ambient = lights.ambient.rgb;
+    if (hasEnv) ambient += environmentIrradiance(up) * lights.environmentParams.y;
     vec3 L = up;
     vec3 sun = vec3(0);
     float visibility = 1.0;
@@ -101,7 +104,14 @@ vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
                                   sqrt(max(dot(R,up),0.0)));
     float fresnel = .02037 + .97963 * pow(1.0-NoV,max(w.look.x,1.0));
     float reflectionWeight = clamp(fresnel * w.foam.w,0.0,1.0);
-    vec3 color = body * (1.0-reflectionWeight) + reflected * reflectionWeight;
+    // What Fresnel does not reflect enters the water. Of it, `transparency`
+    // comes back from what lies beneath (the framebuffer under this pixel,
+    // through alpha) and the rest is the body's own scattered tint. A shore
+    // knows its depth, and its deeper water lets less through.
+    float through = w.optics.x;
+    if (mode != 0) through *= dot(transmission,vec3(1.0/3.0));
+    float beneath = (1.0-reflectionWeight) * through;
+    vec3 color = body * (1.0-reflectionWeight) * (1.0-through) + reflected * reflectionWeight;
 
     vec3 H = normalize(L + V + up * .00001);
     float NoL = max(dot(N,L),0.0);
@@ -132,7 +142,11 @@ vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
         }
     }
     vec3 foamLit = w.foam.rgb * (ambient*.65 + sun*sunUp*.3);
-    color = mix(color,foamLit,clamp(foam,0.0,1.0));
+    foam = clamp(foam,0.0,1.0);
+    color = mix(color,foamLit,foam);
+    // Foam is opaque. `color` is premultiplied by the surface's coverage;
+    // un-premultiply it for the straight alpha blend.
+    float coverage = 1.0 - beneath * (1.0-foam);
     float alpha = mode == 0 ? 1.0 : smoothstep(0.0,max(w.shoreColor.w,.01),depth);
-    return vec4(color,alpha);
+    return vec4(color / max(coverage,.05), alpha * coverage);
 }

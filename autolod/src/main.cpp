@@ -78,6 +78,11 @@ struct Config {
     // --- Atlased proxy LOD (xatlas re-unwrapping + bake of ALL textures) ---
     bool  proxy        = false; // enables proxy mode (--proxy), implies bake
     float proxyBelow   = 0.15f; // LODs with ratio < this threshold become proxies
+    // --proxy-shape: a low-poly shape to bake onto instead of decimating
+    // (the classic high-to-low bake, for a shape an author or a tool built).
+    std::string proxyShape;
+    std::vector<float> shapePos;
+    std::vector<uint32_t> shapeIdx;
 };
 
 // ---------------------------------------------------------------------------
@@ -395,31 +400,40 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
             // triangle count from UV integrity: cleanly re-unwraps and
             // bakes albedo + normal + MR + AO + emissive into a new atlas.
             if (cfg.proxy && canBake && lvl.ratio < cfg.proxyBelow) {
-                // 1. Weld by POSITION ONLY: connects the mesh across
-                // UV/normal seams to allow very deep decimation.
-                std::vector<unsigned int> premap(vcount);
-                const size_t pcount = meshopt_generateVertexRemap(
-                    premap.data(), idx.data(), idx.size(), pos.data(), vcount, 3*sizeof(float));
-                std::vector<float> ppos(pcount*3);
-                std::vector<unsigned int> pidx(idx.size());
-                meshopt_remapVertexBuffer(ppos.data(), pos.data(), vcount, 3*sizeof(float), premap.data());
-                meshopt_remapIndexBuffer(pidx.data(), idx.data(), idx.size(), premap.data());
+                std::vector<float> dpos;
+                std::vector<unsigned int> didx;
+                if (!cfg.shapeIdx.empty()) {
+                    // A supplied shape replaces steps 1 and 2: the bake below
+                    // projects the source onto it, wherever it was made.
+                    dpos = cfg.shapePos;
+                    didx.assign(cfg.shapeIdx.begin(), cfg.shapeIdx.end());
+                } else {
+                    // 1. Weld by POSITION ONLY: connects the mesh across
+                    // UV/normal seams to allow very deep decimation.
+                    std::vector<unsigned int> premap(vcount);
+                    const size_t pcount = meshopt_generateVertexRemap(
+                        premap.data(), idx.data(), idx.size(), pos.data(), vcount, 3*sizeof(float));
+                    std::vector<float> ppos(pcount*3);
+                    std::vector<unsigned int> pidx(idx.size());
+                    meshopt_remapVertexBuffer(ppos.data(), pos.data(), vcount, 3*sizeof(float), premap.data());
+                    meshopt_remapIndexBuffer(pidx.data(), idx.data(), idx.size(), premap.data());
 
-                // 2. Decimation geometrique agressive jusqu'a la cible
-                std::vector<unsigned int> dlod(pidx.size());
-                float derr = 0.0f;
-                size_t dn = meshopt_simplify(dlod.data(), pidx.data(), pidx.size(),
-                                             ppos.data(), pcount, 3*sizeof(float),
-                                             target, 1.0f, 0, &derr);
-                dlod.resize(dn);
-                std::vector<unsigned int> cr(pcount, ~0u); unsigned int dv = 0;
-                for (size_t k = 0; k < dn; ++k) if (cr[dlod[k]] == ~0u) cr[dlod[k]] = dv++;
-                std::vector<float> dpos(dv*3);
-                for (size_t vi = 0; vi < pcount; ++vi) if (cr[vi] != ~0u) {
-                    dpos[cr[vi]*3+0]=ppos[vi*3+0]; dpos[cr[vi]*3+1]=ppos[vi*3+1]; dpos[cr[vi]*3+2]=ppos[vi*3+2];
+                    // 2. Decimation geometrique agressive jusqu'a la cible
+                    std::vector<unsigned int> dlod(pidx.size());
+                    float derr = 0.0f;
+                    size_t dn = meshopt_simplify(dlod.data(), pidx.data(), pidx.size(),
+                                                 ppos.data(), pcount, 3*sizeof(float),
+                                                 target, 1.0f, 0, &derr);
+                    dlod.resize(dn);
+                    std::vector<unsigned int> cr(pcount, ~0u); unsigned int dv = 0;
+                    for (size_t k = 0; k < dn; ++k) if (cr[dlod[k]] == ~0u) cr[dlod[k]] = dv++;
+                    dpos.assign(dv*3, 0.0f);
+                    for (size_t vi = 0; vi < pcount; ++vi) if (cr[vi] != ~0u) {
+                        dpos[cr[vi]*3+0]=ppos[vi*3+0]; dpos[cr[vi]*3+1]=ppos[vi*3+1]; dpos[cr[vi]*3+2]=ppos[vi*3+2];
+                    }
+                    didx.assign(dn, 0u);
+                    for (size_t k = 0; k < dn; ++k) didx[k] = cr[dlod[k]];
                 }
-                std::vector<unsigned int> didx(dn);
-                for (size_t k = 0; k < dn; ++k) didx[k] = cr[dlod[k]];
                 std::vector<float> dnrm = computeSmoothNormals(dpos, didx);
 
                 // 3. Clean UV re-unwrapping
@@ -473,6 +487,20 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
                 tinygltf::Material pm;
                 if (prim.material>=0 && prim.material<(int)model.materials.size()) pm = model.materials[prim.material];
                 pm.name = (pm.name.empty()?"proxy":pm.name) + "_LOD"+std::to_string(L+1)+"_atlas";
+                // Extension textures are not baked into the atlas: kept, they
+                // would sample the source's maps with the new UVs, or point at
+                // a texture a --split file does not carry. Their factors stay,
+                // as the rest of the extension does (an IOR is tuned with them).
+                for (auto& [name, extension] : pm.extensions) {
+                    if (!extension.IsObject()) continue;
+                    tinygltf::Value::Object kept;
+                    for (const auto& key : extension.Keys()) {
+                        const tinygltf::Value& field = extension.Get(key);
+                        if (field.IsObject() && field.Has("index")) continue;
+                        kept[key] = field;
+                    }
+                    extension = tinygltf::Value(std::move(kept));
+                }
                 for (size_t s = 0; s < chans.size(); ++s) {
                     const int tex = addPngTexture(model, br.maps[s].png);
                     switch (chans[s].slot) {
@@ -1051,6 +1079,9 @@ static void usage() {
         "                     (xatlas) + bake albedo+normal+MR+AO+emissive into atlas.\n"
         "                     Very low tris count but looks like higher LODs.\n"
         "                     Implies --bake.\n"
+        "  --proxy-below f    ratio under which --proxy applies (default 0.15)\n"
+        "  --proxy-shape s    bake onto the first mesh of s.glb instead of\n"
+        "                     decimating (implies --proxy; one-mesh inputs)\n"
         "  --split            writes a minimal standalone GLB per LOD level\n"
         "                     (e.g. mesh_LOD0.glb, mesh_LOD1.glb, ...)\n"
         "                     each file contains ONLY its LOD data\n"
@@ -1118,6 +1149,8 @@ int main(int argc, char** argv) {
         else if (a == "--bake-res"      && i+1 < argc)   cfg.bakeRes = std::stoi(argv[++i]);
         else if (a == "--bake-cage"     && i+1 < argc)   cfg.bakeCage = std::stof(argv[++i]);
         else if (a == "--proxy")                        { cfg.proxy = true; cfg.bake = true; }
+        else if (a == "--proxy-below"   && i+1 < argc)   cfg.proxyBelow = std::stof(argv[++i]);
+        else if (a == "--proxy-shape"   && i+1 < argc) { cfg.proxyShape = argv[++i]; cfg.proxy = true; cfg.bake = true; }
         else if (a[0] != '-')                             output = a;
         else { std::cerr << "Option inconnue : " << a << "\n"; return 1; }
     }
@@ -1184,6 +1217,32 @@ int main(int argc, char** argv) {
 
     std::cout << "Loading OK: " << model.meshes.size() << " mesh(s), "
               << model.nodes.size() << " node(s)\n";
+
+    if (!cfg.proxyShape.empty()) {
+        Model shape;
+        const bool shapeBinary = cfg.proxyShape.size() > 4 &&
+            cfg.proxyShape.substr(cfg.proxyShape.size() - 4) == ".glb";
+        const bool loaded = shapeBinary
+            ? ctx.LoadBinaryFromFile(&shape, &err, &warn, cfg.proxyShape)
+            : ctx.LoadASCIIFromFile(&shape, &err, &warn, cfg.proxyShape);
+        if (!loaded || shape.meshes.empty() || shape.meshes[0].primitives.empty()) {
+            std::cerr << "[err] proxy shape unreadable: " << cfg.proxyShape << " " << err << "\n";
+            return 1;
+        }
+        const Primitive& sp = shape.meshes[0].primitives[0];
+        const auto at = sp.attributes.find("POSITION");
+        if (at == sp.attributes.end()) {
+            std::cerr << "[err] proxy shape has no POSITION: " << cfg.proxyShape << "\n";
+            return 1;
+        }
+        cfg.shapePos = readFloats(shape, at->second, 3);
+        cfg.shapeIdx = readIndices(shape, sp, cfg.shapePos.size() / 3);
+        if (model.meshes.size() != 1) {
+            std::cerr << "[err] --proxy-shape bakes one mesh; the input has " << model.meshes.size() << "\n";
+            return 1;
+        }
+        std::cout << "Proxy shape: " << cfg.shapeIdx.size() / 3 << " tris\n";
+    }
 
     const int processed = processModel(model, cfg);
     std::cout << "Processed meshes: " << processed << "\n";

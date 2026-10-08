@@ -120,10 +120,20 @@ def main():
         settings['iblEnabled']=False
         settings['ambient']=[0,0,0]
         scene['scene']['children'].remove(sun)
+        # Nothing is drawn under this ocean: opaque, so the clear colour cannot
+        # pass for light the water emits.
+        water['transparency']=0
+        settings['clearColor']=[.9,.05,.05]
         export()
         dark=capture('unlit','0,3,12','0,0,-45')
         assert max(ImageStat.Stat(dark.crop((200,400,1080,650))).mean) < 1, 'water emits light without illumination'
-        print('PASS animation, wave profiles/intensities, triangulation invariance, environment reflection and unlit water',delta,seam_delta,colors)
+        # Transparent water lets what was drawn beneath it (here the clear
+        # colour) through where Fresnel does not reflect: looking down.
+        water['transparency']=.6
+        export()
+        beneath=ImageStat.Stat(capture('beneath','0,20,4','0,0,0').crop((440,260,840,460))).mean
+        assert beneath[0] > 20 and beneath[0] > beneath[2] + 15, ('transparent water hides what lies beneath',beneath)
+        print('PASS animation, wave profiles/intensities, triangulation invariance, environment reflection, unlit water and transparency',delta,seam_delta,colors,beneath)
     print('Captures:',root)
 
 

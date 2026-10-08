@@ -76,5 +76,19 @@ int main() {
         !contains(readText(shaderRoot / "noise.glsl"), "float hash21(ivec2")) return 25;
     if (!contains(realistic, "footprint")) return 26;
 
+    // Realistic water reflects the sky as Fresnel says, is lit by the scene's
+    // ambient even where diffuse IBL is off, and lets what lies beneath show
+    // through unless asked to be opaque.
+    if (water.reflectivity != 1.0f) return 29;
+    if (!(water.transparency > 0.0f && water.transparency < 1.0f)) return 30;
+    const auto* transparency = type.findProperty("transparency");
+    if (!transparency) return 31;
+    transparency->set(&water, nlohmann::json(0.0));
+    if (water.transparency != 0.0f) return 32;
+    if (!contains(realistic, "vec3 ambient = lights.ambient.rgb;")) return 33;
+    if (!contains(realistic, "w.optics.x")) return 34;
+    if (!contains(readText(shaderRoot / "water_types.glsl"), "vec4 optics;")) return 35;
+    if (!contains(readText(shaderRoot / "water_distant.glsl"), "w.optics = vec4(0);")) return 36;
+
     return 0;
 }

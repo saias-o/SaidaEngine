@@ -1,4 +1,5 @@
 #include "render/features/ParticleFeature.hpp"
+#include "graphics/PipelineBatch.hpp"
 
 #include "core/Camera.hpp"
 #include "core/Paths.hpp"
@@ -141,10 +142,12 @@ void ParticleFeature::createPipelines(const RenderContext& ctx) {
     desc.viewMask = ctx.viewMask;
 
     desc.blendMode = rhi::BlendMode::Alpha;
-    alphaPipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+    const auto alpha = desc;
 
     desc.blendMode = rhi::BlendMode::Additive;
-    additivePipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+    auto built = buildGraphicsPipelines(ctx.device, {alpha, desc});
+    alphaPipeline_ = std::move(built[0]);
+    additivePipeline_ = std::move(built[1]);
 }
 
 namespace {

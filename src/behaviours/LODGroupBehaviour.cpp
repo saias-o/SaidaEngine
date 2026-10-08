@@ -1,6 +1,8 @@
 #include "behaviours/LODGroupBehaviour.hpp"
 
 #include "core/Reflection.hpp"
+#include "core/Time.hpp"
+#include "nodes/MeshNode.hpp"
 #include "scene/Node.hpp"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -24,14 +26,32 @@ void LODGroupBehaviour::setLevels(std::vector<Level> levels) {
     for (const auto& level : levels_) thresholds_.push_back({nullptr, nullptr, level.minCoverage});
     roots_.clear();
     resolvedRevision_ = 0;
-    active_ = -1;
+    active_ = selected_ = fading_ = -1;
+    progress_ = 1.f;
+}
+
+void LODGroupBehaviour::applyFade(Node* root, float fade) {
+    if (!root) return;
+    if (root->mesh())
+        if (auto* mesh = dynamic_cast<MeshNode*>(root)) mesh->setLodFade(fade);
+    for (const auto& child : root->children()) applyFade(child.get(), fade);
+}
+
+int LODGroupBehaviour::shownLevel(int selected, int finest, int count) {
+    if (count <= 0) return -1;
+    return std::max(selected, std::min(finest, count - 1));
 }
 
 void LODGroupBehaviour::onDisable() {
     // Resolve live paths, since a previously selected child may have been freed.
     if (node()) for (const auto& level : levels_)
-        if (Node* child = node()->findByPath(level.path)) child->setVisible(true);
+        if (Node* child = node()->findByPath(level.path)) {
+            child->setVisible(true);
+            applyFade(child, 1.f);
+        }
     resolvedRevision_ = 0;
+    fading_ = -1;
+    progress_ = 1.f;
 }
 
 void LODGroupBehaviour::resolve() {
@@ -67,14 +87,56 @@ void LODGroupBehaviour::resolve() {
     resolvedTransformRevision_ = node()->subtreeTransformRevision();
 }
 
-void LODGroupBehaviour::updateForView(const glm::mat4& view, const glm::mat4& projection) {
+void LODGroupBehaviour::updateForView(const glm::mat4& view, const glm::mat4& projection, uint64_t frame) {
     if (levels_.empty() || !node() || !node()->isVisibleInHierarchy()) return;
+    // Seen without a break since the last frame: only then is a change of
+    // level something the eye followed, and worth dissolving.
+    const bool continuous = frame != 0 && lastFrame_ != 0 && frame == lastFrame_ + 1;
+    lastFrame_ = frame;
     if (resolvedRevision_ != node()->subtreeRevision() ||
         resolvedTransformRevision_ != node()->subtreeTransformRevision()) resolve();
     if (roots_.empty()) return;
     const float coverage = computeScreenCoverage(node()->worldTransform(), bounds_, view, projection);
-    active_ = selectLodIndex(coverage, thresholds_, active_, .10f);
-    for (size_t i = 0; i < roots_.size(); ++i) roots_[i]->setVisible(int(i) == active_);
+    // Hysteresis follows what coverage chose, not what the budget allowed, so
+    // a group released by its caller returns at once to its own level.
+    selected_ = selectLodIndex(coverage, thresholds_, selected_, .10f);
+    const int was = active_;
+    active_ = shownLevel(selected_, finest_, int(roots_.size()));
+    if (fading_ >= int(roots_.size())) fading_ = -1;
+    if (!continuous && fading_ >= 0) {
+        for (Node* root : roots_) applyFade(root, 1.f);
+        fading_ = -1;
+        progress_ = 1.f;
+    }
+    if (crossFade_ > 0.f && continuous && was >= 0 && was != active_) {
+        if (fading_ == active_) {
+            // Turning back mid-fade: the level returning already covers the
+            // share it had not yet given up.
+            progress_ = 1.f - progress_;
+        } else {
+            // A third level: what was shown hands over from the start.
+            if (fading_ >= 0) applyFade(roots_[size_t(fading_)], 1.f);
+            progress_ = 0.f;
+        }
+        fading_ = was;
+    } else if (crossFade_ <= 0.f && fading_ >= 0) {
+        progress_ = 1.f;
+    }
+    if (fading_ >= 0) {
+        // Real seconds: a paused game still finishes the fade it shows.
+        progress_ += Time::unscaledDelta() / std::max(crossFade_, 1e-3f);
+        if (progress_ >= 1.f) {
+            applyFade(roots_[size_t(fading_)], 1.f);
+            applyFade(roots_[size_t(active_)], 1.f);
+            fading_ = -1;
+            progress_ = 1.f;
+        } else {
+            applyFade(roots_[size_t(active_)], incomingFade(progress_));
+            applyFade(roots_[size_t(fading_)], outgoingFade(progress_));
+        }
+    }
+    for (size_t i = 0; i < roots_.size(); ++i)
+        roots_[i]->setVisible(int(i) == active_ || int(i) == fading_);
     resolvedRevision_ = node()->subtreeRevision();
     resolvedTransformRevision_ = node()->subtreeTransformRevision();
 }
@@ -83,6 +145,7 @@ void LODGroupBehaviour::save(nlohmann::json& out) const {
     if (levels_.empty()) return;
     out["levels"] = nlohmann::json::array();
     for (const auto& level : levels_) out["levels"].push_back({{"path", level.path}, {"minCoverage", level.minCoverage}});
+    if (crossFade_ > 0.f) out["crossFade"] = crossFade_;
 }
 
 void LODGroupBehaviour::load(const nlohmann::json& in) {
@@ -91,12 +154,14 @@ void LODGroupBehaviour::load(const nlohmann::json& in) {
         for (const auto& level : in.at("levels"))
             levels.push_back({level.at("path").get<std::string>(), level.at("minCoverage").get<float>()});
     setLevels(std::move(levels));
+    setCrossFade(in.value("crossFade", 0.f));
 }
 
 void LODGroupBehaviour::describe(reflect::TypeBuilder<LODGroupBehaviour>& t) {
     t.doc("Selects one child representation by projected coverage with hysteresis. "
-          "Child levels store path and minCoverage. An empty group exposes the "
-          "MeshNode's own LOD chain in the editor.");
+          "Child levels store path and minCoverage; crossFade (seconds) dissolves "
+          "one level into the next through a screen door. An empty group exposes "
+          "the MeshNode's own LOD chain in the editor.");
 }
 
 } // namespace saida

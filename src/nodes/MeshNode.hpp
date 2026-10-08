@@ -40,6 +40,13 @@ public:
     int activeLodIndex() const { return activeLodIndex_; }
     void setActiveLodIndex(int idx) const { activeLodIndex_ = idx; }
 
+    // Runtime: a LOD cross-fade's screen-door share (LODGroupBehaviour).
+    // 1 draws every pixel; t in (0,1) draws the share t of them, the share
+    // -t draws the complementary pixels, so a level fading in and one fading
+    // out cover each pixel exactly once. 0 also draws every pixel.
+    float lodFade() const { return lodFade_; }
+    void setLodFade(float fade) const { lodFade_ = fade; }
+
     Mesh* meshForLod(int lodIndex) const;
     Material* materialForLod(int lodIndex) const;
     int selectLodIndex(float screenCoverage) const;
@@ -81,6 +88,7 @@ private:
     Material* material_;
     std::vector<MeshLodLevel> lods_;
     mutable int activeLodIndex_ = 0;
+    mutable float lodFade_ = 1.0f;
     bool castShadows_ = true;
     bool outlineEnabled_ = false;
     glm::vec4 outlineColor_{0.02f, 0.02f, 0.02f, 1.0f};

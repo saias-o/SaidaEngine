@@ -50,7 +50,7 @@ struct UniformBufferObject {
 // Must match PushConstants in the scene shaders.
 struct PushConstants {
     glm::mat4 model;
-    glm::vec4 params;  // y = bone matrix offset, or -1 when unskinned
+    glm::vec4 params;  // x = LOD cross-fade (MeshNode::lodFade), y = bone matrix offset or -1
 };
 
 constexpr int kMaxLights = 16;

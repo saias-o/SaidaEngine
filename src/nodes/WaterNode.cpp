@@ -14,7 +14,9 @@ void WaterNode::describe(reflect::TypeBuilder<WaterNode>& t) {
     t.property("roughness", &WaterNode::roughness).range(0.02, 0.4)
         .tooltip("reflection sharpness (low = mirror-like)");
     t.property("reflectivity", &WaterNode::reflectivity).range(0.0, 2.0)
-        .tooltip("Fresnel sky-reflection strength");
+        .tooltip("Fresnel sky-reflection gain; 1 reflects what physical water does");
+    t.property("transparency", &WaterNode::transparency).range(0.0, 0.95)
+        .tooltip("how much of what lies under the water shows through; 0 = opaque");
 
     t.property("waveType", &WaterNode::waveType).enumValues({"Swell", "Wind sea", "Chop"})
         .group("Waves").tooltip("Long aligned swell, crossed wind waves, or short steep chop");

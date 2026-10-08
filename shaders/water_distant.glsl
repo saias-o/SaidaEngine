@@ -4,7 +4,7 @@ GpuWater distantWater(vec4 body, vec2 waves, vec4 dynamics) {
     GpuWater w;
     w.area = vec4(0);
     w.deep = body;
-    w.foam = vec4(.80,.90,.96,.55);
+    w.foam = vec4(.80,.90,.96,1);
     w.waveA = vec4(waves,.7,.25);
     w.detail1 = vec4(.7,.06,.2,100);
     w.detail2 = vec4(.9,.12,.35,110);
@@ -19,6 +19,7 @@ GpuWater distantWater(vec4 body, vec2 waves, vec4 dynamics) {
     w.cartoonLook = vec4(0);
     w.cartoonShore = vec4(0);
     w.dynamics = dynamics;
+    w.optics = vec4(0);   // drawn in the opaque terrain pass: nothing beneath
     w.localToWorld = mat4(1);
     return w;
 }

@@ -167,6 +167,10 @@ public:
     // destroyed nodes.
     void refreshHierarchy();
     void updateRenderLods(const glm::mat4& view, const glm::mat4& projection);
+    // Starts no LOD cross-fade this frame: every group takes its level at
+    // once. For a camera cut (a teleport, a new camera), where dissolving the
+    // whole view from the old point of view would only show the cut longer.
+    void cutLodFades() { lodCut_ = true; }
     // old world point p becomes rotation*p + translation. Uniformly scaled
     // parents only; body identities/velocities survive, joint anchors rebuild.
     // Call between updates, and rebase any game-owned world-space state too.
@@ -227,6 +231,8 @@ public:
 
 private:
     SceneIndex index_;
+    uint64_t lodFrame_ = 0;
+    bool lodCut_ = false;
 
     SceneSettings settings_;
     std::vector<SignalConnectionDef> connectionDefs_;

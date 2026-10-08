@@ -450,9 +450,14 @@ Post-V1 unless the scope changes explicitly.
   back-face shading normals. The instance ABI retains its existing size.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.
-- [ ] Streaming: remove the remaining legacy synchronous registrations and
-  startup pipeline hitches, then qualify arrivals on the
-  reference hardware. Native queued transfers, mip generation and arena
+- [x] R1World streaming: queue lettering, interiors and distant ice, publish
+  interiors/colliders only when ready, build native graphics pipelines in
+  joined two-lane batches and reuse bloom pipelines on resize. The optimized
+  Paris, Grenoble and Paris–Tunis traces have no legacy upload waits or pipeline
+  creation inside frames; GPU scene streaming passes 153 checks.
+- [ ] Streaming: qualify arrivals on the reference hardware. A portable MX450
+  validation is planned for the evening of 8 October 2026 (R1World PLAN).
+  Native queued transfers, mip generation and arena
   relocation no longer drain the GPU; native texture preparation is bounded
   and off-thread, with sliced row transfers. They do not yet guarantee a 16.7 ms
   frame, and Web CPU mip generation remains indivisible. Preserve ownership,

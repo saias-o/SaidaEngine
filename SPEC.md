@@ -448,8 +448,20 @@ exponential absorption, and directional shadows attenuate the sun contribution.
 Unlit water no longer supplies its own sun or ambient illumination. Reflections
 use the bound HDR sky pair (including blend, rotation and exposure); this does
 **not** add reflections of nearby geometry or scene-depth refraction.
+`reflectivity` scales the Schlick Fresnel weight and defaults to 1, the
+physical value: water at a grazing angle is mostly sky. The body is lit as every
+lit material is, by the scene `ambient` plus the diffuse environment, so a scene
+that sets `iblDiffuseIntensity` to 0 still gets water lit by its ambient instead of black.
+`transparency` (0..0.95, default 0.35; 0 is opaque) is the share of the
+light from what lies beneath that comes through where Fresnel does not reflect.
+It goes through the alpha blend over what was drawn before the water (opaque
+meshes, terrain rings and grass come first), so it needs no depth copy. Beach
+and lake modes also attenuate it with their analytic depth. Foam stays opaque.
+Water with nothing drawn beneath it should set 0, or the clear colour shows.
+Distant terrain water layers are opaque.
 The surface uses bounded shader work, no simulation textures or additional
-render pass. The 64-entry water UBO has a 336-byte entry including wave dynamics.
+render pass. The 64-entry water UBO has a 352-byte entry including wave
+dynamics and optics.
 
 Native terrain rings can mark a runtime `Layer` as `water`, supplying body tint,
 roughness, `waveAmplitude`, `wavelength`, `waveType`, `waveIntensity`, `windAngle`
@@ -472,6 +484,31 @@ bindless pipeline carries the flag at byte 88 of each 96-byte instance and
 rejects only the backs of single-sided materials in its fragment shader.
 Back-face lighting reverses the complete normal after normal-map evaluation.
 The GPU ABI sizes and durable material format are unchanged.
+
+A `LOD Group` with `crossFade` seconds (`setCrossFade`, serialized as
+`crossFade`, 0 by default) dissolves one level into the next instead of
+swapping them. During the fade both levels stay visible; each MeshNode below
+them carries `lodFade` (runtime only): 1 or 0 draws every pixel, t in (0,1)
+draws the pixels whose interleaved-gradient-noise threshold is under t, and -t
+the complementary ones, so each pixel is drawn by exactly one level. It is a
+discard in `shader.frag`, before shading: no blending, no sorting, no extra
+pass, and nothing once the fade ends. The value travels in the last word of
+the 96-byte bindless instance (byte 92, formerly padding) and in
+`params.x` of the classic push constants (desktop, Web, XR). Only the level
+covering at least half its pixels casts a shadow, so the shadow pass is
+unchanged. Fades advance in unscaled time; reversing mid-fade continues from
+the share already reached. The unlit pipeline does not dither. A group fades
+only when the scene updated it the frame before as well: a group hidden,
+disabled or new takes its level at once, and so does every group in the frame
+after `Scene::cutLodFades()` (a teleport, a camera cut). The profiler counter
+`Scene/LodCrossFades` counts the groups drawing two levels in a frame.
+
+Screen coverage (`computeScreenCoverage`, for MeshNode LOD chains and LOD
+groups alike) divides the bounding sphere by its distance to the eye, not by
+its depth along the view axis, so a level does not change when the camera only
+turns. With the depth, the levels at the sides of the frame swapped on every
+turn of the head; measured in R1World's Paris smoke, a camera change made about
+nine hundred of twelve hundred tree groups change level in one frame.
 
 A lit material can also vary across its surface, all runtime-only fields of
 `MaterialDesc` (no durable format carries them), off by default and costing a
@@ -549,7 +586,11 @@ tested binding contracts. It is not the active universal path: some
 `useGpuDriven=false` remain. Its activation must become an explicit setting/cap
 and be benchmarked against the classic path on heavy scenes. Performance claims
 require reproducible scenes, published GPU/driver, resolution, number of
-lights/draws/particles and CPU/GPU frame times.
+lights/draws/particles and CPU/GPU frame times. Culling compacts the visible
+commands into the first slots of the frame's culled buffer; where the device
+lacks `drawIndirectCount`, every slot up to the instance count is drawn, so the
+buffer is zeroed before culling and the slots past the visible count are empty
+draws, never commands left by an earlier frame.
 
 When the editor renders into its docked viewport, only that rectangle of the
 full-size HDR and depth targets is valid. Every post-process sample is confined
@@ -576,7 +617,9 @@ to the original frame while that frame remains in the 600-frame history. A
 recycled slot is never modified by an older handle. Frame activity and history
 are protected by the profiler mutex. `Profiler/SampleMemory` exposes the cost of
 memory sampling separately; profiler-enabled arrival traces include this
-diagnostic work as well as loading and gameplay.
+diagnostic work as well as loading and gameplay. A `--profile` trace carries
+each frame's counters as Chrome counter events (`"ph":"C"`), beside the scopes
+and GPU zones; the log keeps their peaks.
 
 ### 4.2 AssetRegistry and AssetLoader
 
@@ -642,6 +685,15 @@ waits in this path. Workers are joined during cache clearing/shutdown.
 `assetLoadsSettled()` includes both CPU jobs and pending GPU geometry/textures;
 CPU Ready alone is not draw/collider readiness. Decoder exceptions become
 Failed handles rather than escaping the worker.
+
+Native graphics pipeline batches use at most two construction lanes, joined
+before returning their ordered results. Workers only construct pipelines;
+render command pools and queue submissions remain on the render thread.
+Errors join both lanes before propagation, preserving borrowed device/layout
+lifetimes. Web builds use the same API serially. Scene, water, particle and
+bloom variants use this path during initialization; bloom resize retains its
+pipelines and recreates only targets and descriptor groups after GPU idle.
+This bounds construction concurrency; it does not eliminate cold startup cost.
 
 
 The standalone animation files `.srig`, `.sclip` and `.sgraph` follow the same
@@ -764,6 +816,11 @@ once for its view before gathering geometry and shadows; inactive representation
 remain resident. Child transform/resource changes invalidate cached bounds.
 Empty levels preserve the existing marker for MeshNode's per-mesh LOD chain.
 Disabling or reconfiguring a group restores its children's visibility.
+`setFinestLevel(n)` (runtime only, 0 by default) bounds the finest level a
+group may show: coverage still chooses, and the group shows the coarser of its
+choice and `n`. A caller that budgets its most detailed level, such as the few
+nearest trees of a forest, holds every other group at the next level with it.
+Hysteresis follows the coverage choice, so a released group returns to its own level at once.
 
 `saida_scene_streaming_tests` covers branch invalidation, reference ownership,
 reparenting/removal, fixed-step callbacks, rebasing and snapshot round trips.
@@ -790,12 +847,17 @@ far-distance proxy with a new unwrap/atlas.
 ```
 
 Options: `--ratios`, `--errors`, `--lock-border`, `--uv-weight(s)`,
-`--normal-weight`, `--bake`, `--bake-res`, `--bake-cage`, `--split`, `--proxy`.
+`--normal-weight`, `--bake`, `--bake-res`, `--bake-cage`, `--split`, `--proxy`,
+`--proxy-below`, `--proxy-shape`. `--proxy-shape low.glb` bakes a one-mesh
+input onto the first mesh of `low.glb` instead of decimating it (the classic
+high-to-low bake for a shape built by hand or by a tool); it implies `--proxy`.
 Without bake, high UV weights can prevent reaching the requested ratio; with
 bake, the weight drops back to 1 and the normal map restores the detail. Below
-0.15, `--proxy` welds by position, re-decimates, recomputes normals, redoes an
+0.15 (or the `--proxy-below` ratio), `--proxy` welds by position, re-decimates, recomputes normals, redoes an
 xatlas atlas and bakes albedo, normal, metallic-roughness, occlusion and emissive
-into a standalone material. It implies `--bake`.
+into a standalone material. It implies `--bake`. Material extension textures
+(`KHR_materials_specular`) are not baked, so the proxy material drops them
+rather than sample the source maps through the new UVs.
 
 The bake raycasts LOD0 via BVH/Möller-Trumbore, recomposes the source normal map
 into the LOD's tangent basis and dilates the islands. The tool preserves

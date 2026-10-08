@@ -10,6 +10,10 @@
 #include "graphics/GeometryRegistry.hpp"
 #include "graphics/MeshCache.hpp"
 #include "graphics/GpuGraveyard.hpp"
+#include "graphics/PipelineBatch.hpp"
+#include "core/Paths.hpp"
+#include "core/Profiler.hpp"
+#include "render/PostProcessor.hpp"
 #include "scene/GLTFLoader.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 #include "authoring/SceneSnapshot.hpp"
@@ -222,11 +226,48 @@ void groupContract() {
     try { group.setLevels({{"Near", .1f}, {"Far", .2f}}); }
     catch (const std::invalid_argument&) { refused = true; }
     require(refused, "increasing LOD thresholds refused");
+    {
+        // Coverage is how far, not where in the frame: turning the camera on
+        // the spot changes no level.
+        const Aabb box{glm::vec3(-1.f), glm::vec3(1.f)};
+        const glm::mat4 proj = glm::perspective(glm::radians(60.f), 16.f / 9.f, .1f, 1000.f);
+        const glm::mat4 tree = glm::translate(glm::mat4(1.f), glm::vec3(0.f, 0.f, -50.f));
+        const glm::mat4 ahead = glm::lookAt(glm::vec3(0.f), glm::vec3(0.f, 0.f, -1.f), glm::vec3(0.f, 1.f, 0.f));
+        const glm::mat4 turned = glm::lookAt(glm::vec3(0.f), glm::vec3(-1.f, 0.f, -1.f), glm::vec3(0.f, 1.f, 0.f));
+        const float a = computeScreenCoverage(tree, box, ahead, proj), b = computeScreenCoverage(tree, box, turned, proj);
+        require(a > 0.f && std::abs(a - b) < 1e-5f * a, "screen coverage does not change when the camera turns");
+    }
     std::vector<MeshLodLevel> thresholds{{nullptr, nullptr, .1f}, {nullptr, nullptr, 0.f}};
     require(selectLodIndex(.095f, thresholds, 0, .1f) == 0, "hysteresis preserves near level");
     require(selectLodIndex(.08f, thresholds, 0, .1f) == 1, "coverage selects far level");
     require(selectLodIndex(.105f, thresholds, 1, .1f) == 1, "hysteresis preserves far level");
     require(selectLodIndex(.12f, thresholds, 1, .1f) == 0, "coverage restores near level");
+    require(LODGroupBehaviour::shownLevel(0, 1, 3) == 1, "a finest level holds a near group back");
+    require(LODGroupBehaviour::shownLevel(2, 1, 3) == 2, "a finest level never makes a far group finer");
+    require(LODGroupBehaviour::shownLevel(0, 0, 3) == 0, "no finest level lets coverage decide");
+    require(LODGroupBehaviour::shownLevel(0, 5, 3) == 2, "a finest level past the chain shows its coarsest");
+    group.setFinestLevel(-3);
+    require(group.finestLevel() == 0, "a negative finest level means none");
+    // Cross-fade: complementary shares, serialized, off by default.
+    require(group.crossFade() == 0.f && group.fadingLevel() == -1, "cross-fade is off by default");
+    require(LODGroupBehaviour::incomingFade(0.f) > 0.f && LODGroupBehaviour::incomingFade(0.f) < .01f,
+            "an incoming level starts with almost no pixels");
+    require(LODGroupBehaviour::outgoingFade(0.f) == 0.f, "an outgoing level starts with every pixel");
+    require(LODGroupBehaviour::incomingFade(.3f) == .3f && LODGroupBehaviour::outgoingFade(.3f) == -.3f,
+            "the two levels share the pixels");
+    require(LODGroupBehaviour::incomingFade(1.f) == 1.f, "a finished fade draws every pixel");
+    group.setCrossFade(-1.f);
+    require(group.crossFade() == 0.f, "a negative cross-fade means none");
+    {
+        LODGroupBehaviour fading;
+        fading.setLevels({{"Near", .1f}, {"Far", 0.f}});
+        fading.setCrossFade(.5f);
+        nlohmann::json saved;
+        fading.save(saved);
+        LODGroupBehaviour loaded;
+        loaded.load(saved);
+        require(loaded.crossFade() == .5f, "cross-fade survives serialization");
+    }
 }
 // Free space in pieces is packed when an upload needs it whole, and what was
 // resident is still there, byte for byte, where its owner now finds it.
@@ -308,6 +349,43 @@ void gpuCollisionFrames(ResourceManager& resources) {
 }
 
 // Optional device proof: --gpu. The default CTest suite stays headless.
+void gpuPipelineBatches(VulkanDevice& device) {
+    rhi::BindGroupLayout inputs(device, std::vector<rhi::BindGroupLayoutEntry>{
+        {0,rhi::BindingType::CombinedImageSampler,rhi::ShaderStages::Fragment}});
+    Pipeline::Desc desc;
+    desc.vertPath=shaderPath("tonemap.vert.spv");
+    desc.fragPath=shaderPath("bloom_downsample.frag.spv");
+    desc.colorFormats={rhi::Format::RGBA16Float};desc.bindGroupLayouts={&inputs};
+    desc.vertexInput=false;desc.depthTest=false;desc.depthWrite=false;
+    desc.cullMode=rhi::CullMode::None;desc.pushConstantSize=32;
+    auto additive=desc;additive.blendMode=rhi::BlendMode::Additive;
+    auto built=buildGraphicsPipelines(device,{desc,additive,desc});
+    require(built.size()==3&&built[0]->layout()&&built[1]->layout()&&built[2]->layout(),
+            "parallel pipeline batch publishes every variant in input order");
+    auto invalid=desc;invalid.fragPath="missing-pipeline-test.frag.spv";
+    for(const auto& jobs:{std::vector<Pipeline::Desc>{invalid,desc},std::vector<Pipeline::Desc>{desc,invalid}}) {
+        bool failed=false;
+        try{buildGraphicsPipelines(device,jobs);}catch(const std::runtime_error&){failed=true;}
+        require(failed,"either pipeline lane joins and propagates a shader failure");
+    }
+    require(buildGraphicsPipelines(device,{}).empty(),"empty pipeline batch owns no work");
+    require(buildGraphicsPipelines(device,{desc})[0]->layout(),"pipeline construction survives a failed batch");
+
+    rhi::RenderTextureDesc hdr;hdr.format=rhi::Format::RGBA16Float;
+    hdr.width=64;hdr.height=64;hdr.usage=rhi::TextureUsage::ColorAttachment|rhi::TextureUsage::Sampled;
+    rhi::RenderTexture first(device,hdr);
+    PostProcessor post(device,{64,64},hdr.format,first.view());
+    hdr.width=128;hdr.height=96;rhi::RenderTexture second(device,hdr);
+    auto& profiler=Profiler::instance();profiler.setEnabled(true);profiler.beginFrame();
+    post.resize({128,96},second.view());
+    post.resize({64,64},first.view());
+    profiler.endFrame();profiler.setEnabled(false);
+    bool compiled=false;
+    for(const auto& counter:profiler.latestFrame().counters)
+        if(std::string(counter.name)=="GPU/GraphicsPipelinesCreated"&&counter.value>0)compiled=true;
+    require(!compiled&&post.bloomView(),"surface resize retains bloom pipelines and recreates valid targets");
+}
+
 void gpuQueuedMeshes(ResourceManager& resources) {
     MeshCache cache(resources.geometry());
     const auto before=resources.geometryUsage();
@@ -383,6 +461,44 @@ void gpuUploadLifetime(VulkanDevice& device) {
     retired.reset();device.waitIdle();
     require(device.uploadComplete(retirement)&&weakTexture.expired(),
         "upload retirement can release textures whose own upload fence already completed");
+}
+
+void gpuQueuedColliderPublication(ResourceManager& resources) {
+    std::vector<Vertex> vertices(3);
+    vertices[0].pos={-1,0,0};vertices[1].pos={1,0,0};vertices[2].pos={0,2,0};
+    const auto id=resources.queueMemoryMesh(prepareMesh({vertices,{0,1,2}}));
+    auto* mesh=resources.getMesh(id);
+    Scene scene;
+    auto* room=scene.createChild<Node>("Pending room");room->setEnabled(false);
+    auto* body=room->createChild<StaticBodyNode>();
+    auto* shape=body->createChild<CollisionShapeNode>();shape->shapeType=CollisionShapeType::Mesh;
+    body->createChild<MeshNode>("Wall",mesh,nullptr);
+    auto* furniture=room->createChild<StaticBodyNode>();
+    auto* box=furniture->createChild<CollisionShapeNode>();
+    box->shapeType=CollisionShapeType::Box;box->halfExtents=glm::vec3(.5f);
+    scene.refreshHierarchy();
+    require(scene.resourceUsage().meshes.count(mesh),"disabled pending room owns queued meshes");
+    auto usage=scene.resourceUsage();usage.meshes.insert(resources.getMesh(kAssetBuiltinCube));
+    resources.trimUnused(usage);
+    scene.update(.01f);
+    require(body->bodyId().IsInvalid()&&furniture->bodyId().IsInvalid(),
+            "pending interior has no mesh or invisible furniture colliders");
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while(resources.assetLoadsSettled()==false&&std::chrono::steady_clock::now()<deadline) {
+        resources.pumpAssetLoads();std::this_thread::yield();
+    }
+    require(mesh->loaded(),"owned interior queue settles while its root is disabled");
+    scene.update(.01f);
+    require(body->bodyId().IsInvalid()&&furniture->bodyId().IsInvalid(),
+            "GPU completion alone does not activate a pending room");
+    room->setEnabled(true);scene.update(.01f);
+    require(!body->bodyId().IsInvalid()&&!furniture->bodyId().IsInvalid(),
+            "ready room publishes mesh and furniture colliders together");
+    room->setEnabled(false);scene.update(.01f);
+    require(body->bodyId().IsInvalid()&&furniture->bodyId().IsInvalid(),
+            "releasing the room removes both collider types");
+    scene.clearChildren();
+    resources.trimUnused({});
 }
 
 void gpuPreparedTextures(VulkanDevice& device) {
@@ -497,9 +613,11 @@ void gpuLodGroups() {
     }
     require(told, "an upload the arena cannot hold says what it asked and what was left");
     gpuCompaction(device);
+    gpuPipelineBatches(device);
     gpuCollisionFrames(resources);
     gpuUploadLifetime(device);
     gpuQueuedMeshes(resources);
+    gpuQueuedColliderPublication(resources);
     gpuAsyncGltf(device);
     gpuPreparedTextures(device);
     Scene scene;

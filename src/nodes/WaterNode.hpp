@@ -30,7 +30,10 @@ public:
     glm::vec3 deepColor{0.01f, 0.07f, 0.11f};   // refracted body tint
     glm::vec3 foamColor{0.80f, 0.90f, 0.96f};   // crest foam colour
     float roughness = 0.05f;       // reflection sharpness (low = mirror-like)
-    float reflectivity = 0.55f;    // strength of the Fresnel sky reflection
+    float reflectivity = 1.0f;     // Fresnel sky reflection gain (1 = physical)
+    // Share of the light from what lies beneath that crosses the surface at
+    // normal incidence, before Fresnel takes its part (0 = opaque).
+    float transparency = 0.35f;
 
     // Big rolling waves (vertex displacement).
     WaveType waveType = WaveType::WindSea;

@@ -11,7 +11,7 @@ struct InstanceData {
     uint materialIndex;
     int boneOffset;
     uint doubleSided;
-    uint pad;
+    float lodFade;
 };
 
 struct VkDrawIndexedIndirectCommand {

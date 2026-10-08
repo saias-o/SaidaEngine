@@ -1,4 +1,5 @@
 #include "graphics/Pipeline.hpp"
+#include "core/Profiler.hpp"
 
 #include "graphics/Mesh.hpp"
 #include "graphics/VulkanDevice.hpp"
@@ -13,6 +14,12 @@
 namespace saida {
 
 namespace {
+
+struct ShaderModuleGuard {
+    VkDevice device;
+    VkShaderModule handle = VK_NULL_HANDLE;
+    ~ShaderModuleGuard() { if (handle) vkDestroyShaderModule(device, handle, nullptr); }
+};
 
 std::vector<char> readFile(const std::string& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
@@ -52,29 +59,35 @@ Pipeline::Pipeline(VulkanDevice& device, const Desc& desc) : device_(device) {
     info.depthBias = desc.depthBias;
     info.depthBiasConstant = desc.depthBiasConstant;
     info.depthBiasSlope = desc.depthBiasSlope;
-    build(info);
+    try { build(info); }
+    catch (...) {
+        vkDestroyPipeline(device_.device(), pipeline_, nullptr);
+        vkDestroyPipelineLayout(device_.device(), layout_, nullptr);
+        throw;
+    }
 }
 
 void Pipeline::build(const BuildInfo& info) {
+    SAIDA_PROFILE_SCOPE("GPU/BuildGraphicsPipeline");
+    SAIDA_PROFILE_COUNTER_ADD("GPU/GraphicsPipelinesCreated", 1);
     pushStages_ = info.pushStages;
 
     auto vertCode = readFile(info.vertPath);
-    VkShaderModule vertModule = createShaderModule(vertCode);
-    VkShaderModule fragModule = VK_NULL_HANDLE;
-
+    ShaderModuleGuard vertModule{device_.device(), createShaderModule(vertCode)};
+    ShaderModuleGuard fragModule{device_.device()};
     VkPipelineShaderStageCreateInfo stages[2] = {};
     stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-    stages[0].module = vertModule;
+    stages[0].module = vertModule.handle;
     stages[0].pName = "main";
     uint32_t stageCount = 1;
 
     if (!info.fragPath.empty()) {
         auto fragCode = readFile(info.fragPath);
-        fragModule = createShaderModule(fragCode);
+        fragModule.handle = createShaderModule(fragCode);
         stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-        stages[1].module = fragModule;
+        stages[1].module = fragModule.handle;
         stages[1].pName = "main";
         stageCount = 2;
     }
@@ -213,8 +226,6 @@ void Pipeline::build(const BuildInfo& info) {
         &pipeline_) != VK_SUCCESS)
         throw std::runtime_error("failed to create graphics pipeline");
 
-    if (fragModule) vkDestroyShaderModule(device_.device(), fragModule, nullptr);
-    vkDestroyShaderModule(device_.device(), vertModule, nullptr);
 }
 
 Pipeline::~Pipeline() {

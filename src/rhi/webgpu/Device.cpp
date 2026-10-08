@@ -72,7 +72,7 @@ void Device::initialize(WGPUInstance instance, WGPUDevice device) {
     capabilities_.timelineSemaphore = false;
     capabilities_.descriptorIndexing = false; // no bindless on today's WebGPU
     capabilities_.bufferDeviceAddress = false;
-    capabilities_.drawIndirectCount = false;  // culled draws use instanceCount=0
+    capabilities_.drawIndirectCount = false;  // culled draw slots are zeroed
     capabilities_.multiview = false;          // XR is out of the web scope
     capabilities_.multiDrawIndirect = false;
     capabilities_.rayQuery = false;

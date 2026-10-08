@@ -1,4 +1,5 @@
 #include "graphics/ComputePipeline.hpp"
+#include "core/Profiler.hpp"
 
 #include "graphics/VulkanDevice.hpp"
 
@@ -26,6 +27,8 @@ ComputePipeline::ComputePipeline(VulkanDevice& device, const std::string& compPa
                                  const std::vector<rhi::vulkan::BindGroupLayoutRef>& layoutRefs,
                                  uint32_t pushConstantSize)
     : device_(device) {
+    SAIDA_PROFILE_SCOPE("GPU/BuildComputePipeline");
+    SAIDA_PROFILE_COUNTER_ADD("GPU/ComputePipelinesCreated", 1);
     std::vector<VkDescriptorSetLayout> setLayouts;
     setLayouts.reserve(layoutRefs.size());
     for (const rhi::vulkan::BindGroupLayoutRef& ref : layoutRefs)

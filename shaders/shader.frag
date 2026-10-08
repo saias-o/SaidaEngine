@@ -43,14 +43,31 @@ layout(location = 6) in vec3 fragBitangent;
 #ifdef BINDLESS
 layout(location = 7) flat in uint fragMaterialIndex;
 layout(location = 8) flat in uint fragDoubleSided;
+layout(location = 9) flat in float fragLodFade;
 #endif
 
 layout(location = 0) out vec4 outColor;
+
+// Screen-door LOD cross-fade (MeshNode::lodFade): a level fading in draws the
+// pixels whose threshold is under its share t, the level fading out (-t) the
+// others, so each pixel is drawn by exactly one of them -- no blending, no
+// sorting, and nothing at all outside a transition. Interleaved gradient noise
+// spreads the threshold evenly at every share, without a pattern to read.
+bool lodFadeHides(float fade) {
+    if (fade >= 1.0 || fade == 0.0) return false;
+    float threshold = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    return fade > 0.0 ? threshold >= fade : threshold < -fade;
+}
 
 void main() {
     // Gradients first, while every invocation of the quad is still running.
     vec2 uvDx = dFdx(fragTexCoord);
     vec2 uvDy = dFdy(fragTexCoord);
+#ifdef BINDLESS
+    if (lodFadeHides(fragLodFade)) discard;
+#else
+    if (lodFadeHides(push.params.x)) discard;
+#endif
 #ifdef BINDLESS
     // Mixed materials share one indirect pipeline; sidedness remains per draw.
     if (!gl_FrontFacing && fragDoubleSided == 0u) discard;

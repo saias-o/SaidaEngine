@@ -34,8 +34,13 @@ float computeScreenCoverage(const glm::mat4& world, const Aabb& localBounds,
     });
     const float worldRadius = glm::length(localBounds.extent()) * 0.5f * maxScale;
 
+    // The distance to the eye, not the depth along the view axis: a level of
+    // detail is a property of how far a thing is, and must not change when the
+    // camera only turns. With the depth, an object at the edge of the frame
+    // looked closer than the same object ahead, and every turn of the head
+    // swapped the levels at the sides of the view.
     const glm::vec4 viewPos = view * glm::vec4(worldCenter, 1.0f);
-    const float dist = glm::max(-viewPos.z, 0.001f);
+    const float dist = glm::max(glm::length(glm::vec3(viewPos)), 0.001f);
 
     const float projY = std::abs(proj[1][1]);
     if (worldRadius <= 0.0f || projY <= 0.0001f) return 0.0f;

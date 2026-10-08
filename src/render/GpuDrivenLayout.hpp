@@ -26,7 +26,7 @@ struct alignas(16) InstanceData {
     uint32_t materialIndex = 0;
     int32_t boneOffset = -1;
     uint32_t doubleSided = 0;
-    uint32_t pad = 0;
+    float lodFade = 1.0f;  // MeshNode::lodFade (screen-door LOD cross-fade)
 };
 
 struct DrawIndexedIndirectCommand {
@@ -48,6 +48,7 @@ static_assert(offsetof(InstanceData, boundingSphere) == 64);
 static_assert(offsetof(InstanceData, materialIndex) == 80);
 static_assert(offsetof(InstanceData, boneOffset) == 84);
 static_assert(offsetof(InstanceData, doubleSided) == 88);
+static_assert(offsetof(InstanceData, lodFade) == 92);
 static_assert(sizeof(DrawIndexedIndirectCommand) == 20);
 static_assert(offsetof(CullingPushConstants, instanceCount) == 96);
 

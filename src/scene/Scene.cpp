@@ -163,8 +163,16 @@ void Scene::refreshHierarchy() {
 }
 
 void Scene::updateRenderLods(const glm::mat4& view, const glm::mat4& projection) {
+    size_t fading = 0;
+    ++lodFrame_;
     for (auto* group : index_.lodGroups.values())
-        if (group->enabled()) group->updateForView(view, projection);
+        if (group->enabled()) {
+            group->updateForView(view, projection, lodCut_ ? 0 : lodFrame_);
+            fading += group->fadingLevel() >= 0;
+        }
+    lodCut_ = false;
+    // How many groups draw two levels this frame: what a cross-fade costs.
+    SAIDA_PROFILE_COUNTER("Scene/LodCrossFades", fading);
     refreshHierarchy();
 }
 

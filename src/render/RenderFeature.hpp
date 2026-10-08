@@ -32,6 +32,7 @@ struct SceneDraw {
     bool castShadows = false;
     int32_t boneOffset = -1;
     MaterialType materialType;
+    float lodFade = 1.0f;  // MeshNode::lodFade, for the screen-door cross-fade
 };
 
 struct EyeRenderInfo {

@@ -93,9 +93,36 @@ int main() {
 
     const std::string vertex = readText(shaders / "shader.vert");
     static_assert(offsetof(saida::gpu_driven::InstanceData, doubleSided) == 88);
-    if (!require(contains(vertex, "uint doubleSided, pad;"))) return 20;
+    if (!require(contains(vertex, "uint doubleSided;\n    float lodFade;"))) return 20;
     if (!require(contains(vertex, "fragDoubleSided = instances[gl_InstanceIndex].doubleSided;"))) return 21;
     if (!require(contains(fragment, "if (!gl_FrontFacing && fragDoubleSided == 0u) discard;"))) return 22;
     if (!require(contains(fragment, "if (!gl_FrontFacing) N = -N;"))) return 23;
+    // The LOD cross-fade travels in the instance's last word, on both paths.
+    static_assert(offsetof(saida::gpu_driven::InstanceData, lodFade) == 92);
+    if (!require(contains(vertex, "fragLodFade = instances[gl_InstanceIndex].lodFade;"))) return 24;
+    if (!require(contains(fragment, "if (lodFadeHides(fragLodFade)) discard;") &&
+                 contains(fragment, "if (lodFadeHides(push.params.x)) discard;"))) return 25;
+    if (!require(contains(culling, "float lodFade;"))) return 26;
+
+    // Culling writes only the visible commands, compacted into the first
+    // slots. Without drawIndirectCount every slot up to the instance count is
+    // drawn, so the culled buffer must be zeroed before the dispatch: a slot
+    // past the visible count otherwise replays a command from an earlier frame.
+    const size_t culledBuffer = rendererSource.find("drawCommandBuffers_.push_back(");
+    const size_t culledBufferEnd = rendererSource.find(';', culledBuffer);
+    const size_t culledTransferDst =
+        rendererSource.find("rhi::BufferUsage::TransferDst", culledBuffer);
+    if (!require(culledBuffer != std::string::npos &&
+                 culledTransferDst < culledBufferEnd)) return 27;
+    const size_t noIndirectCount =
+        rendererSource.find("if (!device_.capabilities().drawIndirectCount) {");
+    const size_t clearCulled =
+        rendererSource.find("encoder.fillBuffer(*drawCommandBuffers_[currentFrame_], 0,");
+    const size_t cullDispatch = rendererSource.find("cp.setPipeline(*cullingPipeline_);");
+    if (!require(noIndirectCount != std::string::npos &&
+                 noIndirectCount < clearCulled &&
+                 clearCulled != std::string::npos &&
+                 clearCulled < cullDispatch &&
+                 cullDispatch != std::string::npos)) return 28;
     return 0;
 }
