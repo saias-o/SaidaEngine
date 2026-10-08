@@ -46,6 +46,7 @@ public:
     SAIDA_REFLECT_NODE(GrassNode, "Grass")
 
     static constexpr int kMaxGroundSamples = 65;  // MAX_GROUND in grass.glsl
+    static constexpr int kMaxBoundarySamples = 257; // MAX_BOUNDARY in grass.glsl
     static constexpr int kMaxCoverSize = 512;     // MAX_COVER in grass.glsl
     static constexpr int kMaxBenders = 4;         // MAX_BENDERS in grass.glsl
     static constexpr int kMaxTuftBlades = 8;
@@ -62,6 +63,10 @@ public:
     struct Field {
         int groundSamples = 0;
         std::vector<float> heights;
+        // Optional south/north boundary refinement: sorted (u, local y)
+        // knots from u=0 to u=1, including each regular boundary vertex.
+        // Each boundary triangle becomes a fan from its opposite vertex.
+        std::vector<glm::vec2> southBoundary, northBoundary;
         glm::mat3 uvFromLocal{1.0f};  // (u, v, 1) = M * (x, z, 1)
         int coverSize = 0;
         std::vector<uint32_t> cover;  // RGBA8, r in the low byte

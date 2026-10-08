@@ -73,6 +73,10 @@ ResourceManager::ResourceManager(rhi::Device& device, AssetRegistry* registry, G
             {6, rhi::BindingType::Sampler, rhi::ShaderStages::Fragment},        // normal sampler
             {7, rhi::BindingType::Sampler, rhi::ShaderStages::Fragment},        // metallic/roughness sampler
             {8, rhi::BindingType::Sampler, rhi::ShaderStages::Fragment},        // emissive sampler
+              {9, rhi::BindingType::SampledTexture, rhi::ShaderStages::Fragment}, // specular color
+              {10, rhi::BindingType::SampledTexture, rhi::ShaderStages::Fragment}, // specular strength
+              {11, rhi::BindingType::Sampler, rhi::ShaderStages::Fragment},
+              {12, rhi::BindingType::Sampler, rhi::ShaderStages::Fragment},
         });
 #else
     materialSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
@@ -82,6 +86,8 @@ ResourceManager::ResourceManager(rhi::Device& device, AssetRegistry* registry, G
             {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // metallic/roughness
             {3, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment},         // params
             {4, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // emissive
+              {9, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // specular color
+              {10, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment}, // specular strength
         });
     bindlessTables_.create();
 #endif
@@ -185,7 +191,8 @@ void ResourceManager::rebindMaterialsUsing(AssetID textureId) {
     for (auto& [desc, material] : materials_) {
         if (desc.albedoId == textureId || desc.normalId == textureId ||
             desc.metallicRoughnessId == textureId || desc.emissiveId == textureId ||
-            desc.heightId == textureId)
+            desc.heightId == textureId || desc.specularColorId == textureId ||
+            desc.specularStrengthId == textureId)
             material->rebindTextures(*this);
     }
 }

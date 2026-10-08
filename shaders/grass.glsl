@@ -3,6 +3,8 @@
 
 const int MAX_FIELDS = 9;     // GrassFeature::kMaxFields
 const int MAX_GROUND = 65;    // GrassNode::kMaxGroundSamples
+const int MAX_BOUNDARY = 257; // GrassNode::kMaxBoundarySamples
+const int GROUND_STRIDE = MAX_GROUND * MAX_GROUND + 4 * MAX_BOUNDARY;
 const int MAX_COVER = 512;    // GrassNode::kMaxCoverSize
 const int MAX_BENDERS = 4;    // GrassNode::kMaxBenders
 const int RING_CELLS = 192;   // GrassFeature::kRingCells: blades a ring side
@@ -14,7 +16,7 @@ struct GpuGrass {
     vec4 blades;        // density a square metre, height, width at the root, radius
     vec4 wind;          // xy direction (node-local x, z, unit), z sway (m), w time (s)
     vec4 camera;        // xyz the camera, node-local
-    ivec4 sizes;        // x ground samples a side, y cover texels a side
+    ivec4 sizes;        // x ground samples, y cover texels, z/w south/north knots
     vec4 tuft;          // x blades a tuft, y how hard gusts lay the grass down (0 to 1)
     vec4 materialU;     // the ground material's s = dot(xyz, (x, z, 1))
     vec4 materialV;     // and t
@@ -26,7 +28,7 @@ layout(set = 1, binding = 0) uniform GrassUBO {
     GpuGrass items[MAX_FIELDS];
 } grass;
 
-// MAX_GROUND^2 heights a field.
+// Regular heights then two boundaries of MAX_BOUNDARY (u, y) knots a field.
 layout(std430, set = 1, binding = 1) readonly buffer GroundBuffer {
     float ground[];
 };

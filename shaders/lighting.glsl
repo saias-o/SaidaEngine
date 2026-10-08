@@ -309,16 +309,20 @@ vec3 environmentIrradiance(vec3 N) {
 }
 
 // Split-sum BRDF approximation for environment specular.
-vec3 environmentBRDF(vec3 F0, float roughness, float NdotV) {
+vec3 environmentBRDF(vec3 F0, float roughness, float NdotV, float F90) {
     const vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
     const vec4 c1 = vec4( 1.0,  0.0425,  1.04, -0.04);
     vec4 r = roughness * c0 + c1;
     float a004 = min(r.x * r.x, exp2(-9.28 * NdotV)) * r.x + r.y;
     vec2 ab = vec2(-1.04, 1.04) * a004 + r.zw;
-    return F0 * ab.x + ab.y;
+    return F0 * ab.x + F90 * ab.y;
+}
+vec3 environmentBRDF(vec3 F0, float roughness, float NdotV) {
+    return environmentBRDF(F0, roughness, NdotV, 1.0);
 }
 
-LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness) {
+LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
+                               vec3 dielectricF0, float dielectricF90) {
     LightTerms env;
     env.diffuse = vec3(0.0);
     env.specular = vec3(0.0);
@@ -329,9 +333,11 @@ LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, floa
     float maxLod = environmentMaxLod();
 
     float NdotV = max(dot(N, V), 0.001);
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-    vec3 F = fresnelSchlickRoughness(NdotV, F0, roughness);
-    vec3 kd = (vec3(1.0) - F) * (1.0 - metallic);
+    vec3 F0 = mix(dielectricF0, albedo, metallic);
+    float F90 = mix(dielectricF90, 1.0, metallic);
+    vec3 grazing = max(vec3(F90 * (1.0 - roughness)), F0);
+    vec3 F = F0 + (grazing - F0) * pow(clamp(1.0 - NdotV, 0.0, 1.0), 5.0);
+    vec3 kd = vec3(1.0 - max(F.r, max(F.g, F.b))) * (1.0 - metallic);
 
     vec3 irradiance = environmentIrradiance(N) * lights.environmentParams.y;
     env.diffuse = kd * albedo * irradiance;
@@ -339,8 +345,11 @@ LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, floa
     vec3 R = reflect(-V, N);
     float specularLod = pow(roughness, IBL_SPECULAR_MIP_CURVE) * maxLod;
     vec3 prefiltered = sampleEnvironmentLod(R, specularLod);
-    env.specular = prefiltered * environmentBRDF(F0, roughness, NdotV) * lights.environmentParams.z;
+    env.specular = prefiltered * environmentBRDF(F0, roughness, NdotV, F90) * lights.environmentParams.z;
     return env;
+}
+LightTerms environmentLighting(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness) {
+    return environmentLighting(N, V, albedo, metallic, roughness, vec3(0.04), 1.0);
 }
 
 // Roughness over which the environment's reflection fades out of
@@ -352,16 +361,21 @@ const float MIRROR_ROUGHNESS_NONE = 0.45;
 
 // The environment's specular term alone, at the scene's specular intensity,
 // whether or not image-based lighting is on (MaterialDesc::environmentReflection).
-vec3 environmentReflection(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness) {
+vec3 environmentReflection(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness,
+                           vec3 dielectricF0, float dielectricF90) {
     float mirror = 1.0 - smoothstep(MIRROR_ROUGHNESS_FULL, MIRROR_ROUGHNESS_NONE, roughness);
     if (mirror <= 0.0) return vec3(0.0);
     roughness = clamp(roughness, 0.04, 1.0);
     float NdotV = max(dot(N, V), 0.001);
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    vec3 F0 = mix(dielectricF0, albedo, metallic);
+    float F90 = mix(dielectricF90, 1.0, metallic);
     vec3 R = reflect(-V, N);
     float lod = pow(roughness, IBL_SPECULAR_MIP_CURVE) * environmentMaxLod();
-    return sampleEnvironmentLod(R, lod) * environmentBRDF(F0, roughness, NdotV) *
+    return sampleEnvironmentLod(R, lod) * environmentBRDF(F0, roughness, NdotV, F90) *
            lights.environmentParams.z * mirror;
+}
+vec3 environmentReflection(vec3 N, vec3 V, vec3 albedo, float metallic, float roughness) {
+    return environmentReflection(N, V, albedo, metallic, roughness, vec3(0.04), 1.0);
 }
 
 // ---------------------------------------------------------------------------
@@ -375,7 +389,8 @@ vec3 environmentReflection(vec3 N, vec3 V, vec3 albedo, float metallic, float ro
 // the terrain's occlusion map for a surface that already counted it.
 LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
                                      vec3 albedo, float metallic, float roughness,
-                                     float visibility, bool readSunOcclusion) {
+                                     float visibility, bool readSunOcclusion,
+                                     vec3 dielectricF0, float dielectricF90) {
     // Clamp roughness to avoid NaN from division-by-zero in GGX when alpha→0.
     roughness = max(roughness, 0.04);
 
@@ -418,19 +433,20 @@ LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
     float HdotV = max(dot(H, V), 0.0);
 
     // Dielectrics reflect ~4% at normal incidence; metals use the albedo color.
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
+    vec3 F0 = mix(dielectricF0, albedo, metallic);
+    float F90 = mix(dielectricF90, 1.0, metallic);
 
     // Cook-Torrance specular: D * G * F / (4 * NdotV * NdotL)
     float D = distributionGGX(NdotH, roughness);
     float G = geometrySmith(NdotV, NdotL, roughness);
-    vec3  F = fresnelSchlick(HdotV, F0);
+    vec3 F = F0 + (F90 - F0) * pow(clamp(1.0 - HdotV, 0.0, 1.0), 5.0);
 
     // The denominator can approach zero at grazing angles; clamp to avoid inf.
     vec3 specBRDF = (D * G * F) / max(4.0 * NdotV * NdotL, 0.001);
 
     // Energy conservation: whatever isn't reflected is refracted (diffuse).
     // Metals have no diffuse because all refracted light is absorbed.
-    vec3 kd = (vec3(1.0) - F) * (1.0 - metallic);
+    vec3 kd = vec3(1.0 - max(F.r, max(F.g, F.b))) * (1.0 - metallic);
 
     // Lambertian diffuse: albedo / pi  (the pi in the numerator and the
     // NdotL in the rendering equation cancel the ones in the denominator).
@@ -440,6 +456,12 @@ LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
     t.diffuse  = diffBRDF  * radiance * NdotL * vis;
     t.specular = specBRDF  * radiance * NdotL * vis;
     return t;
+}
+LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
+                                     vec3 albedo, float metallic, float roughness,
+                                     float visibility, bool readSunOcclusion) {
+    return lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
+                                     visibility, readSunOcclusion, vec3(0.04), 1.0);
 }
 
 LightTerms lightContribution(int i, vec3 N, vec3 V, vec3 wp,
@@ -503,4 +525,18 @@ LightTerms accumulateOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metall
 
 LightTerms accumulate(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, float roughness) {
     return accumulateOccluded(N, V, wp, albedo, metallic, roughness, -1, 1.0);
+}
+
+LightTerms accumulateReflectance(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
+                                 float roughness, vec3 dielectricF0, float dielectricF90) {
+    LightTerms total = environmentLighting(N, V, albedo, metallic, roughness,
+                                           dielectricF0, dielectricF90);
+    total.diffuse += giIndirectDiffuse(wp, N, V, albedo);
+    for (int i = 0; i < lights.counts.x; ++i) {
+        LightTerms t = lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
+                                                 1.0, true, dielectricF0, dielectricF90);
+        total.diffuse += t.diffuse;
+        total.specular += t.specular;
+    }
+    return total;
 }

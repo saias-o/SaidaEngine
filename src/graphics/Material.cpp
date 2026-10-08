@@ -22,13 +22,17 @@ struct MaterialParams {
     float alphaCutoff;   // 0 = opaque; was padding, now carries the alpha test
     glm::vec4 emissive;
     glm::vec4 variation; // SurfaceVariation: warp, macroScale, macroAlbedo, macroNormal
-    glm::vec4 detail;    // x normal strength, y environment reflection
+    glm::vec4 detail;    // xy normal/reflection, zw specular texture presence
+    glm::vec4 specular;  // rgb dielectric F0, a dielectric lobe strength
 };
 
 MaterialParams paramsOf(const MaterialDesc& d) {
     return {d.baseColor, d.metallic, d.roughness, d.ao, d.alphaCutoff, d.emissiveColor,
             glm::vec4(d.variation.warp, d.variation.macroScale, d.variation.macroAlbedo, d.variation.macroNormal),
-            glm::vec4(d.normalStrength, d.environmentReflection, 0.0f, 0.0f)};
+            glm::vec4(d.normalStrength, d.environmentReflection,
+                      d.specularColorId != kAssetInvalid ? 1.f : 0.f,
+                      d.specularStrengthId != kAssetInvalid ? 1.f : 0.f),
+            glm::vec4(d.dielectricF0, d.specularStrength)};
 }
 }
 
@@ -62,7 +66,9 @@ MaterialTextureSlots Material::textureSlots(ResourceManager& manager) const {
     return {manager.ensureBindlessTextureIndex(albedo_), manager.ensureBindlessTextureIndex(normalMap_),
             manager.ensureBindlessTextureIndex(metallicRoughnessMap_),
             manager.ensureBindlessTextureIndex(emissiveMap_),
-            manager.ensureBindlessTextureIndex(heightMap_)};
+            manager.ensureBindlessTextureIndex(heightMap_),
+            manager.ensureBindlessTextureIndex(specularColorMap_),
+            manager.ensureBindlessTextureIndex(specularStrengthMap_)};
 }
 
 void Material::bindTextures(ResourceManager& manager) {
@@ -82,6 +88,10 @@ void Material::bindTextures(ResourceManager& manager) {
 
     heightMap_ = manager.getTexture(desc.heightId, false);
     if (!heightMap_) heightMap_ = manager.defaultWhiteTexture();
+    specularColorMap_ = manager.getTexture(desc.specularColorId);
+    if (!specularColorMap_) specularColorMap_ = manager.defaultWhiteTexture();
+    specularStrengthMap_ = manager.getTexture(desc.specularStrengthId, false);
+    if (!specularStrengthMap_) specularStrengthMap_ = manager.defaultWhiteTexture();
 
     // 1. Classic Path: set 1 (albedo/normal/metallic-roughness/params/emissive).
     rhi::BindGroupEntry albedoEntry;
@@ -108,6 +118,14 @@ void Material::bindTextures(ResourceManager& manager) {
     emissiveEntry.binding = 4;
     emissiveEntry.view = emissiveMap_->imageView();
     emissiveEntry.sampler = emissiveMap_->sampler();
+    rhi::BindGroupEntry specularColorEntry;
+    specularColorEntry.binding = 9;
+    specularColorEntry.view = specularColorMap_->imageView();
+    specularColorEntry.sampler = specularColorMap_->sampler();
+    rhi::BindGroupEntry specularStrengthEntry;
+    specularStrengthEntry.binding = 10;
+    specularStrengthEntry.view = specularStrengthMap_->imageView();
+    specularStrengthEntry.sampler = specularStrengthMap_->sampler();
 
 #ifdef SAIDA_RHI_WEBGPU
     rhi::BindGroupEntry albedoSamplerEntry;
@@ -129,14 +147,24 @@ void Material::bindTextures(ResourceManager& manager) {
     emissiveSamplerEntry.binding = 8;
     emissiveSamplerEntry.sampler = emissiveMap_->sampler();
     emissiveEntry.sampler = nullptr;
+    rhi::BindGroupEntry specularColorSamplerEntry;
+    specularColorSamplerEntry.binding = 11;
+    specularColorSamplerEntry.sampler = specularColorMap_->sampler();
+    specularColorEntry.sampler = nullptr;
+    rhi::BindGroupEntry specularStrengthSamplerEntry;
+    specularStrengthSamplerEntry.binding = 12;
+    specularStrengthSamplerEntry.sampler = specularStrengthMap_->sampler();
+    specularStrengthEntry.sampler = nullptr;
 
     descriptorSet_ = std::make_unique<rhi::BindGroup>(manager.materialSetLayout(),
         std::vector<rhi::BindGroupEntry>{
             albedoEntry, normalEntry, mrEntry, paramsEntry, emissiveEntry,
-            albedoSamplerEntry, normalSamplerEntry, mrSamplerEntry, emissiveSamplerEntry});
+            albedoSamplerEntry, normalSamplerEntry, mrSamplerEntry, emissiveSamplerEntry,
+            specularColorEntry, specularStrengthEntry, specularColorSamplerEntry, specularStrengthSamplerEntry});
 #else
     descriptorSet_ = std::make_unique<rhi::BindGroup>(manager.materialSetLayout(),
-        std::vector<rhi::BindGroupEntry>{albedoEntry, normalEntry, mrEntry, paramsEntry, emissiveEntry});
+        std::vector<rhi::BindGroupEntry>{albedoEntry, normalEntry, mrEntry, paramsEntry, emissiveEntry,
+                                       specularColorEntry, specularStrengthEntry});
 #endif
 }
 

@@ -987,11 +987,15 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
             if ((fade > 0.0f && fade < 0.5f) || (fade < 0.0f && fade <= -0.5f)) continue;
             Mesh* mesh = node->mesh();
             if (!mesh) continue;
+            Material* shadowMaterial = node->material();
             const glm::mat4& world = node->worldTransform();
             if (node->hasLods() && lodMatricesValid_) {
                 const float coverage = computeScreenCoverage(world, mesh->bounds(), lodView_, lodProj_);
-                mesh = node->meshForLod(node->selectLodIndex(coverage));
+                const int level = node->selectLodIndex(coverage);
+                mesh = node->meshForLod(level);
+                shadowMaterial = node->materialForLod(level);
             }
+            if (shadowMaterial && shadowMaterial->desc().billboardColumns) continue;
             // Same palette the scene pass uses; boneOffsetFor caches per animator.
             if (mesh) shadowDraws_.push_back(ShadowDraw{mesh, world, boneOffsetFor(node)});
         }
@@ -1303,7 +1307,8 @@ void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstP
         pc.model = draw.world;
         // params.x: the LOD cross-fade (MeshNode::lodFade); params.y: offset
         // into the global bone matrix buffer, or -1.
-        pc.params = glm::vec4(draw.lodFade, static_cast<float>(draw.boneOffset), 0.0f, 0.0f);
+        pc.params = glm::vec4(draw.lodFade, static_cast<float>(draw.boneOffset),
+                             float(draw.material->desc().billboardColumns), float(draw.material->desc().billboardRows));
         rp.setPushConstants(&pc, sizeof(PushConstants));
 
         draw.mesh->bind(rp);

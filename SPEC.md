@@ -503,6 +503,31 @@ disabled or new takes its level at once, and so does every group in the frame
 after `Scene::cutLodFades()` (a teleport, a camera cut). The profiler counter
 `Scene/LodCrossFades` counts the groups drawing two levels in a frame.
 
+Camera-facing atlas materials use runtime `MaterialDesc::billboardColumns`
+(0 disables) and `billboardRows` (default 1). glTF reads
+`material.extras.SAIDA_billboard: {"columns": 8, "rows": 5}`; accepted bounds
+are columns 1–32 and rows 1–17. Geometry is a centered local XY quad whose
+node translation supplies its pivot. Columns span a full azimuth; rows span
+elevation -90° to +90° (one row is horizontal). The shared vertex shader faces
+the primary camera eye in the authored instance frame, blends adjacent
+azimuths with coverage-weighted albedo/alpha and chooses the nearest elevation.
+Random instance yaw and world rebasing retain the authored view frame.
+Classic/Web atlas dimensions use `push.params.zw`; bindless uses the existing
+`MaterialData.reflection.w` as the exact float integer `columns + 256*rows`.
+The material SSBO is visible to vertex/fragment/compute stages; its size remains
+128 bytes. Material cache equality/hash include both dimensions.
+
+Impostors use cheap ambient plus directional diffuse illumination: a broad
+volume response scaled by light color/intensity and elevation relative to the
+authored up axis. Camera orientation cannot change illumination. Two albedo
+fetches suffice; normal/MR/emissive textures, GGX, IBL, GI and shadow sampling
+are skipped. Point/spot lights do not illuminate this distant representation.
+Imported billboard meshes disable shadow casting, and shadow gathering also
+excludes a selected billboard material in a MeshNode LOD chain. Ordinary meshes
+retain their existing shading. `tools/verify_billboard_materials.py` verifies
+facing, atlas blending, camera-independent brightness and directional
+intensity/color/elevation with captured native pixels.
+
 Screen coverage (`computeScreenCoverage`, for MeshNode LOD chains and LOD
 groups alike) divides the bounding sphere by its distance to the eye, not by
 its depth along the view axis, so a level does not change when the camera only
@@ -541,12 +566,37 @@ These add a vec4 to the std430 `MaterialData` (96 to 112 bytes; the normal
 strength, height texture index and parallax depth take the former padding) and
 two vec4 to the classic material UBO.
 
+glTF imports also honor `KHR_materials_ior` and `KHR_materials_specular` in
+native classic/bindless and shared Web shaders. `MaterialDesc::dielectricF0`
+stores `((ior-1)/(ior+1))^2 * specularColorFactor` (default 0.04);
+`specularColorId` supplies sRGB RGB and `specularStrengthId` linear alpha.
+The color is clamped after texture sampling, then multiplied by
+`specularStrength * alpha`. The latter also weights grazing reflectance;
+metals retain their original lobe. Direct, environment and explicit mirror
+lighting use the same parameters, with diffuse energy conservation using the
+maximum Fresnel component. Absent maps add no texture fetch. Both texture
+assets are retained by scene ownership and rebind after asynchronous loading.
+These runtime/import fields add one final vec4: the material SSBO is now
+128 bytes and the classic/Web UBO 96 bytes. Classic descriptors add combined
+images at bindings 9/10; Web uses textures 9/10 and samplers 11/12. Bindless
+texture indices occupy `reflection.yz` (-1 for absent maps). Scene JSON's
+material authoring subset is unchanged; these values are recovered from glTF.
+`tools/verify_specular_materials.py` checks rendered zero-strength, IOR,
+sRGB-color, linear-alpha and colored-reflectance cases.
+
 `GrassNode` (desktop only, like `TerrainRingsNode`) draws grass blades around
 the camera with no geometry: the caller gives a field -- a heightfield of up to
 65 x 65 node-local heights over the unit square of a parameter (u, v), split
 into triangles as a ground mesh on the same grid is, an affine map from
 node-local (x, z) to (u, v), and an RGBA8 cover of up to 512 x 512 texels,
-sRGB colour and density -- and `GrassFeature` grows a tuft of `tuftBlades`
+sRGB colour and density. Optional `southBoundary`/`northBoundary` arrays refine the two boundary
+strips with sorted `(u, local y)` knots (at most 257 per side). Each array spans
+0 to 1 and includes every regular boundary vertex at its existing height;
+malformed or non-finite arrays are refused without replacing the field. The
+boundary triangles are fans from their opposite regular vertex, and both
+blade height and slope follow those fans. Knots upload only when the field's
+revision changes, in the ground buffer, without additional draw calls. The
+feature grows a tuft of `tuftBlades`
 blades in each world-fixed cell of `grass.vert`, `density` tufts a square
 metre near the camera. What decides a whole tuft -- the ring's hole, the
 radius, the field, the cover's density, the view frustum -- is tested before
@@ -765,6 +815,14 @@ iteration order; gameplay must not rely on hierarchy order for per-frame updates
 This does not eliminate the transform traversal: mutable `Transform&` still
 requires comparison during `updateTransforms`.
 
+`Transform::matrix` constructs affine TRS directly from scaled rotation columns
+and the translation column. It preserves negative/nonuniform scales without a
+general 4x4 matrix multiplication at each visited node. `CameraDirector` scans
+enabled branches for active cameras in hierarchy order (highest priority, first
+in a tie), then composes only the selected camera's ancestor transforms. Hidden
+cameras remain eligible; direct transform and priority edits are read on every
+call, including calls before a scene update.
+
 `Node::setVisible` is runtime-only, inherited visibility. It removes the subtree
 from render lists without stopping behaviours or physics or releasing resources.
 `setEnabled` retains its activation role. Hidden native UI cannot receive input;
@@ -806,6 +864,12 @@ and joints inside the rebased subtree rebuild their anchors before the next step
 Call between updates and transform game-owned world-space data as well. Gravity
 remains a world-space setting; this API does not impose a geographic coordinate
 system or convert a game-specific height field into physics collision geometry.
+
+`Scene::rebaseSubtreeTo(root, position, orientation)` places a descendant at an
+explicit world pose with the same parent-frame restrictions and physics
+semantics. It corrects cancellation after moving a distant frame to a nearby
+destination; callers need not subtract large world positions themselves. It
+reads the live parent transform chain, including edits made before an update.
 
 `LOD Group` also supports child representations, configured through `setLevels`
 or the behaviour's `levels` array (`path`, `minCoverage`). Each level names a

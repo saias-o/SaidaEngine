@@ -3,6 +3,7 @@
 #include "core/Log.hpp"
 
 #include <cmath>
+#include <algorithm>
 
 namespace saida {
 
@@ -34,6 +35,28 @@ bool GrassNode::setField(Field field) {
             Log::error("[Grass] ", name(), ": field refused: a height is not finite");
             return false;
         }
+    for (const auto* edge : {&field.southBoundary, &field.northBoundary}) {
+        if (edge->empty()) continue;
+        bool valid = edge->size() >= size_t(n) && edge->size() <= kMaxBoundarySamples &&
+                     edge->front().x == 0.f && edge->back().x == 1.f;
+        for (size_t i=0;i<edge->size();++i) {
+            const auto p=(*edge)[i];
+            valid &= std::isfinite(p.x) && std::isfinite(p.y) && p.x >= 0.f && p.x <= 1.f &&
+                     (i==0 || p.x > (*edge)[i-1].x);
+        }
+        const size_t row = edge == &field.southBoundary ? 0 : size_t(n-1)*n;
+        for (int col=0;valid && col<n;++col) {
+            const float u=float(col)/float(n-1);
+            auto at=std::lower_bound(edge->begin(),edge->end(),u,[](const glm::vec2& p,float x){return p.x<x;});
+            if(at==edge->end())--at;
+            else if(at!=edge->begin() && std::abs((at-1)->x-u)<std::abs(at->x-u))--at;
+            valid = std::abs(at->x-u)<=1e-6f && std::abs(at->y-field.heights[row+size_t(col)])<=1e-3f;
+        }
+        if (!valid) {
+            Log::error("[Grass] ", name(), ": field refused: invalid boundary knots or a boundary vertex disagrees");
+            return false;
+        }
+    }
     for (int i = 0; i < 4; ++i)
         if (!std::isfinite(field.variation[i]) || (i < 3 && !std::isfinite(field.materialUvFromLocal[i][0] +
                                                                            field.materialUvFromLocal[i][1]))) {

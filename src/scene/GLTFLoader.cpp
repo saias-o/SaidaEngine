@@ -248,6 +248,9 @@ static void processNode(cgltf_node* node, Node* parent, ResourceManager& resourc
 
             std::string primName = (node->name ? std::string(node->name) : "Mesh") + "_prim" + std::to_string(i);
             MeshNode* mNode = neNode->createChild<MeshNode>(primName, resources.getMesh(primitives[i]), mat);
+            // The depth-only shadow pass has no alpha mask or view atlas.
+            // Billboard geometry is a representation, not a solid caster.
+            if (mat && mat->desc().billboardColumns) mNode->castShadows() = false;
             buildLodChain(mNode, nodeIndex, i, node, data, meshesPrimitives, materials, resources, lodByNodeIndex);
             if (autoMeshLods && !mNode->getBehaviour<LODGroupBehaviour>()) {
                 MeshLodLevel base;
@@ -638,9 +641,40 @@ static bool instantiateGltf(PreparedGltf& prepared, Node& rootNode, ResourceMana
         }
 
         desc.normalId = loadGLTFTexture(mat.normal_texture.texture, resources, basePath, false, streamed);
+        // The default remains the core glTF dielectric (IOR 1.5, F0 0.04).
+        // Specular color textures are sRGB; strength lives in linear alpha.
+        if (mat.has_ior) {
+            const float ratio = (mat.ior.ior - 1.f) / (mat.ior.ior + 1.f);
+            desc.dielectricF0 = glm::vec3(ratio * ratio);
+        }
+        if (mat.has_specular) {
+            desc.dielectricF0 *= toVec3(mat.specular.specular_color_factor);
+            desc.specularStrength = mat.specular.specular_factor;
+            desc.specularColorId = loadGLTFTexture(mat.specular.specular_color_texture.texture,
+                                                 resources, basePath, true, streamed);
+            desc.specularStrengthId = loadGLTFTexture(mat.specular.specular_texture.texture,
+                                                    resources, basePath, false, streamed);
+        }
         desc.emissiveId = loadGLTFTexture(mat.emissive_texture.texture, resources, basePath, true, streamed);
         desc.emissiveColor = glm::vec4(toVec3(mat.emissive_factor), 1.0f);
         desc.doubleSided = mat.double_sided;
+        if (mat.extras.data) {
+            try {
+                const auto extras = nlohmann::json::parse(mat.extras.data);
+                if (extras.contains("SAIDA_billboard")) {
+                    const auto& atlas = extras.at("SAIDA_billboard");
+                    const int columns = atlas.at("columns").get<int>();
+                    const int rows = atlas.value("rows", 1);
+                    if (columns < 1 || columns > 32 || rows < 1 || rows > 17)
+                        throw std::runtime_error("atlas requires 1..32 columns and 1..17 rows");
+                    desc.billboardColumns = uint32_t(columns);
+                    desc.billboardRows = uint32_t(rows);
+                }
+            } catch (const std::exception& e) {
+                Log::error("GLTFLoader: invalid material extras: ", e.what());
+                return false;
+            }
+        }
 
         // MASK becomes the author's cutoff. BLEND has no sorted pass in the
         // renderer, so it is alpha-tested at the glTF default cutoff rather than

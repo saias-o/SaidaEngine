@@ -127,6 +127,8 @@ Use the dedicated Witness harnesses for end-to-end work:
 ./tools/witness_golden_image.sh   # renderer/shader/HUD changes; needs Lavapipe
 python tools/verify_material_sidedness.py --build build  # Pillow; native front/back pixel check
 python tools/verify_ibl_environment.py --build build    # Pillow; HDR transfer and environment pixel checks
+python tools/verify_specular_materials.py --build build # Pillow; glTF IOR/specular RGB and alpha pixel checks
+python tools/verify_billboard_materials.py --build build # Pillow; atlas facing/blend and directional lighting
 ```
 
 The desktop and Web restart checks must restore the saved progression and reach

@@ -216,6 +216,36 @@ void Scene::rebaseOrigin(const glm::vec3& translation, const glm::quat& rotation
     for (const auto& child : children()) rebaseSubtree(*child, translation, rotation);
 }
 
+void Scene::rebaseSubtreeTo(Node& root, const glm::vec3& position, const glm::quat& orientation) {
+    if (!std::isfinite(position.x) || !std::isfinite(position.y) || !std::isfinite(position.z) ||
+        !std::isfinite(glm::dot(orientation,orientation)) || std::abs(glm::dot(orientation,orientation)-1.f)>1e-4f)
+        throw std::invalid_argument("rebase destination requires a finite position and unit quaternion");
+    glm::mat4 parentWorld(1.f);
+    std::vector<const Node*> parents;
+    for(auto* p=root.parent();p;p=p->parent())parents.push_back(p);
+    for(auto it=parents.rbegin();it!=parents.rend();++it)parentWorld*=(*it)->localMatrix();
+    const float scale=glm::length(glm::vec3(parentWorld[0]));
+    if(scale<1e-6f)throw std::invalid_argument("rebase requires a parent frame with positive uniform scale");
+    const auto parentRotation=glm::quat_cast(glm::mat3(parentWorld)/scale);
+    const auto oldOrientation=parentRotation*root.transform().rotation;
+    const auto turn=glm::normalize(orientation*glm::inverse(oldOrientation));
+    const glm::vec3 oldPosition(parentWorld*glm::vec4(root.transform().position,1.f));
+    rebaseSubtree(root,position-turn*oldPosition,turn);
+    // The large subtraction above may discard centimetres. Correct only
+    // after everything is in the near frame, where float spacing is small.
+    const glm::vec3 actual(parentWorld*glm::vec4(root.transform().position,1.f));
+    const auto correction=position-actual;
+    if(correction!=glm::vec3(0.f))rebaseSubtree(root,correction);
+#ifndef SAIDA_NO_PHYSICS
+    // Static/kinematic poses follow the freshly composed node tree. Their
+    // old solver positions can also have lost precision in the distant frame.
+    root.traverse([&](Node& node, const glm::mat4&) {
+        if (auto* body = node.asCollisionObject(); body && body->physicsWorld())
+            body->syncToPhysics(*body->physicsWorld());
+    });
+#endif
+}
+
 void Scene::serialize(nlohmann::json& j, ResourceManager& resources) const {
     Node::serialize(j, resources);
     if (prefabAssetId_ != kAssetInvalid) {

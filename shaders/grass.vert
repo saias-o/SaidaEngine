@@ -59,11 +59,32 @@ float groundAt(GpuGrass g, vec2 uv, out vec2 slope) {
     vec2 at = clamp(uv, vec2(0.0), vec2(1.0)) * float(n - 1);
     ivec2 c = min(ivec2(floor(at)), ivec2(n - 2));
     vec2 f = at - vec2(c);
-    int base = int(push.slot) * MAX_GROUND * MAX_GROUND;
+    int base = int(push.slot) * GROUND_STRIDE;
     float sw = ground[base + c.y * n + c.x], se = ground[base + c.y * n + c.x + 1];
     float nw = ground[base + (c.y + 1) * n + c.x], ne = ground[base + (c.y + 1) * n + c.x + 1];
     // The ground mesh's split: (sw, se, ne) and (sw, ne, nw).
     bool lower = f.x >= f.y;
+    bool south = c.y == 0 && lower && g.sizes.z > 0;
+    bool north = c.y == n-2 && !lower && g.sizes.w > 0;
+    if (south || north) {
+        float weight = south ? f.y : 1.0-f.y;
+        float projected = south ? (f.x-f.y)/max(1e-6,1.0-f.y) : f.x/max(1e-6,f.y);
+        float u = (float(c.x)+clamp(projected,0.0,1.0))/float(n-1);
+        int offset = base+MAX_GROUND*MAX_GROUND+(north ? 2*MAX_BOUNDARY : 0);
+        int lo=0, hi=(south ? g.sizes.z : g.sizes.w)-1;
+        // At most nine probes, only in the two refined boundary strips.
+        while(hi-lo>1) {
+            int mid=(lo+hi)/2;
+            if(ground[offset+2*mid]<=u)lo=mid;else hi=mid;
+        }
+        float ul=ground[offset+2*lo], ur=ground[offset+2*hi];
+        float hl=ground[offset+2*lo+1], hr=ground[offset+2*hi+1];
+        float ds=(hr-hl)/(ur-ul), edge=hl+(u-ul)*ds;
+        float apex=south ? ne : sw;
+        slope=vec2(ds,south ? (apex-edge)*float(n-1)+ds*(projected-1.0)
+                                           : (edge-apex)*float(n-1)-ds*projected);
+        return mix(edge,apex,weight);
+    }
     slope = (lower ? vec2(se - sw, ne - se) : vec2(ne - nw, nw - sw)) * float(n - 1);
     return lower ? sw * (1.0 - f.x) + se * (f.x - f.y) + ne * f.y
                  : sw * (1.0 - f.y) + ne * f.x + nw * (f.y - f.x);

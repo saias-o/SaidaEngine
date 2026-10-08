@@ -52,7 +52,8 @@ void SceneIndex::updateResources(Node& node, Entry& entry) {
         if (!m) return;
         usage.materials.insert(m);
         const auto& d = m->desc();
-        for (AssetID id : {d.albedoId, d.normalId, d.metallicRoughnessId, d.emissiveId, d.heightId})
+        for (AssetID id : {d.albedoId, d.normalId, d.metallicRoughnessId, d.emissiveId, d.heightId,
+                          d.specularColorId, d.specularStrengthId})
             if (id != kAssetInvalid) usage.textures.insert(id);
     };
     if (auto* mesh = dynamic_cast<const MeshNode*>(&node)) {

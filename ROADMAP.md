@@ -11,6 +11,25 @@ the corresponding contracts of `SPEC.md`.
 
 ## Streaming and rendering integration — verified through 2026-10-08
 
+- [x] Generic camera-facing multi-view glTF atlas materials with coarse live
+  ambient/directional lighting. Verified 2026-10-09: native orientation, atlas
+  blend and light intensity/color/elevation pixel contract, 92/92 native CTest
+  (`tools/verify_billboard_materials.py`), 187 GPU streaming checks and translated
+  WebGPU scene pipeline validation. R1World's 861-tree MX450 forest at 1280×720
+  measures median GPU frame 22.98 → 5.52 ms with earlier Far selection; corpus
+  `game/generated/streaming-validation/mx450/tree-far-study`. Complete Web player
+  content execution was not repeated for this change.
+
+- [x] Honor authored glTF dielectric specular/IOR factors and textures in
+  streamed materials. Verified 2026-10-09: 92/92 native CTest; 182 GPU streaming
+  checks including factor defaults, zero IOR/strength, distinct sRGB/linear
+  texture publication and hidden ownership; native semantic pixel checks
+  (`tools/verify_specular_materials.py`), environment/HDR and material-sidedness
+  regressions pass. The translated Web scene pipeline compiles in Chrome
+  WebGPU without validation errors (AMD RDNA 2); complete Web player content
+  execution was not repeated for this change. R1World Near/Mid captures are in
+  `game/generated/streaming-validation/mx450/tree-material-study`.
+
 - [x] Decode streamed glTF models and embedded images on the AssetLoader worker,
   prepare procedural bounds/collision data off the main thread, and incrementally
   upload stable mesh proxies through a shared 512 KiB/frame transfer batch.
@@ -455,8 +474,33 @@ Post-V1 unless the scope changes explicitly.
   joined two-lane batches and reuse bloom pipelines on resize. The optimized
   Paris, Grenoble and Paris–Tunis traces have no legacy upload waits or pipeline
   creation inside frames; GPU scene streaming passes 153 checks.
-- [ ] Streaming: qualify arrivals on the reference hardware. A portable MX450
-  validation is planned for the evening of 8 October 2026 (R1World PLAN).
+- [x] Avoid general 4x4 multiplication when constructing affine TRS and compose
+  camera transforms only along the selected camera's ancestor chain. Preserve
+  hierarchy-order priority ties, hidden cameras, disabled branches and direct
+  transform/priority edits. Verified 2026-10-08 on MX450: 92/92 native CTest and
+  166 scene streaming GPU checks, including the added camera/TRS regressions.
+  An isolated R1World Paris arrival pair at 1080p measures normal frame mean
+  45.83 -> 39.05 ms and camera selection 13.18 -> 9.89 ms; it does not qualify
+  reference hardware or sustained 60 fps.
+- [x] Grass fields accept shared north/south boundary knots; blade height and
+  slope follow the refined triangle fans. Validate regular vertices, ordering,
+  finite heights and bounded sample count; upload on field revision only.
+  The 78 grass checks and native suite passed during this pass.
+- [x] Add explicit-destination subtree rebasing to avoid cancellation when a
+  distant frame moves nearby. Static and kinematic bodies synchronize to the
+  recomposed tree; body identities survive. The final native scene streaming
+  test passes 78 checks, including a distant-frame collision regression and
+  direct parent edits. The GPU rerun is still pending.
+- [ ] Streaming: qualify arrivals on the reference hardware. Portable MX450
+  validation started on 8 October 2026 (R1World PLAN): native tests and the Tunis
+  home and offline Paris-to-Tunis gameplay checks pass. Frame-time comparison
+  remains open: the first after captures shared the GPU with another live game
+  and are discarded; a later isolated Paris pair shows the gain above. The
+  laptop lacks the installed relief layer. Repeat with complete data,
+  only one player process, no build running and explicit 1920x1080 output.
+  R1World v37 implements shared terrain boundary knots and precise placement;
+  the Grenoble gameplay rerun remains open in its PLAN/README. Further runs
+  stopped at the user's request to test the player manually.
   Native queued transfers, mip generation and arena
   relocation no longer drain the GPU; native texture preparation is bounded
   and off-thread, with sliced row transfers. They do not yet guarantee a 16.7 ms

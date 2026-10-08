@@ -5,10 +5,32 @@
 #include "scene/Scene.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <vector>
 
 namespace saida {
 
 namespace {
+void pickCamera(Node& node, CameraNode*& live) {
+    if (!node.enabled()) return;
+    if (auto* camera = dynamic_cast<CameraNode*>(&node);
+        camera && camera->active && (!live || camera->priority > live->priority))
+        live = camera;
+    for (const auto& child : node.children()) pickCamera(*child, live);
+}
+
+glm::mat4 cameraWorld(const Node& camera, const Node& scene) {
+    // Only the selected camera's ancestors contribute to its pose. Computing
+    // every mesh's world matrix here repeated the entire scene transform walk.
+    std::vector<const Node*> chain;
+    for (auto* node = &camera; node; node = node->parent()) {
+        chain.push_back(node);
+        if (node == &scene) break;
+    }
+    glm::mat4 world(1.f);
+    for (auto it = chain.rbegin(); it != chain.rend(); ++it) world *= (*it)->localMatrix();
+    return world;
+}
+
 // Decompose a world matrix into position + (scale-free) rotation. Cameras are
 // normally unscaled; normalizing the basis keeps the quaternion valid regardless.
 void poseFromWorld(const glm::mat4& world, glm::vec3& pos, glm::quat& rot) {
@@ -31,17 +53,7 @@ void CameraDirector::reset() {
 bool CameraDirector::update(Scene& scene, Camera& out, float dt) {
     // Pick the active camera with the highest priority (ties: first encountered).
     CameraNode* live = nullptr;
-    glm::mat4 liveWorld(1.0f);
-    int bestPriority = 0;
-    scene.traverse([&](Node& n, const glm::mat4& world) {
-        auto* cam = dynamic_cast<CameraNode*>(&n);
-        if (!cam || !cam->active || !cam->isActiveInHierarchy()) return;
-        if (!live || cam->priority > bestPriority) {
-            live = cam;
-            liveWorld = world;
-            bestPriority = cam->priority;
-        }
-    });
+    pickCamera(scene, live);
 
     if (!live) {
         reset();  // no camera → don't drive `out`; next mount blends fresh
@@ -50,7 +62,7 @@ bool CameraDirector::update(Scene& scene, Camera& out, float dt) {
 
     // Target pose/lens from the live camera's world transform.
     State target;
-    poseFromWorld(liveWorld, target.position, target.rotation);
+    poseFromWorld(cameraWorld(*live, scene), target.position, target.rotation);
     target.fov = live->fovDegrees;
     target.nearZ = live->nearZ;
     target.farZ = live->farZ;

@@ -54,6 +54,14 @@ struct MaterialDesc {
     // deepest point, `parallaxDepth` texture-coordinate units below it. Read
     // by the bindless scene path only; elsewhere the surface stays flat.
     AssetID heightId = kAssetInvalid;
+    AssetID specularColorId = kAssetInvalid; // sRGB RGB, KHR_materials_specular
+    AssetID specularStrengthId = kAssetInvalid; // linear alpha
+    glm::vec3 dielectricF0{0.04f}; // IOR reflectance times specularColorFactor
+    float specularStrength = 1.0f; // dielectric lobe only; metals are unaffected
+    // Camera-facing XY quad, centered at its mesh origin. Atlas columns cover
+    // a full azimuth turn; rows cover -90..90 degrees elevation (one = level).
+    uint32_t billboardColumns = 0; // 0 keeps the authored mesh transform
+    uint32_t billboardRows = 1;
     glm::vec4 baseColor{1.0f};
     glm::vec4 emissiveColor{0.0f};
     float metallic = 0.0f;
@@ -82,6 +90,9 @@ struct MaterialDesc {
         return albedoId == o.albedoId && normalId == o.normalId &&
                metallicRoughnessId == o.metallicRoughnessId && emissiveId == o.emissiveId &&
                heightId == o.heightId && parallaxDepth == o.parallaxDepth &&
+               specularColorId == o.specularColorId && specularStrengthId == o.specularStrengthId &&
+               dielectricF0 == o.dielectricF0 && specularStrength == o.specularStrength &&
+               billboardColumns == o.billboardColumns && billboardRows == o.billboardRows &&
                environmentReflection == o.environmentReflection &&
                baseColor == o.baseColor && emissiveColor == o.emissiveColor &&
                metallic == o.metallic && roughness == o.roughness && ao == o.ao &&
@@ -97,6 +108,8 @@ struct MaterialTextureSlots {
     uint32_t metallicRoughness = 0;
     uint32_t emissive = 0;
     uint32_t height = 0;
+    uint32_t specularColor = 0;
+    uint32_t specularStrength = 0;
 };
 
 } // namespace saida
@@ -109,6 +122,10 @@ struct hash<saida::MaterialDesc> {
         auto combine = [&h](size_t v) { h ^= v + 0x9e3779b9 + (h << 6) + (h >> 2); };
         combine(d.albedoId); combine(d.normalId); combine(d.metallicRoughnessId); combine(d.emissiveId);
         combine(d.heightId); combine(std::hash<float>()(d.parallaxDepth));
+        combine(d.specularColorId); combine(d.specularStrengthId);
+        combine(d.billboardColumns); combine(d.billboardRows);
+        combine(std::hash<float>()(d.dielectricF0.r)); combine(std::hash<float>()(d.dielectricF0.g));
+        combine(std::hash<float>()(d.dielectricF0.b)); combine(std::hash<float>()(d.specularStrength));
         combine(std::hash<float>()(d.environmentReflection));
         combine(std::hash<float>()(d.baseColor.r)); combine(std::hash<float>()(d.baseColor.g));
         combine(std::hash<float>()(d.baseColor.b)); combine(std::hash<float>()(d.baseColor.a));
@@ -156,6 +173,8 @@ private:
     Texture* metallicRoughnessMap_;
     Texture* emissiveMap_;
     Texture* heightMap_;
+    Texture* specularColorMap_;
+    Texture* specularStrengthMap_;
     std::unique_ptr<Buffer> paramsBuffer_;
     std::unique_ptr<rhi::BindGroup> descriptorSet_;
     uint32_t bindlessIndex_ = 0;

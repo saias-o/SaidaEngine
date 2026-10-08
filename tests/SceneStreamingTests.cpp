@@ -1,4 +1,7 @@
 #include "scene/Scene.hpp"
+#include "core/Camera.hpp"
+#include "nodes/CameraNode.hpp"
+#include "render/CameraDirector.hpp"
 #include "core/Window.hpp"
 #include "graphics/VulkanDevice.hpp"
 #include "graphics/Mesh.hpp"
@@ -129,6 +132,56 @@ void ownershipAndReparenting() {
     require(scene.resourceUsage().textures.size() == 1, "clear removes resources but preserves skybox");
 }
 
+void transformAndCameraContract() {
+    Scene scene;
+    auto* frame = scene.createChild<Node>();
+    frame->transform().position = {20.f, -4.f, 7.f};
+    frame->transform().rotation = glm::angleAxis(.7f, glm::normalize(glm::vec3(1, 2, 3)));
+    frame->transform().scale = {-2.f, .5f, 3.f};
+    const auto& t = frame->transform();
+    const auto reference = glm::scale(glm::translate(glm::mat4(1.f), t.position) *
+                                    glm::mat4_cast(t.rotation), t.scale);
+    for (int column = 0; column < 4; ++column)
+        require(glm::length(t.matrix()[column] - reference[column]) < 1e-6f,
+                "affine TRS preserves rotation, negative/nonuniform scale and translation");
+    auto* first = frame->createChild<CameraNode>();
+    first->transform().position = {1, 2, 3};
+    first->priority = -3;
+    first->setVisible(false);  // visibility does not disable a camera
+    auto* second = scene.createChild<CameraNode>();
+    second->priority = -3;
+    second->transform().position = {50, 0, 0};
+    auto* disabled = scene.createChild<Node>();
+    disabled->setEnabled(false);
+    disabled->createChild<CameraNode>()->priority = 100;
+    Camera out;
+    CameraDirector director;
+    director.blendDuration = 0.f;
+    require(director.update(scene, out, .01f), "camera selected without a prior scene update");
+    near(out.position, glm::vec3(reference * glm::vec4(1, 2, 3, 1)),
+         "priority tie follows hierarchy order and hidden camera inherits parent TRS");
+    frame->transform().position.x += 4.f;
+    director.update(scene, out, .01f);
+    near(out.position, glm::vec3(frame->localMatrix() * glm::vec4(1, 2, 3, 1)),
+         "direct ancestor transform edit reaches camera immediately");
+    second->priority = 2;
+    director.update(scene, out, .01f);
+    near(out.position, {50, 0, 0}, "mutable priority changes camera selection");
+    second->active = false;
+    frame->setEnabled(false);
+    require(!director.update(scene, out, .01f), "inactive cameras and disabled ancestors leave no live camera");
+    disabled->setEnabled(true);
+    require(director.update(scene, out, .01f), "reactivating a camera branch restores selection");
+    scene.clearChildren();
+    require(!director.update(scene, out, .01f), "removed cameras leave no stale selection");
+    Node outer;
+    outer.transform().position = {100, 0, 0};
+    auto* embedded = outer.createChild<Scene>();
+    embedded->createChild<CameraNode>()->transform().position = {2, 3, 4};
+    require(director.update(*embedded, out, .01f), "camera in an embedded scene is selected");
+    near(out.position, {2, 3, 4}, "camera pose stays relative to the selected scene root");
+}
+
 void fixedStepsAndRebase() {
     Scene scene;
     auto* frame = scene.createChild<Node>();
@@ -169,6 +222,36 @@ void fixedStepsAndRebase() {
     try { scene.rebaseSubtree(*body, {1, 0, 0}); }
     catch (const std::invalid_argument&) { refused = true; }
     require(refused, "unsupported parent scale fails explicitly");
+}
+
+void rebaseDestinationPrecision() {
+    Scene scene;
+    auto* root=scene.createChild<Node>();
+    root->transform().position={-199832.390625f,-2076780.5f,-4689437.5f};
+    root->transform().rotation=glm::angleAxis(.833f,glm::vec3(1,0,0))*glm::angleAxis(.0464f,glm::vec3(0,0,1));
+    auto* body=root->createChild<StaticBodyNode>();
+    auto* shape=body->createChild<CollisionShapeNode>();
+    shape->shapeType=CollisionShapeType::Box;shape->halfExtents={.25f,.5f,.75f};shape->offset={12.f,222.f,35.f};
+    scene.update(1.f/60.f);
+    const auto id=body->bodyId();
+    const glm::vec3 destination{.01465f,-413.545f,-210.752f};
+    const auto orientation=glm::angleAxis(.012f,glm::vec3(0,1,0));
+    scene.rebaseSubtreeTo(*root,destination,orientation);
+    require(glm::length(glm::vec3(root->worldTransform()[3])-destination)<1e-4f,
+            "explicit rebase keeps a precise near destination after a distant rotation");
+    glm::vec3 p;glm::quat q;scene.physics()->getBodyTransform(id,p,q);
+    near(p,destination,"solver root shares the precise near destination");
+    const auto probe=destination+orientation*shape->offset;
+    const auto hit=scene.physics()->raycast(probe+glm::vec3(0,2,0),{0,-1,0},4.f);
+    require(hit.hit && hit.body==id && std::abs(hit.distance-1.5f)<.002f,
+            "precise rebase keeps the collider at its drawn local offset");
+    scene.update(1.f/60.f);
+    require(body->bodyId()==id,"explicit rebase preserves body identity after synchronization");
+    auto* parent=scene.createChild<Node>();parent->addChild(scene.detachChild(root));
+    parent->transform().position={3.f,7.f,11.f};
+    parent->transform().rotation=glm::angleAxis(.2f,glm::vec3(0,1,0));
+    scene.rebaseSubtreeTo(*root,destination,orientation);
+    near(glm::vec3(root->worldTransform()[3]),destination,"explicit rebase reads a directly mutated parent frame");
 }
 
 void rebaseCharacterAndJoint() {
@@ -336,7 +419,9 @@ void gpuCollisionFrames(ResourceManager& resources) {
     branch->transform().scale={1.2f,.9f,1.1f};
     auto* drawn=branch->createChild<MeshNode>("Wall",mesh,nullptr);
     scene.update(1.f/60.f); // Build while its parent is millions of metres away.
-    scene.rebaseSubtree(*frame,-frame->transform().position);
+    const glm::vec3 destination{.01465f,-413.545f,-210.752f};
+    scene.rebaseSubtreeTo(*frame,destination,glm::angleAxis(.012f,glm::vec3(0,1,0)));
+    near(glm::vec3(frame->worldTransform()[3]),destination,"distant mesh frame reaches the explicit destination");
     scene.update(1.f/60.f);
     const glm::vec3 probe(drawn->worldTransform()*glm::vec4(-187.25f,16.125f,-172.123f,1));
     const glm::vec3 normal=glm::normalize(glm::mat3(drawn->worldTransform())*glm::vec3(0,0,1));
@@ -585,6 +670,56 @@ void gpuAsyncGltf(VulkanDevice& device) {
     auto invalid=GLTFLoader::request("missing.gltf",resources);
     while(!invalid.failed()&&std::chrono::steady_clock::now()<deadline)std::this_thread::yield();
     require(invalid.failed()&&!GLTFLoader::instantiate(invalid,rootNode,resources),"missing glTF fails explicitly");
+    auto specular=GLTFLoader::request("streaming/specular.gltf",resources);
+    const auto specularDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+    while(!specular.ready()&&!specular.failed()&&std::chrono::steady_clock::now()<specularDeadline)
+        std::this_thread::yield();
+    Scene specularScene;
+    auto* specularRoot=specularScene.createChild<Node>();
+    require(GLTFLoader::instantiate(specular,*specularRoot,resources),"specular glTF instantiates asynchronously");
+    std::vector<Material*> importedMaterials;
+    specularRoot->traverse([&](Node& node,const glm::mat4&){if(node.material())importedMaterials.push_back(node.material());});
+    require(importedMaterials.size()==3,"specular fixture retains all three material cases");
+    const auto& core=importedMaterials[0]->desc();
+    require(core.dielectricF0==glm::vec3(.04f)&&core.specularStrength==1.f
+        &&core.specularColorId==kAssetInvalid&&core.specularStrengthId==kAssetInvalid,
+        "core glTF keeps default reflectance without extra textures");
+    const auto& authored=importedMaterials[1]->desc();
+    require(glm::length(authored.dielectricF0-glm::vec3(.05f,.1f,.15f))<.00001f
+        &&authored.specularStrength==.3f,"IOR and color factor determine unclamped dielectric reflectance");
+    require(authored.specularColorId!=kAssetInvalid&&authored.specularStrengthId!=kAssetInvalid,
+        "specular RGB and alpha textures are imported");
+    const auto& disabled=importedMaterials[2]->desc();
+    require(disabled.dielectricF0==glm::vec3(1.f)&&disabled.specularStrength==0.f,
+        "zero IOR conversion and zero lobe strength remain explicit");
+    auto changed=authored;changed.specularStrength=.7f;
+    require(resources.getMaterial(changed)!=importedMaterials[1],"different specular factors do not alias material cache entries");
+    specularRoot->setEnabled(false);specularScene.refreshHierarchy();
+    require(specularScene.resourceUsage().textures.count(authored.specularColorId)
+        &&specularScene.resourceUsage().textures.count(authored.specularStrengthId),
+        "hidden specular materials retain both texture assets");
+    while(!resources.assetLoadsSettled()&&std::chrono::steady_clock::now()<specularDeadline) {
+        resources.pumpAssetLoads();std::this_thread::yield();
+    }
+    require(resources.assetLoadsSettled(),"specular textures settle and rebind");
+    require(resources.getTexture(authored.specularColorId,true)!=resources.getTexture(authored.specularStrengthId,false),
+        "color RGB uses sRGB while specular alpha uses a distinct linear texture");
+    auto billboard=GLTFLoader::request("streaming/billboard.gltf",resources);
+    const auto billboardDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+    while(!billboard.ready()&&!billboard.failed()&&std::chrono::steady_clock::now()<billboardDeadline)
+        std::this_thread::yield();
+    Node billboardRoot;
+    require(GLTFLoader::instantiate(billboard,billboardRoot,resources),"billboard atlas glTF instantiates asynchronously");
+    int billboards=0;
+    billboardRoot.traverse([&](Node& node,const glm::mat4&){if(auto* mesh=dynamic_cast<MeshNode*>(&node)) {
+        const auto& desc=mesh->material()->desc();
+        require(desc.billboardColumns==8&&desc.billboardRows==5,"atlas dimensions survive glTF import");
+        require(!mesh->castShadows(),"billboard quad is not a solid shadow caster");
+        auto single=desc;single.billboardColumns=1;single.billboardRows=1;
+        require(resources.getMaterial(single)!=mesh->material(),"different billboard atlases have distinct cached materials");
+        ++billboards;
+    }});
+    require(billboards==1,"billboard fixture has one shared drawable");
     device.waitIdle();
 }
 
@@ -668,7 +803,7 @@ void gpuLodGroups() {
 }
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    indexChanges(); ownershipAndReparenting(); fixedStepsAndRebase(); rebaseCharacterAndJoint(); groupContract();
+    indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract();
     if (argc > 1 && std::string(argv[1]) == "--gpu") gpuLodGroups();
     std::printf("[streaming] PASS (%d checks)\n", checks);
 }

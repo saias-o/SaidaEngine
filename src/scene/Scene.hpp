@@ -176,6 +176,9 @@ public:
     // Call between updates, and rebase any game-owned world-space state too.
     void rebaseSubtree(Node& root, const glm::vec3& translation,
                        const glm::quat& rotation = glm::quat(1.f, 0.f, 0.f, 0.f));
+    // Places the root at an explicit world pose while rebasing its bodies and
+    // velocities. Corrects cancellation when a distant frame moves nearby.
+    void rebaseSubtreeTo(Node& root, const glm::vec3& position, const glm::quat& rotation);
     void rebaseOrigin(const glm::vec3& translation,
                       const glm::quat& rotation = glm::quat(1.f, 0.f, 0.f, 0.f));
     const ResourceManager::AssetUsage& resourceUsage() const { return index_.resources(); }

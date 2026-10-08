@@ -66,6 +66,34 @@ void testFieldsAreCheckedBeforeTheyAreDrawn() {
     require(node.field() == nullptr, "a cleared node has no field");
 }
 
+void testRefinedBoundariesAreValidated() {
+    GrassNode node;
+    auto f=flatField(3,4);
+    f.southBoundary={{0.f,0.f},{.25f,2.f},{.5f,0.f},{1.f,0.f}};
+    f.northBoundary={{0.f,0.f},{.5f,0.f},{.75f,3.f},{1.f,0.f}};
+    require(node.setField(f),"refined boundaries containing all regular vertices are accepted");
+    const auto revision=node.revision();
+    auto invalid=f;invalid.southBoundary[1].x=0.f;
+    require(!node.setField(invalid),"duplicate boundary parameters are refused");
+    invalid=f;invalid.northBoundary[0].x=.1f;
+    require(!node.setField(invalid),"a boundary missing its endpoint is refused");
+    invalid=f;invalid.southBoundary.erase(invalid.southBoundary.begin()+2);
+    require(!node.setField(invalid),"a boundary missing a regular vertex is refused");
+    invalid=f;invalid.northBoundary[1].y=1.f;
+    require(!node.setField(invalid),"a boundary disagreeing with the regular grid is refused");
+    invalid=f;invalid.southBoundary[1].y=INFINITY;
+    require(!node.setField(invalid),"a non-finite boundary height is refused");
+    invalid=f;invalid.southBoundary.resize(GrassNode::kMaxBoundarySamples+1);
+    require(!node.setField(invalid),"a boundary over the sample budget is refused");
+    require(node.revision()==revision && node.field()->southBoundary.size()==4,
+            "refused boundaries preserve the previous field and its revision");
+    require(node.setField(flatField(3,4)),"a regular field can replace a refined one");
+    require(node.field()->southBoundary.empty() && node.field()->northBoundary.empty(),"replacement clears refinement");
+    auto close=flatField(3,4);
+    close.southBoundary={{0.f,0.f},{.4999998f,.002f},{.5f,0.f},{1.f,0.f}};
+    require(node.setField(close),"a distinct knot near a regular vertex does not mask that vertex");
+}
+
 void testRingsNestExactly() {
     const glm::vec2 lo(-500.0f), hi(500.0f);
     for (const glm::vec2 eye : {glm::vec2(0.0f), glm::vec2(13.37f, -7.21f), glm::vec2(-123.4f, 77.7f)}) {
@@ -132,6 +160,7 @@ void testTheSceneListsItsFields() {
 
 int main() {
     testFieldsAreCheckedBeforeTheyAreDrawn();
+    testRefinedBoundariesAreValidated();
     testRingsNestExactly();
     testOnlyTheFieldAndTheReachAreDrawn();
     testTheSceneListsItsFields();

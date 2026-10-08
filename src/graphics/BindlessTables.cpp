@@ -32,9 +32,10 @@ struct MaterialData {
     float parallaxDepth;
     glm::vec4 emissive;
     glm::vec4 variation; // warp, macroScale, macroAlbedo, macroNormal
-    glm::vec4 reflection; // x environment reflection; yzw reserved
+    glm::vec4 reflection; // x environment reflection, yz specular indices (-1 absent)
+    glm::vec4 specular; // rgb dielectric F0, a dielectric lobe strength
 };
-static_assert(sizeof(MaterialData) == 112, "MaterialData must match shader.frag std430 layout");
+static_assert(sizeof(MaterialData) == 128, "MaterialData must match shader.frag std430 layout");
 } // namespace
 
 BindlessTables::BindlessTables(rhi::Device& device, uint32_t maxTextures,
@@ -78,7 +79,7 @@ void BindlessTables::create() {
     materialBufferBinding.binding = 1;
     materialBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     materialBufferBinding.descriptorCount = 1;
-    materialBufferBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
+    materialBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT;
 
     std::array<VkDescriptorSetLayoutBinding, 2> bindings = {texturesBinding, materialBufferBinding};
 
@@ -280,7 +281,11 @@ void BindlessTables::writeMaterialSlot(uint32_t index, const MaterialDesc& desc,
     data.heightTexIdx = textures.height;
     // A texture still loading is the default white: flat, as if no height.
     data.parallaxDepth = desc.heightId == kAssetInvalid ? 0.0f : desc.parallaxDepth;
-    data.reflection = glm::vec4(desc.environmentReflection, 0.0f, 0.0f, 0.0f);
+    data.reflection = glm::vec4(desc.environmentReflection,
+        desc.specularColorId == kAssetInvalid ? -1.f : float(textures.specularColor),
+        desc.specularStrengthId == kAssetInvalid ? -1.f : float(textures.specularStrength),
+        float(desc.billboardColumns + 256u * desc.billboardRows));
+    data.specular = glm::vec4(desc.dielectricF0, desc.specularStrength);
     data.variation = glm::vec4(desc.variation.warp, desc.variation.macroScale,
                                desc.variation.macroAlbedo, desc.variation.macroNormal);
 

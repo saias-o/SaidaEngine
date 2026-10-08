@@ -12,7 +12,10 @@
 namespace saida {
 
 namespace {
-constexpr uint64_t kGroundBytes = uint64_t(GrassNode::kMaxGroundSamples) * GrassNode::kMaxGroundSamples * sizeof(float);
+constexpr uint64_t kRegularGroundBytes = uint64_t(GrassNode::kMaxGroundSamples) * GrassNode::kMaxGroundSamples * sizeof(float);
+constexpr uint64_t kBoundaryBytes = uint64_t(GrassNode::kMaxBoundarySamples) * 2 * sizeof(float);
+constexpr uint64_t kGroundBytes = kRegularGroundBytes + 2*kBoundaryBytes;
+static_assert(sizeof(glm::vec2)==2*sizeof(float), "grass boundary buffer stores packed float pairs");
 constexpr uint64_t kCoverBytes = uint64_t(GrassNode::kMaxCoverSize) * GrassNode::kMaxCoverSize * sizeof(uint32_t);
 
 // The node-local box of a field: the unit square of (u, v) carried back
@@ -133,7 +136,7 @@ void GrassFeature::record(FrameContext& fc) {
                                                                        : glm::vec2(1.0f, 0.0f);
         g.wind = glm::vec4(wind, node->wind, fc.time);
         g.camera = glm::vec4(eye, 0.0f);
-        g.sizes = glm::ivec4(field->groundSamples, field->coverSize, 0, 0);
+        g.sizes = glm::ivec4(field->groundSamples, field->coverSize, field->southBoundary.size(), field->northBoundary.size());
         const int tuftBlades = std::clamp(node->tuftBlades, 1, GrassNode::kMaxTuftBlades);
         g.tuft = glm::vec4(float(tuftBlades), std::clamp(node->gust, 0.0f, 1.0f), 0.0f, 0.0f);
         const glm::mat3& s = field->materialUvFromLocal;
@@ -143,6 +146,10 @@ void GrassFeature::record(FrameContext& fc) {
         for (int i = 0; i < GrassNode::kMaxBenders; ++i) g.benders[i] = node->benders[size_t(i)];
         if (f.nodes[slot] != node || f.revisions[slot] != node->revision()) {
             f.ground->write(field->heights.data(), field->heights.size() * sizeof(float), slot * kGroundBytes);
+            if (!field->southBoundary.empty())
+                f.ground->write(field->southBoundary.data(),field->southBoundary.size()*sizeof(glm::vec2),slot*kGroundBytes+kRegularGroundBytes);
+            if (!field->northBoundary.empty())
+                f.ground->write(field->northBoundary.data(),field->northBoundary.size()*sizeof(glm::vec2),slot*kGroundBytes+kRegularGroundBytes+kBoundaryBytes);
             f.cover->write(field->cover.data(), field->cover.size() * sizeof(uint32_t), slot * kCoverBytes);
             f.nodes[slot] = node;
             f.revisions[slot] = node->revision();
