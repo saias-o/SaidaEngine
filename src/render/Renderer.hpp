@@ -301,6 +301,7 @@ private:
     // CPU, which is only worth doing when the skybox actually changes.
     std::array<EnvironmentSH, 2> environmentSH_{};
     std::array<AssetID, 2> environmentShSources_{kAssetInvalid, kAssetInvalid};
+    std::array<AssetHandle, 2> environmentShLoads_;
     void refreshEnvironmentSH(const std::array<AssetID, 2>& sources);
 
 #ifdef SAIDA_ENABLE_XR

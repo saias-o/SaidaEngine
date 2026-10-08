@@ -3,9 +3,11 @@
 #include "core/Profiler.hpp"
 #include "runtime/ProfileArgs.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <future>
 #include <string>
 #include <vector>
 
@@ -81,12 +83,69 @@ void testTheFlag() {
     require(!saida::runtime::parseProfileArgs(2, missing, path, error), "a flag without its value");
 }
 
+void testWorkerScopesKeepTheirOriginFrame() {
+    auto& profiler = saida::Profiler::instance();
+    profiler.setEnabled(true);
+    for (const bool recycle : {false, true}) {
+        profiler.beginFrame();
+        std::promise<void> started, finish;
+        auto finishFuture = finish.get_future();
+        auto startedFuture = started.get_future();
+        std::thread worker([&] {
+            profiler.setThreadName("Regression worker");
+            const auto handle = profiler.beginScope("Worker spanning frames");
+            started.set_value();
+            finishFuture.wait();
+            profiler.endScope(handle);
+        });
+        startedFuture.wait();
+        profiler.endFrame();
+        const uint64_t origin = profiler.latestFrame().index;
+        if (recycle) {
+            for (int i = 0; i < 599; ++i) {
+                profiler.beginFrame();
+                profiler.endFrame();
+            }
+        }
+        profiler.beginFrame();
+        const auto mainHandle = profiler.beginScope("Main still active");
+        finish.set_value();
+        worker.join();
+        // End the frame with the main event deliberately still open, so a
+        // cross-frame worker write cannot be hidden by the main destructor.
+        profiler.endFrame();
+        const auto current = profiler.latestFrame();
+        require(current.events.size() == 1, "later frame retains its own event");
+        if (current.events.size() == 1) {
+            require(current.events[0].endMs == current.events[0].startMs,
+                    "worker never closes another frame's main scope");
+        }
+        profiler.endScope(mainHandle);
+        if (current.events.size() == 1) {
+            require(profiler.latestFrame().events[0].endMs > current.events[0].startMs,
+                    "scope can finish between frames");
+        }
+        if (!recycle) {
+            const auto frames = profiler.recentFrames();
+            const auto it = std::find_if(frames.begin(), frames.end(),
+                [&](const auto& f) { return f.index == origin; });
+            require(it != frames.end(), "worker origin remains in history");
+            if (it != frames.end()) {
+                require(it->events.size() == 1 && it->events[0].endMs > it->cpuFrameMs,
+                        "worker duration extends beyond its original frame");
+            }
+        }
+    }
+    profiler.setEnabled(false);
+}
+
 } // namespace
 
 int main() {
     testScopesAreSummedAveragedAndRanked();
     testNothingRecordedSummarizesToNothing();
     testTheFlag();
+    testWorkerScopesKeepTheirOriginFrame();
     if (failures) return EXIT_FAILURE;
     std::puts("saida_profiler_summary_tests: OK");
     return EXIT_SUCCESS;

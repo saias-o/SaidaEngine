@@ -7,6 +7,7 @@
 #include "graphics/Texture.hpp"
 #ifndef SAIDA_RHI_WEBGPU
 #include "graphics/VulkanDevice.hpp"
+#include "graphics/Buffer.hpp"
 #endif
 
 #include <stb_image.h>
@@ -16,6 +17,10 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <mutex>
+#include <condition_variable>
+#include <thread>
+#include <chrono>
 
 namespace saida {
 
@@ -67,12 +72,118 @@ AssetDecoder makeImageDecoder() {
 
 } // namespace
 
+#ifndef SAIDA_RHI_WEBGPU
+struct TextureCache::PreparedTexture {
+    AssetID id;
+    uint64_t bytes;
+    std::unique_ptr<Texture> texture;
+    std::shared_ptr<Buffer> staging;
+    std::string error;
+};
+struct TextureCache::PreparationQueue {
+    struct Job { AssetID id; uint64_t bytes; PendingTexture input; };
+    rhi::Device& device;
+    std::mutex mutex;
+    std::condition_variable wake;
+    std::deque<Job> jobs;
+    std::deque<std::unique_ptr<PreparedTexture>> ready;
+    bool stopping = false;
+    std::thread worker;
+    explicit PreparationQueue(rhi::Device& owner) : device(owner), worker([this] {
+        Profiler::instance().setThreadName("Texture preparation");
+        for (;;) {
+            Job job;
+            { std::unique_lock<std::mutex> lock(mutex);
+              wake.wait(lock, [&] { return stopping || !jobs.empty(); });
+              if (stopping) return;
+              job = std::move(jobs.front()); jobs.pop_front(); }
+            auto result = std::make_unique<PreparedTexture>();
+            result->id = job.id; result->bytes = job.bytes;
+            try {
+                SAIDA_PROFILE_SCOPE("Resource/PrepareTextureWorker");
+                const auto image = std::static_pointer_cast<DecodedImage>(job.input.handle.payload());
+                const auto format = image->hdr ? rhi::Format::RGBA32Float :
+                    (job.input.srgb ? rhi::Format::RGBA8Srgb : rhi::Format::RGBA8Unorm);
+                result->texture = std::make_unique<Texture>(device, image->width, image->height,
+                    format, true, job.input.address);
+                result->staging = std::make_shared<Buffer>(device, job.bytes, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
+                result->staging->write(image->pixels, job.bytes);
+            } catch (const std::exception& e) { result->error = e.what(); }
+            { std::lock_guard<std::mutex> lock(mutex); ready.push_back(std::move(result)); }
+        }
+    }) {}
+    ~PreparationQueue() {
+        { std::lock_guard<std::mutex> lock(mutex); stopping = true; }
+        wake.notify_one(); worker.join();
+    }
+    void submit(Job job) {
+        { std::lock_guard<std::mutex> lock(mutex); jobs.push_back(std::move(job)); }
+        wake.notify_one();
+    }
+    std::unique_ptr<PreparedTexture> take() {
+        std::lock_guard<std::mutex> lock(mutex);
+        if (ready.empty()) return {};
+        auto result = std::move(ready.front()); ready.pop_front(); return result;
+    }
+};
+
+void TextureCache::pumpPrepared(std::vector<AssetID>& completed) {
+    SAIDA_PROFILE_SCOPE("Resource/FinalizeAsyncTexture");
+    if (preparation_)
+        while (auto ready = preparation_->take()) {
+            preparing_.erase(ready->id);
+            if (!ready->error.empty()) {
+                Log::error("TextureCache: asset ", ready->id, " rejected (staging bytes=", ready->bytes, "): ", ready->error);
+                preparationBytes_ -= ready->bytes;
+                failed_.insert(ready->id); completed.push_back(ready->id);
+            } else {
+                residentBytes_ += ready->texture->gpuBytes();
+                transferring_.push_back(std::move(ready));
+            }
+        }
+    // FIFO row slices leave the full mip chain unpublished until the last
+    // transfer completes. The staging data is immutable and fence-retained.
+    while (!transferring_.empty() && transferring_.front()->texture->uploadReady()) {
+        auto& front = *transferring_.front();
+        auto& texture = *front.texture;
+        registerBindless(&texture);
+        textures_.emplace(front.id, std::move(front.texture));
+        completed.push_back(front.id);
+        preparationBytes_ -= front.bytes; transferring_.pop_front();
+    }
+    if (transferring_.empty()) return;
+    auto& front = *transferring_.front();
+    auto& texture = *front.texture;
+    if (texture.uploadedRows() == texture.height() || device_.pendingUploads() >= rhi::Device::kMaxPendingUploads) return;
+    constexpr uint64_t kUploadBytesPerFrame = 2 * 1024 * 1024;
+    const uint64_t rowBytes = front.bytes / texture.height();
+    const uint32_t rows = static_cast<uint32_t>(std::min<uint64_t>(texture.height()-texture.uploadedRows(),
+        std::max<uint64_t>(1, kUploadBytesPerFrame/rowBytes)));
+    SAIDA_PROFILE_COUNTER_ADD("Assets/TextureUploadBytes", double(rows*rowBytes));
+    try { texture.uploadRows(front.staging, rows); }
+    catch (const std::exception& e) {
+        Log::error("TextureCache: upload ", front.id, " rejected: ", e.what());
+        failed_.insert(front.id); completed.push_back(front.id);
+        residentBytes_ -= texture.gpuBytes(); preparationBytes_ -= front.bytes;
+        transferring_.pop_front();
+    }
+}
+#endif
+
 TextureCache::TextureCache(rhi::Device& device, BindlessTables& bindlessTables)
     : device_(device), bindlessTables_(bindlessTables) {
     ensureDefaultTextures();
 }
 
 TextureCache::~TextureCache() = default;
+
+bool TextureCache::hasPendingLoads() const {
+    return !pending_.empty() || !uploading_.empty()
+#ifndef SAIDA_RHI_WEBGPU
+        || !preparing_.empty() || !transferring_.empty()
+#endif
+        ;
+}
 
 void TextureCache::registerBindless(Texture* texture) {
     bindlessTables_.ensureTextureIndex(texture);
@@ -88,7 +199,14 @@ Texture* TextureCache::get(AssetID id, bool srgb, AssetRegistry* registry,
     if (failed_.count(id)) return missing();
     if (!registry) return nullptr;
 
-    if (!pending_.count(id) && !uploading_.count(id)) {
+    const bool preparing =
+#ifndef SAIDA_RHI_WEBGPU
+        preparing_.count(id) || std::any_of(transferring_.begin(), transferring_.end(),
+            [id](const auto& item) { return item->id == id; });
+#else
+        false;
+#endif
+    if (!pending_.count(id) && !uploading_.count(id) && !preparing) {
         AssetHandle handle = loader.request(id, AssetLoadPriority::High,
                                             AssetPayloadKind::Image, makeImageDecoder());
         if (!handle) return nullptr;
@@ -98,6 +216,9 @@ Texture* TextureCache::get(AssetID id, bool srgb, AssetRegistry* registry,
 }
 
 void TextureCache::finalizePending(std::vector<AssetID>& completed) {
+#ifndef SAIDA_RHI_WEBGPU
+    pumpPrepared(completed);
+#endif
     for (auto it = uploading_.begin(); it != uploading_.end();) {
         if (!it->second->uploadReady()) { ++it; continue; }
         registerBindless(it->second.get());
@@ -106,6 +227,11 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
         it = uploading_.erase(it);
     }
     if (device_.pendingUploads() >= rhi::Device::kMaxPendingUploads) return;
+#ifndef SAIDA_RHI_WEBGPU
+    constexpr size_t kMaxPreparedTextures = 2;
+    constexpr uint64_t kPreparationBudgetBytes = 64 * 1024 * 1024;
+    if (preparing_.size() + transferring_.size() >= kMaxPreparedTextures) return;
+#endif
     for (auto it = pending_.begin(); it != pending_.end();) {
         const AssetLoadState state = it->second.handle.state();
         if (state == AssetLoadState::Queued || state == AssetLoadState::Loading) {
@@ -118,25 +244,32 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
         if (state == AssetLoadState::Ready) {
             if (auto image =
                     std::static_pointer_cast<DecodedImage>(it->second.handle.payload())) {
+#ifndef SAIDA_RHI_WEBGPU
+                const uint64_t bytes = uint64_t(image->width)*image->height*(image->hdr ? 16 : 4);
+                // An oversized image runs alone instead of deadlocking at the
+                // soft preparation limit or silently losing source resolution.
+                if (preparationBytes_ && (bytes > kPreparationBudgetBytes || preparationBytes_ > kPreparationBudgetBytes-bytes)) { ++it; continue; }
+                if (!preparation_) preparation_ = std::make_unique<PreparationQueue>(device_);
+                preparation_->submit({id, bytes, std::move(it->second)});
+                preparing_.insert(id); preparationBytes_ += bytes;
+#else
                 SAIDA_PROFILE_SCOPE("Resource/FinalizeAsyncTexture");
                 rhi::Format format = it->second.srgb
                     ? rhi::Format::RGBA8Srgb
                     : rhi::Format::RGBA8Unorm;
-#ifndef SAIDA_RHI_WEBGPU
-                if (image->hdr) format = rhi::Format::RGBA32Float;
-#endif
                 auto texture = std::make_unique<Texture>(
                     device_, static_cast<const uint8_t*>(image->pixels),
                     image->width, image->height, format, true, it->second.address, true);
                 residentBytes_ += texture->gpuBytes();
                 uploading_.emplace(id, std::move(texture));
+#endif
                 created = true;
             }
         }
         if (!created) failed_.insert(id);
         it = pending_.erase(it);
         if (!created) completed.push_back(id);
-        // Record at most one image/mip chain per pump; completion is polled.
+        // Enqueue at most one preparation (one image on Web) per pump.
         if (created) break;
     }
 }
@@ -221,6 +354,7 @@ void TextureCache::ensureDefaultTextures() {
             device_, normal, 1, 1, rhi::Format::RGBA8Unorm);
         registerBindless(defaultNormal_.get());
     }
+    missing();
 }
 
 Texture* TextureCache::defaultWhite() {
@@ -296,6 +430,9 @@ uint64_t TextureCache::evict(AssetID id, GpuGraveyard& graveyard,
 }
 
 void TextureCache::clear() {
+#ifndef SAIDA_RHI_WEBGPU
+    preparation_.reset(); preparing_.clear(); transferring_.clear(); preparationBytes_ = 0;
+#endif
     uploading_.clear();
     pending_.clear();
     failed_.clear();

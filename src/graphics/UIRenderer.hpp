@@ -44,7 +44,7 @@ public:
     UIRenderer& operator=(const UIRenderer&) = delete;
 
     void gatherUI(Scene& scene, glm::vec2 viewportSize = glm::vec2(0.0f));
-    void updateAsyncTextures(rhi::CommandEncoder& encoder);
+    void updateAsyncTextures(rhi::CommandEncoder& encoder, uint32_t frameSlot);
     void recordCommands(rhi::RenderPassEncoder& rp, uint32_t width, uint32_t height,
                         glm::vec2 viewportOffset = glm::vec2(0.0f),
                         glm::vec2 viewportSize = glm::vec2(0.0f));

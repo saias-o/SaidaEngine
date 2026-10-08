@@ -5,6 +5,8 @@
 #include "graphics/ResourceManager.hpp"
 #include "graphics/Buffer.hpp"
 #include "graphics/Texture.hpp"
+#include "core/PngWriter.hpp"
+#include "render/EnvironmentSH.hpp"
 #include "graphics/GeometryRegistry.hpp"
 #include "graphics/MeshCache.hpp"
 #include "graphics/GpuGraveyard.hpp"
@@ -375,6 +377,61 @@ void gpuUploadLifetime(VulkanDevice& device) {
     const auto* actual=static_cast<const uint8_t*>(read.mapped());
     for(size_t i=0;i<16;++i)require(std::abs(int(actual[i])-int(pixels[i%4]))<=1,
         "asynchronous mip generation preserves sampled texels");
+    auto retired=std::make_shared<Texture>(device,pixels.data(),8,8,rhi::Format::RGBA8Srgb,true,rhi::AddressMode::Repeat,false);
+    std::weak_ptr<Texture> weakTexture=retired;
+    const auto retirement=device.submitUpload([](rhi::CommandEncoder&){},retired);
+    retired.reset();device.waitIdle();
+    require(device.uploadComplete(retirement)&&weakTexture.expired(),
+        "upload retirement can release textures whose own upload fence already completed");
+}
+
+void gpuPreparedTextures(VulkanDevice& device) {
+    ResourceManager resources(device,nullptr,{4096,16384});
+    constexpr uint32_t width=1024,height=1024;
+    std::vector<uint8_t> pixels(width*height*4);
+    for(uint32_t y=0;y<height;++y)for(uint32_t x=0;x<width;++x) {
+        const size_t i=(size_t(y)*width+x)*4;
+        pixels[i]=uint8_t(y%256);pixels[i+1]=uint8_t(x%256);pixels[i+2]=96;pixels[i+3]=255;
+    }
+    const auto encoded=encodePngRGBA8(pixels.data(),width,height);
+    const auto id=resources.queueMemoryTexture(encoded.data(),encoded.size(),false);
+    require(!resources.assetLoadsSettled(),"texture preparations are part of settled readiness");
+    unsigned pumps=0;
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while(!resources.assetLoadsSettled()&&std::chrono::steady_clock::now()<deadline) {
+        resources.pumpAssetLoads();++pumps;std::this_thread::yield();
+    }
+    auto* texture=resources.getTexture(id,false);
+    require(resources.assetLoadsSettled()&&texture&&texture!=resources.missingTexture(),"worker allocation and row uploads publish a texture");
+    require(pumps>=4,"large texture transfers require multiple bounded pumps");
+    Buffer read(device,pixels.size(),rhi::BufferUsage::TransferDst,MemoryUsage::HostVisible);
+    device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc){
+        enc.transition(texture->image(),rhi::ResourceState::ShaderRead,rhi::ResourceState::CopySrc);
+        enc.copyTextureToBuffer(texture->image(),read,width,height);
+        enc.transition(texture->image(),rhi::ResourceState::CopySrc,rhi::ResourceState::ShaderRead);
+    });
+    require(std::memcmp(read.mapped(),pixels.data(),pixels.size())==0,"all row slices preserve the source pixels exactly");
+    VkPhysicalDeviceProperties properties{};vkGetPhysicalDeviceProperties(device.physicalDevice(),&properties);
+    const uint32_t rejectedWidth=properties.limits.maxImageDimension2D+1;
+    std::vector<uint8_t> unsupported(size_t(rejectedWidth)*4,255);
+    const auto badPNG=encodePngRGBA8(unsupported.data(),rejectedWidth,1);
+    const auto bad=resources.queueMemoryTexture(badPNG.data(),badPNG.size(),false);
+    const auto failedDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while(!resources.assetLoadsSettled()&&std::chrono::steady_clock::now()<failedDeadline) {
+        resources.pumpAssetLoads();std::this_thread::yield();
+    }
+    require(resources.assetLoadsSettled()&&resources.getTexture(bad,false)==resources.missingTexture(),
+        "allocation rejection settles to the preallocated missing texture without crashing");
+    require(resources.getTexture(id,false)==texture,"failed texture preparation preserves other resident textures");
+
+    AssetLoader loader;
+    auto projection=loader.requestMemory(0x713,encoded,AssetPayloadKind::EnvironmentSH,environmentSHDecoder());
+    const auto projectionDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while(!projection.ready()&&!projection.failed()&&std::chrono::steady_clock::now()<projectionDeadline)
+        std::this_thread::yield();
+    require(projection.ready()&&projection.payload(),"environment projection decodes on the asset worker");
+    auto sh=std::static_pointer_cast<EnvironmentSH>(projection.payload());
+    require(sh->coefficients[0].z>0.f&&std::isfinite(sh->coefficients[0].z),"worker environment projection retains nonzero finite irradiance");
 }
 
 void gpuAsyncGltf(VulkanDevice& device) {
@@ -444,6 +501,7 @@ void gpuLodGroups() {
     gpuUploadLifetime(device);
     gpuQueuedMeshes(resources);
     gpuAsyncGltf(device);
+    gpuPreparedTextures(device);
     Scene scene;
     auto* root = scene.createChild<Node>();
     auto* terrain = root->createChild<TerrainRingsNode>();

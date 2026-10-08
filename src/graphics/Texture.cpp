@@ -51,7 +51,7 @@ uint64_t mipChainBytes(uint32_t width, uint32_t height, uint32_t bytesPerPixel, 
 
 Texture::Texture(VulkanDevice& device, const std::string& path, bool srgb,
                  rhi::AddressMode address)
-    : device_(device), address_(address) {
+    : address_(address), device_(device) {
     SAIDA_PROFILE_SCOPE("Resource/LoadTextureFile");
     int texWidth, texHeight, texChannels;
     bool isHdr = stbi_is_hdr(path.c_str());
@@ -120,23 +120,36 @@ Texture::Texture(VulkanDevice& device, const std::string& path, bool srgb,
 
     imageView_ = createImageView(format, VK_IMAGE_ASPECT_COLOR_BIT);
     createSampler();
+    uploadedRows_ = height_;
 }
 
 Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format fmt, bool genMipmaps,
                  rhi::AddressMode address, bool asynchronous)
-    : device_(device), width_(width), height_(height), address_(address) {
+    : Texture(device, width, height, fmt, genMipmaps, address) {
     SAIDA_PROFILE_SCOPE("Resource/CreateMemoryTexture");
+    if (!pixels) throw std::invalid_argument("Texture pixels are null");
+    const uint64_t bytes = uint64_t(width_) * height_ * texelBytes_;
+    auto staging = std::make_shared<Buffer>(device_, bytes, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
+    staging->write(pixels, bytes);
+    uploadRows(staging, height_);
+    if (!asynchronous) device_.waitUpload(upload_);
+}
+
+Texture::Texture(VulkanDevice& device, uint32_t width, uint32_t height, rhi::Format fmt, bool genMipmaps,
+                 rhi::AddressMode address)
+    : address_(address), device_(device), width_(width), height_(height) {
+    SAIDA_PROFILE_SCOPE("Resource/AllocateTexture");
     const VkFormat format = rhi::vulkan::toVk(fmt);
     const uint32_t texelBytes = rhi::bytesPerTexel(fmt);
+    texelBytes_ = texelBytes;
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(device_.physicalDevice(), &properties);
+    if (!width || !height || !texelBytes || width > properties.limits.maxImageDimension2D || height > properties.limits.maxImageDimension2D)
+        throw std::invalid_argument("Texture extent is unsupported: " + std::to_string(width) + "x" + std::to_string(height));
     mipLevels_ = 1;
     if (genMipmaps && (width > 1 || height > 1)) {
         mipLevels_ = static_cast<uint32_t>(std::floor(std::log2(std::max(width_, height_)))) + 1;
     }
-
-    VkDeviceSize imageSize = static_cast<VkDeviceSize>(width) * height * texelBytes;
-
-    auto staging = std::make_shared<Buffer>(device_, imageSize, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
-    staging->write(pixels, imageSize);
 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -156,41 +169,59 @@ Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, ui
     VmaAllocationCreateInfo allocInfo{};
     allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
-    if (vmaCreateImage(device_.allocator(), &imageInfo, &allocInfo,
-                       &image_, &allocation_, nullptr) != VK_SUCCESS)
-        throw std::runtime_error("failed to create texture image");
-    trackedBytes_ = mipChainBytes(width_, height_, texelBytes, mipLevels_);
+    const uint64_t bytes = mipChainBytes(width_, height_, texelBytes, mipLevels_);
+    const VkResult result = vmaCreateImage(device_.allocator(), &imageInfo, &allocInfo,
+                       &image_, &allocation_, nullptr);
+    if (result != VK_SUCCESS)
+        throw std::runtime_error("Texture allocation failed: " + std::to_string(width_) + "x" + std::to_string(height_) +
+            " bytes=" + std::to_string(bytes) + " VkResult=" + std::to_string(result));
+    trackedBytes_ = bytes;
     trackedCategory_ = "Texture/Dynamic";
     MemoryProfiler::registerAllocation(trackedCategory_, trackedBytes_);
 
     try {
         imageView_ = createImageView(format, VK_IMAGE_ASPECT_COLOR_BIT);
         createSampler();
-        const auto record = [&](rhi::vulkan::CommandEncoder& enc) {
-            enc.transition(image_, rhi::ResourceState::Undefined, rhi::ResourceState::CopyDst);
-            enc.copyBufferToTexture(*staging, image_, width_, height_);
-            if (mipLevels_ == 1)
-                enc.transition(image_, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
-            else recordMipmaps(enc.handle());
-        };
-        if (asynchronous) upload_ = device_.submitUpload(record, staging);
-        else device_.withSingleTimeEncoder(record);
     } catch (...) {
-        MemoryProfiler::unregisterAllocation(trackedCategory_, trackedBytes_);
-        vkDestroySampler(device_.device(), sampler_, nullptr);
-        vkDestroyImageView(device_.device(), imageView_, nullptr);
-        vmaDestroyImage(device_.allocator(), image_, allocation_);
-        throw;
+        destroyImage(); throw;
     }
 }
 
-bool Texture::uploadReady() { return device_.uploadComplete(upload_); }
+void Texture::uploadRows(const std::shared_ptr<Buffer>& staging, uint32_t rows) {
+    if (!rows || rows > height_ - uploadedRows_ || !staging || staging->size() < uint64_t(width_)*height_*texelBytes_)
+        throw std::invalid_argument("Invalid texture upload rows");
+    const uint32_t first = uploadedRows_;
+    const bool last = first + rows == height_;
+    upload_ = device_.submitUpload([&](rhi::vulkan::CommandEncoder& enc) {
+        if (!first) enc.transition(image_, rhi::ResourceState::Undefined, rhi::ResourceState::CopyDst);
+        VkBufferImageCopy region{};
+        region.bufferOffset = uint64_t(first)*width_*texelBytes_;
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset.y = static_cast<int32_t>(first);
+        region.imageExtent = {width_, rows, 1};
+        vkCmdCopyBufferToImage(enc.handle(), staging->handle(), image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+        if (last) {
+            if (mipLevels_ == 1) enc.transition(image_, rhi::ResourceState::CopyDst, rhi::ResourceState::ShaderRead);
+            else recordMipmaps(enc.handle());
+        }
+    }, staging);
+    uploadedRows_ += rows;
+}
+bool Texture::uploadReady() { return uploadedRows_ == height_ && device_.uploadComplete(upload_); }
 Texture::~Texture() {
-    device_.waitUpload(upload_);
+    // Unsubmitted preparations can be destroyed on the worker without touching
+    // the render thread's command pool or upload deque.
+    if (upload_) device_.waitUpload(upload_);
+    destroyImage();
+}
+void Texture::destroyImage() {
     MemoryProfiler::unregisterAllocation(trackedCategory_, trackedBytes_);
     vkDestroySampler(device_.device(), sampler_, nullptr);
     vkDestroyImageView(device_.device(), imageView_, nullptr);
     vmaDestroyImage(device_.allocator(), image_, allocation_);
+    trackedBytes_ = 0; image_ = VK_NULL_HANDLE; allocation_ = VK_NULL_HANDLE;
+    sampler_ = VK_NULL_HANDLE; imageView_ = VK_NULL_HANDLE;
 }
 
 void Texture::createSampler() {

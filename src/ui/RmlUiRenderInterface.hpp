@@ -3,6 +3,9 @@
 #include <RmlUi/Core/RenderInterface.h>
 
 #include <cstdint>
+#include <atomic>
+#include <exception>
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
@@ -10,6 +13,23 @@ namespace saida {
 
 class RmlUiRenderInterface final : public Rml::RenderInterface {
 public:
+    RmlUiRenderInterface();
+    ~RmlUiRenderInterface();
+    struct RasterFrame {
+        uint32_t width = 0, height = 0;
+        bool ready() const { return done.load(std::memory_order_acquire); }
+        const std::vector<uint8_t>& pixels() const;
+    private:
+        friend class RmlUiRenderInterface;
+        std::atomic<bool> done{false};
+        std::vector<uint8_t> rgba;
+        std::exception_ptr error;
+    };
+    // Captures immutable draw data on the UI thread; only rasterization runs
+    // on the worker. Returns false when the bounded raster queue is full.
+    bool beginAsyncFrame(uint32_t width, uint32_t height);
+    std::shared_ptr<RasterFrame> endAsyncFrame();
+    void stopAsyncRendering();
     void beginFrame(uint32_t width, uint32_t height);
     void endFrame();
 
@@ -53,10 +73,11 @@ private:
         uint8_t a = 0;
     };
 
-    Pixel sampleTexture(Rml::TextureHandle texture, float u, float v, bool wrap) const;
+    Pixel sampleTexture(const TextureData* texture, float u, float v, bool wrap) const;
     Rml::Vector2f transformPoint(Rml::Vector2f point) const;
     void drawTriangle(const Rml::Vertex& a, const Rml::Vertex& b, const Rml::Vertex& c,
-                      Rml::Vector2f translation, Rml::TextureHandle texture, bool wrap);
+                      Rml::Vector2f translation, const TextureData* texture, bool wrap);
+    void drawGeometry(const Geometry& geometry, Rml::Vector2f translation, const TextureData* texture);
     void blendPixel(int x, int y, Pixel src);
     Rml::TextureHandle addMissingTexturePlaceholder(Rml::Vector2i& textureDimensions);
     Rml::TextureHandle addTexture(Rml::Vector2i size, std::vector<uint8_t> pixels, bool premultiplied);
@@ -73,8 +94,10 @@ private:
     bool rendering_ = false;
 
     uintptr_t nextHandle_ = 1;
-    std::unordered_map<Rml::CompiledGeometryHandle, Geometry> geometries_;
-    std::unordered_map<Rml::TextureHandle, TextureData> textures_;
+    std::unordered_map<Rml::CompiledGeometryHandle, std::shared_ptr<const Geometry>> geometries_;
+    std::unordered_map<Rml::TextureHandle, std::shared_ptr<const TextureData>> textures_;
+    struct AsyncState;
+    std::unique_ptr<AsyncState> async_;
 };
 
 } // namespace saida

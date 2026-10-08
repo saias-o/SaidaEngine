@@ -122,6 +122,7 @@ MemorySnapshot MemoryProfiler::sample(VulkanDevice& device) {
 }
 
 void MemoryProfiler::publish(VulkanDevice& device) {
+    SAIDA_PROFILE_SCOPE("Profiler/SampleMemory");
     Profiler::instance().setMemorySnapshot(sample(device));
 }
 

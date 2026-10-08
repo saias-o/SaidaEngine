@@ -640,14 +640,15 @@ void VulkanDevice::collectUploads() {
         const auto status = vkGetFenceStatus(device_, uploads_.front().fence);
         if (status == VK_NOT_READY) break;
         if (status != VK_SUCCESS) throw std::runtime_error("upload fence polling failed");
-        auto& upload = uploads_.front();
+        auto upload = std::move(uploads_.front());
+        uploads_.pop_front();
         vkDestroyFence(device_, upload.fence, nullptr);
         vkFreeCommandBuffers(device_, commandPool_, 1, &upload.command);
         completedUpload_ = upload.serial;
-        uploads_.pop_front();
     }
 }
 bool VulkanDevice::uploadComplete(uint64_t serial) {
+    if (serial <= completedUpload_) return true;
     collectUploads();
     return serial <= completedUpload_;
 }

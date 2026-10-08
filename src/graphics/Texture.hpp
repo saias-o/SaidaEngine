@@ -16,6 +16,7 @@ using Texture = rhi::webgpu::Texture;
 
 #include <cstdint>
 #include <string>
+#include <memory>
 
 namespace saida::rhi::vulkan {
 class CommandEncoder;
@@ -37,6 +38,12 @@ public:
             rhi::AddressMode address = rhi::AddressMode::Repeat);
     Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true,
             rhi::AddressMode address = rhi::AddressMode::Repeat, bool asynchronous = false);
+    // Allocation only: safe on the preparation worker. Command submission and
+    // fence polling must remain on the render thread.
+    Texture(VulkanDevice& device, uint32_t width, uint32_t height, rhi::Format format,
+            bool generateMipmaps, rhi::AddressMode address);
+    void uploadRows(const std::shared_ptr<Buffer>& staging, uint32_t rows);
+    uint32_t uploadedRows() const { return uploadedRows_; }
     ~Texture();
     Texture(const Texture&) = delete;
     Texture& operator=(const Texture&) = delete;
@@ -64,6 +71,7 @@ public:
 
 private:
     void createSampler();
+    void destroyImage();
     rhi::AddressMode address_ = rhi::AddressMode::Repeat;
     void generateMipmaps();
     void recordMipmaps(VkCommandBuffer command);
@@ -79,6 +87,7 @@ private:
     uint32_t mipLevels_ = 1;
     uint64_t trackedBytes_ = 0;
     uint64_t upload_ = 0;
+    uint32_t texelBytes_ = 0, uploadedRows_ = 0;
     std::string trackedCategory_;
     
     uint32_t bindlessIndex_ = ~0u;

@@ -14,7 +14,7 @@
 namespace saida {
 
 namespace {
-thread_local std::vector<uint32_t> t_scopeStack;
+thread_local std::vector<uint64_t> t_scopeStack;
 thread_local std::string t_threadName;
 
 uint64_t threadHash() {
@@ -97,13 +97,12 @@ void Profiler::beginFrame() {
     frame = {};
     frame.index = nextFrameIndex_++;
     frameStart_ = Clock::now();
+    frameStarts_[currentSlot_] = frameStart_;
     frameActive_ = true;
     t_scopeStack.clear();
 }
 
 void Profiler::endFrame() {
-    if (!enabled() && !frameActive_) return;
-
     std::lock_guard<std::mutex> lock(mutex_);
     if (!frameActive_ || frames_.empty()) return;
     frames_[currentSlot_].cpuFrameMs = nowMs();
@@ -111,12 +110,13 @@ void Profiler::endFrame() {
     t_scopeStack.clear();
 }
 
-uint32_t Profiler::beginScope(const char* name) {
-    if (!enabled() || !frameActive_) return UINT32_MAX;
+uint64_t Profiler::beginScope(const char* name) {
+    if (!enabled()) return UINT64_MAX;
 
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!frameActive_) return UINT32_MAX;
+    if (!enabled() || !frameActive_) return UINT64_MAX;
     ProfileFrame& frame = frames_[currentSlot_];
+    if (frame.index >= UINT32_MAX || frame.events.size() >= UINT32_MAX) return UINT64_MAX;
     ProfileEvent event;
     event.name = name ? name : "(unnamed)";
     event.threadHash = threadHash();
@@ -126,27 +126,35 @@ uint32_t Profiler::beginScope(const char* name) {
     event.depth = static_cast<uint32_t>(t_scopeStack.size());
     frame.events.push_back(std::move(event));
 
-    uint32_t handle = static_cast<uint32_t>(frame.events.size() - 1);
+    const uint64_t handle = (frame.index << 32) | (frame.events.size() - 1);
     t_scopeStack.push_back(handle);
     return handle;
 }
 
-void Profiler::endScope(uint32_t handle) {
-    if (!enabled() || handle == UINT32_MAX || !frameActive_) return;
+void Profiler::endScope(uint64_t handle) {
+    if (handle == UINT64_MAX) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!frameActive_) return;
-    ProfileFrame& frame = frames_[currentSlot_];
-    if (handle < frame.events.size()) {
-        frame.events[handle].endMs = nowMs();
+    // A worker can finish several frames later, including between frames.
+    // Never let its event index refer to the current frame or a recycled slot.
+    const uint64_t frameIndex = handle >> 32;
+    const size_t slot = static_cast<size_t>(frameIndex % kFrameHistory);
+    const uint32_t eventIndex = static_cast<uint32_t>(handle);
+    if (slot < frames_.size()) {
+        ProfileFrame& frame = frames_[slot];
+        if (frame.index == frameIndex && eventIndex < frame.events.size()) {
+            frame.events[eventIndex].endMs = std::chrono::duration<double, std::milli>(
+                Clock::now() - frameStarts_[slot]).count();
+        }
     }
-    if (!t_scopeStack.empty()) {
-        t_scopeStack.pop_back();
+    const auto it = std::find(t_scopeStack.begin(), t_scopeStack.end(), handle);
+    if (it != t_scopeStack.end()) {
+        t_scopeStack.erase(it);
     }
 }
 
 void Profiler::setCounter(const char* name, double value) {
-    if (!enabled() || !name || !frameActive_) return;
+    if (!enabled() || !name) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
     if (!frameActive_) return;
@@ -161,7 +169,7 @@ void Profiler::setCounter(const char* name, double value) {
 }
 
 void Profiler::addCounter(const char* name, double value) {
-    if (!enabled() || !name || !frameActive_) return;
+    if (!enabled() || !name) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
     if (!frameActive_) return;
@@ -176,7 +184,7 @@ void Profiler::addCounter(const char* name, double value) {
 }
 
 void Profiler::setGpuZones(std::vector<GpuProfileZone> zones) {
-    if (!enabled() || !frameActive_) return;
+    if (!enabled()) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
     if (!frameActive_) return;
@@ -184,7 +192,7 @@ void Profiler::setGpuZones(std::vector<GpuProfileZone> zones) {
 }
 
 void Profiler::setMemorySnapshot(const MemorySnapshot& snapshot) {
-    if (!enabled() || !frameActive_) return;
+    if (!enabled()) return;
 
     std::lock_guard<std::mutex> lock(mutex_);
     if (!frameActive_) return;

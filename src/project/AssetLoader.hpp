@@ -29,7 +29,8 @@ enum class AssetPayloadKind : uint8_t {
     RigAsset = 3,
     ClipView = 4,
     AnimGraph = 5,
-    GltfModel = 6
+    GltfModel = 6,
+    EnvironmentSH = 7
 };
 
 // Result of a decode run on the worker (desktop) or inside pump() (web): an

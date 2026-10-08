@@ -2,6 +2,7 @@
 
 #include "core/Log.hpp"
 #include "core/Paths.hpp"
+#include "core/Profiler.hpp"
 #include "ui/RmlUiRuntime.hpp"
 
 #include <stb_image.h>
@@ -10,6 +11,11 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
+#include <stdexcept>
 
 namespace saida {
 
@@ -46,6 +52,103 @@ Rml::Vector2f translated(const Rml::Vertex& v, Rml::Vector2f t) {
 }
 
 } // namespace
+
+struct RmlUiRenderInterface::AsyncState {
+    struct Draw {
+        std::shared_ptr<const Geometry> geometry;
+        std::shared_ptr<const TextureData> texture;
+        Rml::Vector2f translation;
+        bool scissorEnabled, transformEnabled;
+        Rml::Rectanglei scissor;
+        Rml::Matrix4f transform;
+    };
+    struct Job {
+        std::shared_ptr<RasterFrame> frame;
+        std::vector<Draw> draws;
+    };
+    static constexpr size_t kMaxQueuedFrames = 4;
+    std::unique_ptr<Job> recording;
+    std::mutex mutex;
+    std::condition_variable wake;
+    std::deque<Job> jobs;
+    bool stopping = false;
+#ifndef __EMSCRIPTEN__
+    std::thread worker;
+    AsyncState() : worker([this] {
+        Profiler::instance().setThreadName("UI raster");
+        for (;;) {
+            Job job;
+            {
+                std::unique_lock<std::mutex> lock(mutex);
+                wake.wait(lock, [&] { return stopping || !jobs.empty(); });
+                if (stopping) return;
+                job = std::move(jobs.front()); jobs.pop_front();
+            }
+            execute(job);
+        }
+    }) {}
+    ~AsyncState() {
+        { std::lock_guard<std::mutex> lock(mutex); stopping = true;
+          for (auto& job : jobs) {
+              job.frame->error = std::make_exception_ptr(std::runtime_error("UI raster cancelled at shutdown"));
+              job.frame->done.store(true, std::memory_order_release);
+          } }
+        wake.notify_one(); worker.join();
+    }
+#endif
+    static void execute(Job& job) {
+        try {
+            SAIDA_PROFILE_SCOPE("WebCanvas/RasterWorker");
+            RmlUiRenderInterface raster;
+            raster.beginFrame(job.frame->width, job.frame->height);
+            for (const auto& draw : job.draws) {
+                raster.scissorEnabled_ = draw.scissorEnabled;
+                raster.scissorRegion_ = draw.scissor;
+                raster.transformEnabled_ = draw.transformEnabled;
+                raster.transform_ = draw.transform;
+                raster.drawGeometry(*draw.geometry, draw.translation, draw.texture.get());
+            }
+            raster.endFrame();
+            job.frame->rgba = std::move(raster.outputPixels_);
+        } catch (...) { job.frame->error = std::current_exception(); }
+        job.frame->done.store(true, std::memory_order_release);
+    }
+};
+
+RmlUiRenderInterface::RmlUiRenderInterface() = default;
+RmlUiRenderInterface::~RmlUiRenderInterface() = default;
+void RmlUiRenderInterface::stopAsyncRendering() { async_.reset(); }
+const std::vector<uint8_t>& RmlUiRenderInterface::RasterFrame::pixels() const {
+    if (!ready()) throw std::logic_error("UI raster frame is not ready");
+    if (error) std::rethrow_exception(error);
+    return rgba;
+}
+bool RmlUiRenderInterface::beginAsyncFrame(uint32_t width, uint32_t height) {
+    if (!async_) async_ = std::make_unique<AsyncState>();
+    { std::lock_guard<std::mutex> lock(async_->mutex);
+      if (async_->jobs.size() >= AsyncState::kMaxQueuedFrames) return false; }
+    if (async_->recording) throw std::logic_error("UI frame recording already active");
+    async_->recording = std::make_unique<AsyncState::Job>();
+    async_->recording->frame = std::make_shared<RasterFrame>();
+    async_->recording->frame->width = width; async_->recording->frame->height = height;
+    scissorEnabled_ = transformEnabled_ = false;
+    scissorRegion_ = Rml::Rectanglei::MakeInvalid(); transform_ = Rml::Matrix4f::Identity();
+    rendering_ = true;
+    return true;
+}
+std::shared_ptr<RmlUiRenderInterface::RasterFrame> RmlUiRenderInterface::endAsyncFrame() {
+    if (!async_ || !async_->recording) throw std::logic_error("No UI frame recording");
+    auto job = std::move(async_->recording);
+    auto result = job->frame;
+    rendering_ = false;
+#ifndef __EMSCRIPTEN__
+    { std::lock_guard<std::mutex> lock(async_->mutex); async_->jobs.push_back(std::move(*job)); }
+    async_->wake.notify_one();
+#else
+    AsyncState::execute(*job);
+#endif
+    return result;
+}
 
 void RmlUiRenderInterface::beginFrame(uint32_t width, uint32_t height) {
     width_ = width;
@@ -92,7 +195,7 @@ Rml::CompiledGeometryHandle RmlUiRenderInterface::CompileGeometry(Rml::Span<cons
             break;
         }
     }
-    geometries_[handle] = std::move(geometry);
+    geometries_[handle] = std::make_shared<const Geometry>(std::move(geometry));
     return handle;
 }
 
@@ -102,7 +205,17 @@ void RmlUiRenderInterface::RenderGeometry(Rml::CompiledGeometryHandle geometryHa
     auto it = geometries_.find(geometryHandle);
     if (it == geometries_.end()) return;
 
-    const Geometry& geometry = it->second;
+    const auto image = textures_.find(texture);
+    const auto textureData = image != textures_.end() ? image->second : nullptr;
+    if (async_ && async_->recording) {
+        async_->recording->draws.push_back({it->second, textureData, translation,
+            scissorEnabled_, transformEnabled_, scissorRegion_, transform_});
+        return;
+    }
+    drawGeometry(*it->second, translation, textureData.get());
+}
+void RmlUiRenderInterface::drawGeometry(const Geometry& geometry, Rml::Vector2f translation,
+                                      const TextureData* texture) {
     for (size_t i = 0; i + 2 < geometry.indices.size(); i += 3) {
         int ia = geometry.indices[i + 0];
         int ib = geometry.indices[i + 1];
@@ -165,15 +278,9 @@ void RmlUiRenderInterface::SetTransform(const Rml::Matrix4f* transform) {
     transform_ = transform ? *transform : Rml::Matrix4f::Identity();
 }
 
-RmlUiRenderInterface::Pixel RmlUiRenderInterface::sampleTexture(Rml::TextureHandle texture, float u, float v, bool wrap) const {
-    if (texture == 0) return {kOpaque, kOpaque, kOpaque, kOpaque};
-
-    auto it = textures_.find(texture);
-    if (it == textures_.end() || it->second.size.x <= 0 || it->second.size.y <= 0) {
-        return {kOpaque, kOpaque, kOpaque, kOpaque};
-    }
-
-    const TextureData& data = it->second;
+RmlUiRenderInterface::Pixel RmlUiRenderInterface::sampleTexture(const TextureData* texture, float u, float v, bool wrap) const {
+    if (!texture) return {kOpaque, kOpaque, kOpaque, kOpaque};
+    const TextureData& data = *texture;
     // Wrapping addresses whole texels, so it maps [0,1) across the full width
     // and takes its right-hand neighbour round the edge. Clamping addresses the
     // texel centres it always has, which is what keeps glyph and image edges
@@ -225,7 +332,7 @@ Rml::Vector2f RmlUiRenderInterface::transformPoint(Rml::Vector2f point) const {
 }
 
 void RmlUiRenderInterface::drawTriangle(const Rml::Vertex& a, const Rml::Vertex& b, const Rml::Vertex& c,
-                                        Rml::Vector2f translation, Rml::TextureHandle texture, bool wrap) {
+                                        Rml::Vector2f translation, const TextureData* texture, bool wrap) {
     Rml::Vector2f p0 = transformPoint(translated(a, translation));
     Rml::Vector2f p1 = transformPoint(translated(b, translation));
     Rml::Vector2f p2 = transformPoint(translated(c, translation));
@@ -253,7 +360,7 @@ void RmlUiRenderInterface::drawTriangle(const Rml::Vertex& a, const Rml::Vertex&
     if (minX > maxX || minY > maxY) return;
 
     const float invArea = 1.0f / area;
-    const bool textured = texture != 0;
+    const bool textured = texture != nullptr;
     for (int y = minY; y <= maxY; ++y) {
         for (int x = minX; x <= maxX; ++x) {
             Rml::Vector2f p{static_cast<float>(x) + kPixelCenter, static_cast<float>(y) + kPixelCenter};
@@ -331,7 +438,7 @@ Rml::TextureHandle RmlUiRenderInterface::addTexture(Rml::Vector2i size, std::vec
     }
 
     Rml::TextureHandle handle = nextHandle_++;
-    textures_[handle] = TextureData{size, std::move(pixels)};
+    textures_[handle] = std::make_shared<const TextureData>(TextureData{size, std::move(pixels)});
     return handle;
 }
 

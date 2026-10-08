@@ -3,6 +3,7 @@
 #include "core/FileWatcher.hpp"
 #include "graphics/Texture.hpp"  // fwd-declares rhi::vulkan::CommandEncoder
 #include "scene/Node.hpp"
+#include "ui/RmlUiRenderInterface.hpp"
 
 #include <memory>
 #include <string>
@@ -147,7 +148,7 @@ public:
     void setStartupScripts(std::vector<std::string> scripts) { startupScripts_ = std::move(scripts); }
     const std::vector<std::string>& startupScripts() const { return startupScripts_; }
 
-    void updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& encoder);
+    void updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& encoder, uint32_t frameSlot);
     Texture* texture() const { return texture_.get(); }
 
     uint64_t documentGeneration() const { return documentGeneration_; }
@@ -199,7 +200,9 @@ private:
 
     VulkanDevice* device_ = nullptr;
     std::unique_ptr<Texture> texture_;
-    std::unique_ptr<Buffer> stagingBuffer_;
+    std::vector<std::unique_ptr<Buffer>> stagingBuffers_;
+    std::shared_ptr<RmlUiRenderInterface::RasterFrame> rasterFrame_;
+    void retireGpuResources();
     std::unique_ptr<JsContext> jsContext_;
     std::string rmlContextName_;
     Rml::Context* rmlContext_ = nullptr;

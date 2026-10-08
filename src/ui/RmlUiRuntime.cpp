@@ -405,6 +405,7 @@ bool RmlUiRuntime::ensureInitialized() {
 
 void RmlUiRuntime::shutdown() {
     if (!initialized_) return;
+    gRenderInterface->stopAsyncRendering();
     // Released before Rml::Shutdown(): the sheet is an RmlUi object and must not
     // outlive the core that owns its allocator.
     gUserAgentSheet.reset();

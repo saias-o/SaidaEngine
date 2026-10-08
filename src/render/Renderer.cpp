@@ -729,28 +729,37 @@ void Renderer::updateGIDescriptors() {
 // of the image rather than of the frame: it is projected once, from the source
 // file, and reused until the skybox itself changes.
 void Renderer::refreshEnvironmentSH(const std::array<AssetID, 2>& sources) {
-    if (sources == environmentShSources_) return;
-    const auto previousSources = environmentShSources_;
-    const auto previousSH = environmentSH_;
-    environmentShSources_ = sources;
-    AssetRegistry* registry = resources_.registry();
-    for (size_t i = 0; i < sources.size(); ++i) {
-        environmentSH_[i] = EnvironmentSH{};
-        if (sources[i] == kAssetInvalid || !registry) continue;
-        // The next pair often promotes the previous secondary sky to primary.
-        // Reuse that projection; changing blend or rotation never decodes it.
-        const auto existing = std::find(previousSources.begin(), previousSources.end(), sources[i]);
-        if (existing != previousSources.end()) {
-            environmentSH_[i] = previousSH[existing - previousSources.begin()];
-            continue;
+    if (sources != environmentShSources_) {
+        const auto previousSources = environmentShSources_;
+        const auto previousSH = environmentSH_;
+        const auto previousLoads = environmentShLoads_;
+        environmentShSources_ = sources;
+        AssetRegistry* registry = resources_.registry();
+        for (size_t i = 0; i < sources.size(); ++i) {
+            environmentSH_[i] = EnvironmentSH{};
+            environmentShLoads_[i].reset();
+            if (sources[i] == kAssetInvalid || !registry) continue;
+            // The next pair often promotes the previous secondary sky to primary.
+            // Reuse that projection; changing blend or rotation never decodes it.
+            const auto existing = std::find(previousSources.begin(), previousSources.end(), sources[i]);
+            if (existing != previousSources.end()) {
+                environmentSH_[i] = previousSH[existing - previousSources.begin()];
+                environmentShLoads_[i] = previousLoads[existing - previousSources.begin()];
+                continue;
+            }
+            if (i == 1 && sources[1] == sources[0]) {
+                environmentSH_[1] = environmentSH_[0];
+                environmentShLoads_[1] = environmentShLoads_[0];
+                continue;
+            }
+            environmentShLoads_[i] = resources_.assetLoader().request(sources[i], AssetLoadPriority::High,
+                AssetPayloadKind::EnvironmentSH, environmentSHDecoder());
         }
-        if (i == 1 && sources[1] == sources[0]) {
-            environmentSH_[1] = environmentSH_[0];
-            continue;
-        }
-        const std::string path = registry->getAbsolutePath(sources[i]);
-        if (!path.empty()) projectEquirectangularSH(path, environmentSH_[i]);
     }
+    for (size_t i=0; i<sources.size(); ++i)
+        if (environmentShLoads_[i].ready())
+            if (auto sh = std::static_pointer_cast<EnvironmentSH>(environmentShLoads_[i].payload()))
+                environmentSH_[i] = *sh;
 }
 
 void Renderer::updateEnvironmentDescriptor(Scene& scene) {
@@ -1369,7 +1378,7 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
 
     {
         SAIDA_PROFILE_SCOPE("UI/UpdateAsyncTextures");
-        uiRenderer_->updateAsyncTextures(encoder);
+        uiRenderer_->updateAsyncTextures(encoder, currentFrame_);
     }
 
     if (giUpdateThisFrame_) {

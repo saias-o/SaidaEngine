@@ -15,6 +15,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <deque>
 
 namespace saida {
 
@@ -50,7 +51,7 @@ public:
     // materials without the cache depending on Material or ResourceManager.
     void finalizePending(std::vector<AssetID>& completed);
     // True while at least one texture is in flight and has not been finalized.
-    bool hasPendingLoads() const { return !pending_.empty() || !uploading_.empty(); }
+    bool hasPendingLoads() const;
 
     AssetID registerMemory(const uint8_t* data, size_t size, bool srgb,
                            rhi::AddressMode address = rhi::AddressMode::Repeat);
@@ -94,6 +95,15 @@ private:
     std::unordered_map<AssetID, std::unique_ptr<Texture>> textures_;
     std::unordered_map<AssetID, PendingTexture> pending_;
     std::unordered_map<AssetID, std::unique_ptr<Texture>> uploading_;
+#ifndef SAIDA_RHI_WEBGPU
+    struct PreparedTexture;
+    struct PreparationQueue;
+    std::unique_ptr<PreparationQueue> preparation_;
+    std::unordered_set<AssetID> preparing_;
+    std::deque<std::unique_ptr<PreparedTexture>> transferring_;
+    uint64_t preparationBytes_ = 0;
+    void pumpPrepared(std::vector<AssetID>& completed);
+#endif
     std::unordered_set<AssetID> failed_;
     std::unordered_map<AssetID, uint64_t> lastUse_;
     std::unique_ptr<Texture> defaultWhite_;

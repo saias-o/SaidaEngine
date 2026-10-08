@@ -233,13 +233,14 @@ void UIRenderer::traverseUI(UINode* node) {
 }
 #endif
 
-void UIRenderer::updateAsyncTextures(rhi::CommandEncoder& encoder) {
+void UIRenderer::updateAsyncTextures(rhi::CommandEncoder& encoder, uint32_t frameSlot) {
     SAIDA_PROFILE_FUNCTION();
 #ifdef SAIDA_RHI_WEBGPU
     (void)encoder;
+    (void)frameSlot;
 #else
     for (auto* wcn : webNodesToUpdate_) {
-        wcn->updateTextureIfNeededAsync(encoder);
+        wcn->updateTextureIfNeededAsync(encoder, frameSlot);
     }
 #endif
 }

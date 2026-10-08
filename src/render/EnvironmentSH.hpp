@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 
 #include <string>
+#include "project/AssetLoader.hpp"
 
 namespace saida {
 
@@ -38,6 +39,7 @@ struct EnvironmentSH {
 //
 // Returns false and leaves `out` untouched when the file cannot be decoded.
 bool projectEquirectangularSH(const std::string& path, EnvironmentSH& out);
+AssetDecoder environmentSHDecoder();
 
 // A neutral, flat environment: the l=0 term only. Used when there is no skybox,
 // so the shader path stays the same rather than branching.

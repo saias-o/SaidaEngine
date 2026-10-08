@@ -18,6 +18,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <thread>
 
 // UI corpus V1: the CPU RmlUi backend renders without a GPU, so every
 // rendering contract (geometry, blend, textures, project stylesheet,
@@ -600,6 +601,46 @@ void testCpuRasterizationCostIsBudgeted() {
     require(perFrameMs < 250.0, "CPU HUD rasterization has not regressed catastrophically");
 }
 
+void testAsyncRasterOwnsItsDrawData() {
+    RmlUiRenderInterface renderer;
+    std::vector<Rml::Vertex> vertices(4);
+    const Rml::Vector2f positions[] = {{0,0},{24,0},{24,16},{0,16}};
+    const Rml::Vector2f uv[] = {{0,0},{2,0},{2,1},{0,1}};
+    for (size_t i=0;i<4;++i) {
+        vertices[i].position=positions[i]; vertices[i].tex_coord=uv[i];
+        vertices[i].colour={128,96,64,128};
+    }
+    const std::vector<int> indices{0,1,2,0,2,3};
+    const std::vector<Rml::byte> pixels{255,0,0,255, 0,128,0,128, 0,0,64,64, 255,255,255,255};
+    const auto geometry=renderer.CompileGeometry(vertices,indices);
+    const auto texture=renderer.GenerateTexture(pixels,{2,2});
+    const auto transform=Rml::Matrix4f::Translate(2.f,1.f,0.f);
+    const auto state=[&] {
+        renderer.EnableScissorRegion(true);
+        renderer.SetScissorRegion(Rml::Rectanglei::FromPositionSize({4,3},{14,9}));
+        renderer.SetTransform(&transform);
+    };
+    renderer.beginFrame(24,16);
+    state();
+    renderer.RenderGeometry(geometry,{0,0},texture);
+    renderer.endFrame();
+    const auto expected=renderer.pixels();
+    require(renderer.beginAsyncFrame(24,16),"async raster accepts a bounded snapshot");
+    state();
+    renderer.RenderGeometry(geometry,{0,0},texture);
+    auto first=renderer.endAsyncFrame();
+    require(renderer.beginAsyncFrame(31,19),"a second canvas can queue while the first draws");
+    renderer.RenderGeometry(geometry,{3,2},texture);
+    auto second=renderer.endAsyncFrame();
+    renderer.ReleaseGeometry(geometry); renderer.ReleaseTexture(texture);
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+    while((!first->ready()||!second->ready())&&std::chrono::steady_clock::now()<deadline)
+        std::this_thread::yield();
+    require(first->ready()&&second->ready(),"queued raster frames finish without a main-thread wait");
+    require(first->pixels()==expected,"worker raster is byte-identical to the synchronous renderer");
+    require(second->width==31&&second->pixels().size()==31*19*4,"canvases retain independent dimensions");
+}
+
 } // namespace
 
 int main() {
@@ -618,6 +659,7 @@ int main() {
     testHudRasterizerEmptyCanvasHasNoContent();
     testVerticalSliceMenuButtonHoverMatchesVisualBox();
     testCpuRasterizationCostIsBudgeted();
+    testAsyncRasterOwnsItsDrawData();
 
     RmlUiRuntime::shutdown();
     std::cout << "[ui-corpus] PASS (" << gChecks << " checks)\n";

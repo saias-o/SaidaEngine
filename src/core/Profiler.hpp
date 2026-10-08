@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <mutex>
@@ -92,8 +93,8 @@ public:
     void beginFrame();
     void endFrame();
 
-    uint32_t beginScope(const char* name);
-    void endScope(uint32_t handle);
+    uint64_t beginScope(const char* name);
+    void endScope(uint64_t handle);
 
     void setCounter(const char* name, double value);
     void addCounter(const char* name, double value);
@@ -115,18 +116,19 @@ public:
 
 private:
     using Clock = std::chrono::steady_clock;
+    static constexpr size_t kFrameHistory = 600;
 
     Profiler() = default;
     double nowMs() const;
 
     mutable std::mutex mutex_;
     std::vector<ProfileFrame> frames_;
+    std::array<Clock::time_point, kFrameHistory> frameStarts_{};
     size_t currentSlot_ = 0;
     uint64_t nextFrameIndex_ = 1;
     Clock::time_point frameStart_{};
     bool frameActive_ = false;
     std::atomic<bool> enabled_{false};
-    static constexpr size_t kFrameHistory = 600;
 };
 
 class ProfileScope {
@@ -137,7 +139,7 @@ public:
     ProfileScope& operator=(const ProfileScope&) = delete;
 
 private:
-    uint32_t handle_ = UINT32_MAX;
+    uint64_t handle_ = UINT64_MAX;
 };
 
 } // namespace saida

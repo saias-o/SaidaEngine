@@ -568,6 +568,24 @@ WebCanvasNode::~WebCanvasNode() {
         clearJsEventListeners();
         Rml::RemoveContext(rmlContextName_);
     }
+    retireGpuResources();
+}
+
+void WebCanvasNode::retireGpuResources() {
+    if (!device_ || !texture_) return;
+    struct RetiredCanvas {
+        std::unique_ptr<Texture> texture;
+        std::vector<std::unique_ptr<Buffer>> staging;
+    };
+    auto retired = std::make_shared<RetiredCanvas>();
+    retired->texture = std::move(texture_); retired->staging = std::move(stagingBuffers_);
+    // Called before the next frame is recorded. The ordered fence retains the
+    // last displayed image and every staging slot used by preceding frames.
+    try { device_->submitUpload([](rhi::vulkan::CommandEncoder&) {}, retired); }
+    catch (const std::exception& e) {
+        Log::error("[WebCanvas] retirement submission failed: ", e.what());
+        device_->waitIdle();
+    }
 }
 
 void WebCanvasNode::init(VulkanDevice& device, uint32_t width, uint32_t height, Mode mode) {
@@ -846,29 +864,38 @@ bool WebCanvasNode::fireTouchEvent(uint64_t id, glm::vec2 position, TouchEvent t
     return handled;
 }
 
-void WebCanvasNode::updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& encoder) {
+void WebCanvasNode::updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& encoder, uint32_t frameSlot) {
     SAIDA_PROFILE_FUNCTION();
     checkHotReload();
-    if (!device_ || !texture_ || !rmlContext_ || !uiDirty_) return;
+    if (!device_ || !texture_ || !rmlContext_) return;
+    if (rasterFrame_ && !rasterFrame_->ready()) return;
+    if (!rasterFrame_) {
+        if (!uiDirty_) return;
+        RmlUiRenderInterface* renderer = RmlUiRuntime::renderer();
+        if (!renderer || !renderer->beginAsyncFrame(width_, height_)) return;
 
-    {
-        SAIDA_PROFILE_SCOPE("WebCanvas/RmlUpdate");
-        rmlContext_->Update();
+        {
+            SAIDA_PROFILE_SCOPE("WebCanvas/RmlUpdate");
+            rmlContext_->Update();
+        }
+        std::vector<std::string> renderDependencies;
+        {
+            SAIDA_PROFILE_SCOPE("WebCanvas/CaptureDraws");
+            RmlDependencyCapture capture(renderDependencies);
+            rmlContext_->Render();
+        }
+        rasterFrame_ = renderer->endAsyncFrame();
+        uiDirty_ = false;
+        appendDocumentWatchers(renderDependencies);
+        return;
     }
-    RmlUiRenderInterface* renderer = RmlUiRuntime::renderer();
-    if (!renderer) return;
 
-    renderer->beginFrame(width_, height_);
-    std::vector<std::string> renderDependencies;
-    {
-        SAIDA_PROFILE_SCOPE("WebCanvas/RmlRender");
-        RmlDependencyCapture capture(renderDependencies);
-        rmlContext_->Render();
-    }
-    renderer->endFrame();
-    appendDocumentWatchers(renderDependencies);
-
-    const std::vector<uint8_t>& pixels = renderer->pixels();
+    auto ready = std::move(rasterFrame_);
+    if (ready->width != width_ || ready->height != height_) { markUiDirty(); return; }
+    const std::vector<uint8_t>* rendered = nullptr;
+    try { rendered = &ready->pixels(); }
+    catch (const std::exception& e) { Log::error("[WebCanvas] raster failed: ", e.what()); return; }
+    const auto& pixels = *rendered;
     if (pixels.empty()) return;
 
     if (!loggedRenderStats_) {
@@ -899,18 +926,20 @@ void WebCanvasNode::updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& enco
     }
 
     const VkDeviceSize byteCount = static_cast<VkDeviceSize>(pixels.size());
-    if (!stagingBuffer_ || stagingBuffer_->size() != byteCount) {
+    if (stagingBuffers_.size() <= frameSlot) stagingBuffers_.resize(frameSlot + 1);
+    auto& staging = stagingBuffers_[frameSlot];
+    // Renderer waited for this slot's fence; other slots may still read theirs.
+    if (!staging || staging->size() != byteCount) {
         SAIDA_PROFILE_COUNTER_ADD("WebCanvas/StagingRecreates", 1);
-        stagingBuffer_ = std::make_unique<Buffer>(*device_, byteCount, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
+        staging = std::make_unique<Buffer>(*device_, byteCount, rhi::BufferUsage::TransferSrc, MemoryUsage::HostVisible);
     }
     {
         SAIDA_PROFILE_SCOPE("WebCanvas/Upload");
-        stagingBuffer_->write(pixels.data(), byteCount);
-        texture_->updatePixelsAsync(encoder, *stagingBuffer_, width_, height_);
+        staging->write(pixels.data(), byteCount);
+        texture_->updatePixelsAsync(encoder, *staging, width_, height_);
     }
     SAIDA_PROFILE_COUNTER_ADD("WebCanvas/Uploads", 1);
     SAIDA_PROFILE_COUNTER_ADD("WebCanvas/UploadBytes", static_cast<double>(byteCount));
-    uiDirty_ = false;
 }
 
 void WebCanvasNode::serialize(nlohmann::json& j, ResourceManager& resources) const {
@@ -1355,7 +1384,8 @@ void WebCanvasNode::createPlaceholderTexture() {
     }
 
     texture_ = std::make_unique<Texture>(*device_, pixels.data(), w, h, rhi::Format::RGBA8Srgb, false);
-    stagingBuffer_.reset();
+    stagingBuffers_.clear();
+    rasterFrame_.reset();
     markUiDirty();
 }
 

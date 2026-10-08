@@ -300,6 +300,12 @@ reused when the previous secondary becomes primary. GI invalidation includes
 the secondary sky, blend and rotation. Each in-flight frame retains both texture
 views and samplers; white is only the missing-primary fallback.
 
+The SH projection is an `EnvironmentSH` AssetLoader payload: native image decode
+and integration run on the asset worker, while Web uses its existing `pump()`.
+The renderer polls ready coefficients without reading image files or projecting
+on the native frame thread. Pending/failed projections use zero coefficients;
+pair promotions retain their handles, and blend/rotation changes reuse them.
+
 ACES produces linear display RGB. The output is encoded to sRGB exactly once:
 an sRGB attachment (normally Vulkan desktop/XR) encodes on store; an 8-bit UNORM
 attachment (WebGPU's surface) uses the shader's IEC sRGB transfer, including its
@@ -564,6 +570,14 @@ and enabled. Its collector belongs exclusively to `saida_editor`; standalone
 desktop and Web players neither link it nor traverse their scenes for these
 diagnostics.
 
+CPU scope handles retain their originating frame and event index. A worker can
+finish after later frames begin, or between frames; its duration is written back
+to the original frame while that frame remains in the 600-frame history. A
+recycled slot is never modified by an older handle. Frame activity and history
+are protected by the profiler mutex. `Profiler/SampleMemory` exposes the cost of
+memory sampling separately; profiler-enabled arrival traces include this
+diagnostic work as well as loading and gameplay.
+
 ### 4.2 AssetRegistry and AssetLoader
 
 `AssetRegistry` is the only base of identities. `AssetLoader` exposes
@@ -580,8 +594,9 @@ for correction in the roadmap. Durable references should use project-relative
 paths wherever their format permits it.
 
 Textures and `.obj` meshes follow this path: worker read/decode on desktop,
-`pump()` on Web, then GPU creation on the main thread. During loading, a fallback
-is visible; a failure uses a magenta checkerboard. Mesh proxies stay stable and
+`pump()` on Web, then the resource-specific preparation and transfer phases
+below. During loading, a fallback is visible; a failure uses a magenta
+checkerboard. Mesh proxies stay stable and
 physics rebuilds the body when the mesh becomes available.
 
 `GLTFLoader::request` uses the same AssetLoader worker for glTF parsing, buffer
@@ -610,12 +625,20 @@ for their requested transfer. This API is used during the main-thread resource
 phase, before recording the next frame.
 
 Embedded textures can use `queueMemoryTexture`: compressed bytes are owned and
-budgeted by the loader, decoded on the worker, then at most one ready texture is
-recorded per resource pump. Native base-level copies and the complete mip chain
-share one asynchronous submission; textures are bound and materials re-bound
-only after completion. Texture image allocation/staging remains indivisible CPU
-work. WebGPU retains its ordered queue writes and CPU mip generation; it has no
-CPU fence waits in this path.
+budgeted by the loader and decoded on the worker. On native, a separate owned
+preparation worker allocates the image/view/sampler and fills immutable staging
+data; it never uses the render thread's command pool, queue or upload tracker.
+At most two preparations/transfers coexist, with a soft 64 MiB base-image
+staging limit; a larger source runs alone, preserving its resolution. The VMA
+allocator retains its internal thread synchronization. Each resource pump records
+at most 2 MiB of base-level rows (at least one whole row), followed by the
+complete mip chain on the last slice. Textures are bound and materials re-bound
+only after the last fence completes. Preparations and partial transfers count
+as pending loads. Allocation/transfer exceptions log the asset and requested
+size, settle to the preallocated missing texture, and preserve resident assets.
+Synchronous constructors retain their explicit wait. WebGPU retains one ready
+image per pump, ordered queue writes and CPU mip generation; it has no CPU fence
+waits in this path. Workers are joined during cache clearing/shutdown.
 `assetLoadsSettled()` includes both CPU jobs and pending GPU geometry/textures;
 CPU Ready alone is not draw/collider readiness. Decoder exceptions become
 Failed handles rather than escaping the worker.
@@ -1827,6 +1850,20 @@ content changes (the rasterizer skips an identical HUD); `saida_ui_corpus_tests`
 publishes this cost (Debug measurement) and the Witness harness's Release hitchMax
 (~0.05 s under full load) stays bounded. A RmlUi GPU backend is a P2
 optimization, re-evaluated if a HUD must re-rasterize full-screen every frame.
+
+Native `WebCanvasNode` captures immutable geometry, texture pixels, transforms
+and scissors on the UI thread, then rasterizes them on an owned CPU worker.
+RmlUi contexts, layout, DOM/QuickJS and input remain on the UI thread. One frame
+per canvas can be pending; the shared worker queues at most four more frames,
+and backpressure leaves the canvas dirty for a later attempt. Mutations during
+a raster job coalesce into the next snapshot while the last completed image
+remains displayed. Resize discards obsolete dimensions. The raster output is
+byte-identical to the synchronous CPU backend, which remains the headless tool
+and Web path. Native upload staging has a separate buffer for each fenced frame
+slot; retired canvases retain image/buffers through an ordered GPU fence.
+Raster workers stop before RmlUi shutdown. Raster completion adds display latency,
+not a main-thread wait; layout, capture, hot reload and UI texture allocation
+can still cost a frame. This does not add a GPU RmlUi backend.
 
 XR — declared fallback (§10, gate P0.3): the XR UI is not a V1 delivery surface;
 its absence is an announced fallback, not a blocker for the gate.

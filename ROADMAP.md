@@ -27,9 +27,22 @@ the corresponding contracts of `SPEC.md`.
   peak main-thread mesh upload time falls from 10.25 to 0.46 ms and texture
   finalization from 12.06 to 2.39 ms. The final Paris trace contains no CPU
   upload/queue waits during its frames; Grenoble retains one 0.40 ms legacy
-  queue wait. Texture image/staging allocation, legacy
-  synchronous registration and startup pipelines can still hitch;
+  queue wait. Legacy synchronous registration and startup pipelines can still hitch;
   target-hardware qualification is still open below.
+
+- [x] Move native texture image/staging preparation, immutable RmlUi CPU raster
+  snapshots and environment diffuse SH projection off the main thread. Bound
+  texture preparations and row transfers; retain UI staging per fenced frame
+  slot and retire canvases through ordered fences. Keep worker profiler scopes
+  attached to their originating frame, even after history-slot reuse.
+  Verified 2026-10-08: native and Web builds, 92 native CTest cases, 128 GPU
+  streaming checks including partial texture readback and rejected allocation,
+  118 UI corpus checks including byte-identical asynchronous snapshots, native
+  exported UI pixels, and HDR/environment pixels in
+  `build-rel/ibl-environment-run/run-mztyuow7`. R1World's local
+  `game/generated/streaming-validation/fluidity-final-*` corpus verifies
+  Paris/Grenoble arrivals and Paris-to-Tunis walking/driving/takeover/teleport.
+  These local RTX 4070 captures do not qualify the i5/GTX 1060 target.
 
 - [x] Encode display RGB once, load the neutral normal as linear data, and make
   diffuse/specular IBL and DDGI misses follow the visible sky pair, exposure and
@@ -407,6 +420,11 @@ Post-V1 unless the scope changes explicitly.
   engine can be handed at any time, and it should name what it could not allocate
   and how much was asked for, then fail the load, rather than take the process
   with it.
+  Native asynchronous TextureCache preparation/transfer now catches these
+  failures and settles to its preallocated missing texture, preserving resident
+  assets. The GPU regression rejects a valid decoded image whose extent exceeds
+  the device limit; it does not force actual VRAM exhaustion. Legacy synchronous
+  constructors and the Web path remain to qualify before closing this entry.
 
 - [ ] Rendering: the Web backend's push-constant ring is too small for a city.
   Driving GTAClone in the Web player logs `rhi::webgpu: push ring exhausted
@@ -432,10 +450,11 @@ Post-V1 unless the scope changes explicitly.
   back-face shading normals. The instance ABI retains its existing size.
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.
-- [ ] Streaming: budget large texture image/staging allocations and the
-  remaining legacy synchronous registrations, then qualify arrivals on the
+- [ ] Streaming: remove the remaining legacy synchronous registrations and
+  startup pipeline hitches, then qualify arrivals on the
   reference hardware. Native queued transfers, mip generation and arena
-  relocation no longer drain the GPU; they do not yet guarantee a 16.7 ms
+  relocation no longer drain the GPU; native texture preparation is bounded
+  and off-thread, with sliced row transfers. They do not yet guarantee a 16.7 ms
   frame, and Web CPU mip generation remains indivisible. Preserve ownership,
   readiness and collider lifetime contracts when extending the transfer path.
 - [ ] Rendering: add a separate clearcoat lobe and evaluate bounded local

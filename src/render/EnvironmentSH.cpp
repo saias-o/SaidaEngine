@@ -8,6 +8,9 @@
 #include <algorithm>
 #include <cmath>
 #include <vector>
+#include <fstream>
+#include <iterator>
+#include <climits>
 
 namespace saida {
 
@@ -41,19 +44,22 @@ struct Image {
     int height = 0;
 };
 
-bool loadHdrOrLdr(const std::string& path, Image& out) {
+bool loadHdrOrLdr(const std::vector<uint8_t>& bytes, Image& out) {
     int w = 0;
     int h = 0;
     int channels = 0;
-    const bool isHdr = stbi_is_hdr(path.c_str()) != 0;
+    if (bytes.empty() || bytes.size() > static_cast<size_t>(INT_MAX)) return false;
+    const auto* input = bytes.data();
+    const int size = static_cast<int>(bytes.size());
+    const bool isHdr = stbi_is_hdr_from_memory(input, size) != 0;
 
     if (isHdr) {
-        float* data = stbi_loadf(path.c_str(), &w, &h, &channels, 3);
+        float* data = stbi_loadf_from_memory(input, size, &w, &h, &channels, 3);
         if (!data) return false;
         out.pixels.assign(data, data + static_cast<size_t>(w) * h * 3);
         stbi_image_free(data);
     } else {
-        stbi_uc* data = stbi_load(path.c_str(), &w, &h, &channels, 3);
+        stbi_uc* data = stbi_load_from_memory(input, size, &w, &h, &channels, 3);
         if (!data) return false;
         out.pixels.resize(static_cast<size_t>(w) * h * 3);
         // An LDR environment is authored in sRGB and sampled as sRGB by the GPU;
@@ -113,15 +119,11 @@ EnvironmentSH uniformEnvironmentSH(const glm::vec3& radiance) {
     return sh;
 }
 
-bool projectEquirectangularSH(const std::string& path, EnvironmentSH& out) {
+static bool projectBytes(const std::vector<uint8_t>& bytes, EnvironmentSH& out) {
     SAIDA_PROFILE_SCOPE("Render/ProjectEnvironmentSH");
 
     Image source;
-    if (!loadHdrOrLdr(path, source)) {
-        Log::warn("EnvironmentSH: cannot decode environment '", path,
-                  "' — diffuse IBL will stay flat");
-        return false;
-    }
+    if (!loadHdrOrLdr(bytes, source)) return false;
 
     Image image;
     downsample(source, image);
@@ -171,6 +173,21 @@ bool projectEquirectangularSH(const std::string& path, EnvironmentSH& out) {
         out.coefficients[i] = glm::vec4(acc[i] * scale[i], 0.0f);
 
     return true;
+}
+
+bool projectEquirectangularSH(const std::string& path, EnvironmentSH& out) {
+    std::ifstream file(path, std::ios::binary);
+    const std::vector<uint8_t> bytes{std::istreambuf_iterator<char>(file), {}};
+    if (projectBytes(bytes, out)) return true;
+    Log::warn("EnvironmentSH: cannot decode environment '", path, "' — diffuse IBL will stay flat");
+    return false;
+}
+AssetDecoder environmentSHDecoder() {
+    return [](std::vector<uint8_t>&& bytes, AssetDecodeResult& out, std::string& error) {
+        auto projection = std::make_shared<EnvironmentSH>();
+        if (!projectBytes(bytes, *projection)) { error = "cannot decode environment projection"; return false; }
+        out.payload = projection; out.bytes = sizeof(EnvironmentSH); return true;
+    };
 }
 
 } // namespace saida
