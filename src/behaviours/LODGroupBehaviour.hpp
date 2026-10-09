@@ -18,6 +18,15 @@ public:
     void setLevels(std::vector<Level> levels);
     const std::vector<Level>& levels() const { return levels_; }
     int activeLevel() const { return active_; }
+    // Coverage plus the finest-level budget, independent of upload readiness.
+    // Updated by updateForView; a streamer uses it to request its next level.
+    int desiredLevel() const { return desired_; }
+    // Runtime-only coverage bounds in the group's local frame. With explicit
+    // bounds, the Near child may stay empty while its geometry is streamed.
+    void setBounds(const Aabb& local);
+    // Runtime-only availability, true by default. A level with an unloaded mesh
+    // is unavailable even when its caller has marked it ready.
+    void setLevelReady(int level, bool ready);
     // The finest level this group may show (0, the default, lets coverage
     // decide alone). Coarser levels still follow coverage. A caller with a
     // budget for its most detailed level -- the few nearest trees of a
@@ -54,13 +63,18 @@ public:
 
 private:
     void resolve();
+    bool levelLoaded(int level) const;
+    bool levelAvailable(int level) const;
+    int availableLevel() const;
     std::vector<Level> levels_;
     std::vector<MeshLodLevel> thresholds_;
     std::vector<Node*> roots_;
+    std::vector<bool> ready_, loaded_;
     Aabb bounds_;
+    bool explicitBounds_ = false, pendingMeshes_ = false;
     uint64_t resolvedRevision_ = 0, resolvedTransformRevision_ = 0;
     static void applyFade(Node* root, float fade);
-    int active_ = -1, selected_ = -1, finest_ = 0;
+    int active_ = -1, selected_ = -1, desired_ = -1, finest_ = 0;
     float crossFade_ = 0.f, progress_ = 1.f;
     int fading_ = -1;
     uint64_t lastFrame_ = 0;

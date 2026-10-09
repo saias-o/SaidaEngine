@@ -37,6 +37,8 @@ layout(set = 0, binding = 1) uniform LightingUBO {
     // position -> (u, v, height in the map's frame); x the light, -1 none.
     mat4 sunOcclusionToMap;
     vec4 sunOcclusion;
+    vec4 rainParams; // intensity, wetness, world seconds, unused
+    vec4 rainUp;     // normalized world-space up shared by both eyes
 } lights;
 
 DECL_SHADOW2DARRAY(0, 2, 8, shadowMap);
@@ -527,16 +529,24 @@ LightTerms accumulate(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, floa
     return accumulateOccluded(N, V, wp, albedo, metallic, roughness, -1, 1.0);
 }
 
-LightTerms accumulateReflectance(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
-                                 float roughness, vec3 dielectricF0, float dielectricF90) {
+LightTerms accumulateReflectanceOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
+                                          float roughness, int occluded, float visibility,
+                                          vec3 dielectricF0, float dielectricF90) {
     LightTerms total = environmentLighting(N, V, albedo, metallic, roughness,
                                            dielectricF0, dielectricF90);
     total.diffuse += giIndirectDiffuse(wp, N, V, albedo);
     for (int i = 0; i < lights.counts.x; ++i) {
         LightTerms t = lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
-                                                 1.0, true, dielectricF0, dielectricF90);
+                                                 i == occluded ? visibility : 1.0, i != occluded,
+                                                 dielectricF0, dielectricF90);
         total.diffuse += t.diffuse;
         total.specular += t.specular;
     }
     return total;
+}
+
+LightTerms accumulateReflectance(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
+                                 float roughness, vec3 dielectricF0, float dielectricF90) {
+    return accumulateReflectanceOccluded(N, V, wp, albedo, metallic, roughness,
+                                          -1, 1.0, dielectricF0, dielectricF90);
 }

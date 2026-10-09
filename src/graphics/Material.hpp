@@ -4,6 +4,7 @@
 
 #include "project/AssetRegistry.hpp"
 #include "rhi/Rhi.hpp"
+#include "graphics/RainSurface.hpp"
 
 #ifdef SAIDA_RHI_WEBGPU
 #include "graphics/Buffer.hpp"
@@ -83,6 +84,7 @@ struct MaterialDesc {
     // (lighting.glsl), so a rough wall beside the glass does not show it.
     float environmentReflection = 0.0f;
     SurfaceVariation variation;
+    RainSurface rain;
     bool doubleSided = false;
     MaterialType type = MaterialType::Lit;
 
@@ -97,7 +99,7 @@ struct MaterialDesc {
                baseColor == o.baseColor && emissiveColor == o.emissiveColor &&
                metallic == o.metallic && roughness == o.roughness && ao == o.ao &&
                alphaCutoff == o.alphaCutoff && normalStrength == o.normalStrength &&
-               variation == o.variation && doubleSided == o.doubleSided && type == o.type;
+               variation == o.variation && rain == o.rain && doubleSided == o.doubleSided && type == o.type;
     }
 };
 
@@ -134,6 +136,8 @@ struct hash<saida::MaterialDesc> {
         combine(std::hash<float>()(d.normalStrength));
         combine(std::hash<float>()(d.variation.warp)); combine(std::hash<float>()(d.variation.macroScale));
         combine(std::hash<float>()(d.variation.macroAlbedo)); combine(std::hash<float>()(d.variation.macroNormal));
+        combine(std::hash<float>()(d.rain.reception)); combine(std::hash<float>()(d.rain.puddleAmount));
+        combine(std::hash<float>()(d.rain.rippleStrength)); combine(std::hash<float>()(d.rain.wetDarkening));
         combine(std::hash<bool>()(d.doubleSided));
         combine(std::hash<uint32_t>()(static_cast<uint32_t>(d.type)));
         return h;

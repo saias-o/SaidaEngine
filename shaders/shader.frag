@@ -3,6 +3,7 @@
 
 #include "lighting.glsl"
 #include "surface_variation.glsl"
+#include "rain_ripples.glsl"
 
 #ifdef BINDLESS
 
@@ -24,6 +25,7 @@ layout(set = 1, binding = 3) uniform MaterialUBO {
     vec4 variation;  // MaterialDesc::variation
     vec4 detail;     // x normal strength, y environment reflection
     vec4 specular;   // rgb dielectric F0, a dielectric lobe strength
+    vec4 rain;       // reception, puddle amount, ripple slope, darkening
 } material;
 DECL_TEX2D(1, 4, 8, texEmissive);
 DECL_TEX2D(1, 9, 11, texSpecularColor);
@@ -70,6 +72,11 @@ void main() {
     vec2 uvDy = dFdy(fragTexCoord);
     vec2 nextDx = dFdx(fragBillboardView.xy);
     vec2 nextDy = dFdy(fragBillboardView.xy);
+    vec3 rainDx = vec3(0.0), rainDy = vec3(0.0);
+    if (max(lights.rainParams.x, lights.rainParams.y) > 0.0) {
+        rainDx = dFdx(fragWorldPos);
+        rainDy = dFdy(fragWorldPos);
+    }
 #ifdef BINDLESS
     if (lodFadeHides(fragLodFade)) discard;
 #else
@@ -219,6 +226,14 @@ void main() {
     // This preserves conversions from specular-glossiness with high/zero IOR.
     float dielectricF90 = clamp(reflectance.a, 0.0, 1.0);
     vec3 dielectricF0 = clamp(reflectance.rgb, vec3(0.0), vec3(1.0)) * dielectricF90;
+    vec3 geometricNormal = gl_FrontFacing ? normalize(fragNormal) : -normalize(fragNormal);
+#ifdef BINDLESS
+    vec4 rainReception = mat.rain;
+#else
+    vec4 rainReception = material.rain;
+#endif
+    applyRainSurface(fragWorldPos, geometricNormal, rainDx, rainDy, rainReception,
+                     N, albedo, roughness, dielectricF0, dielectricF90);
 
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
 

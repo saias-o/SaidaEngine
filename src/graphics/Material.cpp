@@ -24,6 +24,7 @@ struct MaterialParams {
     glm::vec4 variation; // SurfaceVariation: warp, macroScale, macroAlbedo, macroNormal
     glm::vec4 detail;    // xy normal/reflection, zw specular texture presence
     glm::vec4 specular;  // rgb dielectric F0, a dielectric lobe strength
+    glm::vec4 rain;      // reception, puddle amount, ripple slope, darkening
 };
 
 MaterialParams paramsOf(const MaterialDesc& d) {
@@ -32,8 +33,9 @@ MaterialParams paramsOf(const MaterialDesc& d) {
             glm::vec4(d.normalStrength, d.environmentReflection,
                       d.specularColorId != kAssetInvalid ? 1.f : 0.f,
                       d.specularStrengthId != kAssetInvalid ? 1.f : 0.f),
-            glm::vec4(d.dielectricF0, d.specularStrength)};
+            glm::vec4(d.dielectricF0, d.specularStrength), d.rain.parameters()};
 }
+static_assert(sizeof(MaterialParams) == 112, "MaterialParams must match classic/Web MaterialUBO");
 }
 
 Material::Material(rhi::Device& device, ResourceManager& manager, const MaterialDesc& desc)

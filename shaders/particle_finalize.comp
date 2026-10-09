@@ -12,6 +12,8 @@ struct Particle {
     vec4 colorB;
     vec4 sizeRotation;
     vec4 renderParams;
+    vec4 gravity;
+    vec4 attractor;
 };
 
 struct Emitter {
@@ -24,6 +26,7 @@ struct Emitter {
     vec4 detail;
     vec4 forces;
     vec4 attractor;
+    vec4 initialVelocity;
 };
 
 layout(std430, set = 0, binding = 0) buffer ParticleBuffer { Particle particles[]; };

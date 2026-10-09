@@ -64,8 +64,16 @@ bool sphereInAnyFrustum(const std::array<Frustum, 2>& frustums, uint32_t count,
     return false;
 }
 
+bool hasInitialVelocity(const ParticleSystemNode& emitter) {
+    const glm::vec3& velocity = emitter.initialVelocity;
+    return emitter.useInitialVelocity && std::isfinite(velocity.x) &&
+        std::isfinite(velocity.y) && std::isfinite(velocity.z) && std::isfinite(glm::length(velocity));
+}
+
 float emitterCullRadius(const ParticleSystemNode& emitter) {
-    const float travel = std::max(0.0f, emitter.startSpeed) * std::max(0.0f, emitter.lifetime);
+    const float speed = hasInitialVelocity(emitter) ? glm::length(emitter.initialVelocity)
+        : std::max(0.0f, emitter.startSpeed);
+    const float travel = speed * std::max(0.0f, emitter.lifetime);
     const float gravityTravel = 0.5f * glm::length(emitter.gravity) * emitter.lifetime * emitter.lifetime;
     const float shapeRadius = std::max(emitter.radius, glm::length(emitter.boxExtents));
     return std::max(0.1f, shapeRadius + travel + gravityTravel + emitter.startSize * emitter.stretch * 2.0f);
@@ -101,6 +109,8 @@ ParticleRuntime::GpuEmitter makeGpuEmitter(const ParticleSystemNode& emitter,
                            emitter.attractorStrength);
     gpu.attractor = glm::vec4(emitter.attractorPosition,
                               static_cast<float>(emitter.effectClass));
+    gpu.initialVelocity = hasInitialVelocity(emitter)
+        ? glm::vec4(emitter.initialVelocity, 1.0f) : glm::vec4(0.0f);
     return gpu;
 }
 

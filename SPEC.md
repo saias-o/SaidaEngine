@@ -584,6 +584,38 @@ material authoring subset is unchanged; these values are recovered from glTF.
 `tools/verify_specular_materials.py` checks rendered zero-strength, IOR,
 sRGB-color, linear-alpha and colored-reflectance cases.
 
+Runtime precipitation shading is generic engine functionality. SceneSettings
+`rainIntensity` and `wetness` are independent finite values clamped to [0,1];
+`rainUpDirection` defines the receiving plane (invalid directions fall back to
+world Y). `MaterialDesc::rain` opts a material in with `reception` (default 0),
+`puddleAmount`, `rippleStrength` and `wetDarkening`, each clamped to [0,1] for
+the GPU. The shared `rain_ripples.glsl` adds expanding impact rings, a wet film
+and irregular puddle patches to lit classic/bindless meshes and native bindless
+terrain materials. The terrain fallback without descriptor indexing retains its
+existing albedo/roughness path without per-material rain reception. The water
+shader also receives impact rings. Vertical and downward
+geometric faces reject the hard-surface effect; normal maps cannot override
+that mask. The effect changes normals, roughness, albedo and dielectric
+reflectance, using existing PBR illumination and environment reflections.
+It adds no geometry, textures, screen-space pass or scene reflection backend.
+
+Impact centres and ages use world metres and a shared frame clock, independent
+of mesh UVs, screen pixels and XR eye index. Pixel footprint filtering removes
+subpixel rings, including at grazing angles. The same GLSL runs on native,
+multiview and translated WebGPU paths. These settings and material responses
+are C++ runtime controls, not durable authoring fields or script scene settings.
+Callers control accumulated wetness, drying and precipitation shelter; this is
+visual shading rather than a hydraulic puddle simulation or roof exposure map.
+
+SceneSettings `stormCloudCover` (runtime, finite [0,1]) adds an angular layer of
+rain bases, cumuliform towers, anvils and a thickening ceiling over the authored
+HDR sky. It uses fixed shader work without volume ray marching, retains the
+original sky exactly at zero, and derives cloud illumination from the current
+HDR pair so night stays dark. Cloud opacity attenuates the Sun disc. Both XR
+eyes use the same world direction field, with unchanged push-constant sizes.
+The procedural cloud layer affects the visible sky; image-based reflections
+continue to sample the selected HDR pair.
+
 `GrassNode` (desktop only, like `TerrainRingsNode`) draws grass blades around
 the camera with no geometry: the caller gives a field -- a heightfield of up to
 65 x 65 node-local heights over the unit square of a parameter (u, v), split
@@ -885,6 +917,20 @@ group may show: coverage still chooses, and the group shows the coarser of its
 choice and `n`. A caller that budgets its most detailed level, such as the few
 nearest trees of a forest, holds every other group at the next level with it.
 Hysteresis follows the coverage choice, so a released group returns to its own level at once.
+A loaded previous representation may remain only as the outgoing cross-fade
+when this limit becomes stricter; its visibility ends when the fade completes.
+For streamed representations, `setBounds(Aabb)` supplies finite ordered bounds
+in the group's local frame, allowing an empty Near child before its upload.
+`desiredLevel()` reports the coverage/hysteresis choice constrained by the
+finest-level budget; `setLevelReady(index, bool)` controls runtime availability
+and defaults to true for every configured level. A representation containing an
+unloaded mesh remains unavailable regardless of that flag. While the desired
+level is unavailable, the group keeps its current ready representation within
+the finest-level budget; otherwise it chooses an available coarser fallback,
+then an available finer one within that budget. When the desired upload becomes
+ready, the normal cross-fade transfers visibility; callers retain both
+`activeLevel()` and `fadingLevel()` until the fade completes before releasing
+their geometry. Bounds and readiness are runtime-only and are not serialized.
 
 `saida_scene_streaming_tests` covers branch invalidation, reference ownership,
 reparenting/removal, fixed-step callbacks, rebasing and snapshot round trips.
@@ -951,6 +997,15 @@ scale/rotation residual, avoiding subtraction of large world translations.
 Colliders built millions of metres from the origin therefore retain their local
 geometry after rebasing. Covered by the distant-frame mesh regression in
 `saida_scene_streaming_tests --gpu`, including a translated and scaled child.
+`CollisionShapeNode::setTriangleMeshData(shared_ptr<const MeshCollisionData>)`
+supplies immutable procedural triangles in the owning body's local frame,
+independently of rendered meshes and visual LOD residency. It selects the static
+Mesh shape, validates finite positions and complete in-range indices, retains
+the CPU data, and rebuilds the live shape when data or body scale changes. Null
+restores discovery from rendered meshes, including the existing box fallback
+when none exist. This geometry is runtime-only and is not serialized. Headless
+`saida_physics_query_joint_tests` covers portals, two-sided queries, nonuniform
+scale, data replacement/clear, rejection and distant-frame rebasing.
 `Box`, `Sphere` and `Capsule` carry their own dimensions and read no mesh: they
 never wait for a loading mesh and never walk the body's subtree, so a frame
 costs a compound of N such shapes N visits, not N² (covered by
@@ -2014,18 +2069,24 @@ budget, spawn rate, lifetime, initial velocity/size, start/end colors, gravity,
 radius, emissive, blend `Alpha/Additive`, looping/playing and `effectPath`. Slots:
 `play`, `stop`, `burst`, `applyEffectPreset`, `loadEffect`; signal `finished`.
 
-The V1 CPU path renders HDR billboards, rotation/stretch, alpha/additive, compacts
-in one pass, reserves per emitter, reduces the cadence at distance and frustum
-culls on desktop/stereo. The executed modules cover Point/Sphere/Disc/Box/Cone/
-Ring shapes, burst, drag, noise/turbulence, attractor, size-end and stretch. The
-templates live under `assets/fx`; the `QualityTier` budgets and overdraw/mobile/XR
-warnings are exposed.
+The scene path executes GPU emission/simulation and indirect HDR billboard
+draws, with separate alpha/additive batches, a `deadIndices` freelist, per-frame
+emitter upload and compute-to-draw barriers. Emitter visibility uses desktop or
+both stereo frustums, with reduced simulation cadence at distance and quality
+budgets. The executed shapes are Point/Sphere/Disc/Box/Cone/Ring; burst, drag,
+gravity, attractor, size-end and stretch drive the GPU particles. Templates
+live under `assets/fx`; `QualityTier` budgets and overdraw/mobile/XR warnings
+are exposed. Noise/turbulence authoring fields are not GPU force modules yet.
 
-The GPU runtime has buffers, descriptors, a `deadIndices` freelist, counter reset,
-host-visible upload, emit/sim dispatch and compute barriers; the shaders
-`particle_emit.comp`, `particle_sim.comp` and desktop/multiview render exist. The
-draw still uses the packed CPU buffer: upload from `ParticleFeature`, indirect
-draw, buckets per blend and real GPU execution remain to be wired.
+`ParticleSystemNode::useInitialVelocity` and `initialVelocity` optionally supply
+an exact world-space launch velocity through the C++ runtime API; defaults
+retain preset direction and speed jitter. Each particle retains its own
+emitter's gravity and attractor at birth, so mixed rain/snow or other emitters
+cannot acquire the first batch emitter's forces. Rain billboards follow actual
+velocity, foreshorten along the view direction and use a tapered alpha streak;
+mono and multiview share simulation and world centres. This adds neither soft
+depth particles nor general particle collision. The CPU packed-particle upload
+API remains available, but is not the scene emitter simulation path.
 
 V1 does not depend on a full graph editor. Remaining as extensions: compilation of
 the JSON modules into structs, `SubEmitter`, atlas/flipbook, alpha sorting, soft

@@ -6,6 +6,7 @@
 #endif
 
 #include "web_compat.glsl"
+#include "storm_clouds.glsl"
 
 layout(location = 0) in vec2 inUV;
 layout(location = 1) in vec4 clipPos;
@@ -27,7 +28,7 @@ layout(push_constant) uniform PushConsts {
     float blend;
     float blendRotation;
     vec4 sunDirection;  // xyz toward the Sun, w angular radius in radians
-    vec4 sunColor;      // linear radiance; black draws no disc
+    vec4 sunColor;      // rgb radiance; w runtime storm cloud cover
 } push;
 #define INV_VIEW_PROJ push.invViewProj[gl_ViewIndex]
 #else
@@ -38,7 +39,7 @@ PUSH_QUALIFIER PushConsts {
     float blend;
     float blendRotation;
     vec4 sunDirection;  // xyz toward the Sun, w angular radius in radians
-    vec4 sunColor;      // linear radiance; black draws no disc
+    vec4 sunColor;      // rgb radiance; w runtime storm cloud cover
 } push;
 #define INV_VIEW_PROJ push.invViewProj
 #endif
@@ -69,6 +70,24 @@ void main() {
     }
     color *= push.exposure;
 
+    float sunTransmission = 1.0;
+    if (push.sunColor.w > 0.0) {
+        // Low-frequency sky light keeps stars and HDR highlights from painting
+        // isolated bright speckles onto the cloud ceiling at night.
+        vec3 cloudLight = textureLod(TEX2D(skyboxTex),equirect(dir,push.rotation),4.0).rgb;
+        if (push.blend > 0.0) {
+            vec3 otherLight = textureLod(TEX2D(blendTex),equirect(dir,push.blendRotation),4.0).rgb;
+            cloudLight = mix(cloudLight,otherLight,clamp(push.blend,0.0,1.0));
+        }
+        vec4 cloud = stormCloudLayer(dir,normalize(push.sunDirection.xyz),push.sunColor.w,
+                                    cloudLight * push.exposure);
+        color = mix(color,cloud.rgb,cloud.a);
+        // A thick rain cloud hides the high-radiance Sun disc completely. Its
+        // opacity cannot simply multiply the disc: one percent of a Sun still
+        // burns a white hole through the darkest cloud after tonemapping.
+        sunTransmission = exp(-28.0 * cloud.a);
+    }
+
     // The Sun disc, in world space and outside the sky's exposure: the exposure
     // normalises photographs, the disc is a radiance of its own.
     float radius = push.sunDirection.w;
@@ -80,7 +99,7 @@ void main() {
             // real photosphere shows: brightest at the centre, dimmer at the rim.
             float edge = 1.0 - smoothstep(0.95, 1.05, r);
             float mu = sqrt(max(1.0 - r * r, 0.0));
-            color += push.sunColor.rgb * edge * (0.4 + 0.6 * mu);
+            color += push.sunColor.rgb * edge * (0.4 + 0.6 * mu) * sunTransmission;
         }
     }
     

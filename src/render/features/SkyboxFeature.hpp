@@ -15,7 +15,8 @@ namespace saida {
 // Equirectangular skybox. Owns its own descriptor set (the environment texture,
 // and the second sky it crossfades into — `SceneSettings::skyboxBlend`) and draws a fullscreen triangle at the far plane. Handles both the mono (desktop)
 // and stereo (XR multiview, per-eye via gl_ViewIndex) paths; in XR passthrough the
-// sky is skipped so the real world shows through.
+// sky is skipped so the real world shows through. A runtime storm-cloud cover
+// overlays the HDR sky without changing its authored textures or descriptors.
 class SkyboxFeature : public ScenePassFeature {
 public:
     ~SkyboxFeature() override;
@@ -31,6 +32,8 @@ private:
         glm::mat4 invViewProj[2]; float exposure; float rotation; float blend; float blendRotation;
         glm::vec4 sunDirection; glm::vec4 sunColor;
     };
+    static_assert(sizeof(MonoPush) == 112, "Skybox mono push layout must match GLSL");
+    static_assert(sizeof(StereoPush) == 176, "Skybox XR push layout must match GLSL");
 
     rhi::Device* device_ = nullptr;
     ResourceManager* resources_ = nullptr;

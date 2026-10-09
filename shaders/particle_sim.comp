@@ -12,6 +12,8 @@ struct Particle {
     vec4 colorB;
     vec4 sizeRotation;
     vec4 renderParams;
+    vec4 gravity;
+    vec4 attractor;
 };
 
 struct Emitter {
@@ -24,6 +26,7 @@ struct Emitter {
     vec4 detail;
     vec4 forces;
     vec4 attractor;
+    vec4 initialVelocity;
 };
 
 layout(std430, set = 0, binding = 0) buffer ParticleBuffer { Particle particles[]; };
@@ -83,18 +86,10 @@ void main() {
         return;
     }
 
-    vec3 gravity = vec3(0.0, -9.81, 0.0);
-    vec3 attractor = vec3(0.0);
-    float attractorStrength = 0.0;
-    if (push.emitterCount > 0u) {
-        gravity = emitters[0].gravityLifetime.xyz;
-        attractor = emitters[0].attractor.xyz;
-        attractorStrength = emitters[0].forces.w;
-    }
-
-    vec3 acceleration = gravity;
+    vec3 acceleration = p.gravity.xyz;
+    float attractorStrength = p.attractor.w;
     if (attractorStrength != 0.0) {
-        vec3 toAttractor = attractor - p.positionAge.xyz;
+        vec3 toAttractor = p.attractor.xyz - p.positionAge.xyz;
         float d2 = dot(toAttractor, toAttractor);
         if (d2 > 0.0001) acceleration += normalize(toAttractor) * attractorStrength;
     }

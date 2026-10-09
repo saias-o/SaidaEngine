@@ -7,6 +7,7 @@
 // tonemap pass's, from depth, like everything else drawn.
 
 #include "lighting.glsl"
+#include "rain_ripples.glsl"
 #include "terrain_rings.glsl"
 #include "water_types.glsl"
 #include "water_shading.glsl"
@@ -41,6 +42,11 @@ bool insideHole(vec4 ab, vec4 cd, vec2 p) {
 void main() {
     GpuTerrain t = terrains.items[push.slot];
     float footprint = waterFootprint(fragWorldPos, normalize(fragNormal));
+    vec3 rainDx = vec3(0.0), rainDy = vec3(0.0);
+    if (max(lights.rainParams.x, lights.rainParams.y) > 0.0) {
+        rainDx = dFdx(fragWorldPos);
+        rainDy = dFdy(fragWorldPos);
+    }
 #ifdef BINDLESS
     vec3 dx = dFdx(fragLocalPos), dy = dFdy(fragLocalPos);
 #endif
@@ -76,6 +82,7 @@ void main() {
     vec4 layer = fragSurface;
     vec3 N = normalize(fragNormal);
     float metallic = 0.0;
+    vec4 rainReception = vec4(0.0);
 #ifdef BINDLESS
     TerrainSurface surface = terrainSurface(t, levelBase(push.slot, push.level),
         (fragLocalXZ - level.xy) / level.z, fragLocalPos, normalize(fragLocalNormal), dx, dy);
@@ -90,14 +97,21 @@ void main() {
             surface.normal = normalize(mix(surface.normal, coarse.normal, blend));
             surface.roughness = mix(surface.roughness, coarse.roughness, blend);
             surface.metallic = mix(surface.metallic, coarse.metallic, blend);
+            surface.rain = mix(surface.rain, coarse.rain, blend);
         }
     }
     layer = vec4(surface.albedo, surface.roughness);
     N = normalize(mat3(t.localToWorld) * surface.normal);
     metallic = surface.metallic;
+    rainReception = surface.rain;
 #endif
+    vec3 dielectricF0 = vec3(0.04);
+    float dielectricF90 = 1.0;
+    applyRainSurface(fragWorldPos, normalize(fragNormal), rainDx, rainDy, rainReception,
+                     N, layer.rgb, layer.a, dielectricF0, dielectricF90);
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
-    LightTerms lit = accumulateOccluded(N, V, fragWorldPos, layer.rgb, metallic, layer.a,
-                                        int(t.sun.w + 0.5) - 1, clamp(fragSunlight, 0.0, 1.0));
+    LightTerms lit = accumulateReflectanceOccluded(N, V, fragWorldPos, layer.rgb, metallic, layer.a,
+                                        int(t.sun.w + 0.5) - 1, clamp(fragSunlight, 0.0, 1.0),
+                                        dielectricF0, dielectricF90);
     outColor = mix(vec4(lit.diffuse + lit.specular, 1.0),waterColor,waterWeight);
 }

@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-08. This file is the engine's **single backlog**: everything
+Updated: 2026-10-09. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -9,7 +9,30 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
-## Streaming and rendering integration — verified through 2026-10-08
+## Streaming and rendering integration — verified through 2026-10-09
+
+- [x] Add generic runtime rainfall and wet-surface shading, filtered world-space
+  impact rings, opt-in material responses and procedural storm sky clouds.
+  Share the equations across mono, multiview and translated Web shaders. Keep
+  per-particle emitter forces and support exact runtime launch velocities for
+  wind-driven rain. Verified 2026-10-09: optimized native build, 94/94 CTest,
+  99 hidden Vulkan weather pixel checks with 18 captures and visual inspection,
+  53 GPU
+  particle state checks, and complete native/Web SPIR-V and WGSL generation.
+  R1World's weather interpreter passes six CPU cases and the game compiles
+  without launch. Evidence: `game/generated/rain-validation` in R1World.
+  Headset output and reference-laptop performance were not measured; procedural
+  storm clouds do not replace the HDR images used for environment reflections.
+
+- [x] Stream child LOD representations using explicit local bounds and runtime
+  readiness, preserving a loaded fallback and the outgoing fade when the
+  finest-level limit changes. Accept immutable CPU triangle collision data
+  independently of rendered geometry. Verified 2026-10-09: 92/92 native CTest,
+  226 GPU streaming checks, CPU collision doorway/scale/replacement/rebase
+  regressions, and R1World's offline Paris/Grenoble captures, Tunis interior
+  traversal and Paris-to-Tunis walk/drive/teleport in
+  `game/generated/building-lod-validation`. These are implementation checks
+  on the current desktop, not a reference-laptop performance qualification.
 
 - [x] Generic camera-facing multi-view glTF atlas materials with coarse live
   ambient/directional lighting. Verified 2026-10-09: native orientation, atlas
@@ -47,7 +70,7 @@ the corresponding contracts of `SPEC.md`.
   finalization from 12.06 to 2.39 ms. The final Paris trace contains no CPU
   upload/queue waits during its frames; Grenoble retains one 0.40 ms legacy
   queue wait. Legacy synchronous registration and startup pipelines can still hitch;
-  target-hardware qualification is still open below.
+  these captures do not demonstrate R1World's whole-world performance target.
 
 - [x] Move native texture image/staging preparation, immutable RmlUi CPU raster
   snapshots and environment diffuse SH projection off the main thread. Bound
@@ -61,7 +84,8 @@ the corresponding contracts of `SPEC.md`.
   `build-rel/ibl-environment-run/run-mztyuow7`. R1World's local
   `game/generated/streaming-validation/fluidity-final-*` corpus verifies
   Paris/Grenoble arrivals and Paris-to-Tunis walking/driving/takeover/teleport.
-  These local RTX 4070 captures do not qualify the i5/GTX 1060 target.
+  These local RTX 4070 captures do not qualify R1World's reference Ryzen 7
+  5700U / MX450 target: sustained 30 fps at 1920x1080 everywhere in the world.
 
 - [x] Encode display RGB once, load the neutral normal as linear data, and make
   diffuse/specular IBL and DDGI misses follow the visible sky pair, exposure and
@@ -481,7 +505,7 @@ Post-V1 unless the scope changes explicitly.
   166 scene streaming GPU checks, including the added camera/TRS regressions.
   An isolated R1World Paris arrival pair at 1080p measures normal frame mean
   45.83 -> 39.05 ms and camera selection 13.18 -> 9.89 ms; it does not qualify
-  reference hardware or sustained 60 fps.
+  sustained 30 fps worldwide on the reference Ryzen 7 5700U / MX450.
 - [x] Grass fields accept shared north/south boundary knots; blade height and
   slope follow the refined triangle fans. Validate regular vertices, ordering,
   finite heights and bounded sample count; upload on field revision only.
@@ -491,21 +515,6 @@ Post-V1 unless the scope changes explicitly.
   recomposed tree; body identities survive. The final native scene streaming
   test passes 78 checks, including a distant-frame collision regression and
   direct parent edits. The GPU rerun is still pending.
-- [ ] Streaming: qualify arrivals on the reference hardware. Portable MX450
-  validation started on 8 October 2026 (R1World PLAN): native tests and the Tunis
-  home and offline Paris-to-Tunis gameplay checks pass. Frame-time comparison
-  remains open: the first after captures shared the GPU with another live game
-  and are discarded; a later isolated Paris pair shows the gain above. The
-  laptop lacks the installed relief layer. Repeat with complete data,
-  only one player process, no build running and explicit 1920x1080 output.
-  R1World v37 implements shared terrain boundary knots and precise placement;
-  the Grenoble gameplay rerun remains open in its PLAN/README. Further runs
-  stopped at the user's request to test the player manually.
-  Native queued transfers, mip generation and arena
-  relocation no longer drain the GPU; native texture preparation is bounded
-  and off-thread, with sliced row transfers. They do not yet guarantee a 16.7 ms
-  frame, and Web CPU mip generation remains indivisible. Preserve ownership,
-  readiness and collider lifetime contracts when extending the transfer path.
 - [ ] Rendering: add a separate clearcoat lobe and evaluate bounded local
   reflections for smooth materials. The current PBR path reflects the HDR sky
   only (SPEC 4.1); automotive paint and nearby street reflections remain a

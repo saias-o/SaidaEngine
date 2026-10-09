@@ -16,6 +16,7 @@
 #include "graphics/PipelineBatch.hpp"
 #include "core/Paths.hpp"
 #include "core/Profiler.hpp"
+#include "core/Time.hpp"
 #include "render/PostProcessor.hpp"
 #include "scene/GLTFLoader.hpp"
 #include <glm/gtc/matrix_transform.hpp>
@@ -39,6 +40,7 @@
 #include <chrono>
 #include <thread>
 #include <cstring>
+#include <limits>
 
 using namespace saida;
 namespace {
@@ -351,6 +353,150 @@ void groupContract() {
         loaded.load(saved);
         require(loaded.crossFade() == .5f, "cross-fade survives serialization");
     }
+}
+
+void streamedGroupContract() {
+    Scene scene;
+    auto* root = scene.createChild<Node>("Building");
+    auto* close = root->createChild<Node>("Near");
+    auto* middle = root->createChild<Node>("Mid");
+    auto* far = root->createChild<Node>("Far");
+    auto* group = root->addBehaviour<LODGroupBehaviour>();
+    group->setLevels({{"Near", .1f}, {"Mid", .01f}, {"Far", 0.f}});
+    const Aabb bounds{glm::vec3(-1.f), glm::vec3(1.f)};
+    group->setBounds(bounds);
+    group->setCrossFade(.5f);
+    scene.update(.01f);
+    const auto projection = glm::perspective(glm::radians(60.f), 1.f, .1f, 1000.f);
+    const glm::mat4 view(1.f);
+    uint64_t frame = 0;
+    auto update = [&](float distance, float dt = .1f) {
+        root->transform().position = {0.f, 0.f, -distance};
+        scene.update(0.f);
+        Time::advance(dt);
+        group->updateForView(view, projection, ++frame);
+        scene.refreshHierarchy();
+    };
+    for (int level = 0; level < 3; ++level) group->setLevelReady(level, false);
+    require(group->desiredLevel() == -1, "a streamed group has no desired level before its first view");
+    update(5.f);
+    require(group->desiredLevel() == 0 && group->activeLevel() == -1,
+            "explicit bounds select Near while every child is empty and unavailable");
+    require(!close->visible() && !middle->visible() && !far->visible(),
+            "unavailable representations stay hidden");
+    group->setFinestLevel(1);
+    group->setLevelReady(2, true);
+    update(5.f);
+    require(group->desiredLevel() == 1 && group->activeLevel() == 2 && far->visible(),
+            "Far provides a cold initial fallback within the finest-level budget");
+    group->setFinestLevel(0);
+    update(5.f);
+    require(group->desiredLevel() == 0 && group->activeLevel() == 2,
+            "releasing a cold finest-level budget requests Near while keeping ready Far");
+    group->setLevelReady(1, true);
+    update(5.f);
+    require(group->activeLevel() == 2 && group->fadingLevel() == -1,
+            "a ready Mid does not replace the existing Far while desired Near is unavailable");
+    group->setLevelReady(0, true);
+    update(5.f);
+    require(group->activeLevel() == 0 && group->fadingLevel() == 2 && close->visible() && far->visible(),
+            "the requested upload cross-fades from its available fallback");
+    update(100.f, .025f);
+    require(group->activeLevel() == 2 && group->fadingLevel() == 0 && close->visible() && far->visible(),
+            "a streamed fade reverses when coverage returns to the outgoing level");
+    update(5.f, .025f);
+    require(group->activeLevel() == 0 && group->fadingLevel() == 2,
+            "a streamed fade can reverse again without losing either representation");
+    group->setLevelReady(0, false);
+    update(5.f);
+    require(group->activeLevel() == 1 && group->fadingLevel() == -1 && middle->visible() && !far->visible(),
+            "an unavailable incoming level cancels its fade and restores a complete ready fallback");
+    group->setLevelReady(0, true);
+    update(5.f);
+    require(group->activeLevel() == 0 && group->fadingLevel() == 1,
+            "a reloaded requested level cross-fades from the fallback");
+    update(5.f, .5f);
+    require(group->activeLevel() == 0 && group->fadingLevel() == -1 && close->visible() && !middle->visible(),
+            "a completed streamed fade exposes only the requested representation");
+    update(100.f);
+    require(group->fadingLevel() == 0, "a streamed coarser transition retains the outgoing Near");
+    group->updateForView(view, projection, 0);
+    require(group->fadingLevel() == -1 && far->visible() && !close->visible(),
+            "a camera cut completes an existing streamed fade immediately");
+    update(5.f);
+    group->setCrossFade(0.f);
+    group->setLevelReady(1, false);
+    update(50.f);
+    require(group->desiredLevel() == 1 && group->activeLevel() == 0 && close->visible(),
+            "a coarser upload pending retains the previous available representation");
+    group->setFinestLevel(1);
+    update(50.f);
+    require(group->desiredLevel() == 1 && group->activeLevel() == 2 && !close->visible() && far->visible(),
+            "a finest-level budget rejects a finer fallback");
+    group->setLevelReady(2, false);
+    update(50.f);
+    require(group->activeLevel() == -1 && !close->visible(),
+            "no allowed fallback never exposes a level finer than the budget");
+    group->setLevelReady(1, true);
+    update(50.f);
+    require(group->activeLevel() == 1 && middle->visible(), "a completed coarser upload becomes visible");
+    group->setFinestLevel(0);
+    update(5.f);
+    require(group->desiredLevel() == 0 && group->activeLevel() == 0,
+            "releasing the finest-level budget immediately returns to coverage selection");
+    group->setCrossFade(.3f);
+    group->setFinestLevel(1);
+    update(5.f);
+    require(group->activeLevel() == 1 && group->fadingLevel() == 0 && close->visible(),
+            "a stricter finest-level budget fades out the loaded previous representation");
+    update(5.f, .5f);
+    require(group->fadingLevel() == -1 && !close->visible() && middle->visible(),
+            "the finer outgoing representation releases visibility after its budget transition");
+    group->setFinestLevel(0);
+    group->setCrossFade(0.f);
+    // For this unit box and projection, coverage is 36 / distance squared.
+    update(std::sqrt(36.f / .095f));
+    require(group->desiredLevel() == 0, "streaming availability preserves Near coverage hysteresis");
+    update(std::sqrt(36.f / .08f));
+    require(group->desiredLevel() == 1, "coverage below the hysteresis band requests Mid");
+    update(std::sqrt(36.f / .105f));
+    require(group->desiredLevel() == 1, "streaming availability preserves Mid coverage hysteresis");
+    update(std::sqrt(36.f / .12f));
+    require(group->desiredLevel() == 0, "coverage above the hysteresis band requests Near");
+    root->transform().scale = glm::vec3(10.f);
+    update(100.f);
+    require(group->desiredLevel() == 0, "explicit local bounds follow the group's world scale");
+    group->setBounds({glm::vec3(-.1f), glm::vec3(.1f)});
+    update(100.f);
+    require(group->desiredLevel() == 2, "replacing explicit bounds changes coverage without loaded Near geometry");
+    bool refused = false;
+    try { group->setBounds({glm::vec3(1.f), glm::vec3(-1.f)}); }
+    catch (const std::invalid_argument&) { refused = true; }
+    require(refused, "inverted explicit LOD bounds are refused");
+    refused = false;
+    try { group->setBounds({glm::vec3(0.f), glm::vec3(std::numeric_limits<float>::infinity())}); }
+    catch (const std::invalid_argument&) { refused = true; }
+    require(refused, "non-finite explicit LOD bounds are refused");
+    refused = false;
+    try { group->setLevelReady(3, true); }
+    catch (const std::out_of_range&) { refused = true; }
+    require(refused, "readiness outside the configured chain is refused");
+    refused = false;
+    try { group->setLevelReady(-1, true); }
+    catch (const std::out_of_range&) { refused = true; }
+    require(refused, "negative readiness levels are refused");
+    nlohmann::json saved;
+    group->save(saved);
+    require(saved.size() == 1 && saved.contains("levels"), "streaming bounds and readiness remain runtime-only");
+    group->setLevels({{"Near", .1f}, {"Mid", .01f}, {"Far", 0.f}});
+    root->transform().scale = glm::vec3(1.f);
+    group->setBounds(bounds);
+    update(5.f);
+    require(group->activeLevel() == 0, "reconfiguring levels restores default ready availability");
+    group->setEnabled(false);
+    require(close->visible() && middle->visible() && far->visible(),
+            "disabling a streamed group restores child visibility");
+    Time::advance(0.f);
 }
 // Free space in pieces is packed when an upload needs it whole, and what was
 // resident is still there, byte for byte, where its owner now finds it.
@@ -723,6 +869,42 @@ void gpuAsyncGltf(VulkanDevice& device) {
     device.waitIdle();
 }
 
+void gpuStreamedGroupContract(ResourceManager& resources, Mesh* loaded) {
+    Mesh pending(resources.geometry());
+    Scene scene;
+    auto* root = scene.createChild<Node>("StreamedBuilding");
+    auto* close = root->createChild<MeshNode>("Near", &pending, nullptr);
+    auto* far = root->createChild<MeshNode>("Far", loaded, nullptr);
+    auto* group = root->addBehaviour<LODGroupBehaviour>();
+    group->setLevels({{"Near", .1f}, {"Far", 0.f}});
+    group->setBounds({glm::vec3(-1.f), glm::vec3(1.f)});
+    group->setCrossFade(.5f);
+    const auto projection = glm::perspective(glm::radians(60.f), 1.f, .1f, 1000.f);
+    const auto view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0), glm::vec3(0, 1, 0));
+    scene.update(0.f);
+    Time::advance(.05f);
+    group->updateForView(view, projection, 1);
+    require(group->desiredLevel() == 0 && group->activeLevel() == 1 && far->visible() && !close->visible(),
+            "an unloaded Near mesh falls back to loaded Far despite default ready availability");
+    std::vector<Vertex> vertices(3);
+    vertices[0].pos = {-1, 0, 0}; vertices[1].pos = {1, 0, 0}; vertices[2].pos = {0, 1, 0};
+    pending.upload(vertices, {0, 1, 2});
+    group->updateForView(view, projection, 2);
+    require(group->activeLevel() == 0 && group->fadingLevel() == 1 && close->visible() && far->visible(),
+            "a mesh upload completes readiness without a hierarchy mutation");
+    require(std::abs(close->lodFade() - .1f) < 1e-6f && std::abs(far->lodFade() + .1f) < 1e-6f,
+            "streamed mesh transitions use complementary incoming and outgoing fades");
+    group->setLevelReady(0, false);
+    group->updateForView(view, projection, 3);
+    require(group->activeLevel() == 1 && group->fadingLevel() == -1 && far->lodFade() == 1.f,
+            "losing incoming readiness restores all Far pixels");
+    close->setMesh(nullptr);
+    scene.refreshHierarchy();
+    require(!scene.resourceUsage().meshes.count(&pending) && scene.resourceUsage().meshes.count(loaded),
+            "removing a streamed inactive mesh releases its scene ownership while retaining the fallback");
+    Time::advance(0.f);
+}
+
 void gpuLodGroups() {
     Window window(64, 64, "Streaming contracts", false);
     VulkanDevice device(window);
@@ -798,12 +980,13 @@ void gpuLodGroups() {
     group->setLevels({});
     scene.refreshHierarchy();
     require(scene.meshes().size() == 3, "removing levels restores all representations");
+    gpuStreamedGroupContract(resources, mesh);
     device.waitIdle();
 }
 }
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract();
+    indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract();
     if (argc > 1 && std::string(argv[1]) == "--gpu") gpuLodGroups();
     std::printf("[streaming] PASS (%d checks)\n", checks);
 }

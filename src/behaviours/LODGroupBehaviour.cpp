@@ -11,6 +11,30 @@
 #include <stdexcept>
 
 namespace saida {
+namespace {
+bool meshesLoaded(const Node& root) {
+    if (root.mesh() && !root.mesh()->loaded()) return false;
+    for (const auto& child : root.children())
+        if (!meshesLoaded(*child)) return false;
+    return true;
+}
+}
+
+void LODGroupBehaviour::setBounds(const Aabb& local) {
+    for (int axis = 0; axis < 3; ++axis)
+        if (!std::isfinite(local.min[axis]) || !std::isfinite(local.max[axis]) ||
+            local.min[axis] > local.max[axis])
+            throw std::invalid_argument("LOD bounds require finite ordered local coordinates");
+    bounds_ = local;
+    explicitBounds_ = true;
+    resolvedRevision_ = 0;
+}
+
+void LODGroupBehaviour::setLevelReady(int level, bool ready) {
+    if (level < 0 || level >= int(ready_.size()))
+        throw std::out_of_range("LOD readiness level is outside the configured chain");
+    ready_[size_t(level)] = ready;
+}
 
 void LODGroupBehaviour::setLevels(std::vector<Level> levels) {
     float previous = 1.f;
@@ -25,8 +49,11 @@ void LODGroupBehaviour::setLevels(std::vector<Level> levels) {
     thresholds_.clear();
     for (const auto& level : levels_) thresholds_.push_back({nullptr, nullptr, level.minCoverage});
     roots_.clear();
+    ready_.assign(levels_.size(), true);
+    loaded_.clear();
+    pendingMeshes_ = false;
     resolvedRevision_ = 0;
-    active_ = selected_ = fading_ = -1;
+    active_ = selected_ = desired_ = fading_ = -1;
     progress_ = 1.f;
 }
 
@@ -40,6 +67,26 @@ void LODGroupBehaviour::applyFade(Node* root, float fade) {
 int LODGroupBehaviour::shownLevel(int selected, int finest, int count) {
     if (count <= 0) return -1;
     return std::max(selected, std::min(finest, count - 1));
+}
+
+bool LODGroupBehaviour::levelLoaded(int level) const {
+    return level >= 0 &&
+           level < int(roots_.size()) && ready_[size_t(level)] && loaded_[size_t(level)];
+}
+
+bool LODGroupBehaviour::levelAvailable(int level) const {
+    return level >= std::min(finest_, int(roots_.size()) - 1) && levelLoaded(level);
+}
+
+int LODGroupBehaviour::availableLevel() const {
+    if (levelAvailable(desired_)) return desired_;
+    // Keep the current representation while the requested upload is pending.
+    if (levelAvailable(active_)) return active_;
+    for (int level = desired_ + 1; level < int(roots_.size()); ++level)
+        if (levelAvailable(level)) return level;
+    for (int level = desired_ - 1; level >= 0; --level)
+        if (levelAvailable(level)) return level;
+    return -1;
 }
 
 void LODGroupBehaviour::onDisable() {
@@ -62,6 +109,17 @@ void LODGroupBehaviour::resolve() {
             std::find(roots_.begin(), roots_.end(), root) != roots_.end())
             throw std::runtime_error("LOD level must name a distinct direct child: " + level.path);
         roots_.push_back(root);
+    }
+    loaded_.clear();
+    pendingMeshes_ = false;
+    for (const Node* root : roots_) {
+        loaded_.push_back(meshesLoaded(*root));
+        pendingMeshes_ |= !loaded_.back();
+    }
+    if (explicitBounds_) {
+        resolvedRevision_ = node()->subtreeRevision();
+        resolvedTransformRevision_ = node()->subtreeTransformRevision();
+        return;
     }
     bounds_.min = glm::vec3(std::numeric_limits<float>::max());
     bounds_.max = -bounds_.min;
@@ -93,32 +151,41 @@ void LODGroupBehaviour::updateForView(const glm::mat4& view, const glm::mat4& pr
     // level something the eye followed, and worth dissolving.
     const bool continuous = frame != 0 && lastFrame_ != 0 && frame == lastFrame_ + 1;
     lastFrame_ = frame;
-    if (resolvedRevision_ != node()->subtreeRevision() ||
+    if (pendingMeshes_ || resolvedRevision_ != node()->subtreeRevision() ||
         resolvedTransformRevision_ != node()->subtreeTransformRevision()) resolve();
     if (roots_.empty()) return;
     const float coverage = computeScreenCoverage(node()->worldTransform(), bounds_, view, projection);
     // Hysteresis follows what coverage chose, not what the budget allowed, so
     // a group released by its caller returns at once to its own level.
     selected_ = selectLodIndex(coverage, thresholds_, selected_, .10f);
+    desired_ = shownLevel(selected_, finest_, int(roots_.size()));
     const int was = active_;
-    active_ = shownLevel(selected_, finest_, int(roots_.size()));
+    active_ = availableLevel();
     if (fading_ >= int(roots_.size())) fading_ = -1;
-    if (!continuous && fading_ >= 0) {
+    if (fading_ >= 0 && (!continuous || !levelLoaded(fading_) || active_ < 0)) {
         for (Node* root : roots_) applyFade(root, 1.f);
         fading_ = -1;
         progress_ = 1.f;
     }
-    if (crossFade_ > 0.f && continuous && was >= 0 && was != active_) {
-        if (fading_ == active_) {
-            // Turning back mid-fade: the level returning already covers the
-            // share it had not yet given up.
-            progress_ = 1.f - progress_;
+    if (was != active_) {
+        // A stricter detail budget changes the incoming level, but the loaded
+        // previous level remains valid for the short outgoing fade.
+        if (crossFade_ > 0.f && continuous && levelLoaded(was) && active_ >= 0) {
+            if (fading_ == active_) {
+                // Turning back mid-fade: the level returning already covers the
+                // share it had not yet given up.
+                progress_ = 1.f - progress_;
+            } else {
+                // A third level: what was shown hands over from the start.
+                if (fading_ >= 0) applyFade(roots_[size_t(fading_)], 1.f);
+                progress_ = 0.f;
+            }
+            fading_ = was;
         } else {
-            // A third level: what was shown hands over from the start.
-            if (fading_ >= 0) applyFade(roots_[size_t(fading_)], 1.f);
-            progress_ = 0.f;
+            for (Node* root : roots_) applyFade(root, 1.f);
+            fading_ = -1;
+            progress_ = 1.f;
         }
-        fading_ = was;
     } else if (crossFade_ <= 0.f && fading_ >= 0) {
         progress_ = 1.f;
     }
@@ -153,6 +220,7 @@ void LODGroupBehaviour::load(const nlohmann::json& in) {
     if (in.contains("levels"))
         for (const auto& level : in.at("levels"))
             levels.push_back({level.at("path").get<std::string>(), level.at("minCoverage").get<float>()});
+    explicitBounds_ = false;
     setLevels(std::move(levels));
     setCrossFade(in.value("crossFade", 0.f));
 }

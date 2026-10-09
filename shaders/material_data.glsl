@@ -23,6 +23,7 @@ struct MaterialData {
     vec4 variation;  // MaterialDesc::variation: warp, macroScale, macroAlbedo, macroNormal
     vec4 reflection; // x environment reflection, yz specular indices, w billboard columns + 256*rows
     vec4 specular; // rgb dielectric F0, a dielectric lobe strength
+    vec4 rain;     // reception, puddle amount, ripple slope, darkening
 };
 
 layout(set = MATERIAL_SET, binding = 0) uniform sampler2D globalTextures[8192];

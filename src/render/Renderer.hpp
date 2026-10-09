@@ -86,6 +86,8 @@ struct LightingUBO {
     // -1 when no map is written.
     glm::mat4 sunOcclusionToMap{1.0f};
     glm::vec4 sunOcclusion{-1.0f, 0.0f, 0.0f, 0.0f};
+    glm::vec4 rainParams{0.0f}; // intensity, wetness, world seconds, unused
+    glm::vec4 rainUp{0.0f, 1.0f, 0.0f, 0.0f};
 };
 
 class Renderer {

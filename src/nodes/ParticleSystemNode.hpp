@@ -47,6 +47,10 @@ public:
     float spawnRate = 48.0f;
     float lifetime = 1.5f;
     float startSpeed = 1.0f;
+    // Runtime world-space velocity override, for directional weather or jets.
+    // Otherwise the effect/shape derives an initial direction from startSpeed.
+    glm::vec3 initialVelocity{0.0f};
+    bool useInitialVelocity = false;
     float startSize = 0.2f;
     glm::vec4 startColor{1.0f, 0.85f, 0.35f, 1.0f};
     glm::vec4 endColor{1.0f, 0.15f, 0.02f, 0.0f};

@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <stdexcept>
 #include <utility>
 #include <vector>
@@ -123,7 +124,11 @@ void SkyboxFeature::record(FrameContext& fc) {
         ? glm::vec4(settings.skySunDirection / sunLength,
                     glm::radians(std::max(settings.skySunSize, 0.0f)))
         : glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
-    const glm::vec4 sunColor(glm::max(settings.skySunColor, glm::vec3(0.0f)), 0.0f);
+    const float stormCover = std::isfinite(settings.stormCloudCover)
+        ? std::clamp(settings.stormCloudCover,0.0f,1.0f) : 0.0f;
+    // Reuse the unused alpha lane: the XR block remains 176 bytes, with no
+    // larger push-constant requirement on mobile Vulkan or the Web UBO path.
+    const glm::vec4 sunColor(glm::max(settings.skySunColor, glm::vec3(0.0f)), stormCover);
 
     if (!stereo_) {
         glm::mat4 view = fc.camera->view();

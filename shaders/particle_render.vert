@@ -19,6 +19,8 @@ struct Particle {
     vec4 colorB;
     vec4 sizeRotation;
     vec4 renderParams;
+    vec4 gravity;
+    vec4 attractor;
 };
 
 layout(std430, set = 1, binding = 0) readonly buffer ParticleBuffer {
@@ -35,6 +37,7 @@ PUSH_QUALIFIER PushConstants {
 
 layout(location = 0) out vec4 fragColor;
 layout(location = 1) out vec2 fragUV;
+layout(location = 2) flat out float fragRain;
 
 const vec2 CORNERS[6] = vec2[6](
     vec2(-0.5, -0.5), vec2( 0.5, -0.5), vec2( 0.5,  0.5),
@@ -65,9 +68,12 @@ void main() {
     float rotation = p.sizeRotation.y;
     float stretchY = max(p.renderParams.x, 1.0);
     if (p.renderParams.y > 0.5) {
-        vec3 fallDir = vec3(0.0, -1.0, 0.0);
+        vec3 fallDir = p.velocityLifetime.xyz;
+        float speed = length(fallDir);
+        fallDir = speed > 0.0001 ? fallDir / speed : vec3(0.0, -1.0, 0.0);
         vec2 projectedFall = vec2(dot(fallDir, right), dot(fallDir, up));
         float projectedLen = length(projectedFall);
+        stretchY = mix(1.0, stretchY, clamp(projectedLen, 0.0, 1.0));
         if (projectedLen > 0.0001) {
             projectedFall /= projectedLen;
             rotation = atan(-projectedFall.x, projectedFall.y);
@@ -85,4 +91,5 @@ void main() {
 
     fragColor = color;
     fragUV = corner + vec2(0.5);
+    fragRain = p.renderParams.y;
 }

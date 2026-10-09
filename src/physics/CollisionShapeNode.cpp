@@ -17,6 +17,8 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
+#include <stdexcept>
 
 namespace saida {
 
@@ -132,20 +134,19 @@ JPH::Ref<JPH::Shape> buildConvexHull(Node& bodyNode, const glm::mat4& invBodyTR)
 // inertia). This is the shape an imported level uses, and the one where taking
 // a single mesh left the player falling through everything the first piece did
 // not cover.
-JPH::Ref<JPH::Shape> buildTriangleMesh(Node& bodyNode, const glm::mat4& invBodyTR) {
+JPH::Ref<JPH::Shape> buildTriangleMesh(Node& bodyNode, const glm::mat4& invBodyTR,
+                                    const MeshCollisionData* explicitData = nullptr) {
     using namespace JPH;
     VertexList verts;
     IndexedTriangleList tris;
 
-    for (const MeshInstance& inst : meshesUnder(bodyNode, invBodyTR)) {
-        const std::vector<glm::vec3>& src = inst.mesh->collisionVertices();
-        const std::vector<uint32_t>& idx = inst.mesh->collisionIndices();
-        if (src.empty() || idx.size() < 3) continue;
+    const auto append = [&](const std::vector<glm::vec3>& src,
+                            const std::vector<uint32_t>& idx, const glm::mat4& toBody) {
+        if (src.empty() || idx.size() < 3) return;
 
         // Each mesh's indices are its own; they address the merged list only
         // after being shifted past everything already appended.
         const uint32_t base = static_cast<uint32_t>(verts.size());
-        const glm::mat4& toBody = inst.toBody;
         verts.reserve(verts.size() + src.size());
         for (const glm::vec3& p : src) {
             const glm::vec3 bp = glm::vec3(toBody * glm::vec4(p, 1.0f));
@@ -155,6 +156,12 @@ JPH::Ref<JPH::Shape> buildTriangleMesh(Node& bodyNode, const glm::mat4& invBodyT
         for (size_t i = 0; i + 2 < idx.size(); i += 3)
             tris.push_back(IndexedTriangle(base + idx[i], base + idx[i + 1],
                                            base + idx[i + 2], 0));
+    };
+    if (explicitData) {
+        const glm::mat4 linear(glm::mat3(invBodyTR) * glm::mat3(bodyNode.worldTransform()));
+        append(explicitData->positions, explicitData->indices, linear);
+    } else for (const MeshInstance& inst : meshesUnder(bodyNode, invBodyTR)) {
+        append(inst.mesh->collisionVertices(), inst.mesh->collisionIndices(), inst.toBody);
     }
     if (tris.empty()) return Ref<Shape>();
 
@@ -202,6 +209,23 @@ void CollisionShapeNode::autoDetectFrom(const Aabb& b) {
 }
 
 bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNode) {
+    if (shapeType == CollisionShapeType::Mesh && triangleData_) {
+        const glm::mat3 scale = glm::mat3(invBodyTR) * glm::mat3(bodyNode.worldTransform());
+        bool changed = triangleDataDirty_;
+        for (int c=0;c<3;++c) for (int r=0;r<3;++r)
+            changed = changed || std::abs(scale[c][r]-triangleScale_[c][r]) >
+                1e-5f*std::max(1.f,std::abs(triangleScale_[c][r]));
+        if (changed) triangleScale_ = scale;
+        triangleDataDirty_ = false;
+        meshPending_ = false;
+        resolved_ = shapeType;
+        return changed;
+    }
+    if (triangleDataDirty_) {
+        triangleDataDirty_ = false;
+        ensureResolved(invBodyTR, bodyNode);
+        return true;
+    }
     // A primitive with explicit dimensions reads no mesh, so it neither waits
     // for one nor walks the body's subtree. Every shape of a compound walked
     // the whole body every frame: a compound of N boxes cost N^2 node visits
@@ -318,7 +342,7 @@ JPH::Ref<JPH::Shape> CollisionShapeNode::buildShape(const glm::mat4& invBodyTR, 
             prim = buildBox(halfExtents);
             break;
         case CollisionShapeType::Mesh:
-            if (Ref<Shape> s = buildTriangleMesh(bodyNode, invBodyTR)) return s;
+            if (Ref<Shape> s = buildTriangleMesh(bodyNode, invBodyTR, triangleData_.get())) return s;
             Log::warn("CollisionShape '", name(), "': triangle mesh unavailable, using box");
             prim = buildBox(halfExtents);
             break;
@@ -336,6 +360,23 @@ JPH::Ref<JPH::Shape> CollisionShapeNode::buildShape(const glm::mat4& invBodyTR, 
         if (r.IsValid()) return r.Get();
     }
     return prim;
+}
+
+void CollisionShapeNode::setTriangleMeshData(std::shared_ptr<const MeshCollisionData> data) {
+    if (data) {
+        if (data->positions.empty() || data->indices.empty() || data->indices.size() % 3)
+            throw std::invalid_argument("Triangle collision geometry requires vertices and complete triangles");
+        for (const auto& p : data->positions)
+            if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z))
+                throw std::invalid_argument("Triangle collision geometry requires finite positions");
+        for (const auto index : data->indices)
+            if (index >= data->positions.size())
+                throw std::invalid_argument("Triangle collision index is outside its vertices");
+    }
+    triangleData_ = std::move(data);
+    triangleDataDirty_ = true;
+    shapeType = CollisionShapeType::Mesh;
+    meshPending_ = false;
 }
 
 void CollisionShapeNode::serialize(nlohmann::json& j, ResourceManager& resources) const {

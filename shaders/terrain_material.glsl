@@ -49,13 +49,15 @@ struct TerrainSurface {
     vec3 normal;
     float roughness;
     float metallic;
+    vec4 rain;
 };
 
 TerrainSurface terrainMaterial(GpuTerrain t, uint layer, vec3 p, vec3 n, vec3 dx, vec3 dy) {
     vec4 fallback = t.layers[layer], settings = t.textures[layer];
-    TerrainSurface surface = TerrainSurface(fallback.rgb, n, fallback.a, 0.0);
+    TerrainSurface surface = TerrainSurface(fallback.rgb, n, fallback.a, 0.0, vec4(0.0));
     if (settings.x > 0.5) {
         MaterialData material = materials[int(settings.x + 0.5) - 1];
+        surface.rain = material.rain;
         vec3 weights = pow(abs(n), vec3(PROJECTION_SHARPNESS));
         weights /= max(dot(weights, vec3(1.0)), 0.0001);
         vec3 uv = p * settings.y, ux = dx * settings.y, uy = dy * settings.y;
@@ -115,7 +117,7 @@ TerrainSurface terrainSurface(GpuTerrain t, int base, vec2 grid, vec3 p, vec3 n,
                          layerOf(base, low.x, low.y + 1), layerOf(base, low.x + 1, low.y + 1));
     float weights[4] = float[4]((1.0 - f.x) * (1.0 - f.y), f.x * (1.0 - f.y),
                                (1.0 - f.x) * f.y, f.x * f.y);
-    TerrainSurface sum = TerrainSurface(vec3(0), vec3(0), 0.0, 0.0);
+    TerrainSurface sum = TerrainSurface(vec3(0), vec3(0), 0.0, 0.0, vec4(0.0));
     for (int i = 0; i < 4; ++i) {
         for (int j = i + 1; j < 4; ++j)
             if (ids[i] == ids[j]) { weights[i] += weights[j]; weights[j] = 0.0; }
@@ -125,6 +127,7 @@ TerrainSurface terrainSurface(GpuTerrain t, int base, vec2 grid, vec3 p, vec3 n,
         sum.normal += value.normal * weights[i];
         sum.roughness += value.roughness * weights[i];
         sum.metallic += value.metallic * weights[i];
+        sum.rain += value.rain * weights[i];
     }
     sum.normal = normalize(sum.normal);
     return sum;

@@ -100,6 +100,13 @@ struct SceneSettings {
     float fogPlanetRadius = 0.0f;
     glm::vec3 fogPlanetCentre{0.0f};
 
+    // Runtime weather, not authored or serialized. Materials opt in through
+    // MaterialDesc::rain; both stereo eyes share the same world-space impacts.
+    float rainIntensity = 0.0f;
+    float wetness = 0.0f;
+    glm::vec3 rainUpDirection{0.0f, 1.0f, 0.0f};
+    float stormCloudCover = 0.0f;
+
     bool bloomEnabled = true;
     float bloomThreshold = 1.0f;
     float bloomIntensity = 0.25f;

@@ -1,4 +1,5 @@
 #include "render/Renderer.hpp"
+#include "render/RainWeather.hpp"
 
 #include "core/Camera.hpp"
 #include "core/Paths.hpp"
@@ -919,6 +920,10 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
                                settings.giDebugVoxels ? 1 : 0, gd.voxelResolution);
     const bool iblActive = settings.iblEnabled && settings.skyboxTexture != kAssetInvalid;
     const float environmentExposure = std::max(settings.skyboxExposure, 0.0f);
+    const auto rain = packRainWeather(settings.rainIntensity, settings.wetness,
+                                      settings.rainUpDirection, Time::elapsed());
+    ubo.rainParams = rain.params;
+    ubo.rainUp = rain.up;
     ubo.environmentParams = glm::vec4(
         iblActive ? 1.0f : 0.0f,
         std::max(settings.iblDiffuseIntensity, 0.0f) * environmentExposure,

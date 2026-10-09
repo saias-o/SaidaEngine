@@ -12,6 +12,7 @@
 #include <glm/glm.hpp>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <vector>
@@ -50,7 +51,26 @@ public:
         glm::vec4 detail;      // x cone angle rad, y ring thickness, z end size, w stretch
         glm::vec4 forces;      // x drag, y noise strength, z noise frequency, w attractor strength
         glm::vec4 attractor;   // xyz attractor position, w effect class
+        glm::vec4 initialVelocity; // xyz world velocity, w enables override
     };
+    static_assert(sizeof(GpuEmitter) == 160, "GPU emitter std430 stride");
+    static_assert(offsetof(GpuEmitter, initialVelocity) == 144, "GPU velocity offset");
+
+    // Readback layout of a live GPU particle. Forces are immutable snapshots
+    // from emission, independent of the next frame's emitter ordering.
+    struct GpuParticle {
+        glm::vec4 positionAge;
+        glm::vec4 velocityLifetime;
+        glm::vec4 colorA;
+        glm::vec4 colorB;
+        glm::vec4 sizeRotation;  // x start size, y rotation, z angular velocity, w end size scale
+        glm::vec4 renderParams;  // x stretch, y align-to-velocity, z drag, w reserved
+        glm::vec4 gravity;       // xyz world acceleration captured at emission
+        glm::vec4 attractor;     // xyz world position, w strength captured at emission
+    };
+    static_assert(sizeof(GpuParticle) == 128, "GPU particle std430 stride");
+    static_assert(offsetof(GpuParticle, gravity) == 96, "GPU gravity offset");
+    static_assert(offsetof(GpuParticle, attractor) == 112, "GPU attractor offset");
 
     struct GpuCounters {
         uint32_t readAliveCount = 0;
@@ -80,6 +100,11 @@ public:
     rhi::BindGroupLayout& renderSetLayout() const { return *renderSetLayout_; }
     const rhi::BindGroup& renderSet(uint32_t parity) const;
     const Buffer& indirectBuffer() const { return *indirectBuffer_; }
+    // Diagnostics: copy into a host-visible buffer after GPU completion. The
+    // returned state remains GPU-owned and only alive indices are meaningful.
+    const Buffer& particlesBuffer() const { return *simParticleBuffer_; }
+    const Buffer& countersBuffer() const { return *counterBuffer_; }
+    const Buffer& aliveIndicesBuffer(uint32_t parity) const { return *aliveIndexBuffers_[parity & 1u]; }
 
     GpuEmitter* mappedEmitters(uint32_t frame) const;
     void flushEmitters(uint32_t frame, uint32_t count);
@@ -91,15 +116,6 @@ public:
                            float dt, float time);
 
 private:
-    struct SimParticle {
-        glm::vec4 positionAge;
-        glm::vec4 velocityLifetime;
-        glm::vec4 colorA;
-        glm::vec4 colorB;
-        glm::vec4 sizeRotation;  // x start size, y rotation, z angular velocity, w end size scale
-        glm::vec4 renderParams;  // x stretch, y align-down, z/w reserved
-    };
-
     uint32_t frameIndex(uint32_t frame) const;
     void createRenderResources();
     void createComputeResources();

@@ -12,6 +12,8 @@ struct Particle {
     vec4 colorB;
     vec4 sizeRotation;
     vec4 renderParams;
+    vec4 gravity;
+    vec4 attractor;
 };
 
 struct Emitter {
@@ -24,6 +26,7 @@ struct Emitter {
     vec4 detail;
     vec4 forces;
     vec4 attractor;
+    vec4 initialVelocity;
 };
 
 layout(std430, set = 0, binding = 0) buffer ParticleBuffer { Particle particles[]; };
@@ -181,16 +184,21 @@ void main() {
 
     Particle p;
     p.positionAge = vec4(e.positionRadius.xyz + offset, 0.0);
-    p.velocityLifetime = vec4(dir * speed, max(e.gravityLifetime.w * lifetimeJitter, 0.02));
+    vec3 velocity = e.initialVelocity.w > 0.5 ? e.initialVelocity.xyz : dir * speed;
+    p.velocityLifetime = vec4(velocity, max(e.gravityLifetime.w * lifetimeJitter, 0.02));
     p.colorA = e.colorA;
     p.colorB = e.colorB;
     p.sizeRotation = vec4(max(e.params.y * classSizeMultiplier(effect, seed), 0.001),
                           rand01(seed * 101u + 79u) * TWO_PI,
                           randSigned(seed * 103u + 83u) * 1.5,
                           max(e.detail.z, 0.0));
-    float alignDown = effect == 3u ? 1.0 : 0.0;
-    p.renderParams = vec4(max(e.detail.w, 1.0), alignDown, max(e.forces.x, 0.0), 0.0);
-    if (alignDown > 0.5) {
+    float alignVelocity = effect == 3u ? 1.0 : 0.0;
+    p.renderParams = vec4(max(e.detail.w, 1.0), alignVelocity, max(e.forces.x, 0.0), 0.0);
+    // Emitter records are rebuilt/reordered every frame. A living particle must
+    // keep the forces of the emitter that created it, including after it stops.
+    p.gravity = vec4(e.gravityLifetime.xyz, 0.0);
+    p.attractor = vec4(e.attractor.xyz, e.forces.w);
+    if (alignVelocity > 0.5) {
         p.sizeRotation.y = 0.0;
         p.sizeRotation.z = 0.0;
     }

@@ -11,6 +11,7 @@
 namespace saida {
 
 class Mesh;
+struct MeshCollisionData;
 
 enum class CollisionShapeType {
     Auto,        // pick a primitive from the mesh AABB (box/sphere/capsule)
@@ -68,6 +69,10 @@ public:
     // (async .obj loading): buildShape produces nothing and the body is
     // deferred until the collision data exists.
     bool meshPending() const { return meshPending_; }
+    // Runtime procedural collision geometry in the body's local frame. No
+    // rendered Mesh or GPU allocation is required. Null restores mesh discovery.
+    // The supplied immutable geometry survives visual LOD changes.
+    void setTriangleMeshData(std::shared_ptr<const MeshCollisionData> data);
     // Re-arm Auto so the next ensureResolved detects again (editor "Recompute").
     void resetAuto() { autoResolved_ = false; }
 
@@ -100,6 +105,9 @@ private:
     CollisionShapeType resolved_ = CollisionShapeType::Box;
     bool autoResolved_ = false;        // true once Auto has detected a primitive
     bool meshPending_ = false;         // mesh proxy without geometry yet (async .obj)
+    std::shared_ptr<const MeshCollisionData> triangleData_;
+    bool triangleDataDirty_ = false;
+    glm::mat3 triangleScale_{1.f};
     // Body-space extent the detection last used, as a pair rather than an Aabb
     // so this header need not pull in graphics/Mesh.hpp.
     glm::vec3 resolvedMin_{0.0f};

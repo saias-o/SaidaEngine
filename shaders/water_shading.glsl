@@ -1,6 +1,7 @@
 // Shared by WaterNode and distant water layers. No descriptors or derivatives
 // here: callers supply world-space position and a footprint computed uniformly.
 #include "water_wave.glsl"
+#include "rain_ripples.glsl"
 
 float waterFootprint(vec3 p, vec3 up) {
     vec3 ray = p - lights.cameraPos.xyz;
@@ -60,6 +61,9 @@ vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
     vec3 tangent = normalize(vec3(up.y,-up.x,0));
     vec3 bitangent = cross(tangent,up);
     vec3 N = normalize(up - tangent * slope.x - bitangent * slope.y);
+    if (lights.rainParams.x > 0.0)
+        N = normalize(N - rainWorldSlope(p, up, footprint,
+                       0.14 * smoothstep(0.60, 0.94, dot(up, lights.rainUp.xyz))));
     // Fold invisible back-facing microfacets toward the viewer continuously.
     N = normalize(N + V * max(0.0,.06-dot(N,V)));
     float NoV = max(dot(N,V),.001);

@@ -67,6 +67,14 @@ int main() {
     if (!require(low.farUpdateInterval > ultra.farUpdateInterval)) return 1;
 
     saida::ParticleSystemNode node;
+    if (!require(!node.useInitialVelocity && node.initialVelocity == glm::vec3(0.0f))) return 1;
+    node.initialVelocity = glm::vec3(3.0f, -12.0f, 1.0f);
+    node.useInitialVelocity = true;
+    if (!require(node.initialVelocity == glm::vec3(3.0f, -12.0f, 1.0f))) return 1;
+    // The override belongs to the runtime caller; loading an authored effect
+    // supplies its usual speed without replacing that world-space velocity.
+    if (!require(loaded.applyTo(node))) return 1;
+    if (!require(node.useInitialVelocity && node.initialVelocity == glm::vec3(3.0f, -12.0f, 1.0f))) return 1;
     node.maxParticles = 999999;
     if (!require(saida::particleEmitterCapacity(node, low) == low.maxParticlesPerEmitter)) return 1;
 

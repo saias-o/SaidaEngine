@@ -15,12 +15,15 @@
 #include "physics/PhysicsWorld.hpp"
 #include "physics/RigidBodyNode.hpp"
 #include "physics/StaticBodyNode.hpp"
+#include "graphics/Mesh.hpp"
 #include <Jolt/Physics/Collision/Shape/MeshShape.h>
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <limits>
+#include <stdexcept>
 
 using namespace saida;
 
@@ -135,6 +138,144 @@ void testQueries() {
     world->removeBody(plane);
 
     std::printf("[physics-query-joint] queries ok\n");
+}
+
+std::shared_ptr<const MeshCollisionData> wallCollisionData(bool portal = true) {
+    auto data = std::make_shared<MeshCollisionData>();
+    const auto quad = [&](float x0, float x1, float y0, float y1) {
+        const auto base = uint32_t(data->positions.size());
+        data->positions.insert(data->positions.end(), {{x0, y0, 0}, {x1, y0, 0},
+                                                      {x1, y1, 0}, {x0, y1, 0}});
+        data->indices.insert(data->indices.end(), {base, base + 1, base + 2, base, base + 2, base + 3});
+    };
+    if (portal) {
+        quad(-3.f, -.5f, 0.f, 3.f);
+        quad(.5f, 3.f, 0.f, 3.f);
+        quad(-.5f, .5f, 2.f, 3.f);
+    } else quad(-3.f, 3.f, 0.f, 3.f);
+    return data;
+}
+
+void testProceduralTriangleQueries() {
+    Scene scene;
+    auto* wall = scene.createChild<StaticBodyNode>();
+    auto* shape = wall->createChild<CollisionShapeNode>();
+    auto geometry = wallCollisionData();
+    const std::weak_ptr<const MeshCollisionData> retained = geometry;
+    shape->setTriangleMeshData(geometry);
+    geometry.reset();
+    require(!retained.expired(), "the shape retains immutable procedural collision data without a GPU mesh");
+    step(scene, 1);
+    auto* world = scene.physics();
+    require(world && !wall->bodyId().IsInvalid() && world->bodyCount() == 1,
+            "procedural triangle geometry builds one static body without rendered meshes");
+    for (const float side : {1.f, -1.f}) {
+        auto hit = world->raycast({2, 1, side}, {0, 0, -side}, 2.f);
+        require(hit.hit && hit.body == wall->bodyId() && std::abs(hit.distance - 1.f) < .002f,
+                "procedural wall rays hit the exact triangle plane from either side");
+        require(!world->raycast({0, 1, side}, {0, 0, -side}, 2.f).hit,
+                "a portal remains open to rays from either side");
+        hit = world->raycast({0, 2.5f, side}, {0, 0, -side}, 2.f);
+        require(hit.hit && hit.body == wall->bodyId(), "the lintel above the portal remains solid");
+        const auto overlaps = world->overlapSphere({2, 1, side * .1f}, .2f);
+        require(std::find(overlaps.begin(), overlaps.end(), wall->bodyId()) != overlaps.end(),
+                "procedural triangle walls support two-sided occupancy queries");
+    }
+    require(world->overlapSphere({0, 1, 0}, .2f).empty(), "occupancy inside the portal stays clear");
+    wall->transform().scale = {2.f, 3.f, .5f};
+    step(scene, 1);
+    require(!world->raycast({.75f, 1, 1}, {0, 0, -1}, 2.f).hit,
+            "changing nonuniform body scale expands the existing portal");
+    require(world->raycast({1.5f, 1, 1}, {0, 0, -1}, 2.f).hit,
+            "a scaled portal keeps its neighbouring wall solid");
+    require(world->raycast({0, 6.5f, 1}, {0, 0, -1}, 2.f).hit,
+            "nonuniform scaling moves the procedural lintel to its scaled height");
+    shape->setTriangleMeshData(wallCollisionData(false));
+    step(scene, 1);
+    require(retained.expired(), "replacing procedural data releases the previous CPU geometry");
+    require(world->raycast({0, 1, 1}, {0, 0, -1}, 2.f).hit && world->bodyCount() == 1,
+            "replacing data rebuilds the live triangles and closes the portal");
+    shape->setTriangleMeshData(nullptr);
+    step(scene, 1);
+    require(!world->raycast({1.5f, 1, 1}, {0, 0, -1}, 2.f).hit,
+            "clearing explicit geometry removes its old triangles from the live body");
+    require(world->raycast({0, 0, 2}, {0, 0, -1}, 4.f).hit && world->bodyCount() == 1,
+            "clearing explicit geometry restores mesh discovery and its documented box fallback");
+    std::printf("[physics-query-joint] procedural triangle queries ok\n");
+}
+
+void testProceduralTriangleRebase() {
+    Scene scene;
+    auto* frame = scene.createChild<Node>();
+    frame->transform().position = {-199832.390625f, -2076780.5f, -4689437.5f};
+    frame->transform().rotation = glm::angleAxis(.833f, glm::vec3(1, 0, 0)) *
+                                  glm::angleAxis(.0464f, glm::vec3(0, 0, 1));
+    auto* wall = frame->createChild<StaticBodyNode>();
+    wall->transform().position = {12, 222, 35};
+    wall->transform().scale = {2, 3, .5f};
+    auto* shape = wall->createChild<CollisionShapeNode>();
+    shape->setTriangleMeshData(wallCollisionData());
+    step(scene, 1);
+    const auto id = wall->bodyId();
+    require(!id.IsInvalid(), "procedural geometry builds in a distant rotated frame");
+    const auto orientation = glm::angleAxis(.012f, glm::vec3(0, 1, 0));
+    scene.rebaseSubtreeTo(*frame, {.01465f, -413.545f, -210.752f}, orientation);
+    auto* world = scene.physics();
+    const auto check = [&] {
+        for (const float side : {1.f, -1.f}) {
+            const auto origin = glm::vec3(wall->worldTransform() * glm::vec4(2, 1, side * 4.f, 1));
+            const auto direction = orientation * glm::vec3(0, 0, -side);
+            const auto hit = world->raycast(origin, direction, 4.f);
+            require(hit.hit && hit.body == wall->bodyId() && std::abs(hit.distance - 2.f) < .002f,
+                    "distant-frame rebasing retains exact local procedural wall geometry");
+            const auto doorway = glm::vec3(wall->worldTransform() * glm::vec4(0, 1, side * 4.f, 1));
+            require(!world->raycast(doorway, direction, 4.f).hit,
+                    "distant-frame rebasing keeps the procedural doorway open");
+        }
+    };
+    check();
+    step(scene, 1);
+    require(wall->bodyId() == id, "a rigid frame rebase preserves the procedural body identity after synchronization");
+    check();
+    std::printf("[physics-query-joint] procedural triangle rebase ok\n");
+}
+
+void testProceduralTriangleValidation() {
+    Scene scene;
+    auto* wall = scene.createChild<StaticBodyNode>();
+    auto* shape = wall->createChild<CollisionShapeNode>();
+    const auto good = wallCollisionData();
+    shape->setTriangleMeshData(good);
+    step(scene, 1);
+    const auto id = wall->bodyId();
+    const auto reject = [&](const std::shared_ptr<MeshCollisionData>& bad, const char* message) {
+        bool refused = false;
+        try { shape->setTriangleMeshData(bad); }
+        catch (const std::invalid_argument&) { refused = true; }
+        require(refused, message);
+        step(scene, 1);
+        const auto hit = scene.physics()->raycast({2, 1, 1}, {0, 0, -1}, 2.f);
+        require(hit.hit && hit.body == id, "rejected procedural data preserves the existing shape and body");
+    };
+    auto bad = std::make_shared<MeshCollisionData>(*good);
+    bad->positions.clear();
+    reject(bad, "triangle data without positions is refused");
+    bad = std::make_shared<MeshCollisionData>(*good);
+    bad->indices.clear();
+    reject(bad, "triangle data without indices is refused");
+    bad = std::make_shared<MeshCollisionData>(*good);
+    bad->indices.pop_back();
+    reject(bad, "incomplete procedural triangles are refused");
+    bad = std::make_shared<MeshCollisionData>(*good);
+    bad->indices.front() = uint32_t(bad->positions.size());
+    reject(bad, "a procedural triangle index outside its positions is refused");
+    for (const float invalid : {std::numeric_limits<float>::infinity(),
+                               std::numeric_limits<float>::quiet_NaN()}) {
+        bad = std::make_shared<MeshCollisionData>(*good);
+        bad->positions.front().x = invalid;
+        reject(bad, "non-finite procedural positions are refused");
+    }
+    std::printf("[physics-query-joint] procedural triangle validation ok\n");
 }
 
 // ---- node paths ------------------------------------------------------------
@@ -370,6 +511,9 @@ void testCharacterIgnoresItsOwnBodies() {
 
 int main() {
     testQueries();
+    testProceduralTriangleQueries();
+    testProceduralTriangleRebase();
+    testProceduralTriangleValidation();
     testCharacterIgnoresItsOwnBodies();
     testFindByPath();
     testPointJointPendulum();

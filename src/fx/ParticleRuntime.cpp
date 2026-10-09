@@ -149,22 +149,22 @@ void ParticleRuntime::createComputeResources() {
     emitterBuffers_.resize(desc_.framesInFlight);
     computeSets_.resize(desc_.framesInFlight * 2);
 
-    const uint64_t particleSize = sizeof(SimParticle) * desc_.maxParticles;
+    const uint64_t particleSize = sizeof(GpuParticle) * desc_.maxParticles;
     const uint64_t indexSize = sizeof(uint32_t) * desc_.maxParticles;
     const uint64_t counterSize = sizeof(GpuCounters);
     const uint64_t emitterSize = sizeof(GpuEmitter) * desc_.maxEmitters;
     simParticleBuffer_ = std::make_unique<Buffer>(device_, particleSize,
-        rhi::BufferUsage::Storage, MemoryUsage::GpuOnly);
+        rhi::BufferUsage::Storage | rhi::BufferUsage::TransferSrc, MemoryUsage::GpuOnly);
     for (auto& alive : aliveIndexBuffers_) {
         alive = std::make_unique<Buffer>(device_, indexSize,
-            rhi::BufferUsage::Storage, MemoryUsage::GpuOnly);
+            rhi::BufferUsage::Storage | rhi::BufferUsage::TransferSrc, MemoryUsage::GpuOnly);
     }
     deadIndexBuffer_ = std::make_unique<Buffer>(device_, indexSize,
         rhi::BufferUsage::Storage, MemoryUsage::GpuOnly);
     counterBuffer_ = std::make_unique<Buffer>(device_, counterSize,
-        rhi::BufferUsage::Storage, MemoryUsage::GpuOnly);
+        rhi::BufferUsage::Storage | rhi::BufferUsage::TransferSrc, MemoryUsage::GpuOnly);
     indirectBuffer_ = std::make_unique<Buffer>(device_, kDrawIndirectCommandSize,
-        rhi::BufferUsage::Storage | rhi::BufferUsage::Indirect,
+        rhi::BufferUsage::Storage | rhi::BufferUsage::Indirect | rhi::BufferUsage::TransferSrc,
         MemoryUsage::GpuOnly);
 
     for (uint32_t i = 0; i < desc_.framesInFlight; ++i) {
@@ -187,7 +187,7 @@ void ParticleRuntime::createComputeResources() {
         }
     }
 
-    const uint64_t particleSizeRender = sizeof(SimParticle) * desc_.maxParticles;
+    const uint64_t particleSizeRender = sizeof(GpuParticle) * desc_.maxParticles;
     const uint64_t indexSizeRender = sizeof(uint32_t) * desc_.maxParticles;
     for (uint32_t parity = 0; parity < 2; ++parity) {
         std::vector<rhi::BindGroupEntry> entries(2);
