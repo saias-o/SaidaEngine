@@ -57,15 +57,33 @@ vec2 equirect(vec3 dir, float rotation) {
     return uv * vec2(INV_TWO_PI, INV_PI) + 0.5;
 }
 
+// Longitude wraps from 1 back to 0. Correct that discontinuity in the screen
+// derivatives before sampling, or the seam selects an unnecessarily coarse mip.
+vec2 equirectDx(vec2 uv) {
+    vec2 dx = dFdx(uv);
+    dx.x -= round(dx.x);
+    return dx;
+}
+
+vec2 equirectDy(vec2 uv) {
+    vec2 dy = dFdy(uv);
+    dy.x -= round(dy.x);
+    return dy;
+}
+
 void main() {
     // Reconstruct world-space direction from clip-space
     vec4 worldPos = INV_VIEW_PROJ * vec4(clipPos.xy, 1.0, 1.0);
     vec3 dir = normalize(worldPos.xyz / worldPos.w);
 
-    vec3 color = texture(TEX2D(skyboxTex), equirect(dir, push.rotation)).rgb;
+    vec2 skyUv = equirect(dir, push.rotation);
+    vec3 color = textureGrad(TEX2D(skyboxTex), skyUv,
+                             equirectDx(skyUv), equirectDy(skyUv)).rgb;
     // Both skies are sampled only while a fade is under way.
     if (push.blend > 0.0) {
-        vec3 other = texture(TEX2D(blendTex), equirect(dir, push.blendRotation)).rgb;
+        vec2 blendUv = equirect(dir, push.blendRotation);
+        vec3 other = textureGrad(TEX2D(blendTex), blendUv,
+                                 equirectDx(blendUv), equirectDy(blendUv)).rgb;
         color = mix(color, other, clamp(push.blend, 0.0, 1.0));
     }
     color *= push.exposure;
