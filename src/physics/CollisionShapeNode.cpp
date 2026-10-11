@@ -1,6 +1,7 @@
 #include "physics/CollisionShapeNode.hpp"
 
 #include "physics/JoltGlue.hpp"
+#include "physics/CollisionObjectNode.hpp"
 #include "graphics/Mesh.hpp"
 #include "core/Log.hpp"
 
@@ -209,6 +210,13 @@ void CollisionShapeNode::autoDetectFrom(const Aabb& b) {
 }
 
 bool CollisionShapeNode::ensureResolved(const glm::mat4& invBodyTR, Node& bodyNode) {
+    if (convexPoints_) {
+        const bool changed = convexPointsDirty_;
+        convexPointsDirty_ = false;
+        resolved_ = CollisionShapeType::ConvexHull;
+        meshPending_ = false;
+        return changed;
+    }
     if (shapeType == CollisionShapeType::Mesh && triangleData_) {
         const glm::mat3 scale = glm::mat3(invBodyTR) * glm::mat3(bodyNode.worldTransform());
         bool changed = triangleDataDirty_;
@@ -315,6 +323,16 @@ JPH::Ref<JPH::Shape> CollisionShapeNode::buildShape(const glm::mat4& invBodyTR, 
     // Geometry not loaded yet: no shape (rather than a wrong box);
     // the body will be built once the mesh arrives (resolveAutoShapes -> dirty).
     if (meshPending_) return Ref<Shape>();
+    if (resolved_ == CollisionShapeType::ConvexHull && convexPoints_) {
+        const glm::mat3 scale = glm::mat3(invBodyTR) * glm::mat3(bodyNode.worldTransform());
+        Array<Vec3> points;
+        points.reserve(convexPoints_->size());
+        for (const auto p : *convexPoints_) points.push_back(toJolt(scale * p));
+        auto result = ConvexHullShapeSettings(points).Create();
+        if (result.IsValid()) return result.Get();
+        Log::error("CollisionShape '", name(), "': procedural convex hull rejected: ", result.GetError().c_str());
+        return Ref<Shape>();
+    }
 
     // Build the primitive.
     Ref<Shape> prim;
@@ -377,6 +395,19 @@ void CollisionShapeNode::setTriangleMeshData(std::shared_ptr<const MeshCollision
     triangleDataDirty_ = true;
     shapeType = CollisionShapeType::Mesh;
     meshPending_ = false;
+}
+
+void CollisionShapeNode::setConvexHullPoints(std::shared_ptr<const std::vector<glm::vec3>> points) {
+    constexpr size_t kMinimumHullPoints = 4;
+    if (points) {
+        if (points->size() < kMinimumHullPoints) throw std::invalid_argument("convex collision requires at least four points");
+        for (const auto p : *points)
+            if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z))
+                throw std::invalid_argument("convex collision requires finite points");
+    }
+    convexPoints_ = std::move(points);
+    convexPointsDirty_ = true;
+    if (auto* body = parent() ? parent()->asCollisionObject() : nullptr) body->markDirty();
 }
 
 void CollisionShapeNode::serialize(nlohmann::json& j, ResourceManager& resources) const {

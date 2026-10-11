@@ -72,6 +72,7 @@ int main() {
     rigid->gravityFactor = 0.8f;
     rigid->linearDamping = 0.15f;
     rigid->angularDamping = 0.25f;
+    rigid->inertiaMultiplier = 2.2f;
     auto shape = std::make_unique<CollisionShapeNode>();
     shape->shapeType = CollisionShapeType::Capsule;
     shape->halfExtents = {1.0f, 2.0f, 3.0f};

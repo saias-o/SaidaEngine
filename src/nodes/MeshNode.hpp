@@ -25,10 +25,13 @@ public:
     void serialize(nlohmann::json& j, ResourceManager& resources) const override;
     void deserialize(const nlohmann::json& j, ResourceManager& resources) override;
 
-    Mesh* mesh() const override { return mesh_; }
+    Mesh* mesh() const override;
+    Mesh* sourceMesh(int lodIndex=0) const;
+    Mesh* runtimeMesh(int lodIndex=0) const;
+    void setRuntimeMesh(Mesh* mesh,int lodIndex=0);
     Material* material() const override { return material_; }
 
-    void setMesh(Mesh* mesh) { if (mesh_ != mesh) { mesh_ = mesh; markResourcesChanged(); } }
+    void setMesh(Mesh* mesh) { if (mesh_ != mesh) { mesh_ = mesh; runtimeMesh_ = nullptr; runtimeLods_.clear(); markResourcesChanged(); } }
     void setMaterial(Material* material) { if (material_ != material) { material_ = material; markResourcesChanged(); } }
 
     // LOD chain (LOD0 = base mesh/material). Empty → single-LOD behaviour.
@@ -85,6 +88,8 @@ public:
 
 private:
     Mesh* mesh_;
+    Mesh* runtimeMesh_ = nullptr;
+    std::vector<Mesh*> runtimeLods_;
     Material* material_;
     std::vector<MeshLodLevel> lods_;
     mutable int activeLodIndex_ = 0;

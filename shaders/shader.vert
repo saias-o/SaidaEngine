@@ -54,6 +54,9 @@ layout(location = 5) out vec3 fragTangent;
 layout(location = 6) out vec3 fragBitangent;
 layout(location = 10) out vec3 fragBillboardView;
 layout(location = 11) flat out vec3 fragBillboardUp;
+layout(location = 12) flat out vec3 fragBillboardNormalX;
+layout(location = 13) flat out vec3 fragBillboardNormalY;
+layout(location = 14) flat out vec3 fragBillboardNormalZ;
 
 #ifdef BINDLESS
 layout(location = 7) flat out uint fragMaterialIndex;
@@ -109,6 +112,9 @@ void main() {
     fragWorldPos = worldPos.xyz;
     // Normal matrix (handles non-uniform scale). Cheap enough per-vertex.
     mat3 normalMatrix = mat3(transpose(inverse(modelMat)));
+    fragBillboardNormalX = normalMatrix[0];
+    fragBillboardNormalY = normalMatrix[1];
+    fragBillboardNormalZ = normalMatrix[2];
     fragNormal = normalMatrix * localNormal;
     fragTangent = normalize(normalMatrix * localTangent);
     fragBitangent = cross(fragNormal, fragTangent) * inTangent.w;

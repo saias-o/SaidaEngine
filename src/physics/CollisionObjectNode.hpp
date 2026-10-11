@@ -10,6 +10,12 @@ namespace saida {
 // CollisionShape children. Subclasses declare their motion type.
 class CollisionObjectNode : public Node {
 public:
+    struct Impact {
+        CollisionObjectNode* other = nullptr;
+        glm::vec3 point{0.f};
+        glm::vec3 direction{0.f}; // into this body
+        float closingSpeed = 0.f, impulse = 0.f, energy = 0.f;
+    };
     using Node::Node;
     ~CollisionObjectNode() override;
 
@@ -76,6 +82,7 @@ public:
     // `behaviour->listen(body->collisionEntered, [](CollisionObjectNode* other){...})`.
     Signal<CollisionObjectNode*> collisionEntered;
     Signal<CollisionObjectNode*> collisionExited;
+    Signal<const Impact&> impacted;
 
     float friction = 0.5f;
     float restitution = 0.0f;

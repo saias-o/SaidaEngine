@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-09. This file is the engine's **single backlog**: everything
+Updated: 2026-10-11. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -9,7 +9,37 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
+## Vehicle deformation qualification and extensions
+
+The implemented `SurfaceDrive`, impact events, private geometry updates and
+plastic cages are documented in SPEC section 5.1; R1World integration and its
+evidence belong in the game's README.
+
+- [ ] Qualify a real headset, both eyes, sustained CPU/GPU frame times and
+  memory under multi-vehicle collisions. Shared mono/multiview geometry and an
+  OpenXR native build do not prove headset performance.
+- [ ] Qualify browser deformation on constrained GPUs/mobile hardware, beyond
+  the local Windows Chrome runtime/restart proof. R1World's Web port remains
+  separate work; its packs/geographic delivery are not solved by these changes.
+- [ ] Extend the bounded lattice to optional mechanical zones and independent
+  part segmentation. Group shape matching, tearing, glass breakage and complete
+  shell/self-collision are not implemented by the current displacement cage.
+- [ ] Evaluate atomic GPU publication, shared topology/binding preparation and
+  fair scheduling under workloads beyond eight damaged cars. The current fixed
+  topology uploads reuse their allocation and can expose intermediate slices.
+- [ ] Qualify constraints attached to bodies whose convex hull is rebuilt;
+  vehicle validation covers preserved velocities, not arbitrary joint chains.
+
 ## Streaming and rendering integration — verified through 2026-10-09
+
+- [x] Preserve per-pixel normals and static visibility on multi-view billboard
+  atlases, with coverage-weighted blending and the authored instance frame.
+  Verified 2026-10-11: 95/95 native CTest, 15 native billboard pixel cases
+  (including no-tangent import, occlusion, instance yaw and transparent-view
+  blending), mono/multiview SPIR-V and translated WGSL generation, and Chrome
+  WebGPU scene pipeline validation without errors. R1World's Far keeps its
+  unchanged albedo and four vertices; its bake and comparison evidence are in
+  `game/generated/tree-contrast-validation`. Headset performance was not measured.
 
 - [x] Add generic runtime rainfall and wet-surface shading, filtered world-space
   impact rings, opt-in material responses and procedural storm sky clouds.

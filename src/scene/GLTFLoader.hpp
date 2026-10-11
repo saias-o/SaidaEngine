@@ -14,6 +14,7 @@ class AnimationClip;
 
 struct GLTFLoadOptions {
     bool autoMeshLods = false;
+    bool retainDeformationSource = false;
 };
 
 // Rigs and clips of a glTF file, without the render-side assets (meshes,
@@ -33,7 +34,8 @@ public:
     static AssetHandle request(const std::string& path, ResourceManager& resources);
     // Main-thread instantiation; GPU meshes/textures enter bounded queues.
     // Consumes this handle on success; CPU Ready is distinct from GPU readiness.
-    static bool instantiate(AssetHandle& prepared, Node& rootNode, ResourceManager& resources);
+    static bool instantiate(AssetHandle& prepared, Node& rootNode, ResourceManager& resources,
+                            const GLTFLoadOptions& options = {});
 
     // Animation-only import (no GPU, no ResourceManager). Same construction code
     // as load(), so a pose golden-tested here is the pose the editor plays.

@@ -68,16 +68,48 @@ def main():
         'rotated':([0,-1,0],2,[1,1,1],'5,1,0',False),
         'atlas-front':([0,-1,0],2,[1,1,1],'0,1,5',True),
         'atlas-side':([0,-1,0],2,[1,1,1],'5,1,0',True),
-        'atlas-back':([0,-1,0],2,[1,1,1],'0,1,-5',True)}
+        'atlas-back':([0,-1,0],2,[1,1,1],'0,1,-5',True),
+        'normal-up':([0,-1,0],2,[1,1,1],'0,1,5',False),
+        'normal-up-side':([0,-1,0],2,[1,1,1],'5,1,0',False),
+        'normal-away':([0,1,0],2,[1,1,1],'0,1,5',False),
+        'normal-occluded':([0,-1,0],2,[1,1,1],'0,1,5',False),
+        'normal-coverage':([0,-1,0],2,[1,1,1],'5,1,0',False),
+        'normal-local-x':([-1,0,0],2,[1,1,1],'0,1,5',False),
+        'normal-yawed-x':([-1,0,0],2,[1,1,1],'0,1,5',False)}
     for name,(direction,intensity,color,camera,colored) in cases.items():
         atlas = Image.new('RGBA',(32,16),(160,160,160,255))
         if colored:
             atlas.paste((160,0,0,255),(0,0,16,16))
             atlas.paste((0,160,0,255),(16,0,32,16))
+        if name == 'normal-coverage':
+            atlas.paste((160,160,160,0),(16,0,32,16))
         image = io.BytesIO(); atlas.save(image,format='PNG')
         data = payload + image.getvalue()
         model['bufferViews'] = model['bufferViews'][:4] + [
             {'buffer':0,'byteOffset':len(payload),'byteLength':len(image.getvalue())}]
+        mapped = name.startswith('normal-')
+        model['materials'][0].pop('normalTexture', None)
+        model['images'] = model['images'][:1]
+        model['textures'] = model['textures'][:1]
+        panel = scene['scene']['children'][0]
+        panel.pop('transform', None)
+        if mapped:
+            normal = (255,128,128) if name.endswith('-x') else (128,255,128)
+            visibility = 0 if name == 'normal-occluded' else 255
+            surface = Image.new('RGBA', (32,16), (*normal,visibility))
+            if name == 'normal-coverage':
+                surface.paste((128,0,128,0),(16,0,32,16))
+            encoded = io.BytesIO(); surface.save(encoded, format='PNG')
+            padding = b'\0' * (-len(data) % 4)
+            offset = len(data) + len(padding)
+            data += padding + encoded.getvalue()
+            model['bufferViews'].append({'buffer':0,'byteOffset':offset,'byteLength':len(encoded.getvalue())})
+            model['images'].append({'bufferView':5,'mimeType':'image/png'})
+            model['textures'].append({'source':1})
+            model['materials'][0]['normalTexture'] = {'index':1}
+            if name == 'normal-yawed-x':
+                # The atlas frame follows the instance, never the camera-facing quad.
+                panel['transform'] = {'rotation':[0,2**-.5,0,2**-.5]}
         model['buffers'] = [{'byteLength':len(data),
                              'uri':'data:application/octet-stream;base64,'+base64.b64encode(data).decode()}]
         sun.update(direction=direction,intensity=intensity,color=color)
@@ -104,7 +136,12 @@ def main():
     assert values['atlas-front'][0] > values['atlas-front'][1] + 60, values
     assert values['atlas-back'][1] > values['atlas-back'][0] + 60, values
     assert min(values['atlas-side'][:2]) > 50 and abs(values['atlas-side'][0]-values['atlas-side'][1]) <= 1, values
-    print('PASS billboard orientation, atlas blend and live directional intensity/color/elevation:',json.dumps(values))
+    assert min(values['normal-up']) > max(values['normal-away']) + 60, values
+    assert max(abs(a-b) for a,b in zip(values['normal-up'],values['normal-up-side'])) <= 1, values
+    assert max(values['normal-occluded']) <= 1, values
+    assert max(abs(a-b) for a,b in zip(values['normal-up'],values['normal-coverage'])) <= 1, values
+    assert min(values['normal-local-x']) > max(values['normal-yawed-x']) + 60, values
+    print('PASS billboard orientation, atlas blend, authored normals/visibility and live directional lighting:',json.dumps(values))
     print('Captures:',root)
 
 

@@ -42,6 +42,8 @@ public:
     AssetID queueMemory(std::shared_ptr<const PreparedMesh> data, const std::string& subPath,
                         AssetRegistry* registry);
     void pumpUploads(size_t byteBudget = 512 * 1024, double timeBudgetMs = 2.0);
+    bool queueUpdate(Mesh* mesh, std::shared_ptr<const PreparedMesh> data);
+    bool updatePending(const Mesh* mesh) const;
 
     AssetID registerMemory(const std::vector<Vertex>& vertices,
                            const std::vector<uint32_t>& indices);

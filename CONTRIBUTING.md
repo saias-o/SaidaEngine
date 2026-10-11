@@ -129,6 +129,7 @@ python tools/verify_material_sidedness.py --build build  # Pillow; native front/
 python tools/verify_ibl_environment.py --build build    # Pillow; HDR transfer and environment pixel checks
 python tools/verify_specular_materials.py --build build # Pillow; glTF IOR/specular RGB and alpha pixel checks
 python tools/verify_billboard_materials.py --build build # Pillow; atlas facing/blend and directional lighting
+node tools/verify_billboard_web.mjs build/shaders/wgsl # Playwright; translated scene pipeline validation
 ```
 
 The desktop and Web restart checks must restore the saved progression and reach

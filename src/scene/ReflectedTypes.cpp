@@ -11,6 +11,8 @@
 #include "behaviours/AnimGraphBehaviour.hpp"
 #include "behaviours/CharacterBehaviour.hpp"
 #include "behaviours/VehicleBehaviour.hpp"
+#include "behaviours/SurfaceDriveBehaviour.hpp"
+#include "behaviours/DeformableMeshBehaviour.hpp"
 #include "behaviours/HealthBehaviour.hpp"
 #include "behaviours/LODGroupBehaviour.hpp"
 #include "nodes/LightNode.hpp"
@@ -73,6 +75,8 @@ void registerReflectedTypes() {
     registerBehaviour<AnimGraphBehaviour>();
     registerBehaviour<CharacterBehaviour>();
     registerBehaviour<VehicleBehaviour>();
+    registerBehaviour<SurfaceDriveBehaviour>();
+    registerBehaviour<DeformableMeshBehaviour>();
     registerBehaviour<HealthBehaviour>();
     registerBehaviour<SpawnerBehaviour>();
     registerBehaviour<Blackboard>();

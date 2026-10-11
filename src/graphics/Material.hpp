@@ -63,6 +63,11 @@ struct MaterialDesc {
     // a full azimuth turn; rows cover -90..90 degrees elevation (one = level).
     uint32_t billboardColumns = 0; // 0 keeps the authored mesh transform
     uint32_t billboardRows = 1;
+    // Billboard normal atlases encode authored-frame RGB normals and visibility
+    // in alpha. Missing atlases keep the inexpensive volume lighting path.
+    float billboardNormalStrength() const {
+        return normalId != kAssetInvalid ? normalStrength : 0.f;
+    }
     glm::vec4 baseColor{1.0f};
     glm::vec4 emissiveColor{0.0f};
     float metallic = 0.0f;

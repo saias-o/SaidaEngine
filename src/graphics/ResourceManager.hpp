@@ -7,6 +7,7 @@
 #include <glm/glm.hpp>
 
 #include <memory>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -105,6 +106,8 @@ public:
     // Stable empty proxy until bounded per-frame uploads complete. Preparation
     // is pure CPU (prepareMesh); drawing and colliders see it atomically Ready.
     AssetID queueMemoryMesh(std::shared_ptr<const PreparedMesh> data, const std::string& subPath = {});
+    bool queueMeshUpdate(Mesh* mesh, std::shared_ptr<const PreparedMesh> data);
+    bool meshUpdatePending(const Mesh* mesh) const;
 
     // Register memory structures directly from loaders
     AssetID registerMemoryRig(const std::string& path, std::unique_ptr<Rig> rig);
@@ -154,6 +157,11 @@ public:
     // graveyard, finalizes ready async loads (GPU creation + material
     // rebinding), then pumps the AssetLoader.
     void pumpAssetLoads();
+    // Shared CPU deformation work per pump/frame, independent of render views.
+    void setDeformationVertexBudget(size_t vertices) { deformationVertexBudget_=vertices;deformationVerticesRemaining_=vertices; }
+    size_t takeDeformationVertices(size_t requested) {
+        const size_t count=std::min(requested,deformationVerticesRemaining_);deformationVerticesRemaining_-=count;return count;
+    }
 
     // True when nothing is queued, in flight, or waiting to be finalized into a
     // cache. A deterministic frame capture counts frames only from this point:
@@ -219,6 +227,10 @@ public:
     uint32_t registerMaterialData(const MaterialDesc& desc, const MaterialTextureSlots& textures);
 
 private:
+    // Reference MX450 fleet measurement: leave headroom below 1 ms at p95.
+    static constexpr size_t kDefaultDeformationVertexBudget=6*1024;
+    size_t deformationVertexBudget_=kDefaultDeformationVertexBudget;
+    size_t deformationVerticesRemaining_=kDefaultDeformationVertexBudget;
     void finalizePendingAnimationAssets();
     void rebindMaterialsUsing(AssetID textureId);
 

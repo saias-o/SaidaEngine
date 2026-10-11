@@ -24,6 +24,7 @@
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/NarrowPhaseQuery.h>
 #include <Jolt/Physics/Collision/ContactListener.h>
+#include <Jolt/Physics/Collision/EstimateCollisionResponse.h>
 #include <Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Constraints/TwoBodyConstraint.h>
@@ -37,6 +38,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace saida {
 
@@ -137,12 +139,37 @@ uint64 contactKey(BodyID a, BodyID b) {
 // worker threads, so all state is mutex-guarded and drained on the main thread.
 class TriggerContactListener final : public JPH::ContactListener {
 public:
-    void OnContactAdded(const Body& b1, const Body& b2, const ContactManifold&,
-                        ContactSettings&) override {
+    void OnContactAdded(const Body& b1, const Body& b2, const ContactManifold& manifold,
+                        ContactSettings& settings) override {
         bool sensor = b1.IsSensor() || b2.IsSensor();
         std::lock_guard<std::mutex> lock(mutex_);
         if (active_.emplace(contactKey(b1.GetID(), b2.GetID()), sensor).second)
             events_.push_back({b1.GetID(), b2.GetID(), true, sensor});
+        recordImpact(b1, b2, manifold, settings);
+    }
+
+    void OnContactPersisted(const Body& a, const Body& b, const ContactManifold& manifold,
+                            ContactSettings& settings) override {
+        std::lock_guard<std::mutex> lock(mutex_);
+        recordImpact(a, b, manifold, settings);
+    }
+
+    void reportImpacts(BodyID id, bool enabled) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (enabled) reporters_.insert(id.GetIndexAndSequenceNumber());
+        else reporters_.erase(id.GetIndexAndSequenceNumber());
+    }
+
+    std::vector<ImpactEvent> drainImpacts() {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<ImpactEvent> out;
+        out.reserve(impacts_.size());
+        for (const auto& [key, event] : impacts_) out.push_back(event);
+        impacts_.clear();
+        std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) {
+            return contactKey(a.a, a.b) < contactKey(b.a, b.b);
+        });
+        return out;
     }
 
     void OnContactRemoved(const SubShapeIDPair& pair) override {
@@ -163,9 +190,36 @@ public:
     }
 
 private:
+    void recordImpact(const Body& a, const Body& b, const ContactManifold& manifold,
+                      const ContactSettings& settings) {
+        constexpr float kMinimumClosingSpeed = 1.5f;
+        constexpr uint kEstimationIterations = 2;
+        if (a.IsSensor() || b.IsSensor() ||
+            (!reporters_.count(a.GetID().GetIndexAndSequenceNumber()) &&
+             !reporters_.count(b.GetID().GetIndexAndSequenceNumber()))) return;
+        if (manifold.mRelativeContactPointsOn1.empty()) return;
+        const auto point = manifold.GetWorldSpaceContactPointOn1(0);
+        const float closing = (a.GetPointVelocity(point) - b.GetPointVelocity(point)).Dot(manifold.mWorldSpaceNormal);
+        if (!std::isfinite(closing) || closing < kMinimumClosingSpeed) return;
+        CollisionEstimationResult estimate;
+        EstimateCollisionResponse(a, b, manifold, estimate, settings.mCombinedFriction,
+                                  settings.mCombinedRestitution, 1.f, kEstimationIterations);
+        float impulse = 0.f;
+        for (const auto& contact : estimate.mImpulses) impulse += std::max(0.f, contact.mContactImpulse);
+        const float energy = .5f * impulse * closing / (1.f + settings.mCombinedRestitution);
+        if (!std::isfinite(energy) || energy <= 0.f) return;
+        const auto key = contactKey(a.GetID(), b.GetID());
+        auto& event = impacts_[key];
+        // Subshape contacts and resting contacts must not multiply the damage.
+        if (energy > event.energy)
+            event = {a.GetID(), b.GetID(), glm::vec3(float(point.GetX()), float(point.GetY()), float(point.GetZ())),
+                     toGlm(manifold.mWorldSpaceNormal), closing, impulse, energy};
+    }
     std::mutex mutex_;
     std::unordered_map<uint64, bool> active_;  // active pair -> involved a sensor
     std::vector<PhysicsWorld::ContactEvent> events_;
+    std::unordered_set<uint32_t> reporters_;
+    std::unordered_map<uint64_t, ImpactEvent> impacts_;
 };
 
 struct PhysicsWorld::LayerState {
@@ -215,6 +269,8 @@ std::vector<PhysicsWorld::ContactEvent> PhysicsWorld::drainContactEvents() {
     return contactListener_->drain();
 }
 
+std::vector<ImpactEvent> PhysicsWorld::drainImpactEvents() { return contactListener_->drainImpacts(); }
+
 // Every body access below goes through Jolt's lock-free interfaces. That is
 // sound because of when they happen: the engine only touches bodies from the
 // main thread, between `PhysicsSystem::Update` calls (the substep callbacks
@@ -224,7 +280,8 @@ std::vector<PhysicsWorld::ContactEvent> PhysicsWorld::drainContactEvents() {
 // take a body mutex per call for nothing — and a vehicle makes dozens a step.
 void* PhysicsWorld::bodyUserData(JPH::BodyID id) const {
     if (id.IsInvalid()) return nullptr;
-    return reinterpret_cast<void*>(system_->GetBodyInterfaceNoLock().GetUserData(id));
+    const auto* body = system_->GetBodyLockInterfaceNoLock().TryGetBody(id);
+    return body ? reinterpret_cast<void*>(body->GetUserData()) : nullptr;
 }
 
 void PhysicsWorld::appendActiveBodies(std::vector<uint32_t>& out) const {
@@ -296,10 +353,14 @@ JPH::BodyID PhysicsWorld::createBody(const BodyDesc& d) {
     settings.mFriction = d.friction;
     settings.mRestitution = d.restitution;
     settings.mUserData = reinterpret_cast<uint64>(d.userData);
+    if (d.continuousCollision && d.motion == BodyMotion::Dynamic)
+        settings.mMotionQuality = EMotionQuality::LinearCast;
 
     if (d.motion == BodyMotion::Dynamic) {
         settings.mLinearDamping = d.linearDamping;
         settings.mAngularDamping = d.angularDamping;
+        settings.mInertiaMultiplier = std::isfinite(d.inertiaMultiplier) && d.inertiaMultiplier > 0.f
+            ? d.inertiaMultiplier : 1.f;
         settings.mGravityFactor = d.gravityFactor;
         if (d.mass > 0.0f) {
             settings.mOverrideMassProperties = EOverrideMassProperties::CalculateInertia;
@@ -316,11 +377,13 @@ JPH::BodyID PhysicsWorld::createBody(const BodyDesc& d) {
     EActivation activation = (d.motion == BodyMotion::Static) ? EActivation::DontActivate
                                                               : EActivation::Activate;
     bi.AddBody(body->GetID(), activation);
+    contactListener_->reportImpacts(body->GetID(), d.reportsImpacts);
     return body->GetID();
 }
 
 void PhysicsWorld::removeBody(JPH::BodyID id) {
     if (id.IsInvalid()) return;
+    contactListener_->reportImpacts(id, false);
     // Drop any constraint still attached to this body first: destroying a body
     // referenced by a live constraint leaves Jolt with a dangling Body*. The
     // surviving body is woken up — a sleeping body would otherwise hover where
@@ -402,6 +465,20 @@ glm::vec3 PhysicsWorld::pointVelocity(JPH::BodyID id, const glm::vec3& worldPoin
         id, RVec3(worldPoint.x, worldPoint.y, worldPoint.z)));
 }
 
+float PhysicsWorld::effectiveAngularMass(JPH::BodyID id, const glm::vec3& axis) const {
+    const float length = glm::length(axis);
+    if (id.IsInvalid() || !std::isfinite(length) || length < 1e-6f) return 0.f;
+    JPH::BodyLockRead lock(system_->GetBodyLockInterfaceNoLock(), id);
+    if (!lock.Succeeded() || !lock.GetBody().IsDynamic()) return 0.f;
+    const auto& body = lock.GetBody();
+    const auto* motion = body.GetMotionProperties();
+    if (!motion) return 0.f;
+    const Vec3 direction(axis.x / length, axis.y / length, axis.z / length);
+    const Vec3 response = motion->MultiplyWorldSpaceInverseInertiaByVector(body.GetRotation(), direction);
+    const float inverseInertia = direction.Dot(response);
+    return inverseInertia > 1e-8f ? 1.f / inverseInertia : 0.f;
+}
+
 float PhysicsWorld::effectiveMassAt(JPH::BodyID id, const glm::vec3& worldPoint,
                                     const glm::vec3& direction) const {
     if (id.IsInvalid()) return 0.0f;
@@ -475,6 +552,11 @@ void PhysicsWorld::getBodyTransform(JPH::BodyID id, glm::vec3& position,
     bi.GetPositionAndRotation(id, p, q);
     position = glm::vec3(p.GetX(), p.GetY(), p.GetZ());
     rotation = toGlm(q);
+}
+
+glm::vec3 PhysicsWorld::gravity() const {
+    const auto value = system_->GetGravity();
+    return {value.GetX(), value.GetY(), value.GetZ()};
 }
 
 JPH::Ref<JPH::CharacterVirtual> PhysicsWorld::createCharacter(

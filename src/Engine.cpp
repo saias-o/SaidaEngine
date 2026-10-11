@@ -581,6 +581,11 @@ bool Engine::tick() {
             SAIDA_PROFILE_SCOPE("Scene/Update");
             activeScene->update(Time::delta());     // behaviours: scaled time (pausable)
         }
+        if(afterSimulation_) {
+            afterSimulation_(Time::delta());
+            activeScene=sceneOverride_?sceneOverride_:scene_.get();
+            activeScene->updateTransforms(glm::mat4(1.f),false);
+        }
 
         // During Play, scene cameras drive the view (the editor fly cam is frozen).
         // The director picks the highest-priority active CameraNode and blends; with
@@ -668,6 +673,11 @@ void Engine::runXr() {
 
         Scene* activeScene = sceneOverride_ ? sceneOverride_ : scene_.get();
         activeScene->update(Time::delta());
+        if(afterSimulation_) {
+            afterSimulation_(Time::delta());
+            activeScene=sceneOverride_?sceneOverride_:scene_.get();
+            activeScene->updateTransforms(glm::mat4(1.f),false);
+        }
 
         if (sceneTree_->mounted()) {
             sceneTree_->applyDeferred();

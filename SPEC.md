@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-10-07. This document is the engine's technical truth. It describes
+Updated: 2026-10-11. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -79,6 +79,12 @@ by an autoload, not a new global.
 updates, physics, scene, audio, UI, rendering and presentation. Vulkan resources
 are RAII, non-copyable and borrow the device. The declaration order must
 guarantee that the device outlives its resources.
+
+`Engine::setAfterSimulation` supplies an optional presentation callback after
+the scene's physics/behaviours and before camera selection. Its transform changes
+are propagated before drawing, so a chase camera can follow the same completed
+body pose rendered that frame instead of the previous frame's position. It runs
+in the desktop and XR loops; its argument is scaled simulation time.
 
 VMA v3.1.0 is vendored under `third_party/vma`; the public headers use forward
 declarations and a single TU defines `VMA_IMPLEMENTATION`. Same rule for
@@ -517,16 +523,27 @@ Classic/Web atlas dimensions use `push.params.zw`; bindless uses the existing
 The material SSBO is visible to vertex/fragment/compute stages; its size remains
 128 bytes. Material cache equality/hash include both dimensions.
 
-Impostors use cheap ambient plus directional diffuse illumination: a broad
-volume response scaled by light color/intensity and elevation relative to the
-authored up axis. Camera orientation cannot change illumination. Two albedo
-fetches suffice; normal/MR/emissive textures, GGX, IBL, GI and shadow sampling
-are skipped. Point/spot lights do not illuminate this distant representation.
+Impostors use cheap ambient plus directional diffuse illumination. Without a
+normal atlas they retain the broad volume response scaled by light color,
+intensity and elevation relative to the authored up axis, with two albedo
+fetches. An optional linear `normalTexture` encodes normals in the authored
+model frame (RGB = normal * 0.5 + 0.5), with static hemisphere visibility in
+alpha. It requires no UV tangents. Two additional texture reads blend these
+surface data with the albedo's coverage weights; the instance inverse transpose
+transforms the blended normal, independently of camera-facing orientation.
+Visibility modulates ambient and Lambert directional diffuse, and normal scale
+blends this response against the coarse volume response. Both paths skip MR,
+emissive textures, GGX, IBL, GI and runtime shadow sampling. Point/spot lights do
+not illuminate this distant representation. Visibility is a static occlusion
+approximation, not directional self-shadowing or a replacement for close PBR.
 Imported billboard meshes disable shadow casting, and shadow gathering also
 excludes a selected billboard material in a MeshNode LOD chain. Ordinary meshes
 retain their existing shading. `tools/verify_billboard_materials.py` verifies
-facing, atlas blending, camera-independent brightness and directional
-intensity/color/elevation with captured native pixels.
+facing, atlas blending, camera-independent brightness, directional
+intensity/color/elevation, authored-frame normals under instance rotation,
+visibility and coverage-weighted normal blending with captured native pixels.
+`tools/verify_billboard_web.mjs` compiles the actual translated scene pipeline
+in browser WebGPU. Mono and multiview use the same surface equations.
 
 Screen coverage (`computeScreenCoverage`, for MeshNode LOD chains and LOD
 groups alike) divides the bounding sphere by its distance to the eye, not by
@@ -832,9 +849,9 @@ as long as their consumers are not asynchronous.
   (walls, ground) clamped by mistake smears one edge texel across itself.
   Neither is a rule the engine can guess — it is per asset, so the asset
   declares it and `asset_registry.json` can override it (3.1).
-- Tangents: without author tangents in a glTF, the material's normal mapping is
+- Tangents: without author tangents in a glTF, tangent-space normal mapping is
   explicitly disabled (warning logged) — never lighting silently approximated;
-  MikkTSpace is P1.
+  MikkTSpace is P1. Authored-frame billboard atlases do not require tangents.
 
 ### Incremental scenes and streamed worlds
 
@@ -1214,6 +1231,82 @@ capped by `selfRightMaxSpin` so it rocks rather than spins. Without it a raycast
 vehicle on its roof has nothing to push against and stays there: the only way out
 of a roll is to reload. The torque must exceed `weight * halfWidth` or nothing
 happens at all — it has to lift the car onto an edge before gravity can help.
+
+**Surface driving alternative.** `SurfaceDrive` is a separate generic behaviour
+for a dynamic `RigidBody`, facing local `-Z`. It uses central and axle ground probes, bounded
+longitudinal/slip impulses and yaw feedback at fixed physics steps. It does not
+require the raycast vehicle's suspension or replace collision response. Mass,
+wheelbase, grip, acceleration, braking and steering response are reflected
+settings. Pitch, roll, gravity and contacts remain under Jolt. Positive steer
+turns toward local `+X`. Hosts provide throttle/brake/steer commands; `parked`
+holds the brakes, including the next solver step's tangential gravity on slopes.
+Low-speed drive retains full configured acceleration; a narrow speed-limit band
+reduces traction near maximum speed in the requested direction, without
+removing opposing torque during rollback or direction changes. `slopeAssist`
+(default 0, range 0–1) adds powered uphill gravity compensation, bounded by
+`lateralAcceleration` and scaled by throttle, independently of the speed-limit
+band so uphill cruise retains its grade compensation.
+Mechanical condition reduces motor acceleration separately; a fully disabled
+motor receives no assistance. It does not assist coasting, downhill acceleration or
+airborne motion. Hosts choosing arcade handling can enable it without changing
+gravity or collision response. Support must face against gravity, remain within
+`supportDistance` of the body's base and not separate upwards faster than 1 m/s;
+a pitched chassis cannot use a wall as road. Ground probes do not create wheel springs.
+Optional `groundStability` and `groundDamping` apply road-aligned tilt feedback
+using the body's actual angular inertia. They do not operate in flight.
+Optional `selfRightAcceleration` with `selfRightSpeed` progressively rights an
+overturned body while throttle or steering is held, only near supporting ground.
+`PhysicsWorld::effectiveAngularMass` supplies impulse response about a world axis.
+`RigidBody::inertiaMultiplier` (default 1) scales computed rotational inertia
+independently of linear mass and survives scene/snapshot serialization.
+`damage` reduces drive/grip and `steeringBias` supplies a
+bounded mechanical fault. Both native and Web players register this behaviour.
+
+**Impacts and mesh deformation.** `RigidBody::reportsImpacts` opts into
+main-thread `CollisionObjectNode::impacted` events. The listener records contact
+position/direction, closing speed and Jolt's estimated impulse and energy,
+retaining the strongest contact per body pair over the frame's substeps.
+Sensors and resting contacts are excluded. This estimates a two-body collision,
+not the actual work dissipated by the full solver. It applies no extra impulse.
+`continuousCollision` enables Jolt linear-cast motion.
+
+`DeformableMesh` accepts these events or explicit local `applyImpact` calls.
+An optional C++ `setContactFilter` callback receives the component-local contact
+point, incoming direction and the compliance-shared impact energy in joules.
+Returning false excludes that automatic contact from deformation and absorbed
+damage; it does not alter the solver's collision impulse. Explicit `applyImpact`
+calls bypass this policy. The callback is runtime-only and must be reinstalled
+by the host after loading; an empty callback accepts all automatic impacts.
+Retain immutable CPU geometry with `GLTFLoadOptions::retainDeformationSource`,
+or `Mesh::retainDeformationSource` for procedural assets. This is opt-in: ordinary
+meshes do not retain another render-vertex copy. A shared regular cage (2–8
+points per axis; default 125 controls) drives rigid descendant meshes and their
+child/internal LODs. Smooth impact displacement depends on energy and stiffness,
+with bounded permanent offsets, an exponentially damped elastic part and
+gradient constraints. This approximates plastic deformation; it is not a
+finite-element shell or soft-body simulation. Prefix exclusions leave parts
+such as wheels and glazing intact. Automatic mechanical-part segmentation,
+tearing, topology change, self-collision and skinned meshes are unsupported.
+
+Private geometry is created only on first damage. The original asset remains
+the serialization identity and other instances remain intact. Positions,
+normal/tangent directions, collision CPU geometry and bounds are updated.
+The collider approximation samples authored box volumes into convex hulls;
+rebuilds have a displacement threshold and preserve body velocities.
+Detailed dynamic triangle collision is not used. State version 1 saves permanent
+cage offsets and absorbed energy; repair restores source meshes and authored
+colliders. Hosts retain the component during ownership transfers/rebases.
+
+Vertex work is chunked and shares `ResourceManager`'s configurable default
+6,144-vertex/frame budget, plus a per-component budget (default 2,048 at 15 Hz).
+Whole CPU results queue into existing sliced geometry uploads. Updates reuse the
+same GPU allocation, uploading vertices only with fixed indices/topology. Slices
+can become visible across several frames; bounds cover both states during the
+upload. This trades atomic visual publication for bounded memory. Stabilized
+cages stop vertex/collider work. Web geometry ranges coalesce freed ranges
+and reuse them; compaction of live Web allocations is not provided. Rendering
+uses the same mesh geometry for mono and multiview; this does not certify headset
+performance. Impacts, vertex jobs and hull updates have separate profiler scopes.
 
 Vehicle forces are applied in `Behaviour::onPhysicsStep`, immediately before
 **each actual 1/60 s Jolt step**, after bodies have been created. Input is sampled
@@ -2212,17 +2305,36 @@ traffic.
 The header declares `saida::traffic::Graph` (nodes, directed lanes and the
 adjacency built once from them), `Rules` (side of the road, lane offset,
 acceleration, braking, headway, junction guard, spawn and despawn radii) and
-`Flow` (a population of agents on one graph). It depends only on `<cmath>`,
-`<cstdint>` and `<vector>`: no scene, node, material, serialization, glm or
+`Flow` (a population of agents on one graph). It uses the C++ standard library:
+no scene, node, material, serialization, glm or
 coordinate convention. The host owns rendering and supplies the graph; `Flow`
 supplies poses.
 
-The model is agents on a directed lane graph with car following, nearest-first
-give way at junctions, and spawning in an annulus around the observer. There is
-no path planning, destination, signal or lane change. Update cost is O(n²) in
-live agents. `agents()` is a fixed-size array whose indices are stable while an
-agent lives; a host keys per-car state by index. A streaming host gives each
-region its own `Graph` and `Flow`.
+Directed lanes carry offsets, widths, road/strip identities, layers, priorities,
+turn masks, stop/yield and signal assignments. Cubic junction curves, lateral
+acceleration limits, length-aware following, adjacent-lane changes and ordered
+junction admission drive agents. Signal programs provide green/amber/all-red
+and pedestrian phases from host time. Opposing approaches share green by default;
+`SignalTiming::opposingTogether=false` selects four separate protected phases. Timing
+and traffic law are supplied by the host. The spatial sweep reuses sorted
+positions to narrow corridor/junction queries; its dense worst case remains
+O(n²). There is no destination routing or full movement-conflict planner.
+
+`setPhysicalPose` supplies a solver-owned pose; `command` returns pure-pursuit
+steering and speed commands without teleporting it. Incidents brake and remain
+obstacles. Lookahead walks a bounded number of short lane segments without
+advancing the driver's random stream. Shape points do not reserve junctions or
+require downstream junction clearance; turn-only markings allow intermediate
+continuations of the same road. `capacityNear` measures lane room inside the
+spawn radius so remote regions do not monopolize a host's fleet budget.
+Per-identity driving limits include wheelbase and maximum steering angle in
+radians, so physical steering uses the actual vehicle geometry. Following
+uses combined vehicle widths and a configurable lateral clearance. Hosts can
+supply oriented obstacle footprints for parked vehicles instead of circles.
+Visible trips survive population reduction and end-of-lane retirement.
+Slot indices are stable for a live trip; `identity` distinguishes reuse. A
+streaming host uses `adopt`/`retire` to transfer trips and retains the actual
+vehicle node. Graphs must stay at stable addresses while flows refer to them.
 
 Verification is one translation unit with no engine build:
 `g++ -std=c++20 -O2 -Wall -I../include test_traffic.cpp -o test_traffic` in

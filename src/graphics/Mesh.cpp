@@ -110,6 +110,13 @@ std::shared_ptr<PreparedMesh> prepareMesh(MeshData data) {
     return prepared;
 }
 
+void Mesh::retainDeformationSource(std::shared_ptr<const MeshData> data) {
+    if(deformationSource_==data)return;
+    deformationSource_=std::move(data);
+    deformationSourceSkinned_=deformationSource_&&std::any_of(deformationSource_->vertices.begin(),deformationSource_->vertices.end(),
+        [](const Vertex& vertex){return glm::dot(vertex.boneWeights,vertex.boneWeights)>0.f;});
+}
+
 void Mesh::beginUpload(const PreparedMesh& data) {
     cancelUpload();
     registry_.reserve(allocation_, data.geometry.vertices.size(), data.geometry.indices.size());

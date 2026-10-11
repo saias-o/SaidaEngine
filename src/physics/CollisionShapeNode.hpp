@@ -73,6 +73,7 @@ public:
     // rendered Mesh or GPU allocation is required. Null restores mesh discovery.
     // The supplied immutable geometry survives visual LOD changes.
     void setTriangleMeshData(std::shared_ptr<const MeshCollisionData> data);
+    void setConvexHullPoints(std::shared_ptr<const std::vector<glm::vec3>> points);
     // Re-arm Auto so the next ensureResolved detects again (editor "Recompute").
     void resetAuto() { autoResolved_ = false; }
 
@@ -106,6 +107,8 @@ private:
     bool autoResolved_ = false;        // true once Auto has detected a primitive
     bool meshPending_ = false;         // mesh proxy without geometry yet (async .obj)
     std::shared_ptr<const MeshCollisionData> triangleData_;
+    std::shared_ptr<const std::vector<glm::vec3>> convexPoints_;
+    bool convexPointsDirty_ = false;
     bool triangleDataDirty_ = false;
     glm::mat3 triangleScale_{1.f};
     // Body-space extent the detection last used, as a pair rather than an Aabb

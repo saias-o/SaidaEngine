@@ -23,6 +23,9 @@ public:
     float gravityFactor = 1.0f;   // 0 = floats, 1 = normal gravity
     float linearDamping = 0.05f;
     float angularDamping = 0.05f;
+    float inertiaMultiplier = 1.f; // Rotational mass distribution; does not change linear mass.
+    bool reportsImpacts = false;
+    bool continuousCollision = false;
     // Where the mass sits, relative to where the collision shape puts it. Jolt
     // derives the centre of mass from the geometry, which is right for a crate
     // and wrong for anything whose mass is not spread through its own bounding
@@ -37,7 +40,10 @@ protected:
         desc.gravityFactor = gravityFactor;
         desc.linearDamping = linearDamping;
         desc.angularDamping = angularDamping;
+        desc.inertiaMultiplier = inertiaMultiplier;
         desc.centerOfMass = centerOfMass;
+        desc.reportsImpacts = reportsImpacts;
+        desc.continuousCollision = continuousCollision;
     }
 };
 

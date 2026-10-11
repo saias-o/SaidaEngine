@@ -31,6 +31,15 @@ class TriggerContactListener;
 // How a body is integrated by the simulation.
 enum class BodyMotion { Static, Kinematic, Dynamic };
 
+struct ImpactEvent {
+    JPH::BodyID a, b;
+    glm::vec3 point{0.f};
+    glm::vec3 normal{0.f}; // from a toward b
+    float closingSpeed = 0.f;
+    float impulse = 0.f; // estimate, N.s; never applied again
+    float energy = 0.f;  // incident normal energy estimate, joules
+};
+
 struct RaycastHit {
     bool hit = false;
     glm::vec3 point{0.0f};
@@ -66,6 +75,9 @@ struct BodyDesc {
     float gravityFactor = 1.0f;
     float linearDamping = 0.05f;
     float angularDamping = 0.05f;
+    float inertiaMultiplier = 1.f;
+    bool reportsImpacts = false;
+    bool continuousCollision = false;
     // Where the mass actually sits, relative to where the shape says it does.
     // Jolt derives the centre of mass from the geometry, which is right for a
     // crate and wrong for anything whose mass is not spread through its own
@@ -119,6 +131,7 @@ public:
                        const glm::quat& rotation, float dt);
     // Read a body's world transform back (used to drive dynamic nodes).
     void getBodyTransform(JPH::BodyID id, glm::vec3& position, glm::quat& rotation) const;
+    glm::vec3 gravity() const;
 
     // Set a body's velocity (and activate it). Used e.g. to throw a released
     // grabbed object with the hand's motion.
@@ -153,6 +166,11 @@ public:
     // non-dynamic body or a degenerate direction.
     float effectiveMassAt(JPH::BodyID id, const glm::vec3& worldPoint,
                           const glm::vec3& direction) const;
+
+    // Angular inertia resisted along a world-space axis, kg.m^2. Multiplying
+    // by a wanted angular-speed change produces the corresponding impulse.
+    // Zero for non-dynamic bodies, invalid ids or a degenerate axis.
+    float effectiveAngularMass(JPH::BodyID id, const glm::vec3& axis) const;
 
     // Instantaneous change of momentum (N.s), applied at the centre of mass or
     // at a world point — off-centre it also spins the body. Prefer these in
@@ -220,6 +238,7 @@ public:
     };
     // Collect (and clear) the sensor overlap events accumulated during the last step.
     std::vector<ContactEvent> drainContactEvents();
+    std::vector<ImpactEvent> drainImpactEvents();
     // The CollisionObjectNode pointer stored on a body (null if none / invalid id).
     void* bodyUserData(JPH::BodyID id) const;
 

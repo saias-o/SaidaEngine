@@ -27,6 +27,8 @@
 #include "behaviours/AnimGraphBehaviour.hpp"
 #include "behaviours/CharacterBehaviour.hpp"
 #include "behaviours/VehicleBehaviour.hpp"
+#include "behaviours/SurfaceDriveBehaviour.hpp"
+#include "behaviours/DeformableMeshBehaviour.hpp"
 #include "behaviours/LODGroupBehaviour.hpp"
 #include "nodes/LightNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
@@ -74,6 +76,8 @@ void registerReflectedTypes() {
     registerBehaviour<AnimGraphBehaviour>();
     registerBehaviour<CharacterBehaviour>();
     registerBehaviour<VehicleBehaviour>();
+    registerBehaviour<SurfaceDriveBehaviour>();
+    registerBehaviour<DeformableMeshBehaviour>();
     registerBehaviour<LODGroupBehaviour>();
     registerBehaviour<CameraFollowBehaviour>();
     registerBehaviour<AudioSourceBehaviour>();

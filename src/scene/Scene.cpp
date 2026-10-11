@@ -151,6 +151,16 @@ void Scene::update(float dt) {
                 if (n2) (e.entered ? n2->collisionEntered : n2->collisionExited).emit(n1);
             }
         }
+        for (const auto& e : physics_->drainImpactEvents()) {
+            auto* a = static_cast<CollisionObjectNode*>(physics_->bodyUserData(e.a));
+            auto* b = static_cast<CollisionObjectNode*>(physics_->bodyUserData(e.b));
+            if (!a || !b) continue;
+            a->impacted.emit({b, e.point, -e.normal, e.closingSpeed, e.impulse, e.energy});
+            // A callback can remove a body; resolve again before dispatching to b.
+            b = static_cast<CollisionObjectNode*>(physics_->bodyUserData(e.b));
+            a = static_cast<CollisionObjectNode*>(physics_->bodyUserData(e.a));
+            if (b) b->impacted.emit({a, e.point, e.normal, e.closingSpeed, e.impulse, e.energy});
+        }
         }
 
 

@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 #else
 #include "graphics/Buffer.hpp"
+#include "core/RangeAllocator.hpp"
 #endif
 
 #include <memory>
@@ -77,7 +78,7 @@ public:
     // Packs every live allocation at the start of the arenas, largest free
     // range last. Old buffers survive an ordered asynchronous copy while
     // frames in flight finish reading them. Returns false where the backend
-    // cannot move geometry (WebGPU's linear arena).
+    // cannot compact geometry (WebGPU reuses freed ranges without compaction).
     bool compact();
 
     Buffer* vertexBuffer() const { return vertexBuffer_.get(); }
@@ -109,8 +110,8 @@ private:
     VmaVirtualBlock indexBlock_ = VK_NULL_HANDLE;
     std::unordered_set<GeometryAllocation*> live_;
 #else
-    uint64_t vertexCursorBytes_ = 0;
-    uint64_t indexCursorBytes_ = 0;
+    RangeAllocator vertexRanges_, indexRanges_;
+    uint64_t webAllocations_ = 0;
 #endif
 };
 

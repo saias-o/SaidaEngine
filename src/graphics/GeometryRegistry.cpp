@@ -41,7 +41,11 @@ const rhi::BufferUsage kIndexArenaUsage =
 } // namespace
 
 GeometryRegistry::GeometryRegistry(rhi::Device& device, DeviceSize maxVertices, DeviceSize maxIndices)
-    : device_(device), capacity_{maxVertices, maxIndices} {
+    : device_(device), capacity_{maxVertices, maxIndices}
+#ifdef SAIDA_RHI_WEBGPU
+    , vertexRanges_(maxVertices), indexRanges_(maxIndices)
+#endif
+    {
     if (maxVertices == 0 || maxVertices > uint64_t(INT32_MAX) ||
         maxIndices == 0 || maxIndices > uint64_t(UINT32_MAX))
         throw std::invalid_argument("geometry capacity must fit nonzero vertex/index draw offsets");
@@ -116,8 +120,8 @@ void GeometryRegistry::reserve(GeometryAllocation& into, size_t vertices, size_t
     GeometryAllocation alloc{};
     alloc.vertexCount = static_cast<uint32_t>(vertices);
     alloc.indexCount = static_cast<uint32_t>(indices);
-    const uint64_t vertexSize = vertices * sizeof(Vertex), indexSize = indices * sizeof(uint32_t);
 #ifndef SAIDA_RHI_WEBGPU
+    const uint64_t vertexSize = vertices * sizeof(Vertex), indexSize = indices * sizeof(uint32_t);
     if (!tryAllocate(alloc, vertexSize, indexSize)) {
         const auto before = usage();
         if (!(capacity_.vertices - before.vertices >= vertices &&
@@ -131,15 +135,16 @@ void GeometryRegistry::reserve(GeometryAllocation& into, size_t vertices, size_t
     into = alloc;
     live_.insert(&into);
 #else
-    if (vertexCursorBytes_ + vertexSize > vertexBuffer_->size() ||
-        indexCursorBytes_ + indexSize > indexBuffer_->size())
-        throw std::runtime_error("failed to allocate space in web GeometryRegistry");
-    alloc.vertexVirtualAlloc = vertexCursorBytes_ + 1;
-    alloc.indexVirtualAlloc = indexCursorBytes_ + 1;
-    alloc.vertexOffset = static_cast<int32_t>(vertexCursorBytes_ / sizeof(Vertex));
-    alloc.firstIndex = static_cast<uint32_t>(indexCursorBytes_ / sizeof(uint32_t));
-    vertexCursorBytes_ += vertexSize;
-    indexCursorBytes_ += indexSize;
+    const auto vertexStart=vertexRanges_.allocate(vertices);
+    if(!vertexStart)throw std::runtime_error(refusal("vertex",vertices,usage(),capacity_));
+    const auto indexStart=indexRanges_.allocate(indices);
+    if(!indexStart) {
+        vertexRanges_.release(*vertexStart,vertices);
+        throw std::runtime_error(refusal("index",indices,usage(),capacity_));
+    }
+    alloc.vertexVirtualAlloc=*vertexStart+1;alloc.indexVirtualAlloc=*indexStart+1;
+    alloc.vertexOffset=static_cast<int32_t>(*vertexStart);alloc.firstIndex=static_cast<uint32_t>(*indexStart);
+    ++webAllocations_;
     into = alloc;
 #endif
 }
@@ -254,10 +259,9 @@ GeometryUsage GeometryRegistry::usage() const {
     out.largestFreeIndices = indices.unusedRangeCount ? indices.unusedRangeSizeMax / sizeof(uint32_t) : 0;
     out.allocations = indices.statistics.allocationCount;
 #else
-    out.vertices = vertexCursorBytes_ / sizeof(Vertex);
-    out.indices = indexCursorBytes_ / sizeof(uint32_t);
-    out.largestFreeVertices = capacity_.vertices - out.vertices;
-    out.largestFreeIndices = capacity_.indices - out.indices;
+    out.vertices=vertexRanges_.used();out.indices=indexRanges_.used();
+    out.largestFreeVertices=vertexRanges_.largestFree();out.largestFreeIndices=indexRanges_.largestFree();
+    out.allocations=webAllocations_;
 #endif
     return out;
 }
@@ -267,8 +271,11 @@ void GeometryRegistry::free(GeometryAllocation& alloc) {
     if (alloc.vertexVirtualAlloc) vmaVirtualFree(vertexBlock_, alloc.vertexVirtualAlloc);
     if (alloc.indexVirtualAlloc) vmaVirtualFree(indexBlock_, alloc.indexVirtualAlloc);
     live_.erase(&alloc);
+#else
+    if(alloc.vertexVirtualAlloc)vertexRanges_.release(alloc.vertexVirtualAlloc-1,alloc.vertexCount);
+    if(alloc.indexVirtualAlloc)indexRanges_.release(alloc.indexVirtualAlloc-1,alloc.indexCount);
+    if(alloc.vertexVirtualAlloc&&alloc.indexVirtualAlloc)--webAllocations_;
 #endif
-    // Linear allocator on the web: memory is reclaimed with the registry.
     alloc = GeometryAllocation{};
 }
 

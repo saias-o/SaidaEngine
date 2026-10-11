@@ -58,11 +58,14 @@ void SceneIndex::updateResources(Node& node, Entry& entry) {
     };
     if (auto* mesh = dynamic_cast<const MeshNode*>(&node)) {
         if (mesh->mesh()) usage.meshes.insert(mesh->mesh());
+        if (mesh->sourceMesh()) usage.meshes.insert(mesh->sourceMesh());
+        if (mesh->runtimeMesh()) usage.meshes.insert(mesh->runtimeMesh());
         material(mesh->material());
         for (const auto& level : mesh->lods()) {
             if (level.mesh) usage.meshes.insert(level.mesh);
             material(level.material);
         }
+        for(size_t i=1;i<mesh->lods().size();++i)if(auto* live=mesh->runtimeMesh(int(i)))usage.meshes.insert(live);
     } else if (auto* terrain = dynamic_cast<const TerrainRingsNode*>(&node)) {
         for (const auto& layer : terrain->layers()) material(layer.material);
     } else if (std::strcmp(node.typeName(), "UIImageNode") == 0) {

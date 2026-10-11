@@ -56,6 +56,57 @@ static void run(Flow& flow, float seconds, Vec2 observer, const Obstacle& obstac
 }
 
 int main() {
+    {
+        Signal signal;
+        for(double time=0;time<signal.timing.cycle();time+=.1) {
+            int green=0;
+            for(uint32_t group=0;group<4;++group)green+=signal.light(group,time)==Light::Green;
+            check(green<=2,"at most the opposing approaches share green");
+            check(!(signal.light(0,time)==Light::Green&&signal.light(1,time)==Light::Green),"crossing signal axes never share green");
+            check(signal.light(0,time)==signal.light(2,time),"opposing traffic shares a phase");
+            check(!signal.pedestriansMayStart(time)||green==0,"pedestrian phase has no green vehicle approach");
+        }
+        check(signal.light(0,12.5)==Light::Amber,"green transitions through amber");
+        check(signal.light(0,15.5)==Light::Red,"all-red clearance follows amber");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,100},{0,200}};
+        Lane controlled{0,1,10};controlled.road=1;controlled.signal=0;controlled.signalGroup=1;
+        Lane exit{1,2,10};exit.road=1;graph.lanes={controlled,exit};graph.signals.emplace_back();graph.build();
+        Flow flow;flow.reset(&graph,Rules{});flow.setVisibility([](const Pose&){return true;});
+        Agent source;source.alive=true;source.identity=1234;source.speed=10;source.length=8;
+        const auto slot=flow.adopt(source,{{1.7f,75},0,10},1);
+        check(bool(slot),"a streamed agent adopts a compatible directional lane");
+        flow.setVehicleLimits(*slot,{2,6,4,10});
+        flow.setTime(0);run(flow,8,{0,80});
+        if(flow.agents()[*slot].s>94.1f||flow.agents()[*slot].speed>=.1f)
+            std::printf("red bus s=%.3f speed=%.3f\n",flow.agents()[*slot].s,flow.agents()[*slot].speed);
+        check(flow.agents()[*slot].s<=94.1f&&flow.agents()[*slot].speed<.1f,"bus stops its nose before the red stop line");
+        flow.setTime(18);run(flow,8,{0,80});
+        check(flow.agents()[*slot].lane==1,"green releases the stopped driver");
+        check(flow.agents()[*slot].identity==1234,"junctions preserve the vehicle identity");
+        Flow destination;destination.reset(&graph,Rules{});
+        const auto moved=destination.adopt(flow.agents()[*slot],flow.pose(flow.agents()[*slot]),1);
+        check(moved&&destination.agents()[*moved].limits.braking==6,"handoff retains the bus's physical braking capability");
+        check(moved&&destination.agents()[*moved].identity==1234,"tile handoff keeps identity");
+        destination.setPhysicalPose(*moved,{{1.7f,160},0,3},true);
+        const auto command=destination.command(*moved,{{1.7f,160},0,3});
+        check(command.throttle==0&&command.brake==1,"an incident brakes instead of returning to an authored path");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,50},{40,50}};
+        Lane entry{0,1,10};entry.road=1;Lane exit{1,2,10};exit.road=2;
+        graph.lanes={entry,exit};graph.restrictions.push_back({1,2,1,false});graph.build();
+        check(!graph.allows(0,1),"surveyed forbidden turn is respected");
+        graph.restrictions.clear();check(graph.allows(0,1),"unrestricted connected turn is usable");
+        Flow flow;flow.reset(&graph,Rules{});Agent agent;agent.alive=true;agent.identity=10;agent.speed=3;
+        const auto slot=flow.adopt(agent,{{1.7f,43},0,3},1);
+        flow.update(.05f,{0,30},{0,0});
+        const auto before=flow.pose(flow.agents()[*slot]);flow.update(.05f,{0,30},{0,0});
+        const auto after=flow.pose(flow.agents()[*slot]);
+        check(std::abs(after.yaw-before.yaw)<.1f,"junction heading evolves continuously");
+        check(length(after.position-before.position)<1,"curved junction pose has no teleport");
+    }
     // ── the graph ───────────────────────────────────────────────────────────
     {
         Graph g = street(2);
@@ -370,14 +421,19 @@ int main() {
         rules.spawnNear = 5.f;
         rules.spawnFar = 400.f;
         rules.despawn = 600.f;
-        flow.reset(&g, rules, 29);
-        flow.setPopulation(18);
-        run(flow, 12.f, {0.f, 150.f});
         int onAvenue = 0, live = 0;
-        for (const Agent& a : flow.agents()) {
-            if (!a.alive) continue;
-            ++live;
-            if (a.lane == 0) ++onAvenue;
+        // Weighting is a population property, not the outcome of one random
+        // draw. Keep the same threshold across a deterministic seed corpus.
+        for(uint32_t seed=29;seed<45;++seed) {
+            flow.reset(&g, rules, seed);
+            flow.setPopulation(18);
+            run(flow, 12.f, {0.f, 150.f});
+            check(flow.live()>8,"each weighted network fills up");
+            for (const Agent& a : flow.agents()) {
+                if (!a.alive) continue;
+                ++live;
+                if (a.lane == 0) ++onAvenue;
+            }
         }
         check(live > 8, "the network fills up");
         // A flat draw would give the avenue one lane in nine. It takes ten
@@ -385,6 +441,7 @@ int main() {
         // that is already full rejects further spawns and they spill into the
         // side streets -- which is the behaviour wanted, and why the claim is
         // "far more than its share" rather than an exact fraction.
+        if(onAvenue*3<=live)std::printf("avenue=%d live=%d\n",onAvenue,live);
         check(onAvenue * 3 > live, "the avenue carries far more than an equal share");
     }
     {
@@ -413,6 +470,27 @@ int main() {
         check(flow.live() > 0, "and the slot is spawned into again");
     }
 
+    {
+        Graph graph;graph.nodes={{0,0},{0,200}};
+        Lane first{0,1};first.road=42;first.offset=1.75f;
+        auto second=first;second.number=1;second.offset=5.25f;
+        graph.lanes={first,second};graph.build();
+        Flow flow;flow.reset(&graph,Rules{},43);
+        Agent follower;follower.alive=true;follower.identity=1;follower.speed=8;
+        auto following=flow.adopt(follower,{{1.75f,60},0,8},42);
+        auto leader=follower;leader.identity=2;leader.speed=0;leader.incident=true;
+        auto stopped=flow.adopt(leader,{{1.75f,66},0,0},42);
+        check(following&&stopped,"lane-change fixture adopts both vehicles");
+        if(following&&stopped) {
+            flow.setPhysicalPose(*stopped,{{1.75f,66},0,0},true);
+            const auto before=flow.pose(flow.agents()[*following]);
+            flow.update(.05f,{0,60},{0,1});
+            const auto& changed=flow.agents()[*following];
+            check(changed.lane==1&&changed.laneChangeFrom==0,"driver selects a clear adjacent lane around an incident");
+            check(length(flow.pose(changed).position-before.position)<1,"lane change begins without a lateral teleport");
+        }
+    }
+
     // ── reproducibility ─────────────────────────────────────────────────────
     {
         Graph g = street();
@@ -431,6 +509,159 @@ int main() {
         check(same, "one seed is one street, every run");
     }
 
+    {
+        Graph g;
+        for(int point=0;point<=40;++point)g.nodes.push_back({0,float(point*5)});
+        for(uint32_t point=0;point<40;++point) {
+            Lane along{point,point+1,8};along.road=42;
+            auto opposite=along;opposite.from=point+1;opposite.to=point;
+            g.lanes.push_back(along);g.lanes.push_back(opposite);
+        }
+        g.build();Flow flow;flow.reset(&g,Rules{},67);flow.setPopulation(12);
+        run(flow,40.f,{0,100});
+        int moving=0;
+        for(const auto& agent:flow.agents())if(agent.alive&&agent.speed>1.f)++moving;
+        check(moving>=4,"short polyline segments do not freeze opposing traffic");
+        check(flow.capacityNear({1000,1000})==0,"distant tiles do not consume the neighbourhood population");
+        check(flow.capacityNear({0,100})>=10,"nearby roads receive a useful traffic population");
+    }
+    {
+        Graph g;g.nodes={{0,0},{0,10},{0,40}};
+        Lane before{0,1,8};before.road=42;before.allowedTurns=2;
+        auto after=before;after.from=1;after.to=2;
+        g.lanes={before,after};g.build();
+        check(g.allows(0,1),"turn-only markings do not prohibit the road's intermediate shape points");
+        g.nodes[2]={30,10};g.build();
+        check(g.allows(0,1),"turn-only markings also allow a bend before the actual junction");
+        g.nodes[2]={0,40};g.build();
+        Flow flow;flow.reset(&g,Rules{},71);
+        Agent source;source.alive=true;source.identity=100;source.speed=2;
+        const auto adopted=flow.adopt(source,{{1.7f,-3},0,2},42);
+        check(adopted&&std::abs(flow.pose(flow.agents()[*adopted]).position.y+3)<.001f,
+            "early tile handoff retains the actual position before the new lane start");
+    }
+    {
+        auto g=street(20,5);Flow flow;flow.reset(&g,Rules{},73);
+        Agent source;source.alive=true;source.identity=1;source.speed=2;
+        const auto follower=flow.adopt(source,{{1.7f,12},0,2});
+        source.identity=2;source.incident=true;
+        const auto leader=flow.adopt(source,{{1.7f,19},0,0});
+        check(follower&&leader,"shape-point queue fixture adopts both cars");
+        flow.setPhysicalPose(*follower,{{1.7f,12},0,2},false);
+        flow.setPhysicalPose(*leader,{{1.7f,19},0,0},true);
+        flow.update(.05f,{0,50},{0,0});
+        check(flow.agents()[*follower].targetSpeed>0,"a shape point does not impose junction exit clearance on a safe queue gap");
+    }
+    {
+        Graph g;g.nodes={{0,0},{0,200}};
+        Lane lane{0,1,12};lane.road=42;lane.offset=1.25f;
+        auto adjacent=lane;adjacent.offset=3.75f;adjacent.number=1;
+        g.lanes={lane,adjacent};g.build();Flow flow;flow.reset(&g,Rules{},79);
+        Agent car;car.alive=true;car.identity=1;car.speed=5;
+        const auto driver=flow.adopt(car,{{1.25f,60},0,5},42);
+        car.identity=2;car.incident=true;
+        const auto stopped=flow.adopt(car,{{3.75f,65},0,0},42);
+        check(driver&&stopped,"narrow adjacent-lane fixture adopts both cars");
+        flow.setPhysicalPose(*driver,{{1.25f,60},0,5},false);
+        flow.setPhysicalPose(*stopped,{{3.75f,65},0,0},true);
+        flow.update(.05f,{0,60},{0,0});
+        check(flow.agents()[*driver].targetSpeed>10,"a stopped car in a separate narrow lane does not block its neighbour");
+    }
+    {
+        auto g=street(20,1);Flow flow;flow.reset(&g,Rules{},83);
+        Agent car;car.alive=true;car.identity=1;car.speed=4;
+        const auto slot=flow.adopt(car,{{1.7f,2},0,4});
+        flow.setPhysicalPose(*slot,{{1.7f,2},0,4},false);
+        flow.update(.05f,{0,10},{0,0});
+        Obstacle parked;parked.active=true;parked.position={1.7f,12};parked.halfLength=2.1f;parked.halfWidth=.9f;
+        flow.setObstacles({parked});
+        for(int i=0;i<100;++i)flow.update(.05f,{0,10},{0,0});
+        check(flow.agents()[*slot].targetSpeed<g.lanes[0].speed,"drivers account for a parked car's footprint");
+        parked.position.x+=2.5f;flow.setObstacles({parked});flow.update(.05f,{0,10},{0,0});
+        check(flow.agents()[*slot].targetSpeed==g.lanes[0].speed,"a parked car in the neighbouring lane leaves this lane clear");
+    }
+    {
+        Graph g;g.nodes={{0,0},{0,50},{40,50}};g.lanes={{0,1,12},{1,2,12}};g.build();
+        Flow flow;flow.reset(&g,Rules{},89);Agent car;car.alive=true;car.identity=1;car.speed=10;
+        const Pose actual{{1.7f,40},0,10};const auto slot=flow.adopt(car,actual);
+        flow.setPhysicalPose(*slot,actual,false);flow.update(.01f,{0,30},{0,0});
+        const auto shortCar=flow.command(*slot,actual);
+        DrivingLimits bus;bus.wheelbase=6;flow.setVehicleLimits(*slot,bus);
+        const auto longCar=flow.command(*slot,actual);
+        check(std::abs(longCar.steer)>std::abs(shortCar.steer)*2,"steering commands use each vehicle's actual wheelbase");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,300}};graph.lanes={{0,1,25}};graph.build();
+        Flow flow;flow.reset(&graph,Rules{});
+        Agent car;car.alive=true;car.identity=1;car.speed=25;
+        const auto follower=flow.adopt(car,{{1.7f,20},0,25});
+        flow.setVehicleLimits(*follower,{2,3,5,25});
+        car.identity=2;car.speed=0;
+        const auto stopped=flow.adopt(car,{{1.7f,140},0,0});
+        flow.setPhysicalPose(*stopped,{{1.7f,140},0,0},true);
+        float smallestGap=120;
+        for(int frame=0;frame<400;++frame) {
+            flow.update(.05f,{0,100},{0,0});
+            smallestGap=std::min(smallestGap,140-flow.pose(flow.agents()[*follower]).position.y);
+        }
+        check(smallestGap>=6.25f,"a fast vehicle with weak brakes stops before a stationary queue");
+        check(flow.agents()[*follower].speed<.1f,"the stationary queue eventually holds its follower");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,200}};graph.lanes={{0,1,12}};graph.build();
+        Flow flow;flow.reset(&graph,Rules{});
+        Agent car;car.alive=true;car.identity=1;car.speed=8;
+        const auto follower=flow.adopt(car,{{1.7f,65},0,8});
+        car.identity=2;car.speed=0;car.incident=true;car.length=12;car.width=2.5f;
+        const Pose sideways{{6.25f,75},1.570796327f,0};
+        const auto stopped=flow.adopt(car,sideways);
+        flow.setPhysicalPose(*follower,{{1.7f,65},0,8},false);
+        flow.setPhysicalPose(*stopped,sideways,true);
+        flow.update(.05f,{0,65},{0,0});
+        check(flow.agents()[*follower].targetSpeed<5,"a sideways crashed bus blocks every lane its body occupies");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,200}};graph.lanes={{0,1,12}};graph.build();
+        Flow flow;flow.reset(&graph,Rules{});
+        Agent car;car.alive=true;car.identity=1;car.speed=8;
+        const Pose displaced{{4.7f,40},0,8};
+        const auto slot=flow.adopt(car,displaced);
+        flow.setPhysicalPose(*slot,displaced,false);
+        Obstacle parked;parked.active=true;parked.position={4.7f,50};parked.halfLength=2.1f;parked.halfWidth=.9f;
+        flow.setObstacles({parked});flow.update(.05f,{0,40},{0,0});
+        check(flow.agents()[*slot].targetSpeed<4,"a displaced physical car sees obstacles in front of its actual position");
+        const Pose stopped{{4.7f,44},0,0};flow.setPhysicalPose(*slot,stopped,false);
+        flow.update(.05f,{0,40},{0,0});
+        const auto command=flow.command(*slot,stopped);
+        check(command.throttle==0&&command.brake==1,"a driver waiting at rest keeps the brake applied on a slope");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,300}};graph.lanes={{0,1,12}};graph.build();
+        Rules rules;rules.spawnNear=1;rules.spawnNearBehind=1;rules.spawnFar=150;rules.maxSpawnsPerUpdate=40;
+        bool overlap=false;
+        for(uint32_t seed=1;seed<=16;++seed) {
+            Flow flow;flow.reset(&graph,rules,seed);flow.setPopulation(40);
+            flow.update(.001f,{0,150},{0,0});
+            const auto& agents=flow.agents();
+            for(size_t a=0;a<agents.size();++a)for(size_t b=a+1;b<agents.size();++b)
+                if(agents[a].alive&&agents[b].alive&&std::abs(agents[a].s-agents[b].s)<4.2f)overlap=true;
+        }
+        check(!overlap,"spawning checks vehicles behind the candidate as well as ahead");
+    }
+    {
+        float reference=0;
+        for(int rate:{10,15,30,60,120}) {
+            Graph graph;graph.nodes={{0,0},{0,2000}};graph.lanes={{0,1,20}};graph.build();
+            Flow flow;flow.reset(&graph,Rules{});flow.setVisibility([](const Pose&){return true;});
+            Agent car;car.alive=true;car.identity=1;
+            const auto slot=flow.adopt(car,{{1.7f,100},0,0});
+            flow.setVehicleLimits(*slot,{5,8,8,20});
+            for(int frame=0;frame<rate*10;++frame)flow.update(1.f/rate,{0,100},{0,0});
+            const float distance=flow.agents()[*slot].s-100;
+            if(rate==10)reference=distance;
+            check(distance>150&&std::abs(distance-reference)<.1f,"traffic advances the full elapsed time at low and high frame rates");
+        }
+    }
     if (failures == 0) std::printf("PASS saida::traffic\n");
     return failures == 0 ? 0 : 1;
 }

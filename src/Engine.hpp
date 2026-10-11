@@ -41,6 +41,8 @@ public:
 
     using FrameFn = std::function<void(float dt)>;
     void setOnFrame(FrameFn fn) { onFrame_ = std::move(fn); }
+    // Camera/application presentation after simulation, before camera selection.
+    void setAfterSimulation(FrameFn fn) { afterSimulation_ = std::move(fn); }
 
     void run();
 
@@ -146,6 +148,7 @@ private:
     std::unique_ptr<Project> project_;
 
     FrameFn onFrame_;
+    FrameFn afterSimulation_;
     Camera camera_;
     CameraDirector cameraDirector_;  // picks + blends scene cameras during Play
     bool renderViewportOverride_ = false;

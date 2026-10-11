@@ -106,6 +106,12 @@ public:
     const GeometryAllocation& allocation() const { return allocation_; }
 
     const Aabb& bounds() const { return bounds_; }
+    void includeBounds(const Aabb& bounds) {
+        bounds_.min=glm::min(bounds_.min,bounds.min);bounds_.max=glm::max(bounds_.max,bounds.max);
+    }
+    void retainDeformationSource(std::shared_ptr<const MeshData> data);
+    const std::shared_ptr<const MeshData>& deformationSource() const { return deformationSource_; }
+    bool deformationSourceSkinned() const { return deformationSourceSkinned_; }
 
     // Lightweight CPU copy of the geometry (positions + indices only) kept for the
     // physics layer to build convex-hull / triangle-mesh colliders. (~12 B/vertex
@@ -119,6 +125,8 @@ private:
     Aabb bounds_;
     uint64_t gpuBytes_ = 0;
     bool loaded_ = false;
+    std::shared_ptr<const MeshData> deformationSource_;
+    bool deformationSourceSkinned_ = false;
     std::shared_ptr<const MeshCollisionData> collision_ = std::make_shared<MeshCollisionData>();
 };
 

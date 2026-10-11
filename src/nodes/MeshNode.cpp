@@ -2,12 +2,38 @@
 #include "behaviours/LODGroupBehaviour.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "graphics/Material.hpp"
+#include "graphics/Mesh.hpp"
 #include <nlohmann/json.hpp>
+#include <algorithm>
+#include <stdexcept>
 
 namespace saida {
 
+Mesh* MeshNode::mesh() const { return runtimeMesh_ && runtimeMesh_->loaded() ? runtimeMesh_ : mesh_; }
+Mesh* MeshNode::sourceMesh(int index) const {
+    if(index<=0||lods_.empty())return mesh_;
+    auto* source=lods_[std::min(size_t(index),lods_.size()-1)].mesh;
+    return source?source:mesh_;
+}
+Mesh* MeshNode::runtimeMesh(int index) const {
+    return index<=0?runtimeMesh_:size_t(index)<runtimeLods_.size()?runtimeLods_[size_t(index)]:nullptr;
+}
+void MeshNode::setRuntimeMesh(Mesh* mesh,int index) {
+    if(index<0)throw std::out_of_range("runtime mesh LOD must be nonnegative");
+    if(size_t(index)>=std::max(size_t(1),lods_.size())&&mesh)throw std::out_of_range("runtime mesh LOD is outside the authored chain");
+    if(index>0&&!mesh&&size_t(index)>=runtimeLods_.size())return;
+    if(index==0){if(runtimeMesh_==mesh)return;runtimeMesh_=mesh;}
+    else {
+        runtimeLods_.resize(std::max(lods_.size(),size_t(index)+1),nullptr);
+        if(runtimeLods_[size_t(index)]==mesh)return;
+        runtimeLods_[size_t(index)]=mesh;
+    }
+    markResourcesChanged();
+}
+
 void MeshNode::setLods(std::vector<MeshLodLevel> levels) {
     lods_ = std::move(levels);
+    runtimeLods_.clear();
     markResourcesChanged();
     activeLodIndex_ = 0;
     if (lods_.size() > 1 && !getBehaviour<LODGroupBehaviour>())
@@ -15,7 +41,9 @@ void MeshNode::setLods(std::vector<MeshLodLevel> levels) {
 }
 
 Mesh* MeshNode::meshForLod(int lodIndex) const {
-    if (lodIndex <= 0 || lods_.empty()) return mesh_;
+    if(lodIndex>0&&!lods_.empty())lodIndex=int(std::min(size_t(lodIndex),lods_.size()-1));
+    if(auto* live=runtimeMesh(lodIndex);live&&live->loaded())return live;
+    if (lodIndex <= 0 || lods_.empty()) return mesh();
     if (lodIndex >= static_cast<int>(lods_.size())) return lods_.back().mesh ? lods_.back().mesh : mesh_;
     return lods_[static_cast<size_t>(lodIndex)].mesh ? lods_[static_cast<size_t>(lodIndex)].mesh : mesh_;
 }

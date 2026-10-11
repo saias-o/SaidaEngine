@@ -265,6 +265,7 @@ void ResourceManager::retireBindGroup(std::unique_ptr<rhi::BindGroup> group) {
 }
 
 void ResourceManager::pumpAssetLoads() {
+    deformationVerticesRemaining_=deformationVertexBudget_;
     gpuBudget_->advanceFrame();
     graveyard_.drain(gpuBudget_->frameClock(), bindlessTables_,
                      bindlessTables_.active() ? defaultWhiteTexture() : nullptr);
@@ -340,6 +341,11 @@ AssetID ResourceManager::registerMemoryMesh(const std::vector<Vertex>& vertices,
 AssetID ResourceManager::queueMemoryMesh(std::shared_ptr<const PreparedMesh> data, const std::string& subPath) {
     return meshCache_->queueMemory(std::move(data), subPath, registry_);
 }
+
+bool ResourceManager::queueMeshUpdate(Mesh* mesh, std::shared_ptr<const PreparedMesh> data) {
+    return meshCache_->queueUpdate(mesh, std::move(data));
+}
+bool ResourceManager::meshUpdatePending(const Mesh* mesh) const { return meshCache_->updatePending(mesh); }
 
 AssetID ResourceManager::registerMemoryMesh(const std::string& subPath,
                                             const std::vector<Vertex>& vertices,

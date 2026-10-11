@@ -20,6 +20,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(SAIDA_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+set(SAIDA_WGSL_DIR "${SAIDA_ROOT}/build/shaders/wgsl" CACHE PATH "Generated WebGPU shaders")
 set(GLM_INCLUDE_DIR ${SAIDA_ROOT}/third_party/glm CACHE PATH "Directory containing glm/")
 
 # Jolt in wasm (same options as the desktop build; single-threaded job system
@@ -100,6 +101,9 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/behaviours/AnimGraphBehaviour.cpp
     ${SAIDA_ROOT}/src/behaviours/CharacterBehaviour.cpp
     ${SAIDA_ROOT}/src/behaviours/VehicleBehaviour.cpp
+    ${SAIDA_ROOT}/src/behaviours/SurfaceDriveBehaviour.cpp
+    ${SAIDA_ROOT}/src/behaviours/DeformableMeshBehaviour.cpp
+    ${SAIDA_ROOT}/src/physics/DeformationCage.cpp
     ${SAIDA_ROOT}/src/scene/GLTFLoader.cpp
     ${SAIDA_ROOT}/src/scene/GltfMeshopt.cpp
     ${SAIDA_ROOT}/src/nodes/LightNode.cpp
@@ -237,7 +241,7 @@ target_link_options(saida_player PRIVATE
     -sEXPORTED_RUNTIME_METHODS=ccall
     -sEXPORTED_FUNCTIONS=_main,_saida_player_status
     $<$<CONFIG:Release>:-Oz>
-    "SHELL:--preload-file \"${SAIDA_ROOT}/build/shaders/wgsl@/shaders\""
+    "SHELL:--preload-file \"${SAIDA_WGSL_DIR}@/shaders\""
     # Engine default fonts, at the canonical path assets/fonts/ (same list as
     # RmlUiRuntime::kEngineFonts; NotoEmoji intentionally left out of the web bundle).
     "SHELL:--preload-file \"${SAIDA_ROOT}/third_party/rmlui/Samples/assets/LatoLatin-Regular.ttf@/assets/assets/fonts/LatoLatin-Regular.ttf\""
@@ -248,7 +252,7 @@ target_link_options(saida_player PRIVATE
     "SHELL:--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/shell.html\""
 )
 
-file(GLOB WEB_WGSL_SHADERS ${SAIDA_ROOT}/build/shaders/wgsl/*.wgsl)
+file(GLOB WEB_WGSL_SHADERS ${SAIDA_WGSL_DIR}/*.wgsl)
 set_property(TARGET saida_player APPEND PROPERTY LINK_DEPENDS
     ${WEB_WGSL_SHADERS} ${CMAKE_CURRENT_SOURCE_DIR}/shell.html)
 

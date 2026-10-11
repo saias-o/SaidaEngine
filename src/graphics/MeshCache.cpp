@@ -120,13 +120,34 @@ AssetID MeshCache::queueMemory(std::shared_ptr<const PreparedMesh> data, const s
     return id;
 }
 
+bool MeshCache::updatePending(const Mesh* mesh) const {
+    const auto id = idFor(mesh);
+    for (const auto& entry : uploads_) if (entry.id == id) return true;
+    for (const auto& entry : completing_) if (entry.id == id) return true;
+    return false;
+}
+
+bool MeshCache::queueUpdate(Mesh* mesh, std::shared_ptr<const PreparedMesh> data) {
+    const auto id = idFor(mesh);
+    if (id == kAssetInvalid || !mesh->loaded() || !data || updatePending(mesh) ||
+        mesh->allocation().vertexCount != data->geometry.vertices.size() ||
+        mesh->allocation().indexCount != data->geometry.indices.size() ||
+        mesh->collisionIndices() != data->geometry.indices) return false;
+    // In-place slices may span frames: culling must cover old and new positions.
+    mesh->includeBounds(data->bounds);
+    uploads_.push_back({id, std::move(data), 0, mesh->allocation().indexCount, true});
+    return true;
+}
+
 void MeshCache::pumpUploads(size_t byteBudget, double timeBudgetMs) {
     SAIDA_PROFILE_SCOPE("Resource/StreamMeshUploads");
     while (!completing_.empty() && geometry_.uploadComplete(completing_.front().serial)) {
         const auto& ready = completing_.front();
         auto* mesh = meshes_.at(ready.id).get();
+        const bool wasLoaded = mesh->loaded();
         mesh->finishUpload(*ready.data);
-        residentBytes_ += mesh->gpuBytes();
+        // Updates reuse an existing allocation; they must not inflate residency.
+        if (!wasLoaded) residentBytes_ += mesh->gpuBytes();
         completing_.pop_front();
     }
     if (uploads_.empty() || !geometry_.canSubmitUploads()) return;
@@ -153,7 +174,7 @@ void MeshCache::pumpUploads(size_t byteBudget, double timeBudgetMs) {
             }
         } catch (const std::exception& e) {
             Log::error("MeshCache: streamed mesh ", upload.id, " failed: ", e.what());
-            mesh->cancelUpload();
+            if(!mesh->loaded())mesh->cancelUpload();
             uploads_.pop_front();
         }
         if (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() >= timeBudgetMs) break;

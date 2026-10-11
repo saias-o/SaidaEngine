@@ -46,6 +46,9 @@ layout(location = 5) in vec3 fragTangent;
 layout(location = 6) in vec3 fragBitangent;
 layout(location = 10) in vec3 fragBillboardView;
 layout(location = 11) flat in vec3 fragBillboardUp;
+layout(location = 12) flat in vec3 fragBillboardNormalX;
+layout(location = 13) flat in vec3 fragBillboardNormalY;
+layout(location = 14) flat in vec3 fragBillboardNormalZ;
 
 #ifdef BINDLESS
 layout(location = 7) flat in uint fragMaterialIndex;
@@ -115,6 +118,7 @@ void main() {
     float matAlphaCutoff = material.alphaCutoff;
 #endif
 
+    float billboardNextWeight = 0.0;
     if (fragBillboardView.z >= 0.0) {
 #ifdef BINDLESS
         vec4 adjacent = textureGrad(globalTextures[nonuniformEXT(mat.albedoTexIdx)], fragBillboardView.xy, nextDx, nextDy);
@@ -124,6 +128,7 @@ void main() {
         // Coverage-weighted colour avoids dark fringes where silhouettes differ.
         float weight = fragBillboardView.z;
         float alpha = mix(albedoSample.a, adjacent.a, weight);
+        billboardNextWeight = adjacent.a * weight / max(alpha, 0.0001);
         albedoSample.rgb = mix(albedoSample.rgb * albedoSample.a, adjacent.rgb * adjacent.a, weight) / max(alpha, 0.0001);
         albedoSample.a = alpha;
     }
@@ -134,19 +139,39 @@ void main() {
 
     vec3 albedo = albedoSample.rgb * fragColor * baseColor.rgb;
     if (fragBillboardView.z >= 0.0) {
-        // Distant impostors represent a whole volume, not a camera-facing
-        // leaf. A broad directional response uses the authored up axis so
-        // turning the camera never changes illumination. Only two albedo
-        // fetches: no normal/MR maps, shadows, GGX, IBL or GI evaluation.
+        // Optional authored-frame normals and static visibility restore surface
+        // contrast without evaluating PBR or sampling runtime shadow maps.
         const float canopyResponse = 0.2;
         const float lateralResponse = 0.35;
-        vec3 irradiance = lights.ambient.rgb;
+        const float diffuseResponse = 0.31830988618;
+        vec3 surfaceNormal = fragBillboardUp;
+        float visibility = 1.0;
+        if (normalStrength > 0.0) {
+#ifdef BINDLESS
+            vec4 surface = textureGrad(globalTextures[nonuniformEXT(mat.normalTexIdx)], st.uv, st.dx, st.dy);
+            vec4 nextSurface = textureGrad(globalTextures[nonuniformEXT(mat.normalTexIdx)], fragBillboardView.xy, nextDx, nextDy);
+#else
+            vec4 surface = textureGrad(TEX2D(texNormal), st.uv, st.dx, st.dy);
+            vec4 nextSurface = textureGrad(TEX2D(texNormal), fragBillboardView.xy, nextDx, nextDy);
+#endif
+            surface = mix(surface, nextSurface, billboardNextWeight);
+            vec3 authoredNormal = surface.rgb * 2.0 - 1.0;
+            if (dot(authoredNormal, authoredNormal) > 0.0001)
+                surfaceNormal = normalize(mat3(fragBillboardNormalX, fragBillboardNormalY,
+                                               fragBillboardNormalZ) * authoredNormal);
+            visibility = clamp(surface.a, 0.0, 1.0);
+        }
+        vec3 irradiance = lights.ambient.rgb * visibility;
         for (int i = 0; i < lights.counts.x; ++i) {
             Light light = lights.lights[i];
             if (light.dirType.w != 0.0 || light.colorInt.w <= 0.0) continue;
             float elevation = max(dot(fragBillboardUp, normalize(-light.dirType.xyz)), 0.0);
-            irradiance += light.colorInt.rgb * light.colorInt.w
-                        * canopyResponse * mix(lateralResponse, 1.0, elevation);
+            float response = canopyResponse * mix(lateralResponse, 1.0, elevation);
+            if (normalStrength > 0.0) {
+                float diffuse = max(dot(surfaceNormal, normalize(-light.dirType.xyz)), 0.0);
+                response = mix(response, diffuseResponse * diffuse * visibility, clamp(normalStrength, 0.0, 1.0));
+            }
+            irradiance += light.colorInt.rgb * light.colorInt.w * response;
         }
         outColor = vec4(albedo * irradiance * matAO, albedoSample.a * baseColor.a);
         return;

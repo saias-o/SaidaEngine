@@ -26,6 +26,9 @@ void RigidBodyNode::serialize(nlohmann::json& j, ResourceManager& resources) con
     j["gravityFactor"] = gravityFactor;
     j["linearDamping"] = linearDamping;
     j["angularDamping"] = angularDamping;
+    j["inertiaMultiplier"] = inertiaMultiplier;
+    j["reportsImpacts"] = reportsImpacts;
+    j["continuousCollision"] = continuousCollision;
     j["centerOfMass"] = {centerOfMass.x, centerOfMass.y, centerOfMass.z};
 }
 void RigidBodyNode::deserialize(const nlohmann::json& j, ResourceManager& resources) {
@@ -36,6 +39,9 @@ void RigidBodyNode::deserialize(const nlohmann::json& j, ResourceManager& resour
     if (j.contains("gravityFactor")) gravityFactor = j["gravityFactor"].get<float>();
     if (j.contains("linearDamping")) linearDamping = j["linearDamping"].get<float>();
     if (j.contains("angularDamping")) angularDamping = j["angularDamping"].get<float>();
+    inertiaMultiplier = j.value("inertiaMultiplier", 1.f);
+    reportsImpacts = j.value("reportsImpacts", false);
+    continuousCollision = j.value("continuousCollision", false);
     if (j.contains("centerOfMass") && j["centerOfMass"].is_array() &&
         j["centerOfMass"].size() == 3) {
         centerOfMass = {j["centerOfMass"][0].get<float>(), j["centerOfMass"][1].get<float>(),

@@ -168,7 +168,8 @@ static Material* resolvePrimitiveMaterial(cgltf_primitive* prim, cgltf_data* dat
         // disabled — tangents reconstructed by triangle averaging aren't
         // MikkTSpace and would silently produce incorrect lighting.
         // (MikkTSpace: P1.)
-        if (desc.normalId != kAssetInvalid && !primHasAuthorTangents(prim)) {
+        // Billboard atlases encode authored-frame normals, independent of UV tangents.
+        if (desc.normalId != kAssetInvalid && !desc.billboardColumns && !primHasAuthorTangents(prim)) {
             Log::warn("GLTFLoader: material ", matIdx, " has a normal map but the "
                       "primitive has no authored tangents — normal mapping disabled");
             desc.normalId = kAssetInvalid;
@@ -702,6 +703,8 @@ static bool instantiateGltf(PreparedGltf& prepared, Node& rootNode, ResourceMana
             const auto key = loadPath + "#mesh" + std::to_string(i) + "_prim" + std::to_string(j);
             const auto id = streamed ? resources.queueMemoryMesh(mesh, key) :
                 resources.registerMemoryMesh(key, mesh->geometry.vertices, mesh->geometry.indices);
+            if (options.retainDeformationSource)
+                resources.getMesh(id)->retainDeformationSource(std::shared_ptr<const MeshData>(mesh, &mesh->geometry));
             meshesPrimitives[i].push_back(id);
         }
 
@@ -833,11 +836,12 @@ AssetHandle GLTFLoader::request(const std::string& path, ResourceManager& resour
         });
 }
 
-bool GLTFLoader::instantiate(AssetHandle& handle, Node& rootNode, ResourceManager& resources) {
+bool GLTFLoader::instantiate(AssetHandle& handle, Node& rootNode, ResourceManager& resources,
+                             const GLTFLoadOptions& options) {
     SAIDA_PROFILE_SCOPE("Resource/InstantiateGLTF");
     if (!handle.ready()) return false;
     auto prepared = std::static_pointer_cast<PreparedGltf>(handle.payload());
-    if (!prepared || !instantiateGltf(*prepared, rootNode, resources, {}, true)) return false;
+    if (!prepared || !instantiateGltf(*prepared, rootNode, resources, options, true)) return false;
     handle.reset();
     return true;
 }

@@ -198,6 +198,9 @@ json serializeNodeWithoutResources(const Node& node, const std::string& path,
         out["gravityFactor"] = rigid->gravityFactor;
         out["linearDamping"] = rigid->linearDamping;
         out["angularDamping"] = rigid->angularDamping;
+        out["inertiaMultiplier"] = rigid->inertiaMultiplier;
+        out["reportsImpacts"] = rigid->reportsImpacts;
+        out["continuousCollision"] = rigid->continuousCollision;
     }
     if (const auto* character = dynamic_cast<const CharacterBodyNode*>(&node)) {
         out["mass"] = character->mass;
@@ -395,6 +398,8 @@ bool loadNodeFields(Node& node, const json& j, const std::string& path,
         shape->offset = jsonToVec3(j.value("offset", json()), shape->offset);
     }
     if (auto* rigid = dynamic_cast<RigidBodyNode*>(&node)) {
+        rigid->reportsImpacts = j.value("reportsImpacts", false);
+        rigid->continuousCollision = j.value("continuousCollision", false);
         if (auto it = j.find("kinematic"); it != j.end()) rigid->kinematic = it->get<bool>();
         if (auto it = j.find("mass"); it != j.end()) rigid->mass = it->get<float>();
         if (auto it = j.find("gravityFactor"); it != j.end())
@@ -403,6 +408,8 @@ bool loadNodeFields(Node& node, const json& j, const std::string& path,
             rigid->linearDamping = it->get<float>();
         if (auto it = j.find("angularDamping"); it != j.end())
             rigid->angularDamping = it->get<float>();
+        if (auto it = j.find("inertiaMultiplier"); it != j.end())
+            rigid->inertiaMultiplier = it->get<float>();
     }
     if (auto* character = dynamic_cast<CharacterBodyNode*>(&node)) {
         if (auto it = j.find("mass"); it != j.end()) character->mass = it->get<float>();

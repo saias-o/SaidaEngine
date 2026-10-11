@@ -30,7 +30,7 @@ struct MaterialParams {
 MaterialParams paramsOf(const MaterialDesc& d) {
     return {d.baseColor, d.metallic, d.roughness, d.ao, d.alphaCutoff, d.emissiveColor,
             glm::vec4(d.variation.warp, d.variation.macroScale, d.variation.macroAlbedo, d.variation.macroNormal),
-            glm::vec4(d.normalStrength, d.environmentReflection,
+            glm::vec4(d.billboardColumns ? d.billboardNormalStrength() : d.normalStrength, d.environmentReflection,
                       d.specularColorId != kAssetInvalid ? 1.f : 0.f,
                       d.specularStrengthId != kAssetInvalid ? 1.f : 0.f),
             glm::vec4(d.dielectricF0, d.specularStrength), d.rain.parameters()};

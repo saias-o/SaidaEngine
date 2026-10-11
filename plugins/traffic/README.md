@@ -13,7 +13,8 @@ contract.
 
 ## What it is
 
-One header, `include/saida/traffic/Traffic.hpp`, with three types:
+`include/saida/traffic/Traffic.hpp` includes the small `Signals.hpp` timing
+module and exposes these main types:
 
 | Type | Responsibility |
 | --- | --- |
@@ -21,7 +22,7 @@ One header, `include/saida/traffic/Traffic.hpp`, with three types:
 | `Rules` | How this place drives: side of the road, lane offset, acceleration, braking, headway, junction guard, spawn and despawn radii. |
 | `Flow` | A population of agents on one graph. `update()` drives them; `pose()` says where one is. |
 
-It depends on `<cmath>`, `<cstdint>` and `<vector>`. **It knows nothing about
+It uses the C++ standard library. **It knows nothing about
 the engine** — no scene, no node, no material, no serialization, no glm, no
 coordinate system beyond "two axes the ground lies in". The host owns
 rendering, owns where the graph came from, and reads poses back.
@@ -31,19 +32,20 @@ hand-built city as readily as by a streamed planet.
 
 ## Model
 
-Agents on a directed lane graph, a car-following rule, a give-way rule at
-junctions, and spawning in an annulus around the observer so traffic exists
-where it is seen and nowhere else — the model the sixth-generation open-world
-games shipped.
+Agents follow offset lanes, cubic junction curves and speed limits. Lane data
+includes widths, strip/road identities, layers, priorities, turn masks, stop/yield
+and signal assignments. Following uses vehicle length and a time gap; safe
+adjacent-lane changes blend over time. Junction admission keeps the current
+owner and orders arrivals, including a waiting-time safeguard against starvation.
+Programs support green, amber, all-red and pedestrian phases; opposing approaches
+share green by default. Set `SignalTiming::opposingTogether=false` for separate
+protected approach phases. Shape points continue the road without acquiring a
+junction reservation. This is conservative intersection management, not a full
+movement-conflict scheduler or destination planner.
 
-There is no path planning, no destination, no traffic signal and no lane
-change. Each is a feature that can be built on top of this; none is needed for
-a street to stop looking abandoned, and every one costs frame time on every
-car.
-
-Cost per update is O(n²) in live agents, deliberately: at the tens of cars a
-street can show, a spatial index costs more to maintain than the comparisons it
-saves. A host that wants thousands wants a different class.
+The spatial sweep caches positions and reuses sorted scratch storage for
+corridor/junction queries. Dense worst-case cost remains O(n²). The host should
+bound active populations and configure `DriverSettings` for its vehicle sizes.
 
 **Every distance is measured between lane positions, never between centre-line
 points.** A two-way street is two lanes over one line, so a car measured on the
@@ -71,10 +73,26 @@ for (const auto& agent : flow.agents()) {
 }
 ```
 
-`agents()` is a fixed-size array whose indices are stable while an agent lives,
-so a host keys its own per-car state (a scene node, a colour) by index and
-releases it when `alive` goes false. Lowering the population truncates the
-array; a host must drop the state of any index past the new size.
+Slot indices remain stable while a trip lives; `Agent::identity` distinguishes
+slot reuse. Lowering population retires only eligible offscreen trips. Hosts
+that supply `setVisibility` retain visible vehicles at dead ends and during
+population reduction. Do not use a changing RNG seed as vehicle identity.
+
+For dynamic cars, call `setPhysicalPose` before `update`, then `command` to
+obtain throttle, brake and steer. The solver owns the pose; the flow must not
+teleport the body. An incident brakes and remains an obstacle. Call `setTime`
+with shared host time so signal phases agree between streamed regions.
+Use `setVehicleLimits` for each new identity to provide its acceleration,
+braking, lateral acceleration, maximum speed, wheelbase and steering angle in
+radians. Braking distances, corner speeds and physical steering then use that
+vehicle's capabilities, including heavy buses and trucks. Zero wheelbase or
+steering angle retains the flow's default geometry.
+
+`capacityNear(observer)` estimates lane room inside the spawn radius, allowing a
+host to share a fleet budget without allocating it to distant tiles. Following
+uses actual combined vehicle widths. Supply `Obstacle::halfLength`, `halfWidth`
+and `yaw` for an oriented parked-vehicle footprint; omitted dimensions retain
+the circular obstacle behavior.
 
 A host can pool its scene nodes per slot to avoid repeated allocation and model
 loading. In Saida, use `Node::setVisible(false)` between trips and restore
@@ -87,10 +105,19 @@ than in front: the hole in front is what a player sees, and the one behind is
 what makes a city feel empty for no reason.
 
 A streaming host gives each streamed region its own `Graph` and its own `Flow`.
-Discarding the region then discards its traffic without telling any other agent
-about it, and a car that reaches the edge of its region's graph retires there.
+Use `adopt` with a compatible actual pose and road identity, then `retire` the
+source slot, to cross regions. Move the original host node and its damage state.
+Graphs must stay at stable addresses while their flows refer to them. Removing
+a region without transferring its live vehicles destroys those trips.
 
 ## Verification
+
+Neighbour queries use each physical car's actual position and oriented footprint,
+including sideways incidents. Lookahead includes stopping distance for the
+vehicle's own braking capability. A stationary driver retains brake input,
+and spawning checks clearance behind the candidate as well as ahead. Updates
+accept up to 0.25 s and subdivide into steps of at most 0.05 s, so low frame rates
+do not silently slow the simulation.
 
 ```sh
 cd plugins/traffic/tests
@@ -108,11 +135,13 @@ is one street on every run.
 
 ## Limits
 
-- Junction give-way is nearest-first, not a priority or signal system.
-- No lane changing, so a lane is a queue behind its slowest car.
-- No vertical dimension: the graph is planar and a host that needs bridges
-  gives them their own graph.
-- An agent knows the lane it is on and nothing about the world beside it. A
-  host that wants cars to stop at a level crossing puts an `Obstacle` there.
-- `Flow::update` is O(n²) in live agents, but each car's position is computed
-  once per step rather than once per comparison: the square roots are O(n).
+- Junction reservations serialize conflicting traffic conservatively; they
+  do not implement a complete movement-conflict matrix or national road law.
+- Lane changes require an adjacent, compatible lane and clear front/rear gaps;
+  there is no destination routing or unrestricted obstacle overtaking.
+- Positions are planar. The generator/host must separate layers and avoid
+  connecting a bridge to the road below it.
+- The host supplies world obstacles, pedestrian crossings and signal metadata.
+  Signal phases are inferred unless a host supplies surveyed timing.
+- Cached positions and a sorted spatial sweep reduce ordinary neighbour
+  searches. Dense queues can still produce O(n²) work in live agents.

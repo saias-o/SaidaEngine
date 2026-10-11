@@ -278,7 +278,7 @@ void BindlessTables::writeMaterialSlot(uint32_t index, const MaterialDesc& desc,
     data.emissiveTexIdx = textures.emissive;
     data.materialType = static_cast<uint32_t>(desc.type);
     data.alphaCutoff = desc.alphaCutoff;
-    data.normalStrength = desc.normalStrength;
+    data.normalStrength = desc.billboardColumns ? desc.billboardNormalStrength() : desc.normalStrength;
     data.heightTexIdx = textures.height;
     // A texture still loading is the default white: flat, as if no height.
     data.parallaxDepth = desc.heightId == kAssetInvalid ? 0.0f : desc.parallaxDepth;

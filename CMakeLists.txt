@@ -564,6 +564,9 @@ add_library(saida_engine STATIC
     src/behaviours/AnimGraphBehaviour.cpp
     src/behaviours/CharacterBehaviour.cpp
     src/behaviours/VehicleBehaviour.cpp
+    src/behaviours/SurfaceDriveBehaviour.cpp
+    src/behaviours/DeformableMeshBehaviour.cpp
+    src/physics/DeformationCage.cpp
     src/behaviours/HealthBehaviour.cpp
     src/nodes/WaterNode.cpp
     src/nodes/TerrainRingsNode.cpp
@@ -1178,6 +1181,12 @@ if (BUILD_TESTING)
     target_link_libraries(saida_vehicle_tests PRIVATE saida_engine)
     target_compile_options(saida_vehicle_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_vehicle_tests COMMAND $<TARGET_FILE:saida_vehicle_tests>)
+
+    add_executable(saida_vehicle_impact_tests tests/VehicleImpactTests.cpp)
+    saida_test_target(saida_vehicle_impact_tests)
+    target_link_libraries(saida_vehicle_impact_tests PRIVATE saida_engine)
+    target_compile_options(saida_vehicle_impact_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_vehicle_impact_tests COMMAND $<TARGET_FILE:saida_vehicle_impact_tests>)
 
     add_executable(saida_collision_auto_tests tests/CollisionAutoShapeTest.cpp)
     saida_test_target(saida_collision_auto_tests)

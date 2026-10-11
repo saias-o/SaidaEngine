@@ -1,4 +1,7 @@
 #include "scene/Scene.hpp"
+#include "scene/SceneTree.hpp"
+#include "graphics/Primitives.hpp"
+#include "behaviours/DeformableMeshBehaviour.hpp"
 #include "core/Camera.hpp"
 #include "nodes/CameraNode.hpp"
 #include "render/CameraDirector.hpp"
@@ -905,9 +908,134 @@ void gpuStreamedGroupContract(ResourceManager& resources, Mesh* loaded) {
     Time::advance(0.f);
 }
 
+void gpuDeformation(VulkanDevice& device) {
+    ResourceManager resources(device,nullptr,{512,1024});
+    auto prepared=prepareMesh({cubeVertices(),cubeIndices()});
+    auto* source=resources.getMesh(resources.queueMemoryMesh(prepared));
+    source->retainDeformationSource(std::shared_ptr<const MeshData>(prepared,&prepared->geometry));
+    auto settle=[&] {
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+        while(!resources.assetLoadsSettled()&&std::chrono::steady_clock::now()<deadline) {
+            resources.pumpAssetLoads();std::this_thread::yield();
+        }
+        require(resources.assetLoadsSettled(),"deformation uploads settle within the shared resource budget");
+    };
+    settle();
+    SceneTree tree(resources);auto scene=std::make_unique<Scene>();
+    auto* body=scene->createChild<RigidBodyNode>();body->kinematic=true;
+    auto* shape=body->createChild<CollisionShapeNode>();shape->shapeType=CollisionShapeType::Box;shape->halfExtents=glm::vec3(.5f);
+    auto* nearMesh=body->createChild<MeshNode>("Near",source,nullptr);
+    nearMesh->setLods({{source,nullptr,.1f},{source,nullptr,0.f}});
+    auto* farMesh=body->createChild<MeshNode>("Far",source,nullptr);farMesh->setEnabled(false);
+    auto* intact=scene->createChild<MeshNode>("Untouched instance",source,nullptr);
+    auto* damage=body->addBehaviour<DeformableMeshBehaviour>();
+    tree.mountWorld(std::move(scene));tree.world().update(.01f);
+    const auto baseline=source->collisionVertices();
+    damage->setContactFilter([](glm::vec3,glm::vec3,float){return false;});
+    body->impacted.emit({nullptr,{0,0,-.5f},{0,0,1},5,2000,10000});
+    require(damage->absorbedEnergy()==0&&!nearMesh->runtimeMesh(),"rejected automatic contacts allocate no deformation and cause no damage");
+    require(damage->applyImpact({0,0,-.5f},{0,0,1},10000),"generic component accepts a local impact");
+    damage->setContactFilter({});
+    tree.world().update(.1f);settle();
+    require(nearMesh->runtimeMesh()&&nearMesh->mesh()!=source,"damaged instance owns private geometry");
+    require(farMesh->runtimeMesh()&&farMesh->mesh()!=source,"disabled LOD receives the same cage state");
+    require(nearMesh->runtimeMesh(1)&&nearMesh->meshForLod(1)!=source,"internal mesh LOD receives the same cage state");
+    require(intact->mesh()==source&&source->collisionVertices()==baseline,"other instances keep immutable source geometry");
+    const auto& positions=nearMesh->mesh()->collisionVertices();
+    bool moved=false;for(size_t i=0;i<positions.size();++i)moved|=glm::distance(positions[i],baseline[i])>.001f;
+    require(moved,"uploaded geometry contains a dent");
+    const auto allocation=nearMesh->mesh()->geometryAllocation();
+    Buffer read(device,allocation.vertexCount*sizeof(Vertex),rhi::BufferUsage::TransferDst,MemoryUsage::HostVisible);
+    device.withSingleTimeEncoder([&](rhi::CommandEncoder& encoder) {
+        encoder.copyBufferToBuffer(*resources.geometry().vertexBuffer(),read,allocation.vertexCount*sizeof(Vertex),
+            uint64_t(allocation.vertexOffset)*sizeof(Vertex),0);
+    });
+    const auto* vertices=static_cast<const Vertex*>(read.mapped());
+    for(size_t i=0;i<positions.size();++i) {
+        near(vertices[i].pos,positions[i],"GPU positions agree with deformed CPU geometry");
+        require(std::isfinite(glm::length(vertices[i].normal)),"deformed normals remain finite");
+    }
+    const auto bytes=resources.geometryUsage().vertices;
+    tree.world().update(.1f);settle();
+    require(resources.geometryUsage().vertices==bytes,"repeated updates do not increase mesh residency");
+    nlohmann::json saved;damage->save(saved);
+    require(saved["offsets"].size()==125,"save stores cage points rather than duplicated vertices");
+    require(shape->shapeType==CollisionShapeType::Box,"collision adaptation retains authored shape identity");
+    damage->resetDeformation();
+    require(nearMesh->mesh()==source&&nearMesh->meshForLod(1)==source&&farMesh->mesh()==source,"repair releases all runtime LOD overrides");
+    require(nearMesh->sourceMesh()==source,"runtime deformation keeps source asset identity");
+    damage->load(saved);tree.world().update(.1f);settle();
+    require(damage->absorbedEnergy()>0&&nearMesh->runtimeMesh(1),"compact saved state restores damage on all LODs");
+    damage->resetDeformation();
+    body->removeChild(farMesh);
+    tree.world().update(.1f); // A removed surface must never be dereferenced.
+    auto* wall=tree.world().createChild<StaticBodyNode>();
+    wall->transform().position={0,0,-2};
+    auto* wallShape=wall->createChild<CollisionShapeNode>();
+    wallShape->shapeType=CollisionShapeType::Box;wallShape->halfExtents={5,5,.3f};
+    body->mass=1200;body->kinematic=false;body->continuousCollision=true;body->reportsImpacts=true;body->markDirty();
+    tree.world().update(.001f);
+    body->setLinearVelocity({0,0,-15});
+    damage->maximumVerticesPerUpdate=2;
+    for(int frame=0;frame<120;++frame) {
+        resources.pumpAssetLoads();tree.world().update(1.f/60.f);
+    }
+    settle();
+    require(damage->absorbedEnergy()>1000,"solver collision automatically feeds generic deformation");
+    require(nearMesh->runtimeMesh()&&nearMesh->mesh()!=source,"bounded vertex jobs publish the crash dent");
+    require(intact->mesh()==source,"automatic crash preserves other instances too");
+    device.waitIdle();
+}
+
+void gpuFleetDeformation(const std::string& modelPath) {
+    Window window(64,64,"Fleet deformation measurement",false);
+    VulkanDevice device(window);ResourceManager resources(device,nullptr);
+    SceneTree tree(resources);auto scene=std::make_unique<Scene>();
+    constexpr size_t kVehicles=8,kFrames=600;
+    std::array<DeformableMeshBehaviour*,kVehicles> damage{};
+    std::array<Node*,kVehicles> roots{};
+    GLTFLoadOptions options;options.retainDeformationSource=true;
+    for(size_t i=0;i<kVehicles;++i) {
+        auto* root=scene->createChild<Node>();
+        roots[i]=root;
+        require(GLTFLoader::load(modelPath,*root,resources,options),"fleet proof loads retained source geometry");
+        damage[i]=root->addBehaviour<DeformableMeshBehaviour>();
+        damage[i]->excludedPrefixes="wheel-,glass-,window-";
+    }
+    tree.mountWorld(std::move(scene));
+    const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(15);
+    while(!resources.assetLoadsSettled()&&std::chrono::steady_clock::now()<deadline){resources.pumpAssetLoads();std::this_thread::yield();}
+    require(resources.assetLoadsSettled(),"fleet source uploads settle");
+    tree.world().update(.001f);
+    const auto impactStart=std::chrono::steady_clock::now();
+    for(auto* component:damage)require(component->applyImpact({0,.6f,2},{0,0,-1},40000),"fleet proof creates eight independent dents");
+    const double impactMs=std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-impactStart).count();
+    std::vector<double> cpu,uploads;
+    for(size_t frame=0;frame<kFrames;++frame) {
+        auto start=std::chrono::steady_clock::now();resources.pumpAssetLoads();
+        auto updated=std::chrono::steady_clock::now();
+        uploads.push_back(std::chrono::duration<double,std::milli>(updated-start).count());
+        for(auto* component:damage)component->onUpdate(1.f/60.f);
+        cpu.push_back(std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now()-updated).count());
+    }
+    require(resources.assetLoadsSettled(),"eight fleet dents finish bounded uploads");
+    auto checkDents=[&](auto&& self,const Node& node)->void {
+        for(const char* prefix:{"wheel-","glass-","window-"})if(node.name().rfind(prefix,0)==0)return;
+        if(auto* mesh=dynamic_cast<const MeshNode*>(&node);mesh&&mesh->sourceMesh())
+            require(mesh->runtimeMesh()&&mesh->runtimeMesh()->loaded(),"all eligible fleet surfaces publish private geometry");
+        for(const auto& child:node.children())self(self,*child);
+    };
+    for(auto* root:roots)checkDents(checkDents,*root);
+    std::sort(cpu.begin(),cpu.end());std::sort(uploads.begin(),uploads.end());
+    std::printf("[deformation fleet] 8 cars: first impact %.3f ms; CPU p95 %.3f max %.3f ms; uploads p95 %.3f max %.3f ms\n",
+        impactMs,cpu[size_t(kFrames*.95)],cpu.back(),uploads[size_t(kFrames*.95)],uploads.back());
+    device.waitIdle();
+}
+
 void gpuLodGroups() {
     Window window(64, 64, "Streaming contracts", false);
     VulkanDevice device(window);
+    gpuDeformation(device);
     ResourceManager resources(device, nullptr, {512, 1024});
     require(resources.geometryCapacity().vertices == 512 && resources.geometryCapacity().indices == 1024,
             "resource manager exposes configured geometry capacity");
@@ -988,5 +1116,6 @@ int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract();
     if (argc > 1 && std::string(argv[1]) == "--gpu") gpuLodGroups();
+    if (argc > 2 && std::string(argv[1]) == "--deformation-fleet") gpuFleetDeformation(argv[2]);
     std::printf("[streaming] PASS (%d checks)\n", checks);
 }

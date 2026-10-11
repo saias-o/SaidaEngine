@@ -118,6 +118,12 @@ void CollisionObjectNode::createBody(PhysicsWorld& world) {
 }
 
 void CollisionObjectNode::syncToPhysics(PhysicsWorld& world) {
+    glm::vec3 velocity(0.f), angularVelocity(0.f);
+    const bool preserveMomentum = dirty_ && !bodyId_.IsInvalid() && motion() == BodyMotion::Dynamic;
+    if (preserveMomentum) {
+        velocity = world.linearVelocity(bodyId_);
+        angularVelocity = world.angularVelocity(bodyId_);
+    }
     if (dirty_ && !bodyId_.IsInvalid()) {
         detachFromPhysics();  // params/shape changed → rebuild
     }
@@ -128,6 +134,10 @@ void CollisionObjectNode::syncToPhysics(PhysicsWorld& world) {
         // shape and be refused again, for every refused body.
         if (refused_ && !world.hasRoomForBody()) return;
         createBody(world);
+        if (preserveMomentum && !bodyId_.IsInvalid()) {
+            world.setLinearVelocity(bodyId_, velocity);
+            world.setAngularVelocity(bodyId_, angularVelocity);
+        }
         pushedWorld_ = worldTransform();
         return;
     }
