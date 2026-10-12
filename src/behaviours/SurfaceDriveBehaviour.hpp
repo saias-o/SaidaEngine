@@ -22,6 +22,14 @@ public:
     float supportDistance = .15f; // Maximum road gap below the body origin at an axle.
     float groundStability = 0.f; // Optional grounded tilt correction, rad/s^2 per radian.
     float groundDamping = 0.f; // Optional grounded tilt damping, per second.
+    // Optional bump absorption, what a suspension would do: with the road
+    // still within bumpReach below, an upward separation faster than
+    // bumpLaunchSpeed (m/s) and a pitch/roll rate above bumpSpin (rad/s) are
+    // cut back, so a seam or a small step cannot throw the body into the air.
+    // 0 keeps the solver's response untouched.
+    float bumpLaunchSpeed = 0.f;
+    float bumpSpin = 0.f;
+    float bumpReach = .5f;
     float selfRightAcceleration = 0.f; // Direction input progressively rights a stranded body.
     float selfRightSpeed = 2.f;
     float rollingDeceleration = .25f;

@@ -15,7 +15,7 @@ void SurfaceDriveBehaviour::command(float throttle, float brake, float steer, bo
 void SurfaceDriveBehaviour::onPhysicsStep(float dt) {
     const float settings[]{acceleration,slopeAssist,braking,maxSpeed,reverseSpeed,wheelbase,steeringAngle,lateralAcceleration,
         yawAcceleration,groundReach,supportDistance,groundStability,groundDamping,selfRightAcceleration,selfRightSpeed,
-        rollingDeceleration,aerodynamicDrag,gripResponse,steeringResponse};
+        rollingDeceleration,aerodynamicDrag,gripResponse,steeringResponse,bumpLaunchSpeed,bumpSpin,bumpReach};
     grounded_ = false;
     if(!std::isfinite(dt)||dt<=0.f||!std::isfinite(damage)||!std::isfinite(steeringBias))return;
     for(const auto value:settings)if(!std::isfinite(value)||value<0.f)return;
@@ -73,8 +73,34 @@ void SurfaceDriveBehaviour::onPhysicsStep(float dt) {
             supportNormal += ground.normal;
     }
     grounded_ = glm::dot(supportNormal,supportNormal) > 0.f;
-    if (!grounded_) return;
     const float mass = std::max(kMinimumMass, body->mass);
+    if ((bumpLaunchSpeed > 0.f || bumpSpin > 0.f) && glm::dot(up, gravityUp) > .5f && std::isfinite(bumpReach)) {
+        // A bump kicks the body up off a road that is still right there: a
+        // suspension would have taken it. The kick above the allowance and
+        // the tumble it started are removed; a real drop or a ramp leaves the
+        // road further than bumpReach and is left alone.
+        const auto road = world.raycast(position + up * groundReach, -up,
+                                        groundReach * 2.f + std::max(0.f, bumpReach), filter);
+        if (road.hit && road.distance <= groundReach + supportDistance + std::max(0.f, bumpReach) &&
+            glm::dot(road.normal, gravityUp) > kGroundNormalLimit) {
+            const float rise = glm::dot(velocity, road.normal);
+            if (bumpLaunchSpeed > 0.f && rise > bumpLaunchSpeed)
+                world.applyImpulse(id, road.normal * (mass * (bumpLaunchSpeed - rise)));
+            if (bumpSpin > 0.f) {
+                glm::vec3 along = forward - road.normal * glm::dot(forward, road.normal);
+                if (glm::dot(along, along) > .001f) {
+                    along = glm::normalize(along);
+                    for (const auto axis : {along, glm::normalize(glm::cross(along, road.normal))}) {
+                        const float spin = glm::dot(world.angularVelocity(id), axis);
+                        const float kept = std::clamp(spin, -bumpSpin, bumpSpin);
+                        if (kept != spin)
+                            world.applyAngularImpulse(id, axis * (world.effectiveAngularMass(id, axis) * (kept - spin)));
+                    }
+                }
+            }
+        }
+    }
+    if (!grounded_) return;
     const float condition = 1.f - std::clamp(damage, 0.f, 1.f);
     const float requested = parked ? 0.f : std::clamp(steer_ + steeringBias, -1.f, 1.f);
     steering_ += (requested - steering_) * (1.f - std::exp(-std::max(0.f, steeringResponse) * dt));
@@ -147,6 +173,9 @@ void SurfaceDriveBehaviour::describe(reflect::TypeBuilder<SurfaceDriveBehaviour>
     t.property("supportDistance", &SurfaceDriveBehaviour::supportDistance).range(0, 2);
     t.property("groundStability", &SurfaceDriveBehaviour::groundStability).range(0, 60);
     t.property("groundDamping", &SurfaceDriveBehaviour::groundDamping).range(0, 60);
+    t.property("bumpLaunchSpeed", &SurfaceDriveBehaviour::bumpLaunchSpeed).range(0, 10);
+    t.property("bumpSpin", &SurfaceDriveBehaviour::bumpSpin).range(0, 10);
+    t.property("bumpReach", &SurfaceDriveBehaviour::bumpReach).range(0, 3);
     t.property("selfRightAcceleration", &SurfaceDriveBehaviour::selfRightAcceleration).range(0, 30);
     t.property("selfRightSpeed", &SurfaceDriveBehaviour::selfRightSpeed).range(0, 5);
     t.property("rollingDeceleration", &SurfaceDriveBehaviour::rollingDeceleration).range(0, 5);

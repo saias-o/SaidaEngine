@@ -20,6 +20,8 @@ and create a new tag under `RELEASE.md`.
 - Collision groups on `BodyDesc`, `PhysicsWorld::isBodyActive`,
   `Scene::ensurePhysics`, `Behaviour::onRebase`, `Behaviour::onHierarchyInactive`,
   `AudioManager::preload`.
+- `SurfaceDrive` bump absorption (`bumpLaunchSpeed`, `bumpSpin`, `bumpReach`,
+  off by default): a road seam no longer launches and rolls a rigid-wheeled car.
 - Fix: a rigid mesh under an animated node was skinned with zero weights and
   collapsed to the origin; only meshes carrying bone weights are skinned now.
 

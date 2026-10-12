@@ -1267,6 +1267,12 @@ gravity or collision response. Support must face against gravity, remain within
 a pitched chassis cannot use a wall as road. Ground probes do not create wheel springs.
 Optional `groundStability` and `groundDamping` apply road-aligned tilt feedback
 using the body's actual angular inertia. They do not operate in flight.
+Optional bump absorption (`bumpLaunchSpeed`, `bumpSpin`, `bumpReach`, default
+off) stands in for a suspension on bodies riding rigid wheel contacts: while the
+road is within `bumpReach` below and the body is upright, an upward separation
+faster than `bumpLaunchSpeed` and a pitch/roll rate above `bumpSpin` are removed,
+so a mesh seam or a few centimetres of step cannot launch and roll it; a drop or
+ramp farther than the reach is untouched.
 Optional `selfRightAcceleration` with `selfRightSpeed` progressively rights an
 overturned body while throttle or steering is held, only near supporting ground.
 `PhysicsWorld::effectiveAngularMass` supplies impulse response about a world axis.
