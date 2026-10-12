@@ -79,7 +79,7 @@ public:
 
     Transform& transform() { return transform_; }
     const Transform& transform() const { return transform_; }
-    glm::mat4 localMatrix() const { return transform_.matrix(); }
+    glm::mat4 localMatrix() const;
 
     const std::string& name() const { return name_; }
     void setName(const std::string& name) { name_ = name; }
@@ -204,6 +204,11 @@ protected:
     glm::mat4 lastLocalMatrix_{0.0f};
 
 private:
+    // Transform is publicly mutable, including through retained references.
+    // Compare its components on read instead of relying on setter invalidation.
+    mutable Transform cachedLocalTransform_;
+    mutable glm::mat4 cachedLocalMatrix_{1.f};
+    mutable bool localMatrixCached_ = false;
     uint64_t subtreeRevision_ = 0;
     uint64_t localRevision_ = 0;
     uint64_t resourceRevision_ = 0;

@@ -582,6 +582,7 @@ bool Engine::tick() {
             activeScene->update(Time::delta());     // behaviours: scaled time (pausable)
         }
         if(afterSimulation_) {
+            SAIDA_PROFILE_SCOPE("Scene/AfterSimulation");
             afterSimulation_(Time::delta());
             activeScene=sceneOverride_?sceneOverride_:scene_.get();
             activeScene->updateTransforms(glm::mat4(1.f),false);

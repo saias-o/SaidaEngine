@@ -4,6 +4,7 @@
 #include "scene/animation/Animator.hpp"
 #include "behaviours/LODGroupBehaviour.hpp"
 #include "nodes/MeshNode.hpp"
+#include "nodes/CameraNode.hpp"
 #ifndef SAIDA_NO_PHYSICS
 #include "physics/CollisionObjectNode.hpp"
 #endif
@@ -93,7 +94,7 @@ void SceneIndex::updateResources(Node& node, Entry& entry) {
 }
 
 void SceneIndex::unpublish(Entry& e) {
-    meshes.remove(e.mesh); lights.remove(e.light); canvases.remove(e.canvas);
+    meshes.remove(e.mesh); cameras.remove(e.camera); lights.remove(e.light); canvases.remove(e.canvas);
     webCanvases.remove(e.webCanvas); water.remove(e.water); terrains.remove(e.terrain); grass.remove(e.grass); particles.remove(e.particles);
     bodies.remove(e.body); joints.remove(e.joint); preSteppers.remove(e.body);
     for (auto* b : e.behaviours) { behaviours.remove(b); physicsSteppers.remove(b); }
@@ -105,6 +106,7 @@ void SceneIndex::unpublish(Entry& e) {
 
 void SceneIndex::publish(Node& node, Entry& e) {
     e.mesh = dynamic_cast<MeshNode*>(&node);
+    e.camera = dynamic_cast<CameraNode*>(&node);
     e.light = node.asLight();
     e.canvas = dynamic_cast<UICanvasNode*>(&node);
     e.water = dynamic_cast<WaterNode*>(&node);
@@ -126,6 +128,7 @@ void SceneIndex::publish(Node& node, Entry& e) {
         return;
     }
     ++activeNodes;
+    cameras.add(e.camera);
     bodies.add(e.body); joints.add(e.joint);
 #ifndef SAIDA_NO_PHYSICS
     if (e.body && e.body->hasPrePhysicsStep()) preSteppers.add(e.body);

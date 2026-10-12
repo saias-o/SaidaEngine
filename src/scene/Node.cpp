@@ -194,6 +194,16 @@ void Node::updateTree(float dt) {
         child->updateTree(dt);
 }
 
+glm::mat4 Node::localMatrix() const {
+    if (!localMatrixCached_ || transform_.position != cachedLocalTransform_.position ||
+        transform_.rotation != cachedLocalTransform_.rotation || transform_.scale != cachedLocalTransform_.scale) {
+        cachedLocalTransform_ = transform_;
+        cachedLocalMatrix_ = transform_.matrix();
+        localMatrixCached_ = true;
+    }
+    return cachedLocalMatrix_;
+}
+
 void Node::updateTransforms(const glm::mat4& parentWorld, bool parentDirty) {
     glm::mat4 currentLocal = localMatrix();
     bool dirty = parentDirty || (currentLocal != lastLocalMatrix_);

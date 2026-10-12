@@ -10,6 +10,7 @@
 namespace saida {
 
 class MeshNode;
+class CameraNode;
 class LightNode;
 class UICanvasNode;
 class WebCanvasNode;
@@ -59,6 +60,7 @@ public:
     bool contains(const Node* node) const { return entries_.find(const_cast<Node*>(node)) != entries_.end(); }
 
     SceneMembers<MeshNode> meshes;
+    SceneMembers<CameraNode> cameras;
     SceneMembers<LightNode> lights;
     SceneMembers<UICanvasNode> canvases;
     SceneMembers<WebCanvasNode> webCanvases;
@@ -83,6 +85,7 @@ private:
         Node* parent = nullptr;
         std::vector<Node*> children;
         MeshNode* mesh = nullptr;
+        CameraNode* camera = nullptr;
         LightNode* light = nullptr;
         UICanvasNode* canvas = nullptr;
         WebCanvasNode* webCanvas = nullptr;

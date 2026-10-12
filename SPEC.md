@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-10-11. This document is the engine's technical truth. It describes
+Updated: 2026-10-12. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -523,7 +523,7 @@ Classic/Web atlas dimensions use `push.params.zw`; bindless uses the existing
 The material SSBO is visible to vertex/fragment/compute stages; its size remains
 128 bytes. Material cache equality/hash include both dimensions.
 
-Impostors use cheap ambient plus directional diffuse illumination. Without a
+Impostors use cheap ambient, diffuse sky SH and directional illumination. Without a
 normal atlas they retain the broad volume response scaled by light color,
 intensity and elevation relative to the authored up axis, with two albedo
 fetches. An optional linear `normalTexture` encodes normals in the authored
@@ -531,9 +531,15 @@ model frame (RGB = normal * 0.5 + 0.5), with static hemisphere visibility in
 alpha. It requires no UV tangents. Two additional texture reads blend these
 surface data with the albedo's coverage weights; the instance inverse transpose
 transforms the blended normal, independently of camera-facing orientation.
-Visibility modulates ambient and Lambert directional diffuse, and normal scale
-blends this response against the coarse volume response. Both paths skip MR,
-emissive textures, GGX, IBL, GI and runtime shadow sampling. Point/spot lights do
+Visibility modulates diffuse environment SH when IBL is enabled and its diffuse
+intensity is positive. The flat ambient fallback matches ordinary meshes and
+is not multiplied by atlas visibility; otherwise ambient-driven sky lighting
+would darken abruptly at an impostor LOD transition. Visibility never attenuates
+Lambert directional diffuse: hemisphere occlusion cannot represent the sun's
+direction. Sky SH uses the same rotations, crossfade and diffuse intensity as
+mesh PBR, without additional texture reads. Normal scale blends the directional
+response against the coarse volume response. Both paths skip MR, emissive
+textures, GGX, specular IBL, GI and runtime shadow sampling. Point/spot lights do
 not illuminate this distant representation. Visibility is a static occlusion
 approximation, not directional self-shadowing or a replacement for close PBR.
 Imported billboard meshes disable shadow casting, and shadow gathering also
@@ -541,7 +547,9 @@ excludes a selected billboard material in a MeshNode LOD chain. Ordinary meshes
 retain their existing shading. `tools/verify_billboard_materials.py` verifies
 facing, atlas blending, camera-independent brightness, directional
 intensity/color/elevation, authored-frame normals under instance rotation,
-visibility and coverage-weighted normal blending with captured native pixels.
+sky visibility, matching mesh/impostor ambient fill, separation of direct light from hemisphere occlusion,
+diffuse sky color/crossfade and coverage-weighted normal blending with captured
+native pixels.
 `tools/verify_billboard_web.mjs` compiles the actual translated scene pipeline
 in browser WebGPU. Mono and multiview use the same surface equations.
 
@@ -862,13 +870,18 @@ Removal uses cached identities without dereferencing destroyed nodes, including
 reparenting and `clearChildren`. Dense render/simulation lists have unspecified
 iteration order; gameplay must not rely on hierarchy order for per-frame updates.
 This does not eliminate the transform traversal: mutable `Transform&` still
-requires comparison during `updateTransforms`.
+requires comparison during `updateTransforms`. `Node::localMatrix` caches the
+affine matrix by comparing position, rotation and scale on every read; writes
+through retained transform references are detected without setter invalidation.
+Reading the local cache does not consume world-transform propagation or revisions.
 
 `Transform::matrix` constructs affine TRS directly from scaled rotation columns
 and the translation column. It preserves negative/nonuniform scales without a
-general 4x4 matrix multiplication at each visited node. `CameraDirector` scans
-enabled branches for active cameras in hierarchy order (highest priority, first
-in a tie), then composes only the selected camera's ancestor transforms. Hidden
+general 4x4 matrix multiplication at each visited node. `CameraDirector` refreshes
+the scene index and considers only its enabled camera members (highest priority,
+first in hierarchy order in a tie), then composes only the selected camera's
+ancestor transforms. Equal-priority cameras compare their ancestor paths, so
+index insertion/removal order does not change selection. Hidden
 cameras remain eligible; direct transform and priority edits are read on every
 call, including calls before a scene update.
 

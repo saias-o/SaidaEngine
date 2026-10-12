@@ -149,6 +149,22 @@ void transformAndCameraContract() {
     for (int column = 0; column < 4; ++column)
         require(glm::length(t.matrix()[column] - reference[column]) < 1e-6f,
                 "affine TRS preserves rotation, negative/nonuniform scale and translation");
+    const Node& constFrame = *frame;
+    require(constFrame.localMatrix() == t.matrix(), "initial cached local matrix matches TRS");
+    auto& retained = frame->transform();
+    retained.position.z += 2.f;
+    require(constFrame.localMatrix() == retained.matrix(), "retained transform position edit invalidates cache");
+    retained.scale.y = -3.f;
+    retained.rotation = glm::angleAxis(.3f, glm::vec3(0, 1, 0));
+    require(constFrame.localMatrix() == retained.matrix(), "retained scale and rotation edit invalidates cache");
+    scene.updateTransforms(glm::mat4(1.f), false);
+    require(frame->worldTransform() == retained.matrix(), "local cache read does not consume world propagation");
+    const auto transformVersion = Node::g_transformVersion;
+    scene.updateTransforms(glm::mat4(1.f), false);
+    require(Node::g_transformVersion == transformVersion, "unchanged cached transforms keep revision stable");
+    retained.position.z -= 2.f;
+    retained.scale = {-2.f, .5f, 3.f};
+    retained.rotation = glm::angleAxis(.7f, glm::normalize(glm::vec3(1, 2, 3)));
     auto* first = frame->createChild<CameraNode>();
     first->transform().position = {1, 2, 3};
     first->priority = -3;
@@ -177,6 +193,14 @@ void transformAndCameraContract() {
     require(!director.update(scene, out, .01f), "inactive cameras and disabled ancestors leave no live camera");
     disabled->setEnabled(true);
     require(director.update(scene, out, .01f), "reactivating a camera branch restores selection");
+    frame->setEnabled(true);
+    second->active = true;
+    second->priority = -3;
+    disabled->setEnabled(false);
+    auto movedCamera = frame->detachChild(first);
+    scene.addChild(std::move(movedCamera));
+    director.update(scene, out, .01f);
+    near(out.position, {50, 0, 0}, "priority tie follows new hierarchy order after reparenting");
     scene.clearChildren();
     require(!director.update(scene, out, .01f), "removed cameras leave no stale selection");
     Node outer;

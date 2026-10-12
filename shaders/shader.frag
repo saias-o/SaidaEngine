@@ -161,7 +161,14 @@ void main() {
                                                fragBillboardNormalZ) * authoredNormal);
             visibility = clamp(surface.a, 0.0, 1.0);
         }
-        vec3 irradiance = lights.ambient.rgb * visibility;
+        // Match the mesh path's flat ambient fill. The scene may already use
+        // it for scattered sky light instead of IBL; multiplying this fallback
+        // by atlas AO would introduce a dark discontinuity at the LOD switch.
+        // Hemisphere visibility occludes directional sky SH, never the sun.
+        // SH uses the mesh coefficients without environment texture fetches.
+        vec3 irradiance = lights.ambient.rgb;
+        if (lights.environmentParams.x >= 0.5 && lights.environmentParams.y > 0.0)
+            irradiance += environmentIrradiance(surfaceNormal) * lights.environmentParams.y * visibility;
         for (int i = 0; i < lights.counts.x; ++i) {
             Light light = lights.lights[i];
             if (light.dirType.w != 0.0 || light.colorInt.w <= 0.0) continue;
@@ -169,7 +176,7 @@ void main() {
             float response = canopyResponse * mix(lateralResponse, 1.0, elevation);
             if (normalStrength > 0.0) {
                 float diffuse = max(dot(surfaceNormal, normalize(-light.dirType.xyz)), 0.0);
-                response = mix(response, diffuseResponse * diffuse * visibility, clamp(normalStrength, 0.0, 1.0));
+                response = mix(response, diffuseResponse * diffuse, clamp(normalStrength, 0.0, 1.0));
             }
             irradiance += light.colorInt.rgb * light.colorInt.w * response;
         }

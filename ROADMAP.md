@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-11. This file is the engine's **single backlog**: everything
+Updated: 2026-10-12. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -8,6 +8,26 @@ is in [README.md](README.md).
 Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
+
+## Large streamed-scene frame cost — MX450 audit, 2026-10-12
+
+- [x] Index enabled camera membership instead of scanning every scene node at
+  selection time. Preserve hidden cameras, direct priority edits and hierarchy
+  tie order after reparenting. Verified by the native scene/streaming CPU and
+  GPU suite (301 checks) and optimized R1World Paris/Vannes traces: selection
+  falls from roughly 15–16 ms to 0.01 ms. CTest is 94/95 in this sandbox; the
+  remaining failure is an unknown configured Git build identity. Full local
+  measurement conditions and limitations are in R1World's `game/README.md`.
+- [ ] Make transform propagation incremental while preserving retained mutable
+  `Transform&` writes, parent changes and physics results. Local matrix caching
+  alone leaves two complete walks costing about 30–35 ms/frame on the audited
+  93,000–102,000-node stationary scenes. Do not skip hidden nodes indiscriminately:
+  visibility does not disable simulation or inherited transforms.
+- [ ] Isolate and reduce procedural terrain submission/sampling work without
+  changing relief, surveyed tile holes or morphing/seam rules. The full grids
+  still shade vertices for cells later discarded over resident tiles. Feature
+  timestamp spans are about 18–19 ms in the local traces; confirm exclusive
+  savings with A/B measurements because pipeline timestamp intervals overlap.
 
 ## Vehicle deformation qualification and extensions
 
@@ -31,6 +51,16 @@ evidence belong in the game's README.
   vehicle validation covers preserved velocities, not arbitrary joint chains.
 
 ## Streaming and rendering integration — verified through 2026-10-09
+
+- [x] Match mesh ambient fill in atlas impostors, keep hemisphere occlusion
+  on diffuse environment SH only, and restore SH without texture fetches. Verified
+  2026-10-12: 23 native billboard pixel cases (including sun-only versus
+  occluded sun, ambient parity with meshes, blocked sky and red/blue crossfade), native
+  classic/bindless shader builds, translated WGSL and Chrome WebGPU pipeline
+  validation. Native CTest remains 94/95 with the same unknown configured Git
+  build identity failure. Identical-light Near/Mid/Far captures and a local
+  MX450 forest comparison are in R1World's
+  `game/generated/tree-far-lighting-fix`. No authored assets changed.
 
 - [x] Preserve per-pixel normals and static visibility on multi-view billboard
   atlases, with coverage-weighted blending and the authored instance frame.

@@ -195,6 +195,7 @@ public:
     uint64_t indexedNodesTotal() const { return index_.totalVisitedNodes(); }
 
     const std::vector<MeshNode*>& meshes() const { return index_.meshes.values(); }
+    const std::vector<CameraNode*>& cameras() const { return index_.cameras.values(); }
     const std::vector<LightNode*>& lights() const { return index_.lights.values(); }
     UICanvasNode* uiCanvas() const { return index_.canvases.values().empty() ? nullptr : index_.canvases.values().front(); }
     const std::vector<WebCanvasNode*>& webCanvases() const { return index_.webCanvases.values(); }

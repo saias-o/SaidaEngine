@@ -10,12 +10,22 @@
 namespace saida {
 
 namespace {
-void pickCamera(Node& node, CameraNode*& live) {
-    if (!node.enabled()) return;
-    if (auto* camera = dynamic_cast<CameraNode*>(&node);
-        camera && camera->active && (!live || camera->priority > live->priority))
-        live = camera;
-    for (const auto& child : node.children()) pickCamera(*child, live);
+bool hierarchyBefore(const Node& a, const Node& b) {
+    // Dense membership has no ordering. Only equal-priority cameras need the
+    // depth-first tie rule; compare their ancestor paths without walking meshes.
+    std::vector<const Node*> left, right;
+    for (auto* n = &a; n; n = n->parent()) left.push_back(n);
+    for (auto* n = &b; n; n = n->parent()) right.push_back(n);
+    while (!left.empty() && !right.empty() && left.back() == right.back()) {
+        left.pop_back(); right.pop_back();
+    }
+    if (left.empty()) return true;
+    if (right.empty()) return false;
+    for (const auto& child : left.back()->parent()->children()) {
+        if (child.get() == left.back()) return true;
+        if (child.get() == right.back()) return false;
+    }
+    return false;
 }
 
 glm::mat4 cameraWorld(const Node& camera, const Node& scene) {
@@ -53,7 +63,11 @@ void CameraDirector::reset() {
 bool CameraDirector::update(Scene& scene, Camera& out, float dt) {
     // Pick the active camera with the highest priority (ties: first encountered).
     CameraNode* live = nullptr;
-    pickCamera(scene, live);
+    scene.refreshHierarchy();
+    for (auto* camera : scene.cameras())
+        if (camera->active && (!live || camera->priority > live->priority ||
+            (camera->priority == live->priority && hierarchyBefore(*camera, *live))))
+            live = camera;
 
     if (!live) {
         reset();  // no camera → don't drive `out`; next mount blends fresh

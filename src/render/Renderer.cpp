@@ -1273,7 +1273,12 @@ void Renderer::buildFeatures(uint32_t viewMask, rhi::Format depthFormat,
 }
 
 void Renderer::recordFeatures(FrameContext& fc) {
-    for (auto& f : features_) f->record(fc);
+    auto* profiler = Profiler::instance().enabled() ? gpuProfiler_.get() : nullptr;
+    for (auto& f : features_) {
+        // RTTI names have static lifetime, including until GPU timestamps resolve.
+        SAIDA_GPU_PROFILE_SCOPE(profiler, fc.encoder.handle(), typeid(*f).name());
+        f->record(fc);
+    }
 }
 
 void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstPipeline, bool xrMultiview) {
