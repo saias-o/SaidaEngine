@@ -171,6 +171,7 @@ void DeformableMeshBehaviour::updateSurface(Surface& surface,size_t& vertexBudge
     vertexBudget-=vertices;
     if(!surface.work) {
         surface.work=std::make_shared<PreparedMesh>();
+        surface.work->skinned=surface.original&&surface.original->skinned();
         surface.work->geometry.vertices.reserve(count);
         surface.work->geometry.indices=surface.source->indices;
         surface.work->bounds.min=glm::vec3(std::numeric_limits<float>::max());

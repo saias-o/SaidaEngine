@@ -88,6 +88,11 @@ public:
     // (including looping and reverse playback), with the event name.
     Signal<const std::string&> animationEvent;
 
+    // Emitted after globalPose() was recomputed this tick -- a held pose that
+    // did not change emits nothing. What follows a bone (BoneAttachment) reads
+    // the pose here, the same tick, instead of a frame late.
+    Signal<> poseUpdated;
+
     // Root motion of the active clip (play()/playView() states).
     //   Ignore      — root translation stays in the pose (default).
     //   Extract     — accumulated delta to consume via consumeRootMotion().

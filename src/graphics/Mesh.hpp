@@ -61,6 +61,7 @@ struct PreparedMesh {
     MeshData geometry;
     Aabb bounds;
     std::shared_ptr<const MeshCollisionData> collision;
+    bool skinned = false;  // some vertex carries a bone weight
 };
 // Pure CPU work; callers can prepare procedural geometry on their worker.
 std::shared_ptr<PreparedMesh> prepareMesh(MeshData data);
@@ -106,6 +107,10 @@ public:
     const GeometryAllocation& allocation() const { return allocation_; }
 
     const Aabb& bounds() const { return bounds_; }
+    // Whether any vertex carries a bone weight. Only such a mesh is skinned by
+    // an Animator above it; a rigid mesh under an animated node -- a weapon in
+    // a hand, a hat -- is drawn as it is, where its node puts it.
+    bool skinned() const { return skinned_; }
     void includeBounds(const Aabb& bounds) {
         bounds_.min=glm::min(bounds_.min,bounds.min);bounds_.max=glm::max(bounds_.max,bounds.max);
     }
@@ -125,6 +130,7 @@ private:
     Aabb bounds_;
     uint64_t gpuBytes_ = 0;
     bool loaded_ = false;
+    bool skinned_ = false;
     std::shared_ptr<const MeshData> deformationSource_;
     bool deformationSourceSkinned_ = false;
     std::shared_ptr<const MeshCollisionData> collision_ = std::make_shared<MeshCollisionData>();

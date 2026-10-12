@@ -125,6 +125,7 @@ void SceneIndex::publish(Node& node, Entry& e) {
         // still solid. Enabled again, its next sync builds it afresh.
         if (e.body) e.body->detachFromPhysics();
 #endif
+        for (const auto& b : node.behaviours()) b->onHierarchyInactive();
         return;
     }
     ++activeNodes;

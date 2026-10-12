@@ -284,6 +284,7 @@ void Animator::onUpdate(float dt) {
     // model matrix to the whole mesh after skinning. A held pose keeps the
     // matrices it already has, unless a modifier moves it, or has just
     // stopped moving it and its last correction has to come off.
+    const bool recomputed = modifying || posed || modified_;
     if (modifying) {
         SAIDA_PROFILE_SCOPE("Animation/PoseModifiers");
         modifiedPose_ = currentLocalPose_;
@@ -294,6 +295,7 @@ void Animator::onUpdate(float dt) {
         globalPose_.computeFrom(currentLocalPose_, *rig_, glm::mat4(1.0f));
     }
     modified_ = modifying;
+    if (recomputed && poseUpdated.slotCount() > 0) poseUpdated.emit();
 }
 
 void Animator::describe(reflect::TypeBuilder<Animator>& t) {

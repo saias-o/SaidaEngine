@@ -92,12 +92,18 @@ static std::shared_ptr<const MeshCollisionData> prepareCollision(const std::vect
     return collision;
 }
 
+static bool anySkinWeight(const std::vector<Vertex>& vertices) {
+    return std::any_of(vertices.begin(), vertices.end(),
+                       [](const Vertex& vertex) { return glm::dot(vertex.boneWeights, vertex.boneWeights) > 0.f; });
+}
+
 void Mesh::upload(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
     Aabb bounds;
     auto collision = prepareCollision(vertices, indices, bounds);
     cancelUpload();
     registry_.allocate(allocation_, vertices, indices);
     bounds_ = bounds;
+    skinned_ = anySkinWeight(vertices);
     collision_ = std::move(collision);
     gpuBytes_ = uint64_t(vertices.size()) * sizeof(Vertex) + uint64_t(indices.size()) * sizeof(uint32_t);
     loaded_ = true;
@@ -106,6 +112,7 @@ void Mesh::upload(const std::vector<Vertex>& vertices, const std::vector<uint32_
 std::shared_ptr<PreparedMesh> prepareMesh(MeshData data) {
     auto prepared = std::make_shared<PreparedMesh>();
     prepared->collision = prepareCollision(data.vertices, data.indices, prepared->bounds);
+    prepared->skinned = anySkinWeight(data.vertices);
     prepared->geometry = std::move(data);
     return prepared;
 }
@@ -128,6 +135,7 @@ void Mesh::uploadRange(const PreparedMesh& data, size_t vertexStart, size_t vert
 }
 void Mesh::finishUpload(const PreparedMesh& data) {
     bounds_ = data.bounds;
+    skinned_ = data.skinned;
     collision_ = data.collision;
     gpuBytes_ = uint64_t(data.geometry.vertices.size()) * sizeof(Vertex) +
                 uint64_t(data.geometry.indices.size()) * sizeof(uint32_t);
@@ -136,6 +144,7 @@ void Mesh::finishUpload(const PreparedMesh& data) {
 void Mesh::cancelUpload() {
     registry_.free(allocation_);
     loaded_ = false;
+    skinned_ = false;
     bounds_ = {};
     collision_ = std::make_shared<MeshCollisionData>();
     gpuBytes_ = 0;

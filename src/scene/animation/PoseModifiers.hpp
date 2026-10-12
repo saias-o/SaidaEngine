@@ -11,6 +11,10 @@
 //                     left, within the body's limits, eased in and out.
 //   ImpactModifier -- a push leans a chain of bones away on a damped spring
 //                     that swings back: a flinch, a stagger, a shoulder bump.
+//   TwoBoneIKModifier -- a limb (shoulder, elbow, hand) reaches a point, the
+//                     elbow toward a pole, the hand optionally turned to a
+//                     given orientation: a punch, a held weapon, a hand on a
+//                     rail. Eased in and out like the gaze.
 //
 // Both work in the rig's object space, the space the Animator's GlobalPose is
 // in, and read a bone's facing off the rig's bind pose: nothing depends on how
@@ -22,6 +26,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -121,6 +126,47 @@ private:
     std::vector<std::pair<int32_t, float>> links_;
     bool valid_ = false;
     glm::vec3 angle_{0.0f}, velocity_{0.0f};
+};
+
+class TwoBoneIKModifier : public PoseModifier {
+public:
+    struct Settings {
+        // A direct parent chain: `mid` a child of `root`, `tip` a child of `mid`.
+        std::string root, mid, tip;
+        float response = 14.0f;  // 1/s at which the weight eases toward its target
+    };
+
+    TwoBoneIKModifier(const Rig& rig, Settings settings);
+    bool valid() const { return valid_; }
+
+    // Reaches `target` (object space) at `weight`; the weight eases, the
+    // target is taken as given so a moving target is tracked without lag.
+    void reach(const glm::vec3& target, float weight = 1.0f);
+    // The elbow bends toward this point (object space). Without one it keeps
+    // the plane the limb is already bent in.
+    void setPole(const glm::vec3& pole);
+    void clearPole() { hasPole_ = false; }
+    // The tip bone's global rotation (object space), blended at the same
+    // weight: a hand holding a weapon along the aim.
+    void setTipRotation(const glm::quat& rotation);
+    void clearTipRotation() { hasTipRotation_ = false; }
+    // Snaps the weight instead of easing (a strike's first frame).
+    void setWeightNow(float weight) { weight_ = wantedWeight_ = std::clamp(weight, 0.0f, 1.0f); }
+    void release() { wantedWeight_ = 0.0f; }
+    float weight() const { return weight_; }
+
+    void update(float dt) override;
+    bool active() const override { return valid_ && (weight_ > 1e-3f || wantedWeight_ > 0.0f); }
+    void apply(LocalPose& pose, const Rig& rig) const override;
+
+private:
+    Settings settings_;
+    int32_t root_ = -1, mid_ = -1, tip_ = -1;
+    bool valid_ = false;
+    glm::vec3 target_{0.0f}, pole_{0.0f};
+    glm::quat tipRotation_{1.0f, 0.0f, 0.0f, 0.0f};
+    bool hasPole_ = false, hasTipRotation_ = false;
+    float wantedWeight_ = 0.0f, weight_ = 0.0f;
 };
 
 } // namespace saida

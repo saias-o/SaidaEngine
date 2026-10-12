@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-10-12. This document is the engine's technical truth. It describes
+Updated: 2026-10-13. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -1420,6 +1420,36 @@ out of the smoothed camera position; only the available free distance snaps
 inward and damps outward. `VerticalSlice/scripts/e2e_run_jitter.js` and
 `VerticalSlice/scripts/e2e_camera.js` measure these invariants.
 
+**Ragdolls.** `Ragdoll` (`physics/Ragdoll.hpp`) builds one dynamic capsule per
+`RagdollProfile` part of a `Rig`, jointed to the nearest earlier part among its
+bone's ancestors: knees and elbows are `HingeConstraint`s bending toward
+`bendToward` within `bendMin..bendMax`; other joints are `SwingTwistConstraint`
+cones whose centre may lean `swingTilt` toward `bendToward` (a hip folds further
+forward than it extends). Limits are centred on the bind pose, not the spawn
+pose. Adjacent and sibling parts share a `GroupFilterTable` and never collide;
+two ragdolls do. `spawn` poses the bodies from an object-space `GlobalPose`
+placed by an `objectToWorld` with uniform scale and a velocity; a refused body
+removes the whole ragdoll and returns false. `readPose` writes the bodies back
+as a local pose: the root part sets its bone's position, others only rotate
+theirs, undriven bones keep the spawn pose. Bodies have null user data and
+continuous collision; `partOf` maps a query hit to a part. `humanoidRagdoll`
+gives an eleven-body adult from named bones (T-pose arm defaults). Covered by
+`saida_ragdoll_tests` (fall and rest without sinking, joint integrity, one-way
+knees, inter-ragdoll contact, rebase, refusal by capacity and by bone name).
+
+`RagdollBehaviour` drives it beside a node's `Animator` through a pose modifier:
+`activate` (Simulated; the node follows the root part), automatic `freeze` once
+settled (bodies removed, pose kept), `blendOut(seconds, ground)` standing the
+node under the root facing along the body, `release`. It is runtime-only (not
+serialized, absent from the editor and JS). `BodyDesc` gained
+`groupFilter`/`collisionGroup`/`collisionSubGroup`; `PhysicsWorld::isBodyActive`
+reports sleep. `Scene::ensurePhysics` builds the world on demand and a scene
+steps while its world holds any body, node-owned or not. Two generic behaviour
+hooks exist: `Behaviour::onRebase(translation, rotation)` is called for every
+behaviour in a rebased subtree (same traversal as bodies), and
+`onHierarchyInactive` when the scene index finds its node inactive, where
+behaviour-owned bodies leave the world as a disabled body does.
+
 ### 5.2 Input
 
 The system aggregates analog/binary actions from bindings and stackable contexts.
@@ -1479,7 +1509,9 @@ because GLFW 3.x exposes no standard haptics. `Input::injectAction` and
 `AudioManager` uses miniaudio on desktop and Web Audio in the Web player. JS
 plays a project alias with `audio.play(alias)`. Browsers require a user gesture
 before starting sound; the player therefore starts muted and unlocks on the first
-click/touch.
+click/touch. `AudioManager::preload(name)` decodes a file once and keeps it
+resident until shutdown; later `play` calls of it share the decoded data instead
+of reading and decoding the file on the calling thread.
 
 ### 5.4 Player storage
 
@@ -1797,7 +1829,18 @@ flinch or a stagger that swings back and settles. Both read each bone's facing
 off the rig's bind pose, so no skeleton's local axes matter. A modifier with
 nothing to do costs nothing: the Animator skips it, and composes a held pose
 only while one is active or has just stopped. Covered by
-`saida_animation_playback_tests`.
+`saida_animation_playback_tests`. `TwoBoneIKModifier` reaches a direct
+root/mid/tip chain to an object-space target, bends the middle toward an
+optional pole, optionally sets the tip's global rotation, and eases its weight
+(`setWeightNow` snaps it); covered by `saida_ragdoll_tests`.
+
+`Animator::poseUpdated` is emitted when `globalPose()` was recomputed this tick
+(only when it has listeners). `BoneAttachmentBehaviour` on a direct child of
+the animated node sets that child's local transform to a bone's object-space
+transform times an offset on that signal, the same tick; an unknown bone or a
+missing Animator is logged once. The renderer skins a mesh only if
+`Mesh::skinned()` (some vertex carries a bone weight); a rigid mesh under an
+animated node is drawn where its node puts it.
 
 Generalized SIMD, massive pose sharing and GPU crowds are deferred until
 measurements justify them.

@@ -4,6 +4,9 @@
 #include "core/Signal.hpp"
 #include "core/Easing.hpp"
 
+#include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+
 #include <cstdint>
 #include <functional>
 #include <utility>
@@ -36,11 +39,22 @@ public:
     virtual void onPhysicsStep(float /*dt*/) {}
     virtual bool hasPhysicsStep() const { return false; }
 
+    // The node's subtree was rebased (Scene::rebaseSubtree): old world point p
+    // is now rotation*p + translation. Its nodes and collision bodies have
+    // moved already; a behaviour holding world-space state of its own -- a
+    // ragdoll's bodies, a cached target -- moves it here, before the next update.
+    virtual void onRebase(const glm::vec3& /*translation*/, const glm::quat& /*rotation*/) {}
+
     // Lifecycle hooks. onDestroy fires when the node is being destroyed (while it
     // is still valid). onEnable/onDisable fire when enabled flips after onReady.
     virtual void onDestroy() {}
     virtual void onEnable() {}
     virtual void onDisable() {}
+    // The node stopped being active in its scene (it or an ancestor was
+    // disabled): what must not outlive its activity -- bodies created in the
+    // physics world, as a disabled CollisionObject's leave it -- goes now.
+    // Behaviours of an inactive node are not updated until it is active again.
+    virtual void onHierarchyInactive() {}
 
     virtual const char* typeName() const { return nullptr; }
     // Runtime-only implementation behaviours (trackers, adapters) can stay out

@@ -40,6 +40,13 @@ Scene::~Scene() {
     clearChildren();
 }
 
+#ifndef SAIDA_NO_PHYSICS
+PhysicsWorld& Scene::ensurePhysics() {
+    if (!physics_) physics_ = std::make_unique<PhysicsWorld>(physicsCapacity_);
+    return *physics_;
+}
+#endif
+
 bool Scene::setPhysicsCapacity(const PhysicsCapacity& capacity) {
     if (!capacity.valid())
         throw std::invalid_argument("physics capacity must be nonzero and hold at most " +
@@ -96,7 +103,8 @@ void Scene::update(float dt) {
     }
 
     // Physics only runs while time is advancing (i.e. in Play, not while editing).
-    if (dt > 0.0f && !index_.bodies.values().empty()) {
+    // Bodies created straight in the world (a ragdoll's) step it too.
+    if (dt > 0.0f && (!index_.bodies.values().empty() || (physics_ && physics_->bodyCount() > 0))) {
         SAIDA_PROFILE_SCOPE("Physics/SceneStep");
         if (!physics_) physics_ = std::make_unique<PhysicsWorld>(physicsCapacity_);
         {
@@ -214,12 +222,13 @@ void Scene::rebaseSubtree(Node& root, const glm::vec3& translation, const glm::q
     local.position = glm::vec3(glm::inverse(parentWorld) * glm::vec4(rotation * worldPosition + translation, 1.f));
     local.rotation = glm::inverse(parentRotation) * rotation * parentRotation * local.rotation;
     root.updateTransforms(parentWorld, true);
-#ifndef SAIDA_NO_PHYSICS
     root.traverse([&](Node& node, const glm::mat4&) {
+#ifndef SAIDA_NO_PHYSICS
         if (auto* body = node.asCollisionObject()) body->rebasePhysics(translation, rotation);
         if (auto* joint = node.asJointNode()) joint->detachJointFromPhysics();
-    });
 #endif
+        for (const auto& behaviour : node.behaviours()) behaviour->onRebase(translation, rotation);
+    });
 }
 
 void Scene::rebaseOrigin(const glm::vec3& translation, const glm::quat& rotation) {

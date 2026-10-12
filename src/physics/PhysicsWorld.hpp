@@ -22,6 +22,7 @@ class TempAllocator;
 class JobSystem;
 class CharacterVirtual;
 class TwoBodyConstraint;
+class GroupFilter;
 } // namespace JPH
 
 namespace saida {
@@ -86,7 +87,16 @@ struct BodyDesc {
     // tips at 0.6 g — under what its own tyres can pull — so it rolls over
     // instead of sliding. Zero keeps Jolt's own answer.
     glm::vec3 centerOfMass{0.0f};
-    void* userData = nullptr;       // stored on the body (we map it to the owning node)
+    // Stored on the body. The scene casts it to the owning CollisionObjectNode
+    // (contact signals, pose sync): a body created outside a node leaves it null.
+    void* userData = nullptr;
+    // Jolt collision group. Two bodies with the same `groupFilter` and
+    // `collisionGroup` ask the filter whether their sub-groups collide (a
+    // GroupFilterTable keeping a ragdoll's adjacent parts apart); different
+    // groups, or no filter, always collide. The body keeps a reference.
+    const JPH::GroupFilter* groupFilter = nullptr;
+    uint32_t collisionGroup = 0xFFFFFFFFu;     // JPH::CollisionGroup::cInvalidGroup
+    uint32_t collisionSubGroup = 0xFFFFFFFFu;  // JPH::CollisionGroup::cInvalidSubGroup
 };
 
 // One physics world per scene. Wraps a Jolt PhysicsSystem with a fixed-timestep
@@ -131,6 +141,9 @@ public:
                        const glm::quat& rotation, float dt);
     // Read a body's world transform back (used to drive dynamic nodes).
     void getBodyTransform(JPH::BodyID id, glm::vec3& position, glm::quat& rotation) const;
+    // Whether the body is awake. A dynamic body Jolt has put to sleep, and
+    // every static or invalid one, is not.
+    bool isBodyActive(JPH::BodyID id) const;
     glm::vec3 gravity() const;
 
     // Set a body's velocity (and activate it). Used e.g. to throw a released

@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-12. This file is the engine's **single backlog**: everything
+Updated: 2026-10-13. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -28,6 +28,23 @@ the corresponding contracts of `SPEC.md`.
   still shade vertices for cells later discarded over resident tiles. Feature
   timestamp spans are about 18–19 ms in the local traces; confirm exclusive
   savings with A/B measurements because pipeline timestamp intervals overlap.
+
+## Ragdolls, reach and attachment — 2026-10-13
+
+- [x] Generic `Ragdoll`/`RagdollBehaviour`, `TwoBoneIKModifier`,
+  `BoneAttachmentBehaviour`, `Animator::poseUpdated`, collision groups,
+  `Behaviour::onRebase`/`onHierarchyInactive`, `Scene::ensurePhysics`,
+  `AudioManager::preload`, and rigid meshes under an Animator no longer skinned.
+  Verified: `saida_ragdoll_tests` (91 checks), native CTest 96/96 before the
+  last renderer/audio edits (rerun pending), R1World offline smoke with a
+  knock-down and a pistol round in Vannes.
+- [ ] Build and verify the Web player and authoring WASM with these sources
+  (no Emscripten SDK on the machine that made them).
+- [ ] Getting up from a ragdoll is a pose blend; recorded get-up clips or an
+  active ragdoll driving to a pose (Jolt motors) would read better.
+- [ ] Expose ragdoll, reach and attachment to reflection, the editor and JS.
+- [ ] Cone particle emitters emit about world +Y whatever the emitter's
+  rotation; an oriented cone needs the emitter rotation in the GPU record.
 
 ## Vehicle deformation qualification and extensions
 

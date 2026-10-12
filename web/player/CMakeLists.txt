@@ -104,6 +104,10 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/behaviours/SurfaceDriveBehaviour.cpp
     ${SAIDA_ROOT}/src/behaviours/DeformableMeshBehaviour.cpp
     ${SAIDA_ROOT}/src/physics/DeformationCage.cpp
+    ${SAIDA_ROOT}/src/physics/Ragdoll.cpp
+    ${SAIDA_ROOT}/src/behaviours/RagdollBehaviour.cpp
+    ${SAIDA_ROOT}/src/behaviours/BoneAttachmentBehaviour.cpp
+    ${SAIDA_ROOT}/src/scene/animation/PoseModifiers.cpp
     ${SAIDA_ROOT}/src/scene/GLTFLoader.cpp
     ${SAIDA_ROOT}/src/scene/GltfMeshopt.cpp
     ${SAIDA_ROOT}/src/nodes/LightNode.cpp

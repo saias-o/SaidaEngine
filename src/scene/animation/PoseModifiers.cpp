@@ -187,4 +187,95 @@ void ImpactModifier::apply(LocalPose& pose, const Rig& rig) const {
     }
 }
 
+// ── two-bone reach ──────────────────────────────────────────────────────────
+
+TwoBoneIKModifier::TwoBoneIKModifier(const Rig& rig, Settings settings) : settings_(std::move(settings)) {
+    root_ = rig.findBoneIndex(settings_.root);
+    mid_ = rig.findBoneIndex(settings_.mid);
+    tip_ = rig.findBoneIndex(settings_.tip);
+    valid_ = root_ >= 0 && mid_ >= 0 && tip_ >= 0 &&
+             rig.bones()[size_t(mid_)].parentIndex == root_ && rig.bones()[size_t(tip_)].parentIndex == mid_;
+}
+
+void TwoBoneIKModifier::reach(const glm::vec3& target, float weight) {
+    target_ = target;
+    wantedWeight_ = std::clamp(weight, 0.0f, 1.0f);
+}
+
+void TwoBoneIKModifier::setPole(const glm::vec3& pole) {
+    pole_ = pole;
+    hasPole_ = true;
+}
+
+void TwoBoneIKModifier::setTipRotation(const glm::quat& rotation) {
+    tipRotation_ = glm::normalize(rotation);
+    hasTipRotation_ = true;
+}
+
+void TwoBoneIKModifier::update(float dt) {
+    weight_ += (wantedWeight_ - weight_) * easing(dt, settings_.response);
+    if (wantedWeight_ <= 0.0f && weight_ <= 1e-3f) weight_ = 0.0f;
+}
+
+void TwoBoneIKModifier::apply(LocalPose& pose, const Rig& rig) const {
+    if (!active() || !fits(pose, rig) || weight_ <= 0.0f) return;
+    const glm::mat4 rootGlobal = globalOf(pose, rig, root_);
+    const glm::mat4 midGlobal = rootGlobal * pose.localTransforms[size_t(mid_)].matrix();
+    const glm::mat4 tipGlobal = midGlobal * pose.localTransforms[size_t(tip_)].matrix();
+    const glm::vec3 rootPos(rootGlobal[3]), midPos(midGlobal[3]), tipPos(tipGlobal[3]);
+    const glm::vec3 upper = midPos - rootPos, lower = tipPos - midPos;
+    const float upperLength = glm::length(upper), lowerLength = glm::length(lower);
+    if (upperLength < kEpsilon || lowerLength < kEpsilon) return;
+
+    // Out of reach, the limb stretches toward the target and stops short of
+    // locking straight: a fully extended chain has no defined bend plane.
+    const glm::vec3 toTarget = target_ - rootPos;
+    const float reachLength = std::clamp(glm::length(toTarget), std::abs(upperLength - lowerLength) + 1e-4f,
+                                         (upperLength + lowerLength) * 0.999f);
+    if (glm::dot(toTarget, toTarget) < kEpsilon) return;
+
+    // 1) The elbow's interior angle that spans the wanted distance.
+    glm::vec3 bendAxis = glm::cross(upper, lower);
+    if (glm::dot(bendAxis, bendAxis) < kEpsilon) {
+        const glm::vec3 hint = hasPole_ ? pole_ - rootPos : glm::vec3(0, 0, 1);
+        bendAxis = glm::cross(upper, hint);
+        if (glm::dot(bendAxis, bendAxis) < kEpsilon) bendAxis = glm::cross(upper, glm::vec3(1, 0, 0));
+    }
+    bendAxis = glm::normalize(bendAxis);
+    const float currentInterior =
+        std::acos(std::clamp(glm::dot(-upper / upperLength, lower / lowerLength), -1.0f, 1.0f));
+    const float wantedInterior = std::acos(std::clamp(
+        (upperLength * upperLength + lowerLength * lowerLength - reachLength * reachLength) /
+            (2.0f * upperLength * lowerLength), -1.0f, 1.0f));
+    const glm::quat bend = glm::angleAxis(currentInterior - wantedInterior, bendAxis);
+    const glm::vec3 bentTip = midPos + bend * lower;
+
+    // 2) The shoulder swings the bent limb onto the target, 3) then rolls it
+    // about the shoulder-target axis to bring the elbow toward the pole.
+    glm::quat aim = rotationBetween(bentTip - rootPos, toTarget);
+    if (hasPole_) {
+        const glm::vec3 axis = glm::normalize(toTarget);
+        const glm::vec3 elbow = aim * upper, toPole = pole_ - rootPos;
+        const glm::vec3 e = elbow - axis * glm::dot(elbow, axis), p = toPole - axis * glm::dot(toPole, axis);
+        if (glm::dot(e, e) > kEpsilon && glm::dot(p, p) > kEpsilon) {
+            const glm::vec3 en = glm::normalize(e), pn = glm::normalize(p);
+            aim = glm::angleAxis(std::atan2(glm::dot(axis, glm::cross(en, pn)), glm::dot(en, pn)), axis) * aim;
+        }
+    }
+
+    const glm::quat rootRotation = rotationOf(rootGlobal), midRotation = rotationOf(midGlobal);
+    const glm::quat solvedRoot = glm::normalize(aim * rootRotation);
+    const glm::quat solvedMid = glm::normalize(aim * bend * midRotation);
+    const glm::quat rootTurn = glm::slerp(rootRotation, solvedRoot, weight_);
+    const glm::quat midTurn = glm::slerp(midRotation, solvedMid, weight_);
+    setGlobalRotation(pose, rig, root_, rootTurn);
+    pose.localTransforms[size_t(mid_)].rotation = glm::normalize(glm::inverse(rootTurn) * midTurn);
+    if (hasTipRotation_) {
+        const glm::quat tipTurn = glm::slerp(glm::normalize(midRotation * pose.localTransforms[size_t(tip_)].rotation),
+                                             tipRotation_, weight_);
+        // The tip's rotation as the limb was posed, blended toward the wanted one.
+        pose.localTransforms[size_t(tip_)].rotation = glm::normalize(glm::inverse(midTurn) * tipTurn);
+    }
+}
+
 } // namespace saida

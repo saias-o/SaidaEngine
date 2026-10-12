@@ -213,6 +213,12 @@ public:
 #endif
     }
 
+#ifndef SAIDA_NO_PHYSICS
+    // The physics world, built now with physicsCapacity() if no body has built
+    // it yet: for runtime code creating bodies straight in it (a ragdoll).
+    PhysicsWorld& ensurePhysics();
+#endif
+
     // Capacity of the physics world this scene builds with its first body.
     // Chosen before that world holds a body: a world already holding bodies
     // keeps its capacity, the refusal is logged and false returned.

@@ -956,6 +956,8 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
     // Share one palette slice per Animator and reject overflow. The palette is
     // affine 3x4: three vec4 rows per bone (the transposed top of the mat4).
     auto boneOffsetFor = [&](MeshNode* node) -> int32_t {
+        // A rigid mesh under an animated node (a held weapon) is not skinned.
+        if (!node->mesh() || !node->mesh()->skinned()) return -1;
         Animator* animator = getAnimatorInParent(node);
         if (!animator || animator->globalPose().skinningMatrices.empty()) return -1;
 

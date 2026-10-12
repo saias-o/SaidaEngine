@@ -28,6 +28,7 @@
 #include <Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Constraints/TwoBodyConstraint.h>
+#include <Jolt/Physics/Collision/GroupFilter.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 
 #include "core/Log.hpp"
@@ -353,6 +354,8 @@ JPH::BodyID PhysicsWorld::createBody(const BodyDesc& d) {
     settings.mFriction = d.friction;
     settings.mRestitution = d.restitution;
     settings.mUserData = reinterpret_cast<uint64>(d.userData);
+    if (d.groupFilter)
+        settings.mCollisionGroup = CollisionGroup(d.groupFilter, d.collisionGroup, d.collisionSubGroup);
     if (d.continuousCollision && d.motion == BodyMotion::Dynamic)
         settings.mMotionQuality = EMotionQuality::LinearCast;
 
@@ -552,6 +555,11 @@ void PhysicsWorld::getBodyTransform(JPH::BodyID id, glm::vec3& position,
     bi.GetPositionAndRotation(id, p, q);
     position = glm::vec3(p.GetX(), p.GetY(), p.GetZ());
     rotation = toGlm(q);
+}
+
+bool PhysicsWorld::isBodyActive(JPH::BodyID id) const {
+    if (id.IsInvalid()) return false;
+    return system_->GetBodyInterfaceNoLock().IsActive(id);
 }
 
 glm::vec3 PhysicsWorld::gravity() const {

@@ -7,12 +7,18 @@
 #include "miniaudio.h"
 
 #include <algorithm>
+#include <memory>
+#include <unordered_map>
 
 namespace saida {
 
 struct AudioEngineState {
     ma_engine engine;
     bool initialized = false;
+    // Decoded once and kept (AudioManager::preload), by resolved path. The
+    // engine's resource manager shares a loaded file's data with every sound
+    // later initialised from the same path while one of them lives.
+    std::unordered_map<std::string, std::unique_ptr<ma_sound>> resident;
 };
 
 struct AudioInstance {
@@ -54,6 +60,8 @@ void AudioManager::shutdown() {
         delete pair.second;
     }
     activeSounds_.clear();
+    for (auto& [path, sound] : state_->resident) ma_sound_uninit(sound.get());
+    state_->resident.clear();
 
     ma_engine_uninit(&state_->engine);
     delete state_;
@@ -110,6 +118,22 @@ std::string AudioManager::resolveAlias(const std::string& name) const {
     return path;
 }
 
+bool AudioManager::preload(const std::string& audioName) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!state_ || !state_->initialized) return false;
+    const std::string filePath = resolveAlias(audioName);
+    if (state_->resident.count(filePath)) return true;
+    auto sound = std::make_unique<ma_sound>();
+    if (ma_sound_init_from_file(&state_->engine, filePath.c_str(),
+                                MA_SOUND_FLAG_DECODE | MA_SOUND_FLAG_NO_SPATIALIZATION, nullptr, nullptr,
+                                sound.get()) != MA_SUCCESS) {
+        Log::warn("Failed to preload audio: ", filePath);
+        return false;
+    }
+    state_->resident.emplace(filePath, std::move(sound));
+    return true;
+}
+
 AudioID AudioManager::play(const std::string& audioName) {
     return play(audioName, defaultSettings_, "Master", nullptr);
 }
@@ -129,6 +153,8 @@ AudioID AudioManager::play(const std::string& audioName, const AudioSettings& se
     if (!settings.spatialized) {
         flags |= MA_SOUND_FLAG_NO_SPATIALIZATION;
     }
+    // A preloaded file is shared decoded, not opened again.
+    if (state_->resident.count(filePath)) flags |= MA_SOUND_FLAG_DECODE;
 
     ma_result result = ma_sound_init_from_file(&state_->engine, filePath.c_str(), flags, nullptr, nullptr, &inst->sound);
     if (result != MA_SUCCESS) {

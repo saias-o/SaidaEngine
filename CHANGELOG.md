@@ -10,6 +10,19 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### Ragdolls, reaching limbs and held objects
+
+- `Ragdoll` and `RagdollBehaviour`: a rig handed to Jolt as capsules with hinge
+  and swing-twist joints centred on the bind pose, frozen when settled, blended
+  back to the animation; `humanoidRagdoll` for the usual eleven bodies.
+- `TwoBoneIKModifier` (reach, pole, tip rotation), `BoneAttachmentBehaviour`
+  and `Animator::poseUpdated`.
+- Collision groups on `BodyDesc`, `PhysicsWorld::isBodyActive`,
+  `Scene::ensurePhysics`, `Behaviour::onRebase`, `Behaviour::onHierarchyInactive`,
+  `AudioManager::preload`.
+- Fix: a rigid mesh under an animated node was skinned with zero weights and
+  collapsed to the origin; only meshes carrying bone weights are skinned now.
+
 ### PBR environment reflections
 
 - Rebuilding the global scene descriptor keeps the selected HDR sky texture

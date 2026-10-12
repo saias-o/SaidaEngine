@@ -567,6 +567,9 @@ add_library(saida_engine STATIC
     src/behaviours/SurfaceDriveBehaviour.cpp
     src/behaviours/DeformableMeshBehaviour.cpp
     src/physics/DeformationCage.cpp
+    src/physics/Ragdoll.cpp
+    src/behaviours/RagdollBehaviour.cpp
+    src/behaviours/BoneAttachmentBehaviour.cpp
     src/behaviours/HealthBehaviour.cpp
     src/nodes/WaterNode.cpp
     src/nodes/TerrainRingsNode.cpp
@@ -1169,6 +1172,14 @@ if (BUILD_TESTING)
     target_link_libraries(saida_physics_impulse_tests PRIVATE saida_engine)
     target_compile_options(saida_physics_impulse_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_physics_impulse_tests COMMAND $<TARGET_FILE:saida_physics_impulse_tests>)
+
+    add_executable(saida_ragdoll_tests tests/RagdollTests.cpp)
+    saida_test_target(saida_ragdoll_tests)
+    target_link_libraries(saida_ragdoll_tests PRIVATE saida_engine)
+    # Uses require(), not assert(); match Jolt's NDEBUG so its inline asserts link.
+    target_compile_options(saida_ragdoll_tests PRIVATE -Wall -Wextra
+        "$<$<NOT:$<CONFIG:Debug>>:-DNDEBUG>")
+    add_test(NAME saida_ragdoll_tests COMMAND $<TARGET_FILE:saida_ragdoll_tests>)
 
     add_executable(saida_scene_streaming_tests tests/SceneStreamingTests.cpp)
     saida_test_target(saida_scene_streaming_tests)

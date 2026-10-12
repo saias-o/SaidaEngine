@@ -39,6 +39,12 @@ public:
     void shutdown();
     void update(); // Syncs node positions for spatialized sounds
 
+    // Decodes the file now and keeps it resident until shutdown, so that later
+    // play() calls of it neither read the disk nor decode on the calling
+    // thread: what a gunshot or a footstep, played many times a minute, needs.
+    // False (and a warning) when the file cannot be loaded.
+    bool preload(const std::string& audioName);
+
     // Plays an audio file globally
     AudioID play(const std::string& audioName);
     
