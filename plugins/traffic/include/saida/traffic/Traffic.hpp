@@ -68,6 +68,7 @@ struct Lane {
     bool yield = false;
     uint8_t allowedTurns = 15;
     int16_t layer = 0;
+    float stopLineDistance = std::numeric_limits<float>::quiet_NaN(); // host setback; NaN uses DriverSettings
 };
 
 struct TurnRestriction { uint64_t fromRoad = 0, toRoad = 0; uint32_t node = 0; bool only = false; };
@@ -233,6 +234,7 @@ struct Agent {
     float speed = 0.f;  // m/s
     bool alive = false;
     uint32_t seed = 1;  // this driver's own stream of choices at junctions
+    uint32_t vehicleSeed = 1; // immutable appearance/size seed for this trip
     uint32_t nextLane = UINT32_MAX, previousLane = UINT32_MAX;
     float length = 4.2f, width = 1.8f;
     float targetSpeed = 0.f;
@@ -241,6 +243,8 @@ struct Agent {
     float waiting = 0.f;
     bool external = false, incident = false;
     bool stopCompleted = false;
+    uint32_t completedStopNode = UINT32_MAX;
+    int32_t committedSignal = -1;
     uint32_t laneChangeFrom = UINT32_MAX;
     float laneChangeElapsed = 0.f, laneChangeCooldown = 0.f;
     Vec2 actualPosition;
@@ -265,6 +269,7 @@ struct Obstacle {
 };
 
 struct DrivingCommand { float throttle = 0.f, brake = 0.f, steer = 0.f; };
+struct VehicleSize { float length=4.2f, width=1.8f; };
 
 struct DriverSettings {
     float curveDistance = 8.f;
@@ -296,6 +301,8 @@ class Flow {
 public:
     DriverSettings driver;
     using Visibility = std::function<bool(const Pose&)>;
+    using SpawnSize = std::function<VehicleSize(uint32_t,const Lane&)>;
+    void setSpawnSize(SpawnSize size) { spawnSize_=std::move(size); }
     void setVisibility(Visibility visible) { visible_ = std::move(visible); }
     void setObstacles(std::vector<Obstacle> obstacles) { obstacles_ = std::move(obstacles); }
     void setTime(double time) { if (std::isfinite(time)) time_ = time; }
@@ -319,12 +326,16 @@ public:
         agent.actualYaw = pose.yaw;
         agent.speed = std::max(0.f, pose.speed);
         const auto from = graph_->pointOn(agent.lane, 0.f);
-        agent.s = std::clamp(dot(pose.position - from, graph_->direction(agent.lane)), 0.f, graph_->laneLength(agent.lane));
+        // A streamed car can be adopted before its centre crosses the seam.
+        // Keep its entry distance so steering does not jump ahead at handoff.
+        agent.s = std::clamp(dot(pose.position - from, graph_->direction(agent.lane)), -driver.transferTolerance, graph_->laneLength(agent.lane));
         if(!incident&&agent.nextLane!=UINT32_MAX) {
             const auto next=positionOf(agent.nextLane,0.f);
             const float beyond=dot(pose.position-next,graph_->direction(agent.nextLane));
             const float blend=std::min(driver.curveDistance,graph_->laneLength(agent.lane)*.25f);
             if(graph_->laneLength(agent.lane)-agent.s<blend&&beyond>=0.f) {
+                if(graph_->lanes[agent.lane].to==agent.completedStopNode)agent.completedStopNode=UINT32_MAX;
+                if(graph_->lanes[agent.lane].signal==agent.committedSignal)agent.committedSignal=-1;
                 agent.previousLane=agent.lane;agent.lane=agent.nextLane;agent.nextLane=UINT32_MAX;
                 agent.s=std::clamp(beyond,0.f,graph_->laneLength(agent.lane));agent.stopCompleted=false;
             }
@@ -360,6 +371,17 @@ public:
         identitySequence_ = 0;
         agents_.clear();
         population_ = 0;
+        spawnExclusions_.clear();
+        if(graph_&&graph_->ready())for(const auto& lane:graph_->lanes) {
+            if(!graph_->isJunction(lane.to)&&lane.signal<0&&!lane.stop)continue;
+            const float setback=std::isfinite(lane.stopLineDistance)?lane.stopLineDistance:driver.stopLineDistance;
+            const float radius=std::max(graph_->isJunction(lane.to)?rules_.junctionGuard:0.f,setback);
+            auto found=std::find_if(spawnExclusions_.begin(),spawnExclusions_.end(),[&](const SpawnExclusion& zone){
+                return zone.node==lane.to&&zone.layer==lane.layer;
+            });
+            if(found==spawnExclusions_.end())spawnExclusions_.push_back({lane.to,lane.layer,radius});
+            else found->radius=std::max(found->radius,radius);
+        }
     }
     // How many cars this network should show. Changing it is how a host makes
     // a dense district busier than a village without touching anything else.
@@ -391,7 +413,9 @@ public:
             if(road&&graph_->lanes[lane].road!=road)continue;
             if(!source.incident&&dot(heading,graph_->direction(lane))<.7f)continue;
             const float s=std::clamp(dot(actual.position-positionOf(lane,0),graph_->direction(lane)),-driver.transferTolerance,graph_->laneLength(lane));
-            const float distance=length(actual.position-positionOf(lane,s));
+            // Rank actual segments, not their upstream extensions: consecutive
+            // short spans can have the same extension and steal the entry lane.
+            const float distance=length(actual.position-positionOf(lane,std::clamp(s,0.f,graph_->laneLength(lane))));
             if(distance<bestDistance){best=lane;bestDistance=distance;bestS=s;}
         }
         if(best==UINT32_MAX)return std::nullopt;
@@ -399,7 +423,9 @@ public:
         if(slot==agents_.size())agents_.emplace_back();
         auto& agent=agents_[slot];agent=source;agent.lane=best;agent.s=bestS;
         agent.nextLane=agent.previousLane=UINT32_MAX;agent.actualPosition=actual.position;agent.actualYaw=actual.yaw;
+        agent.completedStopNode=UINT32_MAX;agent.committedSignal=-1;agent.stopCompleted=false;
         agent.laneChangeFrom=UINT32_MAX;
+        agent.nextLane=chooseNext(agent);
         return slot;
     }
     // Take one agent out of the flow. The host owns what happens next -- the
@@ -574,8 +600,8 @@ private:
     // not in it yet -- a spawn candidate.
     static constexpr size_t kNobody = size_t(-1);
     float clearAhead(size_t self, uint32_t lane, float s, const Obstacle& obstacle) const {
-        const bool physical=self!=kNobody&&agents_[self].external&&agents_[self].lane==lane;
-        const Vec2 head = physical ? positions_[self] : positionOf(lane, s);
+        const bool current=self!=kNobody&&agents_[self].lane==lane;
+        const Vec2 head = current ? positions_[self] : positionOf(lane, s);
         const Vec2 dir = graph_->direction(lane);
         float nearest = 1e9f;
         const auto end=head+dir*neighbourDistance_;
@@ -644,7 +670,7 @@ private:
     }
     // Keep the current owner, then order arrivals by waiting time, priority,
     // distance and stable identity. A strict order prevents mutual deadlocks.
-    bool mustYield(size_t self) const {
+    bool mustYield(size_t self,const Obstacle& obstacle) const {
         const auto& agent=agents_[self];const auto& lane=graph_->lanes[agent.lane];
         // Polyline shape points do not reserve the entire road. Opposing
         // traffic on short OSM segments otherwise stops for each other.
@@ -667,8 +693,17 @@ private:
             // A driver already inside owns the junction until its rear clears.
             if(incoming.from==lane.to&&other.s<other.length*.5f+driver.bumperGap){blocked=true;return;}
             if(incoming.to!=lane.to)return;
+            const bool mineCommitted=lane.signal>=0&&agent.committedSignal==lane.signal;
+            const bool theirsCommitted=incoming.signal>=0&&other.committedSignal==incoming.signal;
+            if(mineCommitted!=theirsCommitted){blocked=theirsCommitted;return;}
             if(incoming.signal>=0&&size_t(incoming.signal)<graph_->signals.size()&&
-               graph_->signals[size_t(incoming.signal)].light(incoming.signalGroup,time_)==Light::Red)return;
+               !theirsCommitted&&graph_->signals[size_t(incoming.signal)].light(incoming.signalGroup,time_)==Light::Red)return;
+            // Only a queue's head can contend. An older waiter behind its
+            // leader must not win priority over that leader and freeze both.
+            const float queuedGap=rules_.minGap+.5f*(other.length-driver.defaultLength);
+            if(clearAhead(j,other.lane,other.s,obstacle)<=queuedGap+.5f)return;
+            if(other.nextLane!=UINT32_MAX&&
+               clearAhead(j,other.nextLane,0.f,obstacle)<other.length+driver.bumperGap)return;
             const bool myWait=waiting_[self]>=driver.fairnessWait,theirWait=waiting_[j]>=driver.fairnessWait;
             if(myWait!=theirWait){blocked=theirWait;return;}
             if(myWait&&waiting_[self]!=waiting_[j]){blocked=waiting_[j]>waiting_[self];return;}
@@ -679,6 +714,57 @@ private:
         });
         return blocked;
     }
+    struct ControlAhead { uint32_t lane; float remaining, setback; bool stop; };
+    float followingGap(size_t index,const Obstacle& obstacle) const {
+        const auto& agent=agents_[index];
+        float gap=clearAhead(index,agent.lane,agent.s,obstacle);
+        float distance=graph_->laneLength(agent.lane)-agent.s;
+        Agent cursor=agent;
+        uint32_t nextLane=agent.nextLane;
+        for(uint32_t crossed=0;nextLane!=UINT32_MAX&&crossed<driver.maximumLookaheadLanes&&distance<neighbourDistance_;++crossed) {
+            if(nextLane==agent.lane)break;
+            gap=std::min(gap,distance+clearAhead(index,nextLane,0.f,obstacle));
+            // Curves shorten the centre-line route. Measure a leader already
+            // around a bend from the actual poses, before the car turns blind.
+            for(size_t j=0;j<agents_.size();++j)if(distance<driver.curveDistance+agent.length&&
+                j!=index&&agents_[j].alive&&agents_[j].lane==nextLane) {
+                const float physical=length(positions_[j]-positions_[index]);
+                gap=std::min(gap,std::max(0.f,physical-agents_[j].length*.5f+driver.defaultLength*.5f));
+            }
+            distance+=graph_->laneLength(nextLane);
+            cursor.lane=nextLane;nextLane=chooseNext(cursor);
+        }
+        return gap;
+    }
+    ControlAhead controlAhead(Agent& agent,float braking) const {
+        bool stop = false;
+        const float remaining=graph_->laneLength(agent.lane)-agent.s;
+        // A stop line may lie upstream of a short terminal shape segment.
+        // Inspect the chosen route without consuming the real random stream.
+        Agent cursor=agent;
+        uint32_t controlLane=agent.lane,nextLane=agent.nextLane;
+        float controlRemaining=remaining,stopDistance=driver.stopLineDistance;
+        const float controlLookahead=agent.speed*agent.speed/(2.f*braking)+agent.speed*driver.speedResponse+
+            rules_.junctionGuard+agent.length;
+        for(uint32_t crossed=0;crossed<driver.maximumLookaheadLanes;++crossed) {
+            const auto& control=graph_->lanes[controlLane];
+            const float setback=std::isfinite(control.stopLineDistance)?control.stopLineDistance:driver.stopLineDistance;
+            if(control.signal>=0&&size_t(control.signal)<graph_->signals.size()) {
+                const auto light=graph_->signals[size_t(control.signal)].light(control.signalGroup,time_);
+                const float brakingDistance=agent.speed*agent.speed/(2.f*braking);
+                if(agent.speed>.1f&&((light==Light::Green&&controlRemaining<=setback+agent.length*.5f)||
+                   (light==Light::Amber&&controlRemaining<=brakingDistance+setback)))agent.committedSignal=control.signal;
+                stop=agent.committedSignal!=control.signal&&
+                    (light==Light::Red||(light==Light::Amber&&controlRemaining>brakingDistance+setback));
+            }
+            if(control.stop&&agent.completedStopNode!=control.to&&!(controlLane==agent.lane&&agent.stopCompleted))stop=true;
+            if(stop){stopDistance=setback;break;}
+            if(controlRemaining>controlLookahead||nextLane==UINT32_MAX)break;
+            controlLane=nextLane;controlRemaining+=graph_->laneLength(controlLane);
+            cursor.lane=controlLane;nextLane=chooseNext(cursor);
+        }
+        return {controlLane,controlRemaining,stopDistance,stop};
+    }
     void drive(size_t index, float dt, const Obstacle& obstacle) {
         Agent& agent = agents_[index];
         agent.laneChangeCooldown=std::max(0.f,agent.laneChangeCooldown-dt);
@@ -687,7 +773,7 @@ private:
             if(agent.laneChangeElapsed>=driver.laneChangeTime)agent.laneChangeFrom=UINT32_MAX;
         }
         if (agent.nextLane == UINT32_MAX) agent.nextLane = chooseNext(agent);
-        const float gap = clearAhead(index, agent.lane, agent.s, obstacle);
+        const float gap = followingGap(index,obstacle);
         agent.stopReason=StopReason::None;
         float target = graph_->lanes[agent.lane].speed;
         const float braking=agent.limits.braking>0.f?agent.limits.braking:rules_.brake;
@@ -719,21 +805,26 @@ private:
         if (followingSpeed < target) {target=followingSpeed;agent.stopReason=StopReason::Following;}
         if(graph_->isJunction(lane.to)&&agent.nextLane!=UINT32_MAX&&remaining<rules_.junctionGuard&&
            clearAhead(index,agent.nextLane,0.f,obstacle)<agent.length+driver.bumperGap){target=0.f;agent.stopReason=StopReason::BlockedExit;}
-        if (mustYield(index)) {target = 0.f;agent.stopReason=StopReason::Junction;}
-        bool stop = false;
-        if (lane.signal >= 0 && size_t(lane.signal) < graph_->signals.size()) {
-            const auto light = graph_->signals[size_t(lane.signal)].light(lane.signalGroup, time_);
-            const float brakingDistance = agent.speed * agent.speed / (2.f * braking);
-            stop = light == Light::Red || (light == Light::Amber && remaining > brakingDistance + driver.stopLineDistance);
-        }
-        if (lane.stop && !agent.stopCompleted) stop = true;
+        if (mustYield(index,obstacle)) {target = 0.f;agent.stopReason=StopReason::Junction;}
+        const auto control=controlAhead(agent,braking);
+        const bool stop=control.stop;
         if (stop) {
-            const float approach=stoppingSpeed(remaining-driver.stopLineDistance-agent.length*.5f);
-            if(approach<=target)agent.stopReason=lane.stop?StopReason::StopSign:StopReason::Signal;
+            const float approach=stoppingSpeed(control.remaining-control.setback-agent.length*.5f);
+            if(approach<=target)agent.stopReason=graph_->lanes[control.lane].stop?StopReason::StopSign:StopReason::Signal;
             target=std::min(target,approach);
         }
         if (agent.speed < .1f) agent.waiting += dt; else agent.waiting = 0.f;
-        if (agent.waiting >= driver.stopWait && remaining <= driver.stopLineDistance + agent.length*.5f + .5f) agent.stopCompleted = true;
+        if (stop&&graph_->lanes[control.lane].stop&&agent.waiting >= driver.stopWait&&
+            control.remaining <= control.setback + agent.length*.5f + .5f) {
+            agent.completedStopNode=graph_->lanes[control.lane].to;
+            if(control.lane==agent.lane)agent.stopCompleted=true;
+        }
+        if(agent.nextLane==UINT32_MAX&&!agent.incident) {
+            const float endSpeed=stoppingSpeed(remaining-driver.stopLineDistance-agent.length*.5f);
+            if(endSpeed<target){target=endSpeed;agent.stopReason=StopReason::EndOfRoad;}
+            if(agent.speed<.1f&&remaining<=driver.stopLineDistance+agent.length*.5f+.5f&&
+               (!visible_||!visible_(pose(agent)))){agent.alive=false;return;}
+        }
         if (agent.incident) {target = 0.f;agent.stopReason=StopReason::Incident;}
         agent.targetSpeed = target;
         if(!stop&&!agent.incident&&agent.laneChangeFrom==UINT32_MAX&&agent.laneChangeCooldown==0.f&&
@@ -741,6 +832,8 @@ private:
             tryLaneChange(index,obstacle);
         if (agent.external) {
             if (agent.s >= graph_->laneLength(agent.lane)-.1f && agent.nextLane != UINT32_MAX && !agent.incident) {
+                if(lane.to==agent.completedStopNode)agent.completedStopNode=UINT32_MAX;
+                if(lane.signal==agent.committedSignal)agent.committedSignal=-1;
                 agent.previousLane = agent.lane; agent.lane = agent.nextLane; agent.nextLane = UINT32_MAX; agent.s = 0.f; agent.stopCompleted = false;
             }
             return;
@@ -760,6 +853,8 @@ private:
             // Anything but the way we came, unless that is the only way out —
             // a dead end is a real place and turning round in one is correct.
             agent.previousLane = agent.lane;
+            if(graph_->lanes[agent.lane].to==agent.completedStopNode)agent.completedStopNode=UINT32_MAX;
+            if(graph_->lanes[agent.lane].signal==agent.committedSignal)agent.committedSignal=-1;
             agent.lane = agent.nextLane;
             agent.stopCompleted = false;
             agent.nextLane = chooseNext(agent);
@@ -805,9 +900,16 @@ private:
     }
 
     bool spawnClear(const Agent& candidate,const Obstacle& obstacle) const {
-        if(clearAhead(kNobody,candidate.lane,candidate.s,obstacle)<rules_.minGap*1.5f)return false;
-        const auto where=positionOf(candidate.lane,candidate.s),direction=graph_->direction(candidate.lane);
-        const float radius=neighbourDistance_+maximumHalfExtent_;
+        if(graph_->laneLength(candidate.lane)<candidate.length+driver.bumperGap*2.f&&
+            (candidate.nextLane==UINT32_MAX||dot(graph_->direction(candidate.lane),graph_->direction(candidate.nextLane))<.95f))return false;
+        if(clearAhead(kNobody,candidate.lane,candidate.s,obstacle)<
+            rules_.minGap*1.5f+std::max(0.f,(candidate.length-driver.defaultLength)*.5f))return false;
+        const auto candidatePose=pose(candidate);
+        const auto where=candidatePose.position;
+        for(const auto& zone:spawnExclusions_)if(zone.layer==graph_->lanes[candidate.lane].layer&&
+            length(where-graph_->nodes[zone.node])<zone.radius+candidate.length*.5f+driver.bumperGap)return false;
+        const Vec2 direction{std::sin(candidatePose.yaw),std::cos(candidatePose.yaw)};
+        const float radius=neighbourDistance_+maximumHalfExtent_+candidate.length*.5f;
         bool clear=true;
         neighbours({where.x-radius,where.y-radius},{where.x+radius,where.y+radius},[&](size_t index) {
             const auto& other=agents_[index];
@@ -860,12 +962,24 @@ private:
                 candidate.s = s;
                 candidate.speed = graph_->lanes[lane].speed * .6f;
                 candidate.alive = true;
+                // Resolve the junction curve before visibility and clearance;
+                // choosing it afterwards can move a newborn into another car.
+                auto candidateRandom=random_;
+                candidate.seed = next(candidateRandom) | 1u;
+                candidate.vehicleSeed=candidate.seed;
+                if(spawnSize_) {
+                    const auto size=spawnSize_(candidate.seed,graph_->lanes[lane]);
+                    if(!std::isfinite(size.length)||!std::isfinite(size.width)||size.length<=0||size.width<=0)
+                        throw std::invalid_argument("invalid spawned vehicle dimensions");
+                    candidate.length=size.length;candidate.width=size.width;
+                }
+                candidate.nextLane=chooseNext(candidate);
                 if (visible_ && visible_(pose(candidate))) continue;
                 // Never on top of another car: the one artefact of annulus
                 // spawning a player can actually catch, because it happens
                 // behind him and drives into view.
                 if (!spawnClear(candidate,obstacle)) continue;
-                candidate.seed = next(random_) | 1u;
+                next(random_); // the previewed vehicle seed, consumed only for an accepted trip
                 candidate.identity = identityPrefix_ | ++identitySequence_;
                 agent = candidate;
                 // Later spawn candidates must see this trip immediately.
@@ -890,6 +1004,9 @@ private:
     uint32_t identitySequence_ = 0;
     double time_ = 0.0;
     Visibility visible_;
+    SpawnSize spawnSize_;
+    struct SpawnExclusion { uint32_t node; int16_t layer; float radius; };
+    std::vector<SpawnExclusion> spawnExclusions_;
     std::vector<Obstacle> obstacles_;
 };
 

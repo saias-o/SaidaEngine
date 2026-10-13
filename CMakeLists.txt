@@ -836,6 +836,23 @@ if (BUILD_TESTING)
     target_compile_options(saida_input_touch_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_input_touch_tests COMMAND $<TARGET_FILE:saida_input_touch_tests>)
 
+    # Sample deterministic button levels through the real Input implementation.
+    add_executable(saida_input_consumption_tests tests/InputConsumptionTests.cpp
+                   src/core/Input.cpp)
+    saida_test_target(saida_input_consumption_tests)
+    target_link_libraries(saida_input_consumption_tests PRIVATE saida_engine)
+    target_compile_definitions(saida_input_consumption_tests PRIVATE
+        glfwGetMouseButton=saidaTestMouseButton
+        glfwGetKey=saidaTestKey
+        glfwGetCursorPos=saidaTestCursorPos
+        glfwGetWindowSize=saidaTestWindowSize
+        glfwSetCursorPosCallback=saidaTestCursorCallback
+        glfwSetScrollCallback=saidaTestScrollCallback
+        glfwSetCharCallback=saidaTestCharCallback
+        glfwJoystickIsGamepad=saidaTestJoystickIsGamepad)
+    target_compile_options(saida_input_consumption_tests PRIVATE -Wall -Wextra -UGLFW_DLL)
+    add_test(NAME saida_input_consumption_tests COMMAND $<TARGET_FILE:saida_input_consumption_tests>)
+
     add_executable(saida_animation_core_tests tests/AnimationCoreTests.cpp)
     saida_test_target(saida_animation_core_tests)
     target_link_libraries(saida_animation_core_tests PRIVATE saida_engine)

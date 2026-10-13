@@ -662,6 +662,141 @@ int main() {
             check(distance>150&&std::abs(distance-reference)<.1f,"traffic advances the full elapsed time at low and high frame rates");
         }
     }
+    {
+        Graph graph;graph.nodes={{0,0},{0,99},{0,100},{0,200}};
+        graph.lanes={{0,1,12},{1,2,12},{2,3,12}};
+        for(auto& lane:graph.lanes)lane.road=1;
+        graph.signals.push_back(Signal{});
+        graph.lanes[1].signal=0;graph.lanes[1].signalGroup=1;graph.lanes[1].stopLineDistance=6;
+        graph.build();Flow flow;flow.reset(&graph,Rules{});
+        flow.setVisibility([](const Pose&){return true;});
+        Agent car;car.alive=true;car.identity=1;car.speed=12;
+        const auto slot=flow.adopt(car,{{1.7f,60},0,12});
+        for(int frame=0;frame<200;++frame){flow.setTime(0);flow.update(.05f,{0,100},{0,0});}
+        check(flow.agents()[*slot].speed<.1f,"red light on a one-metre terminal segment is anticipated upstream");
+        const float stopped=flow.pose(flow.agents()[*slot]).position.y;
+        check(stopped<92.1f&&stopped>90.f,"vehicle front stops before the host's marked stop line");
+        for(int frame=0;frame<200;++frame){flow.setTime(20);flow.update(.05f,{0,100},{0,0});}
+        check(flow.pose(flow.agents()[*slot]).position.y>120,"the stopped queue restarts on green across short connectors");
+        Flow crossing;crossing.reset(&graph,Rules{});crossing.setVisibility([](const Pose&){return true;});
+        car.speed=4;
+        const auto committed=crossing.adopt(car,{{1.7f,92.2f},0,4});
+        crossing.setTime(20);crossing.update(.05f,{0,100},{0,0});
+        for(int frame=0;frame<60;++frame){crossing.setTime(0);crossing.update(.05f,{0,100},{0,0});}
+        check(crossing.pose(crossing.agents()[*committed]).position.y>105,
+            "a vehicle already crossing its stop line clears the junction when the signal changes");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,20}};graph.lanes={{0,1,12}};graph.build();
+        Flow flow;flow.reset(&graph,Rules{});flow.setVisibility([](const Pose&){return false;});
+        Agent car;car.alive=true;car.identity=1;
+        const auto slot=flow.adopt(car,{{1.7f,19.95f},0,0});
+        flow.setPhysicalPose(*slot,{{1.7f,19.95f},0,0},false);
+        flow.update(.05f,{0,0},{0,0});
+        check(!flow.agents()[*slot].alive,"an offscreen physical trip at a terminal road is retired instead of becoming a permanent queue");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,300}};graph.lanes={{0,1,12}};graph.build();
+        Rules rules;rules.spawnNear=1;rules.spawnFar=150;rules.maxSpawnsPerUpdate=40;
+        Flow flow;flow.reset(&graph,rules,9);flow.setPopulation(40);
+        flow.setSpawnSize([](uint32_t,const Lane&){return VehicleSize{12,2.5f};});
+        flow.update(.001f,{0,150},{0,0});
+        bool clear=true;const auto& agents=flow.agents();
+        for(size_t a=0;a<agents.size();++a)if(agents[a].alive) {
+            check(agents[a].length==12,"long vehicles carry their real dimensions before spawning");
+            for(size_t b=a+1;b<agents.size();++b)if(agents[b].alive&&std::abs(agents[a].s-agents[b].s)<14.f)clear=false;
+        }
+        check(clear,"a dense bus fleet spawns with room for every body and its bumper gap");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,30},{30,30}};graph.lanes={{0,1,12},{1,2,12}};
+        for(auto& lane:graph.lanes)lane.road=1;
+        graph.build();Flow flow;flow.reset(&graph,Rules{});flow.setVisibility([](const Pose&){return true;});
+        Agent car;car.alive=true;car.identity=1;car.speed=8;
+        const auto follower=flow.adopt(car,{{1.7f,10},0,8});
+        car.identity=2;car.incident=true;car.speed=0;
+        const auto leader=flow.adopt(car,{{8,28.3f},1.570796327f,0});
+        float gap=100;
+        for(int i=0;i<300;++i){flow.update(.05f,{0,0},{0,0});gap=std::min(gap,length(flow.pose(flow.agents()[*follower]).position-flow.pose(flow.agents()[*leader]).position));}
+        check(gap>4.2f,"following anticipates a stationary queue around a polyline bend without overlapping bodies");
+    }
+    {
+        Graph graph=crossroads();Rules rules;rules.spawnNear=1;rules.spawnFar=65;rules.maxSpawnsPerUpdate=30;
+        bool outside=true,matched=true;
+        for(uint32_t seed=1;seed<=12;++seed) {
+            Flow flow;flow.reset(&graph,rules,seed);flow.setPopulation(30);
+            flow.setSpawnSize([](uint32_t model,const Lane&){return VehicleSize{model%3==0?8.f:4.2f,1.8f};});
+            flow.update(.001f,{0,0},{0,0});
+            for(const auto& agent:flow.agents())if(agent.alive) {
+                outside&=length(flow.pose(agent).position)>rules.junctionGuard+agent.length*.5f+flow.driver.bumperGap-.05f;
+                matched&=agent.length==(agent.vehicleSeed%3==0?8.f:4.2f);
+            }
+        }
+        check(outside,"new trips never appear inside the junction reservation or beyond its stop line");
+        check(matched,"routing choices do not change the model seed used for spawn clearance");
+    }
+    {
+        Graph graph=crossroads();graph.signals.push_back(Signal{});
+        for(auto& lane:graph.lanes)lane.allowedTurns=1;
+        graph.lanes[0].signal=0;graph.lanes[0].signalGroup=0;graph.lanes[0].stopLineDistance=6;
+        graph.lanes[6].signal=0;graph.lanes[6].signalGroup=1;graph.lanes[6].stopLineDistance=6;
+        graph.build();Flow flow;flow.reset(&graph,Rules{});flow.setVisibility([](const Pose&){return true;});
+        Agent car;car.alive=true;car.identity=1;car.speed=4;
+        const auto entered=flow.adopt(car,{{-1.7f,7.9f},3.141592654f,4});
+        car.identity=2;car.speed=0;
+        const auto perpendicular=flow.adopt(car,{{-8.3f,-1.7f},1.570796327f,0});
+        flow.setTime(0);flow.update(.05f,{0,0},{0,0});
+        flow.setTime(20);flow.update(.05f,{0,0},{0,0});
+        check(flow.agents()[*entered].targetSpeed>1,"a committed junction crossing retains priority when the perpendicular signal turns green");
+        check(flow.agents()[*perpendicular].targetSpeed<.1f,"the newly green approach waits for the committed crossing to clear");
+    }
+    {
+        Graph graph;graph.nodes={{0,0},{0,4},{.02f,30}};
+        Lane entry{0,1,8};entry.offset=0;entry.road=77;
+        auto continuation=entry;continuation.from=1;continuation.to=2;
+        graph.lanes={entry,continuation};graph.build();
+        Flow flow;flow.reset(&graph,Rules{});
+        Agent car;car.alive=true;car.external=true;car.identity=77;
+        const Pose beforeSeam{{-.006f,-3},0,0};
+        const auto slot=flow.adopt(car,beforeSeam,77);
+        check(slot&&flow.agents()[*slot].lane==0,"handoff selects the actual entry segment rather than a later upstream extension");
+        check(slot&&flow.agents()[*slot].nextLane==1,"handoff resolves continuation before the next physical command");
+        flow.setPhysicalPose(*slot,beforeSeam,false);
+        check(std::abs(flow.agents()[*slot].s+3)<.001f,"physical feedback preserves an adopted car's distance before the seam");
+        flow.update(.05f,{0,0},{0,0});
+        const auto command=flow.command(*slot,beforeSeam);
+        check(command.throttle>0&&command.brake==0,"a car adopted before a seam accelerates onto its continuation");
+    }
+    {
+        Graph upstream;upstream.nodes={{0,0},{0,100}};
+        Lane lane{0,1,8};lane.offset=0;lane.road=77;upstream.lanes={lane};upstream.build();
+        Graph downstream;downstream.nodes={{0,100},{0,200}};downstream.lanes={lane};downstream.build();
+        Flow source,destination;source.reset(&upstream,Rules{});destination.reset(&downstream,Rules{});
+        source.setVisibility([](const Pose&){return true;});destination.setVisibility([](const Pose&){return true;});
+        Agent car;car.alive=true;car.identity=1;car.speed=8;
+        const auto follower=source.adopt(car,{{0,80},0,8},77);
+        car.identity=2;car.speed=0;car.incident=true;
+        const auto leader=destination.adopt(car,{{0,97},0,0},77);
+        float minimumGap=100.f;
+        for(int frame=0;frame<600;++frame) {
+            const auto pose=destination.pose(destination.agents()[*leader]);
+            Obstacle footprint;footprint.active=true;footprint.position=pose.position;footprint.yaw=pose.yaw;
+            footprint.halfLength=car.length*.5f;footprint.halfWidth=car.width*.5f;
+            source.setObstacles({footprint});source.update(1.f/60,{0,90},{0,0});
+            minimumGap=std::min(minimumGap,pose.position.y-source.pose(source.agents()[*follower]).position.y);
+        }
+        check(minimumGap>car.length+1.5f,"a footprint owned by the next region keeps the old region's queue clear before the seam");
+        check(source.agents()[*follower].speed<.1f,"the upstream driver waits for the transferred body instead of colliding with it");
+        destination.releasePhysicalPose(*leader);
+        for(int frame=0;frame<120;++frame) {
+            destination.update(1.f/60,{0,110},{0,0});
+            const auto pose=destination.pose(destination.agents()[*leader]);
+            Obstacle footprint;footprint.active=true;footprint.position=pose.position;footprint.yaw=pose.yaw;
+            footprint.halfLength=car.length*.5f;footprint.halfWidth=car.width*.5f;
+            source.setObstacles({footprint});source.update(1.f/60,{0,90},{0,0});
+        }
+        check(source.agents()[*follower].speed>1.f,"the upstream queue restarts after the transferred body moves away");
+    }
     if (failures == 0) std::printf("PASS saida::traffic\n");
     return failures == 0 ? 0 : 1;
 }

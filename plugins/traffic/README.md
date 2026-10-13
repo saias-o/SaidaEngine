@@ -44,7 +44,7 @@ junction reservation. This is conservative intersection management, not a full
 movement-conflict scheduler or destination planner.
 
 The spatial sweep caches positions and reuses sorted scratch storage for
-corridor/junction queries. Dense worst-case cost remains O(n²). The host should
+corridor/junction queries. Nested junction queries can reach O(n³) in the dense worst case. The host should
 bound active populations and configure `DriverSettings` for its vehicle sizes.
 
 **Every distance is measured between lane positions, never between centre-line
@@ -87,6 +87,25 @@ braking, lateral acceleration, maximum speed, wheelbase and steering angle in
 radians. Braking distances, corner speeds and physical steering then use that
 vehicle's capabilities, including heavy buses and trucks. Zero wheelbase or
 steering angle retains the flow's default geometry.
+Use `setSpawnSize(callback)` to return a `VehicleSize` from `(seed, lane)` before
+spawn clearance is tested; positive finite dimensions are required. Without the
+callback the default car dimensions apply. `Agent::vehicleSeed` is the stable
+size/appearance seed; routing advances `Agent::seed` independently. A host must render the
+same vehicle size for that trip, including recycled slots.
+
+`Lane::stopLineDistance` is a host-supplied stop setback (NaN uses the driver's
+default). Route lookahead anticipates controls beyond short shape segments, so
+the final segment need not fit the stop line or the car. Drivers committed at
+green or unable to stop at amber finish crossing when the phase changes. Stop
+sign completion remains tied to its node across intermediate segments. Trips
+brake at terminal roads; completed offscreen physical trips retire just like
+graph-driven trips, while visible vehicles stay available for the host's handoff.
+Following also looks through bends and short continuations. Junction contention
+ignores vehicles held behind their queue leader or an occupied exit. Birth
+clearance uses the resolved curve pose and excludes junction mouths and stop
+setbacks; a short straight continuation still permits spawning. Exclusion zones
+are prepared once for the immutable graph rather than scanned from all lanes
+for every spawn candidate.
 
 `capacityNear(observer)` estimates lane room inside the spawn radius, allowing a
 host to share a fleet budget without allocating it to distant tiles. Following
@@ -106,7 +125,12 @@ what makes a city feel empty for no reason.
 
 A streaming host gives each streamed region its own `Graph` and its own `Flow`.
 Use `adopt` with a compatible actual pose and road identity, then `retire` the
-source slot, to cross regions. Move the original host node and its damage state.
+source slot, to cross regions. Adoption selects the nearest finite segment and
+resolves its continuation immediately. Physical poses retain a negative entry
+distance within `transferTolerance` until the centre enters the segment. Keep
+the adopted region as owner while entry completes; returning to the old region
+on the centre alone repeatedly resets routing and traps queues at seams.
+Move the original host node and its damage state.
 Graphs must stay at stable addresses while their flows refer to them. Removing
 a region without transferring its live vehicles destroys those trips.
 
@@ -144,4 +168,4 @@ is one street on every run.
 - The host supplies world obstacles, pedestrian crossings and signal metadata.
   Signal phases are inferred unless a host supplies surveyed timing.
 - Cached positions and a sorted spatial sweep reduce ordinary neighbour
-  searches. Dense queues can still produce O(n²) work in live agents.
+  searches. Nested junction checks can still produce O(n³) work in live agents.

@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-13. This file is the engine's **single backlog**: everything
+Updated: 2026-10-14. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -8,6 +8,42 @@ is in [README.md](README.md).
 Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
+
+## UI mouse gestures — regression, 2026-10-13
+
+- [x] Preserve sampled mouse button history through UI consumption and stop
+  synthesizing a second click after RmlUi's release. Verified on 2026-10-13 by
+  `saida_input_consumption_tests` (left/right/middle holds and releases),
+  `saida_ui_interaction_tests`, and R1World's real-menu zoom smoke (single and
+  rapid clicks, long hold, zoom-out, bounds and reset). Native CTest is 96/97;
+  the remaining failure is the previously documented unknown Git build identity
+  in `saida_crash_reporter_tests`.
+
+## Optional traffic add-on — control and spawn regressions, 2026-10-13
+
+- [x] Anticipate host stop setbacks across short shape segments, complete
+  committed signal crossings, and retire completed offscreen physical trips.
+  Supply actual vehicle dimensions before spawn clearance. The standalone
+  `plugins/traffic/tests/test_traffic.cpp` run passes on 2026-10-13, including
+  a one-metre signal segment, red/green restart, phase-change clearance,
+  physical terminal retirement, dense 12 m bus spawning, queue anticipation
+  around bends, junction birth exclusion and stable model/size seeds. R1World's
+  offline Paris 60-second check reports mean steady moving traffic rising from
+  11.29 to 15.86, with zero junction/blocked-exit stops in the final sample.
+  The final build passes a daytime check on 2026-10-14: mean 11.71 moving,
+  zero incidents throughout and zero junction/blocked-exit stops at the end.
+
+## Optional traffic add-on - region seam regression, 2026-10-14
+
+- [x] Rank finite entry segments at adoption, resolve the continuation before
+  the next physical command and preserve negative entry progress until a body
+  crosses the seam. The standalone traffic suite passes, including early
+  physical entry, consecutive short spans and two-region footprint following.
+  Streaming hosts must retain forward ownership and expose transferred vehicle
+  footprints to the old region's queue; the Paris integration is tracked in
+  R1World's README: the final 120-second run at 48.857268, 2.352571 passes
+  with no persistent physical stop within 60 m. A separate disabling incident
+  remains beyond the next junction; this is not a claim of collision-free AI.
 
 ## Large streamed-scene frame cost — MX450 audit, 2026-10-12
 

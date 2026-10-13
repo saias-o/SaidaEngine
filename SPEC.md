@@ -1462,6 +1462,17 @@ The system aggregates analog/binary actions from bindings and stackable contexts
 Keyboard, mouse, delta/position, scroll, text and raw touch are sampled once per
 frame.
 
+`Input::consumeMouse` masks button queries, mouse bindings and pointer deltas
+for the rest of the sampled frame, without clearing the sampled hardware
+button history. UI interaction sees one press, held frames and one release
+even when it consumes every frame of the gesture; a held button is never
+reinterpreted as a new press on the next sample. Native and Web use the same
+sampling path.
+
+`WebCanvasNode::fireMouseEvent` forwards releases to RmlUi, which generates
+the matching click itself. The bridge does not synthesize an additional
+`Element::Click` on release; releasing over another control does not activate it.
+
 On desktop, the first standard GLFW gamepad is detected with hotplug. On Web, the
 backend polls the Gamepad API directly via Emscripten, accepts the `standard`
 browser mapping, converts its buttons and sticks to the same semantic contract
@@ -2379,8 +2390,8 @@ junction admission drive agents. Signal programs provide green/amber/all-red
 and pedestrian phases from host time. Opposing approaches share green by default;
 `SignalTiming::opposingTogether=false` selects four separate protected phases. Timing
 and traffic law are supplied by the host. The spatial sweep reuses sorted
-positions to narrow corridor/junction queries; its dense worst case remains
-O(n²). There is no destination routing or full movement-conflict planner.
+positions to narrow corridor/junction queries; nested junction checks can reach
+O(n³) in the dense worst case. There is no destination routing or full movement-conflict planner.
 
 `setPhysicalPose` supplies a solver-owned pose; `command` returns pure-pursuit
 steering and speed commands without teleporting it. Incidents brake and remain
@@ -2393,7 +2404,21 @@ Per-identity driving limits include wheelbase and maximum steering angle in
 radians, so physical steering uses the actual vehicle geometry. Following
 uses combined vehicle widths and a configurable lateral clearance. Hosts can
 supply oriented obstacle footprints for parked vehicles instead of circles.
+`setSpawnSize` supplies a positive finite `VehicleSize` from the candidate seed
+and lane before clearance is checked, so buses use their real footprint at
+birth. `Lane::stopLineDistance` overrides the driver's default setback. Route
+lookahead anticipates signals and stop signs beyond short shape segments;
+committed signal crossings finish on a phase change. Terminal trips brake,
+and completed offscreen physical trips retire instead of blocking the network.
+Following looks across bends and short continuations; only eligible queue heads
+contend for a junction. Spawning tests the resolved curve pose and cached junction
+and stop-line exclusions. `vehicleSeed` stays stable while routing advances `seed`.
 Visible trips survive population reduction and end-of-lane retirement.
+Adoption ranks the finite lane segments rather than their upstream extensions
+and resolves the next lane immediately. Physical feedback preserves a negative
+entry distance within `transferTolerance` for a car adopted before a region seam.
+The streaming host must keep ownership during entry instead of returning the
+car to the previous region merely because its centre has not crossed yet.
 Slot indices are stable for a live trip; `identity` distinguishes reuse. A
 streaming host uses `adopt`/`retire` to transfer trips and retains the actual
 vehicle node. Graphs must stay at stable addresses while flows refer to them.

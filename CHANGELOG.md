@@ -10,6 +10,16 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### UI mouse consumption
+
+- Consuming mouse input preserves the sampled hardware button history. Holding
+  a menu button no longer sends a new press on every frame, and its release
+  reaches RmlUi. Gameplay button queries and bindings remain masked in the
+  consumed frame. `saida_input_consumption_tests` checks left/right/middle
+  gestures through the real input sampler with deterministic button levels.
+- Mouse releases rely on RmlUi's matching click instead of synthesizing a
+  second `Element::Click`, preventing duplicate activation and drag-out clicks.
+
 ### Ragdolls, reaching limbs and held objects
 
 - `Ragdoll` and `RagdollBehaviour`: a rig handed to Jolt as capsules with hinge

@@ -38,6 +38,7 @@ bool g_keyCurr[GLFW_KEY_LAST + 1] = {};
 bool g_keyPrev[GLFW_KEY_LAST + 1] = {};
 bool g_mouseCurr[GLFW_MOUSE_BUTTON_LAST + 1] = {};
 bool g_mousePrev[GLFW_MOUSE_BUTTON_LAST + 1] = {};
+bool g_mouseSampled[GLFW_MOUSE_BUTTON_LAST + 1] = {};
 glm::vec2 g_mouseDelta{0.0f};
 glm::vec2 g_mousePos{0.0f};
 glm::vec2 g_scrollDelta{0.0f};
@@ -560,8 +561,11 @@ void Input::newFrame() {
         g_keyCurr[k] = glfwGetKey(w, k) == GLFW_PRESS;
     }
     for (int b = 0; b <= GLFW_MOUSE_BUTTON_LAST; ++b) {
-        g_mousePrev[b] = g_mouseCurr[b];
-        g_mouseCurr[b] = glfwGetMouseButton(w, b) == GLFW_PRESS;
+        // Consumption hides this frame from gameplay without erasing the
+        // hardware history: a held UI button must not become another press.
+        g_mousePrev[b] = g_mouseSampled[b];
+        g_mouseSampled[b] = glfwGetMouseButton(w, b) == GLFW_PRESS;
+        g_mouseCurr[b] = g_mouseSampled[b];
     }
     sampleGamepad();
 

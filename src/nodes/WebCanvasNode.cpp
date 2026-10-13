@@ -799,13 +799,9 @@ bool WebCanvasNode::fireMouseEvent(MouseEvent type, int x, int y, MouseButton bu
     if (type == MouseEvent::Down) {
         handled = rmlContext_->ProcessMouseButtonDown(rmlButton, modifiers) || handled;
     } else if (type == MouseEvent::Up) {
+        // RmlUi emits click for the matching press itself. Synthesizing
+        // Element::Click here would dispatch twice, or activate a drag-out.
         handled = rmlContext_->ProcessMouseButtonUp(rmlButton, modifiers) || handled;
-        if (button == MouseButton::Left) {
-            if (Rml::Element* element = rmlContext_->GetElementAtPoint({static_cast<float>(x), static_cast<float>(y)})) {
-                element->Click();
-                handled = true;
-            }
-        }
     }
     markUiDirty();
     return handled;
