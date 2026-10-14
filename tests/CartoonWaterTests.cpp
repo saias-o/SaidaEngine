@@ -1,4 +1,5 @@
 #include "nodes/WaterNode.hpp"
+#include "render/WaterSurface.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -44,6 +45,20 @@ int main() {
     nlohmann::json roundTrip;
     surface->get(&water, roundTrip);
     if (roundTrip != triangle) return 17;
+
+    const auto* depths=type.findProperty("surfaceDepths");
+    if(!depths)return 40;
+    depths->set(&water,nlohmann::json("-0.2 0.1 3"));
+    depths->get(&water,roundTrip);
+    if(roundTrip!="-0.2 0.1 3")return 41;
+
+    std::vector<saida::Vertex> vertices;
+    const std::string coordinates=triangle.get<std::string>();
+    if(!saida::parseWaterSurface(coordinates,"-0.2 0.1 3",vertices)||vertices.size()!=3)return 42;
+    if(std::abs(vertices[0].color.x+.2f)>.0001f||vertices[2].color.x!=3)return 43;
+    for(const auto* invalid:{"0 1", "0 1 2 3", "0 nan 2", "0 inf 2", "0 x 2"})
+        if(saida::parseWaterSurface(coordinates,invalid,vertices))return 44;
+    if(!saida::parseWaterSurface(coordinates,"",vertices))return 45;
 
     const auto shaderRoot = std::filesystem::path(SAIDA_PROJECT_ROOT) / "shaders";
     const std::string vertex = readText(shaderRoot / "cartoon_water.vert");

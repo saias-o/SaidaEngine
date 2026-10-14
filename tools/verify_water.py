@@ -5,6 +5,7 @@ Outputs are deliberately outside the source tree, under the selected build.
 """
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -100,6 +101,26 @@ def main():
         seam_delta=sum(ImageStat.Stat(ImageChops.difference(diagonal_a,diagonal_b)).mean)/3
         assert seam_delta < .4, ('shading depends on triangulation',seam_delta)
         del water['surface']
+        # A curved signed-depth field clips a concave shoreline and carries an
+        # animated swash, while keeping one WaterNode and the same UBO size.
+        coordinates=[]; depths=[]
+        for z in range(-30,30,3):
+            for x in range(-24,24,3):
+                for px,pz in ((x,z),(x+3,z),(x+3,z+3),(x,z),(x+3,z+3),(x,z+3)):
+                    coordinates.extend((px,0,pz))
+                    depths.append((px-3*math.sin(pz*.12))*.1)
+        water.update(surface=' '.join(map(str,coordinates)),surfaceDepths=' '.join(map(str,depths)),
+                     shoreMode=1,shoreFoam=.9,edgeFade=.025,swashAmount=.3,swashSpeed=.9,size=40)
+        export()
+        coast=capture('curved-swash','-12,14,20','1,0,0')
+        coast_later=capture('curved-swash-later','-12,14,20','1,0,0',180)
+        assert sum(ImageStat.Stat(ImageChops.difference(coast,coast_later)).mean)/3 > .1, 'curved swash is frozen'
+        water['surfaceDepths']=' '.join('8' for _ in depths)
+        export()
+        flooded=capture('curved-depth-control','-12,14,20','1,0,0')
+        assert sum(ImageStat.Stat(ImageChops.difference(coast,flooded)).mean)/3 > 3, 'surface depths do not control shoreline coverage'
+        del water['surface']; del water['surfaceDepths']
+        water['shoreMode']=0;water['size']=24000
         # A shaped surface with arbitrary large triangles must not reveal the
         # tessellation through vertex crests, foam or wave displacement.
         water['amplitude']=0

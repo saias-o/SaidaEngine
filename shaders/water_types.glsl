@@ -22,7 +22,7 @@ struct GpuWater {
     vec4 cartoonLook;
     vec4 cartoonShore;
     vec4 dynamics;   // wave type, intensity, wind angle (degrees), gust strength
-    vec4 optics;     // x=transparency (0 opaque), yzw reserved
+    vec4 optics;     // x=transparency (0 opaque), y=signed vertex depth present
     mat4 localToWorld; // optional shaped surface vertices use the node transform
 };
 
@@ -39,6 +39,17 @@ float waterDepthAt(vec2 xz, GpuWater w) {
     return (w.shoreGeom.z - dist) * w.shoreGeom.w;
 }
 
+// One swash cycle per shoreTune.y radians/s, slowly phased along the coast.
+// Its water level is `swashAmount * wash^2`, wash = .5+.5*sin(phase).
+float waterSwashPhase(vec2 xz, GpuWater w, float time) {
+    return time*w.shoreTune.y + dot(xz,vec2(.023,.017));
+}
+
+float waterSwashDepth(float depth, vec2 xz, GpuWater w, float time) {
+    float wash=.5+.5*sin(waterSwashPhase(xz,w,time));
+    return depth + w.shoreTune.z*wash*wash;
+}
+
 vec2 rotate2(vec2 v, float rad) {
     float s = sin(rad), c = cos(rad);
     return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
@@ -47,8 +58,8 @@ vec2 rotate2(vec2 v, float rad) {
 // Beach/lake waves travel toward their shore; open water keeps a fixed heading.
 vec2 waveDirAt(vec2 xz, GpuWater w) {
     int mode = int(w.shoreMode.x + 0.5);
-    if (mode == 1) return normalize(w.shoreGeom.xy);
-    if (mode == 2) {
+    if (mode == 1 && w.optics.y < .5) return normalize(w.shoreGeom.xy);
+    if (mode == 2 && w.optics.y < .5) {
         vec2 d = xz - w.shoreGeom.xy;
         float l = length(d);
         return l > 1e-4 ? d / l : vec2(1.0, 0.0);

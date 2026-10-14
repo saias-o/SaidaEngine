@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
@@ -64,7 +65,8 @@ private:
     struct SurfaceBuffer {
         std::unique_ptr<Buffer> vertices;
         uint32_t count = 0;
-        uint64_t signature = 0;
+        std::string source, depths;
+        bool configured = false;
         uint64_t lastFrame = 0;
         bool invalid = false;
     };

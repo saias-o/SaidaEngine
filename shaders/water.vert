@@ -17,6 +17,7 @@ layout(set = 0, binding = 0) uniform CameraUBO {
 #include "water_wave.glsl"
 
 layout(location = 0) out vec3 fragWorldPos;
+layout(location = 3) out float fragDepth;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out float fragCrest;
 
@@ -32,6 +33,7 @@ vec2 oceanGrid(vec2 cell, vec2 focus, vec2 lo, vec2 hi, float nearScale) {
 
 void main() {
     GpuWater w = waters.items[push.index];
+    fragDepth = 0.0;
 
     // Procedural grid: 6 vertices per quad, RES*RES quads, two triangles each.
     int quad = gl_VertexIndex / 6;

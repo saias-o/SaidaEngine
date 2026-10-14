@@ -4,6 +4,7 @@
 #include "water_common.glsl"
 
 layout(location = 0) in vec3 fragWorldPos;
+layout(location = 3) in float fragDepth;
 layout(location = 0) out vec4 outColor;
 
 vec2 cartoonDirection(float degrees) {
@@ -26,7 +27,7 @@ float shoreLine(float depth, float center, float width) {
 void main() {
     GpuWater w = waters.items[push.index];
     int mode = int(w.shoreMode.x + 0.5);
-    float depth = waterDepthAt(fragWorldPos.xz, w);
+    float depth = w.optics.y > .5 ? waterSwashDepth(fragDepth,fragWorldPos.xz,w,push.time) : waterDepthAt(fragWorldPos.xz, w);
     if (mode != 0 && depth < 0.0) discard;
 
     vec2 primaryDir = cartoonDirection(w.cartoonWave.z);

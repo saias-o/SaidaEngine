@@ -33,7 +33,7 @@ WaterTrain waterTrain(int i, GpuWater w, vec2 baseDir) {
     float lengthScale = profile == 0 ? 1.8 : (profile == 2 ? .45 : 1.0);
     float heightScale = profile == 2 ? .65 : 1.0;
     const float FAN[5] = float[5](0.0, 13.0, -10.0, 18.0, -6.0);
-    float offset = (mode == 0) ? (fract(0.5 + float(i) * 0.6180340) * 2.0 - 1.0) * spread
+    float offset = (mode == 0 || w.optics.y > .5) ? (fract(0.5 + float(i) * 0.6180340) * 2.0 - 1.0) * spread
                                : radians(FAN[i]);
     WaterTrain tr;
     tr.dir = rotate2(baseDir, offset);

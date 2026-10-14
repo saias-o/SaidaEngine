@@ -14,9 +14,76 @@ vec2 waterDirection(float degrees) {
     return vec2(cos(a), sin(a));
 }
 
-vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
+// Two-scale bubble lattice in [0,1]: ridged cells (the walls between bubbles)
+// over a finer, coarse-warped grain. x = lattice, y = threshold softness. A
+// footprint that cannot resolve a scale returns its mean and widens the
+// softness, so distant foam converges to its density instead of shimmering.
+vec2 waterFoamLattice(vec2 xz, vec2 seed, float time, float footprint) {
+    float shownC = 1.0-smoothstep(.12,.45,footprint*1.7);
+    float shownF = 1.0-smoothstep(.12,.45,footprint*4.6);
+    float coarse = .5, cells = .72, fine = .5;
+    if (shownC > 0.0) {
+        coarse = waterNoise(WATER_ROT*xz*1.7 + seed + vec2(time*.045,-time*.03)).x;
+        cells = mix(.72,1.0-abs(coarse*2.0-1.0),shownC);
+    }
+    if (shownF > 0.0)
+        fine = mix(.5,waterNoise(xz*4.6 - seed + vec2(-time*.07,time*.05) + coarse*.6).x,shownF);
+    return vec2(clamp(cells*.62 + fine*.38,0.0,1.0), mix(.32,.07,shownC));
+}
+
+// Coverage of foam whose density is `d`: dense foam keeps only small holes,
+// thin foam tears into the lattice's walls.
+float waterFoamCover(float d, vec2 lattice) {
+    float t = mix(1.05,.04,clamp(d,0.0,1.0));
+    return d > .002 ? smoothstep(t-lattice.y,t+lattice.y,lattice.x) : 0.0;
+}
+
+// Surf foam on a signed-depth shore; `depth` already carries the swash. The
+// run-up front is a dense bore with a ragged lattice rim, tearing into lace
+// behind it; shoaling bores have a sharp shoreward face and a dissolving
+// trail; the backwash strands thin lace on the drained apron (depth < 0),
+// which disappears before the next uprush. Lattices are evaluated only where
+// foam can exist: no texture, no extra pass, no coastline search.
+float waterShoreFoam(vec2 xz, float depth, GpuWater w, float time, float footprint) {
+    float swash = max(w.shoreTune.z,0.0);
+    float phase = waterSwashPhase(xz,w,time);
+    float wash = .5+.5*sin(phase);
+    float uprush = .5+.5*cos(phase);              // 1 while the sheet climbs, 0 while it drains
+    float blur = footprint*.08;                   // thin bands widen before they alias
+    float density = 0.0;
+    vec2 lattice = vec2(.62,.32);
+    if (depth > -swash-.01 && depth < .45+blur) {
+        lattice = waterFoamLattice(xz,vec2(0),time,footprint);
+        float reach = mix(.04,.10,uprush)+blur;
+        float rim = smoothstep(-.015-blur,.015+blur,depth+(lattice.x-.62)*.04);
+        float front = rim*(1.0-smoothstep(0.0,reach,depth))*mix(.72,1.0,uprush);
+        float trail = smoothstep(-.005,.01,depth)*(1.0-smoothstep(.03,.35+blur,depth))*mix(.25,.5,uprush);
+        // Reached this cycle, drained since: the lace fades with the drop.
+        float wetted = smoothstep(-.02,.06,depth-swash*wash*wash+swash);
+        float stranded = (1.0-smoothstep(0.0,swash*.6+.01,-depth))*wetted*(1.0-uprush)*.5;
+        density = max(max(front,trail),depth < 0.0 ? stranded : 0.0);
+    }
+    float foam = waterFoamCover(density,lattice);
+    float shoal = (1.0-smoothstep(.6,1.8,depth))*smoothstep(.02,.15,depth);
+    if (shoal > 0.0) {
+        float drift = waterFilteredNoise(xz*.055+vec2(time*.012,0),footprint*.055);
+        // Bores travel up the depth field, so they follow the curved coast.
+        float cycle = (depth*5.5+time*w.shoreTune.y+drift*2.0)/6.2831853;
+        float age = fract(cycle);                // 0 at the face, rising seaward
+        float bore = smoothstep(0.0,.04+blur,age)*exp(-age*4.0)*(1.0-smoothstep(.7,1.0,age))*shoal;
+        // A bore breaks in sections along the coast, never as one even line.
+        bore *= .25+.75*smoothstep(.3,.68,waterFilteredNoise(WATER_ROT*xz*.045+vec2(floor(cycle)*.37,time*.02),footprint*.045));
+        if (bore > .002) {
+            // A fresh lattice per bore; the seam falls where the bore is absent.
+            vec2 boreLattice = waterFoamLattice(xz,vec2(floor(cycle)*7.31,floor(cycle)*3.17),time,footprint);
+            foam = max(foam,waterFoamCover(bore*.82,boreLattice));
+        }
+    }
+    return foam*w.shoreMode.y;
+}
+
+vec4 shadeWaterDepth(vec3 p, vec3 up, GpuWater w, float time, float footprint, float depth) {
     vec3 V = normalize(lights.cameraPos.xyz - p);
-    float depth = waterDepthAt(p.xz, w);
     int mode = int(w.shoreMode.x + .5);
     float shallow = mode == 0 ? 1.0 : smoothstep(0.0, max(w.shoreTune.w,.01), depth);
     vec2 domain; mat2 jacobian; vec3 group;
@@ -113,7 +180,13 @@ vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
     // through alpha) and the rest is the body's own scattered tint. A shore
     // knows its depth, and its deeper water lets less through.
     float through = w.optics.x;
-    if (mode != 0) through *= dot(transmission,vec3(1.0/3.0));
+    if (mode != 0) {
+        float attenuation = dot(transmission,vec3(1.0/3.0));
+        // A depth-field patch joins ordinary open water offshore. Restore its
+        // authored optical response smoothly instead of outlining the tile.
+        if (w.optics.y > .5) attenuation = mix(attenuation,1.0,smoothstep(1.0,4.0,depth));
+        through *= attenuation;
+    }
     float beneath = (1.0-reflectionWeight) * through;
     vec3 color = body * (1.0-reflectionWeight) * (1.0-through) + reflected * reflectionWeight;
 
@@ -142,15 +215,29 @@ vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
             float wet = 1.0-smoothstep(.15*band,band,depth);
             float front = 1.0-smoothstep(.015,.09+footprint*.1,abs(depth-band));
             float shoreFoam = max(wet*.55,front) * mix(.45,1.0,lace) * w.shoreMode.y;
+            // Crest lines follow interpolated depth, not triangle normals.
+            if (w.optics.y > .5) shoreFoam = waterShoreFoam(p.xz,depth,w,time,footprint);
             foam = max(foam,shoreFoam);
         }
     }
     vec3 foamLit = w.foam.rgb * (ambient*.65 + sun*sunUp*.3);
     foam = clamp(foam,0.0,1.0);
+    if (w.optics.y > .5 && mode != 0) {
+        // Surf foam floats on the swash sheet: the waterline fades the water
+        // beneath it, never the foam, which also outlives the sheet as it drains.
+        float edge = smoothstep(0.0,max(w.shoreColor.w,.01),depth);
+        float coverage = foam + edge*(1.0-beneath)*(1.0-foam);
+        vec3 premultiplied = foamLit*foam + color*edge*(1.0-foam);
+        return vec4(premultiplied / max(coverage,.05), coverage);
+    }
     color = mix(color,foamLit,foam);
     // Foam is opaque. `color` is premultiplied by the surface's coverage;
     // un-premultiply it for the straight alpha blend.
     float coverage = 1.0 - beneath * (1.0-foam);
     float alpha = mode == 0 ? 1.0 : smoothstep(0.0,max(w.shoreColor.w,.01),depth);
     return vec4(color / max(coverage,.05), alpha * coverage);
+}
+
+vec4 shadeWater(vec3 p, vec3 up, GpuWater w, float time, float footprint) {
+    return shadeWaterDepth(p,up,w,time,footprint,waterDepthAt(p.xz,w));
 }

@@ -10,6 +10,20 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### Signed-depth shore water and surf foam
+
+- `WaterNode::surfaceDepths`: an optional signed depth per shaped-surface
+  vertex lets one draw follow a curved coastline, with animated swash
+  (`waterSwashDepth`) and an offshore spectrum matching open water. Parsing
+  (`render/WaterSurface.hpp`) refuses incomplete triangles, non-finite values
+  and cardinality mismatches; the UBO size is unchanged.
+- `waterShoreFoam`: procedural surf foam on those surfaces. A two-scale bubble
+  lattice gives a dense run-up front with a ragged rim, lace behind it,
+  shoaling bores that break in sections, and backwash lace stranded on the
+  drained apron. Foam stays opaque over the waterline fade; distant foam
+  converges to its density. No texture or extra pass.
+- `tools/verify_water.py --checks` covers a curved signed-depth run-up.
+
 ### UI mouse consumption
 
 - Consuming mouse input preserves the sampled hardware button history. Holding

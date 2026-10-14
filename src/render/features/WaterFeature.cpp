@@ -1,4 +1,5 @@
 #include "render/features/WaterFeature.hpp"
+#include "render/WaterSurface.hpp"
 
 #include "core/Paths.hpp"
 #include "core/Log.hpp"
@@ -26,35 +27,6 @@
 #include <vector>
 
 namespace saida {
-
-namespace {
-uint64_t surfaceSignature(const std::string& values) {
-    uint64_t hash = 1469598103934665603ull;
-    for (unsigned char byte : values) hash = (hash ^ byte) * 1099511628211ull;
-    return hash;
-}
-
-bool parseSurface(const std::string& encoded, std::vector<Vertex>& vertices) {
-    std::vector<float> values;
-    values.reserve(encoded.size() / 8);
-    const char* cursor = encoded.c_str();
-    while (*cursor) {
-        while (std::isspace(static_cast<unsigned char>(*cursor))) ++cursor;
-        if (!*cursor) break;
-        char* end = nullptr;
-        const float value = std::strtof(cursor, &end);
-        if (end == cursor || !std::isfinite(value)) return false;
-        values.push_back(value);
-        cursor = end;
-    }
-    if (values.empty() || values.size() % 9 != 0 || values.size() / 3 > std::numeric_limits<uint32_t>::max())
-        return false;
-    vertices.resize(values.size() / 3);
-    for (size_t i = 0; i < vertices.size(); ++i)
-        vertices[i].pos = {values[i * 3], values[i * 3 + 1], values[i * 3 + 2]};
-    return true;
-}
-} // namespace
 
 WaterFeature::~WaterFeature() = default;
 
@@ -188,7 +160,7 @@ void WaterFeature::record(FrameContext& fc) {
         g.localToWorld = w->worldTransform();
         g.dynamics = glm::vec4(static_cast<float>(w->waveType),
             std::clamp(w->waveIntensity,0.0f,3.0f),w->windAngle,std::clamp(w->gustStrength,0.0f,1.0f));
-        g.optics = glm::vec4(std::clamp(w->transparency,0.0f,0.95f),0.0f,0.0f,0.0f);
+        g.optics = glm::vec4(std::clamp(w->transparency,0.0f,0.95f),!w->surface.empty()&&!w->surfaceDepths.empty()?1.0f:0.0f,0.0f,0.0f);
     }
     if (waterCount == 0) return;
 
@@ -203,14 +175,13 @@ void WaterFeature::record(FrameContext& fc) {
             WaterNode& node = *nodes[i];
             SurfaceBuffer* surface = nullptr;
             if (!node.surface.empty()) {
-                const uint64_t signature = surfaceSignature(node.surface);
                 auto& cached = surfaces_[node.id()];
-                if (cached.signature != signature || (!cached.vertices && !cached.invalid)) {
+                if (!cached.configured || cached.source != node.surface || cached.depths != node.surfaceDepths) {
                     if (cached.vertices) retired_.push_back({std::move(cached.vertices), frame_ + framesInFlight_ + 1});
                     std::vector<Vertex> vertices;
-                    cached.invalid = !parseSurface(node.surface, vertices);
+                    cached.invalid = !parseWaterSurface(node.surface, node.surfaceDepths, vertices);
                     if (cached.invalid) {
-                        Log::error("[Water] invalid surface triangles on node ", node.name());
+                        Log::error("[Water] invalid surface triangles or depths on node ", node.name());
                         cached.count = 0;
                     } else {
                         cached.vertices = std::make_unique<Buffer>(*device_, vertices.size() * sizeof(Vertex),
@@ -218,7 +189,7 @@ void WaterFeature::record(FrameContext& fc) {
                         cached.vertices->write(vertices.data(), vertices.size() * sizeof(Vertex));
                         cached.count = static_cast<uint32_t>(vertices.size());
                     }
-                    cached.signature = signature;
+                    cached.source=node.surface;cached.depths=node.surfaceDepths;cached.configured=true;
                 }
                 cached.lastFrame = frame_;
                 if (cached.invalid) continue;

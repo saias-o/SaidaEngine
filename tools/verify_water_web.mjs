@@ -43,7 +43,7 @@ try {
             for (const surface of [false,true]) {
                 await device.createRenderPipelineAsync({label:prefix+(surface?' surface':' grid'),layout:'auto',
                     vertex:{module:modules[prefix+(surface?'_surface':'')+'.vert'],entryPoint:'main',
-                        buffers:surface ? [{arrayStride:12,attributes:[{shaderLocation:0,offset:0,format:'float32x3'}]}] : []},
+                        buffers:surface ? [{arrayStride:24,attributes:[{shaderLocation:0,offset:0,format:'float32x3'}, {shaderLocation:2,offset:12,format:'float32x3'}]}] : []},
                     fragment:{module:modules[prefix+'.frag'],entryPoint:'main',targets:[{format:'rgba16float'}]},
                     primitive:{topology:'triangle-list',cullMode:'none'},
                     depthStencil:{format:'depth32float',depthWriteEnabled:true,depthCompare:'greater'}});

@@ -13,9 +13,11 @@ layout(set = 0, binding = 0) uniform CameraUBO {
 #include "water_common.glsl"
 
 layout(location = 0) out vec3 fragWorldPos;
+layout(location = 3) out float fragDepth;
 
 void main() {
     GpuWater w = waters.items[push.index];
+    fragDepth = 0.0;
     const vec2 corners[6] = vec2[6](
         vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(1.0, 1.0),
         vec2(-1.0, -1.0), vec2(1.0, 1.0), vec2(-1.0, 1.0));

@@ -424,6 +424,26 @@ rings the map is not read.
 `WaterNode` draws a procedural square or an optional tile-local triangle surface
 (`surface`, space-separated xyz floats in groups of three vertices). Realistic
 shading is shared in `water_shading.glsl`; the cartoon path remains separate.
+An optional reflected `surfaceDepths` string supplies one finite signed depth
+per surface vertex (metres, positive underwater, negative on land). The parser
+rejects incomplete triangles, non-finite values and depth cardinality mismatches.
+An empty depth string preserves the analytic shore modes. The depth field lets
+one shaped mesh follow a curved coastline, including animated run-up and shore
+foam, without per-pixel coastline searches or an extra render pass. It uses the
+existing vertex colour slot and one reserved UBO flag; the UBO size is unchanged.
+Depth-field patches retain the open-water wind spectrum offshore. Their alpha
+response blends back to open water at 1–4 m depth to avoid patch outlines.
+Their surf foam (`waterShoreFoam`) thresholds a foam density against a
+two-scale procedural bubble lattice: a dense run-up front with a ragged rim,
+lace tearing behind it, shoaling bores with a sharp shoreward face, a
+dissolving trail and coast-wise breaking sections, and thin lace stranded on
+the drained apron during backwash. Foam is opaque over the waterline fade;
+fragments are kept down to `-swashAmount` depth and discarded where no foam
+remains. Unresolved lattice scales return their mean with a wider threshold,
+so distant foam converges to its density. The lattices are evaluated only
+in the foam bands; there is no texture, extra pass or coastline search.
+Mesh density controls the accuracy of the interpolated shoreline; this is not
+a coastline texture, collision surface or tide simulation.
 Arbitrary shaped surfaces follow their node transform and keep their coverage
 mesh fixed: displacing long outline triangles exposed facets and split clipped
 edges. Their wave normals and foam are evaluated per pixel. Squares above 64 m
@@ -480,7 +500,8 @@ is still limited by the caller's terrain samples.
 
 `tools/verify_water.py --checks` captures near/aerial views, compares alternate
 triangulations, checks animation, distinct wave profiles, zero/intensified waves,
-red/blue environment response and absence of self-illumination. It also records
+red/blue environment response, curved signed-depth run-up and absence of
+self-illumination. It also records
 GPU traces. `tools/verify_water_web.mjs` validates the four translated water
 pipelines in a real WebGPU browser; this is separate from a full Web player build.
 
