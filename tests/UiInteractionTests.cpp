@@ -4,6 +4,7 @@
 #include "nodes/UIButtonNode.hpp"
 #include "nodes/UICanvasNode.hpp"
 #include "nodes/UITextNode.hpp"
+#include "nodes/WebCanvasNode.hpp"
 #include "ui/UIInteractionSystem.hpp"
 
 #include <cstdlib>
@@ -190,6 +191,38 @@ void testRemovedCanvasClearsInteractionState() {
     require(!Input::uiCapturesMouse(), "removing the active UI subtree releases input capture");
 }
 
+// ── Keyboard focus given by the application ──────────────────────────────────
+// A text field opened from a key while the cursor is captured has no click to
+// focus its canvas: the application gives the focus, and takes it back.
+
+void testApplicationKeyboardFocus() {
+    Fixture fx;
+    auto* web = static_cast<WebCanvasNode*>(fx.scene.addChild(std::make_unique<WebCanvasNode>()));
+    fx.frame({100.0f, 100.0f}, false, false, false);
+    require(!Input::uiCapturesKeyboard(), "an unfocused web canvas leaves the keyboard to the game");
+
+    fx.interaction.focusWebCanvas(web);
+    fx.frame({100.0f, 100.0f}, false, false, false);
+    require(fx.interaction.focusedWebCanvas() == web, "the application can focus a web canvas without a click");
+    require(Input::uiCapturesKeyboard(), "a canvas focused by the application captures the keyboard");
+
+    fx.interaction.focusWebCanvas(nullptr);
+    fx.frame({100.0f, 100.0f}, false, false, false);
+    require(!Input::uiCapturesKeyboard(), "releasing the focus gives the keyboard back to the game");
+
+    fx.interaction.focusWebCanvas(web);
+    fx.frame({100.0f, 100.0f}, false, false, false);
+    fx.frame({100.0f, 100.0f}, true, true, false);
+    require(fx.interaction.focusedWebCanvas() == nullptr, "a click outside the canvas takes its focus away");
+
+    fx.interaction.focusWebCanvas(web);
+    fx.frame({100.0f, 100.0f}, false, false, false);
+    fx.scene.removeChild(web);
+    fx.frame({100.0f, 100.0f}, false, false, false);
+    require(fx.interaction.focusedWebCanvas() == nullptr && !Input::uiCapturesKeyboard(),
+            "a focused canvas removed from the scene leaves no stale keyboard target");
+}
+
 } // namespace
 
 int main() {
@@ -201,6 +234,7 @@ int main() {
     testTopmostWins();
     testInactiveCanvasIgnored();
     testRemovedCanvasClearsInteractionState();
+    testApplicationKeyboardFocus();
 
     std::cout << "[ui-interaction] PASS (" << gChecks << " checks)\n";
     return 0;

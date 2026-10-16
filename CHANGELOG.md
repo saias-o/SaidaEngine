@@ -10,6 +10,16 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### Keyboard focus given by the application
+
+- `UIInteractionSystem::focusWebCanvas` (reached as `Engine::uiInteraction()`)
+  gives a `WebCanvasNode` the keyboard without a click, for a text field opened
+  from a key while the cursor is captured; `focusWebCanvas(nullptr)` takes it
+  back. The canvas is revalidated against the scene on the next update, and a
+  click elsewhere or its removal still clears the focus.
+  `saida_ui_interaction_tests` covers focus, capture, release, click-away and
+  removal.
+
 ### Signed-depth shore water and surf foam
 
 - `WaterNode::surfaceDepths`: an optional signed depth per shaped-surface

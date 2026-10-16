@@ -2166,7 +2166,14 @@ For a `WebCanvasNode`, pointer movement is routed by canvas geometry and always
 reaches RmlUi while the pointer is inside the canvas; `hitTest()` decides click,
 scroll and capture policy only. `UIInteractionSystem` currently stores raw
 hovered, pressed, focused and touch targets across frames and revalidates them
-when the owning scene revision changes before dispatching more input. The
+when the owning scene revision changes before dispatching more input. A
+`WebCanvasNode` is focused by a click on one of its interactive elements, or by
+the application through `UIInteractionSystem::focusWebCanvas` (reached as
+`Engine::uiInteraction()`): a text field opened from a key while the cursor is
+captured has no click to focus its canvas. The focused canvas receives keys and
+text and captures the keyboard from the next update, until a click elsewhere,
+its removal from the scene or `focusWebCanvas(nullptr)`; proven by
+`saida_ui_interaction_tests`. The
 roadmap retains the stronger lifetime-checked-handle contract and the missing
 re-entrancy corpus.
 

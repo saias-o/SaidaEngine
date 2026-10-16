@@ -102,6 +102,7 @@ public:
     ResourceManager& resources() { return *resources_; }
     Project& project() { return *project_; }
     Window& window() { return *window_; }
+    UIInteractionSystem& uiInteraction() { return uiInteraction_; }
 
 private:
     void runDesktop();
