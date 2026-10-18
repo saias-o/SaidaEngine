@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-14. This file is the engine's **single backlog**: everything
+Updated: 2026-10-18. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -8,6 +8,44 @@ is in [README.md](README.md).
 Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
+
+## Independent native projects — 2026-10-18
+
+- [x] Export a source/build-tree CMake SDK, project-owned C++ registration,
+  native player, optional project editor and matching native export. Proven by
+  `saida_native_sdk_consumer`, a separate project outside the engine/game tree,
+  MCP-generated C++ compilation, editor Play/Build and a packaged player with
+  a Windows-only PATH. Development/export captures match exactly. R1World now
+  consumes the same SDK and passes its complete offline Paris smoke.
+  Native CTest: 100/100 after configuring with access to the submodule Git
+  metadata; the former unknown-build-identity failure is resolved.
+- [ ] Provide a relocatable installed native SDK with compiler/ABI identity.
+- [ ] Qualify project-native C++ on Web; stock Web export currently rejects it.
+- [ ] Support native-code reload without closing/rebuilding the project editor.
+
+## Host memory admission — 2026-10-18
+
+- [x] Expose renderer-independent Windows physical/commit headroom through
+  `MemoryProfiler::availableHostBytes()`, with explicit unavailable results.
+  R1World's producer admission/cache tests pass (3/3); an offline Paris walking
+  smoke completes 24 standard/toaster switches without allocation errors,
+  reporting roughly 3.0–3.2 GiB of private memory during the switches.
+
+## Surface drive banking and HTTP audio — 2026-10-17
+
+- [x] Add optional speed-dependent steering lock and supported-turn banking to
+  `SurfaceDrive`, with zero preserving upright handling. Native vehicle impact
+  regression passes; R1World's actual two-wheel colliders pass acceleration,
+  both turn directions, braking, low-speed reverse and solver-child attachment
+  at 30/60/120 Hz. The Web player and authoring WASM rebuild successfully.
+- [x] Add asynchronous Windows HTTP audio through the OS MediaEngine, with
+  explicit lifecycle/error states, bounded volume and safe callback ownership.
+  Source/lifecycle tests pass; real Radio France MP3 playback reaches Playing.
+- [x] Replace the Windows-only stream with the shared native libcurl/Mbed TLS
+  and miniaudio backend, plus a WebAudio/HTML media backend. The portable media
+  harness verifies native playback, real browser audio and an Android ARM64
+  shared-library link. Full mobile/Quest exports and device qualification remain
+  open; they are not implied by a successful media-library link.
 
 ## UI mouse gestures — regression, 2026-10-13
 
@@ -54,11 +92,20 @@ the corresponding contracts of `SPEC.md`.
   falls from roughly 15–16 ms to 0.01 ms. CTest is 94/95 in this sandbox; the
   remaining failure is an unknown configured Git build identity. Full local
   measurement conditions and limitations are in R1World's `game/README.md`.
-- [ ] Make transform propagation incremental while preserving retained mutable
-  `Transform&` writes, parent changes and physics results. Local matrix caching
-  alone leaves two complete walks costing about 30–35 ms/frame on the audited
-  93,000–102,000-node stationary scenes. Do not skip hidden nodes indiscriminately:
-  visibility does not disable simulation or inherited transforms.
+- [x] Make transform propagation incremental while preserving retained mutable
+  `Transform&` writes, parent changes, hidden nodes and physics results. Flat
+  traversal records compare every local TRS but propagate only changed poses;
+  topology changes reuse unchanged branches. The 2026-10-18 native streaming
+  GPU suite passes 21,531 checks, including retained writes during unrelated
+  topology edits, removals and sibling reordering. Before the final branch-reuse
+  refinement, R1World's stationary Paris comparison reduced the two transform
+  passes from roughly 32 ms to 6–8 ms. Sustained movement/streaming frame budgets
+  remain to qualify in the game.
+- [x] Reject rigid shadow casters outside each light's clip volume, including
+  Vulkan near/far planes and conservative bounds under shear/negative scale.
+  Skinned casters bypass this test. The same native suite covers clipping and
+  offscreen camera casters that still intersect the light; Paris submits about
+  900 shadow draws instead of 9,000 candidates without changing shadow settings.
 - [ ] Isolate and reduce procedural terrain submission/sampling work without
   changing relief, surveyed tile holes or morphing/seam rules. The full grids
   still shade vertices for cells later discarded over resident tiles. Feature

@@ -1,0 +1,4 @@
+#pragma once
+namespace saida::http {
+inline constexpr char kHttpCertificates[]=R"SAIDA_CA(@SAIDA_HTTP_CA_PEM@)SAIDA_CA";
+}

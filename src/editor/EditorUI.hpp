@@ -61,6 +61,9 @@ public:
     void clearSelection() { selectedNode_ = nullptr; document_.clearSelection(); }
 
     bool quitRequested() const { return quitRequested_; }
+    void setProjectRuntime(const std::string& root, const std::string& executable) {
+        buildController_.setProjectRuntime(root, executable);
+    }
 
     // Automated Build click (--build flag): same code as the Build dialog's
     // button. `message` receives the output folder or the error.

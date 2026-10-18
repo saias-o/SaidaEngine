@@ -17,6 +17,9 @@ public:
         std::string outputDir;            // absolute, or relative to project root
         std::string mainScene = "scenes/main.scene";  // project-relative
         bool launchAfterBuild = false;    // "Build & Run"
+        // Project-compiled native player, retaining its own registered types.
+        // Empty selects the stock script-only runtime; unsupported on Web.
+        std::string runtimeTemplate;
 
         // Windows executable metadata (VERSIONINFO + icon).
         // "a.b.c[.d]", fields <= 65535; empty = engine default (kProductVersionNumeric).

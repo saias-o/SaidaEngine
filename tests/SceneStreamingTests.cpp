@@ -5,6 +5,7 @@
 #include "core/Camera.hpp"
 #include "nodes/CameraNode.hpp"
 #include "render/CameraDirector.hpp"
+#include "render/FrustumCulling.hpp"
 #include "core/Window.hpp"
 #include "graphics/VulkanDevice.hpp"
 #include "graphics/Mesh.hpp"
@@ -209,6 +210,140 @@ void transformAndCameraContract() {
     embedded->createChild<CameraNode>()->transform().position = {2, 3, 4};
     require(director.update(*embedded, out, .01f), "camera in an embedded scene is selected");
     near(out.position, {2, 3, 4}, "camera pose stays relative to the selected scene root");
+}
+
+void shadowClipContract() {
+    const Aabb box{{-.5f, -.5f, -.5f}, {.5f, .5f, .5f}};
+    auto moved = [](glm::vec3 p) { return glm::translate(glm::mat4(1), p); };
+    require(aabbIntersectsClipVolume(box, moved({0, 0, .5f})), "shadow volume retains an enclosed caster");
+    require(!aabbIntersectsClipVolume(box, moved({2, 0, .5f})), "shadow volume rejects a caster beyond a side plane");
+    require(!aabbIntersectsClipVolume(box, moved({0, 0, -2})), "shadow volume uses Vulkan zero-to-one near depth");
+    require(!aabbIntersectsClipVolume(box, moved({0, 0, 2})), "shadow volume rejects beyond its far plane");
+    require(aabbIntersectsClipVolume(box, moved({1.49f, 0, .5f})), "shadow volume keeps partially clipped bounds");
+    auto sheared = moved({1.8f, 0, .5f});sheared[1][0] = 2.f;
+    require(aabbIntersectsClipVolume(box, sheared), "sheared caster crossing the light boundary remains");
+    auto negative = moved({1.8f, 0, .5f});negative[0][0] = -2.f;
+    require(aabbIntersectsClipVolume(box, negative), "negative nonuniform scale retains intersecting bounds");
+    // A caster outside the eye's volume can remain inside the light's volume.
+    const auto light = glm::ortho(-10.f, 10.f, -10.f, 10.f, .1f, 50.f);
+    const auto offscreen = moved({5, 0, -10});
+    require(!aabbIntersectsClipVolume(box, glm::perspective(glm::radians(20.f), 1.f, .1f, 50.f) * offscreen)
+        && aabbIntersectsClipVolume(box, light * offscreen), "offscreen shadow caster is retained by light-space culling");
+}
+
+void transformPropagationContract() {
+    Scene scene;
+    auto* a = scene.createChild<Node>("a");
+    auto* b = scene.createChild<Node>("b");
+    a->transform().position = {10, 2, -3};
+    b->transform().position = {-4, 1, 7};
+    auto* leaf = a->createChild<Node>("leaf");
+    auto* descendant = leaf->createChild<Node>();
+    descendant->transform().position = {0, 2, 0};
+    auto& retained = leaf->transform();
+    scene.updateTransforms(glm::mat4(1), false);
+    auto check = [&] {
+        scene.traverse([&](Node& node, const glm::mat4& expected) {
+            for (int c = 0; c < 4; ++c)
+                require(glm::length(node.worldTransform()[c] - expected[c]) < 1e-5f,
+                        "compact propagation matches full hierarchy composition");
+        });
+    };
+    check();
+    for (int frame = 0; frame < 12; ++frame) {
+        retained.position.x += .25f;
+        retained.rotation = glm::angleAxis(float(frame) * .1f, glm::vec3(0, 1, 0));
+        retained.scale = {1.f, -2.f, .5f};
+        leaf->localMatrix(); // Cache reads cannot consume world propagation.
+        leaf->setVisible(frame % 2 != 0);
+        a->setEnabled(frame % 3 != 0);
+        scene.updateTransforms(glm::mat4(1), false);
+        check();
+    }
+    const auto version = Node::g_transformVersion;
+    leaf->setVisible(!leaf->visible());
+    scene.updateTransforms(glm::mat4(1), false);
+    require(Node::g_transformVersion == version, "visibility does not invalidate transform topology");
+    b->addChildAt(a->detachChild(leaf), 0);
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
+    auto detached = b->detachChild(leaf);
+    detached->updateTransforms(glm::mat4(1), false);
+    near(glm::vec3(detached->worldTransform()[3]), retained.position,
+         "detached traversal uses its new root frame");
+    a->addChild(std::move(detached));
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
+    a->transform().position += glm::vec3(3, 0, 0);
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
+    const auto branchRevision = a->subtreeTransformRevision();
+    retained.position.y += 1;
+    leaf->updateTransforms(a->worldTransform(), false);
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
+    require(a->subtreeTransformRevision() != branchRevision,
+            "subtree updates invalidate ancestor bounds independently of root cache");
+    b->createChild<Node>()->transform().position = {1, 2, 3};
+    scene.updateTransforms(glm::mat4(1), false);
+    b->clearChildren();
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
+    auto* temporary = b->createChild<Node>();
+    scene.updateTransforms(glm::mat4(1), false);
+    b->removeChild(temporary);
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
+
+    struct PhysicsWriter : Behaviour {
+        Transform* target = nullptr;
+        int writes = 0;
+        bool hasPhysicsStep() const override { return true; }
+        void onPhysicsStep(float) override { target->position.z += 1; ++writes; }
+    };
+    auto* body = scene.createChild<RigidBodyNode>();
+    body->gravityFactor = 0;
+    body->createChild<CollisionShapeNode>()->shapeType = CollisionShapeType::Box;
+    auto* writer = scene.addBehaviour<PhysicsWriter>();
+    writer->target = &retained;
+    const float before = retained.position.z;
+    scene.update(1.f / 30.f);
+    require(writer->writes > 0 && retained.position.z == before + writer->writes,
+            "physics callback edits a retained transform reference");
+    check();
+
+    Node exceptional;
+    exceptional.updateTransforms(glm::mat4(1), false);
+    const auto finiteVersion = Node::g_transformVersion;
+    exceptional.transform().position.x = -0.f;
+    exceptional.updateTransforms(glm::mat4(1), false);
+    require(Node::g_transformVersion == finiteVersion, "signed zero does not spuriously change a world pose");
+    exceptional.transform().position.x = std::numeric_limits<float>::quiet_NaN();
+    exceptional.updateTransforms(glm::mat4(1), false);
+    const auto nanVersion = Node::g_transformVersion;
+    exceptional.updateTransforms(glm::mat4(1), false);
+    require(Node::g_transformVersion != nanVersion, "nonfinite transforms retain comparison and propagation semantics");
+
+    auto* wide = scene.createChild<Node>("wide unchanged branch");
+    for (int i = 0; i < 512; ++i) wide->createChild<Node>()->transform().position = {float(i), 1, 2};
+    scene.updateTransforms(glm::mat4(1), false);
+    auto& outsideWrite = wide->children().back()->transform();
+    for (int i = 0; i < 4; ++i) {
+        outsideWrite.position.z += 3;
+        auto* added = b->createChild<Node>();
+        scene.updateTransforms(glm::mat4(1), false);
+        check();
+        b->removeChild(added);
+        scene.updateTransforms(glm::mat4(1), false);
+        check();
+    }
+    wide->removeChild(wide->children().front().get());
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
+    auto last = wide->detachChild(wide->children().back().get());
+    wide->addChildAt(std::move(last), 0);
+    scene.updateTransforms(glm::mat4(1), false);
+    check();
 }
 
 void fixedStepsAndRebase() {
@@ -1138,7 +1273,7 @@ void gpuLodGroups() {
 }
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract();
+    indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); transformPropagationContract(); shadowClipContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract();
     if (argc > 1 && std::string(argv[1]) == "--gpu") gpuLodGroups();
     if (argc > 2 && std::string(argv[1]) == "--deformation-fleet") gpuFleetDeformation(argv[2]);
     std::printf("[streaming] PASS (%d checks)\n", checks);

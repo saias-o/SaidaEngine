@@ -2,6 +2,9 @@
 /build/
 # An optimized native build beside the Debug one (RelWithDebInfo).
 /build-rel/
+/build-portable-media/
+/build-portable-media-web/
+/build-portable-media-android/
 
 # Blender source files: large, only needed for editing the model, not the build.
 *.blend

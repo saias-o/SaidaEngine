@@ -23,6 +23,8 @@ public:
 
     VkSurfaceKHR createSurface(VkInstance instance) const;
     void framebufferSize(int& width, int& height) const { glfwGetFramebufferSize(window_, &width, &height); }
+    void size(int& width, int& height) const { glfwGetWindowSize(window_, &width, &height); }
+    void setSize(int width, int height) { glfwSetWindowSize(window_, width, height); }
 
     bool wasResized() const { return resized_; }
     void resetResizedFlag() { resized_ = false; }

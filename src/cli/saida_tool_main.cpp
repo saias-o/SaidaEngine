@@ -75,7 +75,7 @@ int usage(std::ostream& out) {
            "                    [--max-different N] [--diff <png>] [--json] [--pretty]\n"
            "  saida_tool export-game <project.saidaproj> [--platform windows|linux|web]\n"
            "                    [--out <dir>] [--main-scene <rel>] [--version a.b.c]\n"
-           "                    [--company <name>] [--icon <ico>]\n"
+           "                    [--company <name>] [--icon <ico>] [--runtime <executable>]\n"
            "  saida_tool help\n"
            "\n"
            "Commands:\n"
@@ -1066,6 +1066,7 @@ int cmdExportGame(const std::vector<std::string>& args) {
         else if (a == "--version") options.productVersion = next("--version");
         else if (a == "--company") options.companyName = next("--company");
         else if (a == "--icon") options.iconPath = next("--icon");
+        else if (a == "--runtime") options.runtimeTemplate = next("--runtime");
         else if (!a.empty() && a[0] == '-') {
             std::cerr << "export-game: unknown option '" << a << "'\n";
             return kExitUsage;

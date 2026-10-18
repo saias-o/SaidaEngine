@@ -1,0 +1,21 @@
+{
+  "schema": 2,
+  "version": 2,
+  "scene": {
+    "type": "Scene", "id": 1, "name": "Main", "enabled": true,
+    "behaviours": [],
+    "children": [
+      {
+        "type": "Camera", "id": 2, "name": "Camera", "enabled": true,
+        "transform": {"position": [0, 0.4, 4], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
+        "behaviours": [], "children": []
+      },
+      {
+        "type": "MeshNode", "id": 3, "name": "Cube", "enabled": true,
+        "mesh": 1, "shader": "unlit", "baseColor": [0.12, 0.4, 0.75, 1],
+        "transform": {"position": [0, 0, 0], "rotation": [0.17, 0, 0, 0.985444], "scale": [1, 1, 1]},
+        "behaviours": [{"type": "Spin", "speed": 0.7}], "children": []
+      }
+    ]
+  }
+}

@@ -36,6 +36,8 @@ public:
     float aerodynamicDrag = .0005f;
     float gripResponse = 10.f;
     float steeringResponse = 6.f;
+    float speedSteering = 0.f; // Lock divided by 1 + coefficient * speed^2.
+    float maximumLean = 0.f; // Degrees, banking into the actual supported turn; 0 = upright.
     float damage = 0.f;
     float steeringBias = 0.f;
     bool parked = true;

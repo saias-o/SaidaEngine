@@ -65,6 +65,16 @@ std::vector<MemorySnapshot::Category> sampleCategories() {
 
 } // namespace
 
+std::optional<uint64_t> MemoryProfiler::availableHostBytes() {
+#ifdef _WIN32
+    MEMORYSTATUSEX status{};
+    status.dwLength = sizeof(status);
+    if (GlobalMemoryStatusEx(&status))
+        return std::min<uint64_t>(status.ullAvailPhys, status.ullAvailPageFile);
+#endif
+    return std::nullopt;
+}
+
 void MemoryProfiler::registerAllocation(const std::string& category, uint64_t bytes) {
     if (category.empty() || bytes == 0) return;
     g_allocatedBytesThisFrame.fetch_add(bytes, std::memory_order_relaxed);

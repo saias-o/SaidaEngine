@@ -340,6 +340,9 @@ if(SAIDA_ENABLE_XR)
     set(BUILD_CONFORMANCE_TESTS OFF)
     set(BUILD_SDK_TESTS OFF)
     set(BUILD_ALL_EXTENSIONS OFF)
+    # Keep the loader self-contained instead of picking a machine-local jsoncpp
+    # DLL whose ABI and deployment would leak into every native game.
+    set(BUILD_WITH_SYSTEM_JSONCPP OFF CACHE BOOL "Use pinned OpenXR JSON implementation" FORCE)
     add_subdirectory(third_party/openxr ${CMAKE_BINARY_DIR}/openxr)
 
     # MinGW's winapifamily.h does not define the UWP system partition constant
@@ -599,12 +602,6 @@ add_library(saida_engine STATIC
     third_party/imgui/backends/imgui_impl_vulkan.cpp
 )
 
-# Keep generated behaviour sources automatic; new files need no CMake edit.
-file(GLOB SAIDA_GENERATED_SOURCES CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/src/generated/*.cpp)
-if(SAIDA_GENERATED_SOURCES)
-    target_sources(saida_engine PRIVATE ${SAIDA_GENERATED_SOURCES})
-endif()
-
 # PUBLIC: propagated to anything linking the engine (the game/editor exe).
 target_include_directories(saida_engine PUBLIC
     src
@@ -617,6 +614,8 @@ target_include_directories(saida_engine PUBLIC
     third_party/miniaudio
 )
 target_link_libraries(saida_engine PUBLIC Vulkan::Vulkan glfw glm::glm Jolt quickjs RmlUi::RmlUi meshoptimizer)
+include(cmake/MediaRuntime.cmake)
+saida_add_media_runtime(saida_engine)
 if(WIN32)
     target_link_libraries(saida_engine PUBLIC winmm psapi)
 endif()
@@ -729,10 +728,13 @@ if(SAIDA_ENABLE_MCP)
         src/mcp/tools/SceneTools.cpp
         src/mcp/tools/NodeTools.cpp
         src/mcp/tools/AssetTools.cpp
+        src/mcp/ProjectBuild.cpp
         src/mcp/tools/ScenarioTools.cpp
         src/mcp/tools/AnimationTools.cpp
     )
     target_compile_definitions(saida_editor PUBLIC SAIDA_ENABLE_MCP)
+    set_source_files_properties(src/mcp/ProjectBuild.cpp PROPERTIES
+        COMPILE_DEFINITIONS SAIDA_CMAKE_COMMAND="${CMAKE_COMMAND}")
     if(WIN32)
         target_link_libraries(saida_editor PUBLIC ws2_32)
     endif()
@@ -1216,6 +1218,16 @@ if (BUILD_TESTING)
     target_compile_options(saida_vehicle_impact_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_vehicle_impact_tests COMMAND $<TARGET_FILE:saida_vehicle_impact_tests>)
 
+    add_executable(saida_audio_stream_tests tests/AudioStreamTests.cpp)
+    saida_test_target(saida_audio_stream_tests)
+    target_link_libraries(saida_audio_stream_tests PRIVATE saida_engine)
+    add_test(NAME saida_audio_stream_tests COMMAND $<TARGET_FILE:saida_audio_stream_tests>)
+
+    add_executable(saida_http_request_tests tests/HttpRequestTests.cpp)
+    saida_test_target(saida_http_request_tests)
+    target_link_libraries(saida_http_request_tests PRIVATE saida_engine)
+    add_test(NAME saida_http_request_tests COMMAND $<TARGET_FILE:saida_http_request_tests>)
+
     add_executable(saida_collision_auto_tests tests/CollisionAutoShapeTest.cpp)
     saida_test_target(saida_collision_auto_tests)
     target_link_libraries(saida_collision_auto_tests PRIVATE saida_engine)
@@ -1518,3 +1530,6 @@ if (WIN32)
         "$<TARGET_FILE_DIR:saida_tool>"
     )
 endif()
+
+# Native games consume a separate build-tree package.
+include(cmake/NativeSdk.cmake)

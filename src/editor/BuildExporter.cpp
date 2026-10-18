@@ -174,6 +174,18 @@ std::vector<std::string> packageFileList(const fs::path& root) {
     return files;
 }
 
+bool hasNativeSources(const Project& project) {
+    for (const char* dir : {"src", "native"}) {
+        const fs::path root = fs::path(project.rootPath()) / dir;
+        if (!fs::is_directory(root)) continue;
+        for (const auto& entry : fs::recursive_directory_iterator(root)) {
+            const auto ext = entry.path().extension();
+            if (entry.is_regular_file() && (ext == ".cpp" || ext == ".cc" || ext == ".cxx")) return true;
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
@@ -188,6 +200,8 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
     };
 
     if (!project.isLoaded()) return fail("no project loaded");
+    if (hasNativeSources(project) && options.runtimeTemplate.empty())
+        return fail("project contains native C++: export with its compiled player using --runtime <executable>, or build the project's <target>_package target");
 
     const fs::path projectRoot = fs::path(project.rootPath()).lexically_normal();
     const fs::path mainScene = fs::path(options.mainScene).lexically_normal();
@@ -218,10 +232,14 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
 
     const fs::path binDir = fs::path(runtimeBinaryRoot());
 #ifdef _WIN32
-    const fs::path runtimeExe = binDir / "SaidaEngineRuntime.exe";
+    fs::path runtimeExe = binDir / "SaidaEngineRuntime.exe";
 #else
-    const fs::path runtimeExe = binDir / "SaidaEngineRuntime";
+    fs::path runtimeExe = binDir / "SaidaEngineRuntime";
 #endif
+    if (!options.runtimeTemplate.empty()) {
+        runtimeExe = fs::path(options.runtimeTemplate);
+        if (runtimeExe.is_relative()) runtimeExe = projectRoot / runtimeExe;
+    }
     if (!fs::exists(runtimeExe))
         return fail("runtime template not found — build the SaidaEngineRuntime "
                     "target first: " + runtimeExe.string());
@@ -324,6 +342,8 @@ BuildExporter::Result BuildExporter::exportWebBuild(const Project& project,
     };
 
     if (!project.isLoaded()) return fail("no project loaded");
+    if (hasNativeSources(project) || !options.runtimeTemplate.empty())
+        return fail("project-native C++ is not linked into the stock Web player; use portable scripts or a separately integrated Web build");
     const fs::path projectRoot = fs::path(project.rootPath()).lexically_normal();
     const fs::path mainScene = fs::path(options.mainScene).lexically_normal();
     if (!safePackagePath(mainScene)) return fail("main scene must be a project-relative path");

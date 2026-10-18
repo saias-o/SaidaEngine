@@ -1,0 +1,36 @@
+include(CMakeFindDependencyMacro)
+find_dependency(Vulkan)
+find_dependency(glfw3)
+find_dependency(glm)
+find_dependency(Threads)
+
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "@SAIDA_SDK_COMPILER_ID@" OR
+   NOT CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "@SAIDA_SDK_COMPILER_VERSION@" OR
+   NOT CMAKE_SIZEOF_VOID_P EQUAL @SAIDA_SDK_POINTER_SIZE@)
+    set(SaidaEngine_FOUND FALSE)
+    set(SaidaEngine_NOT_FOUND_MESSAGE
+        "Use the same compiler and architecture as this SaidaEngine build (@SAIDA_SDK_COMPILER_ID@ @SAIDA_SDK_COMPILER_VERSION@).")
+    return()
+endif()
+if(CMAKE_CONFIGURATION_TYPES OR NOT CMAKE_BUILD_TYPE STREQUAL "@SAIDA_SDK_CONFIGURATION@")
+    set(SaidaEngine_FOUND FALSE)
+    set(SaidaEngine_NOT_FOUND_MESSAGE
+        "This single-configuration SDK was built as @SAIDA_SDK_CONFIGURATION@; use Ninja and the same CMAKE_BUILD_TYPE for the game.")
+    return()
+endif()
+set(SaidaEngine_SOURCE_DIR "@SAIDA_SDK_SOURCE_DIR@")
+set(SaidaEngine_BUILD_DIR "@SAIDA_SDK_BUILD_DIR@")
+set(SaidaEngine_CONFIGURATION "@SAIDA_SDK_CONFIGURATION@")
+# curl's FindMbedTLS creates a directory-local imported facade. Its libraries
+# are the in-tree targets exported below, never the consumer's system TLS ABI.
+if(NOT TARGET CURL::mbedtls)
+    add_library(CURL::mbedtls INTERFACE IMPORTED)
+    set_target_properties(CURL::mbedtls PROPERTIES
+        INTERFACE_LINK_LIBRARIES "Saida::mbedtls;Saida::mbedx509;Saida::mbedcrypto")
+endif()
+if(WIN32 AND NOT TARGET CURL::win32_winsock)
+    add_library(CURL::win32_winsock INTERFACE IMPORTED)
+    set_target_properties(CURL::win32_winsock PROPERTIES INTERFACE_LINK_LIBRARIES ws2_32)
+endif()
+include("${CMAKE_CURRENT_LIST_DIR}/SaidaEngineTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/SaidaGame.cmake")

@@ -20,6 +20,9 @@ public:
 
     void requestOpen() { openRequested_ = true; }
     void draw(Project* project);
+    void setProjectRuntime(const std::string& root, const std::string& executable) {
+        nativeProjectRoot_ = root; nativePlayer_ = executable;
+    }
 
     bool runAutomatedBuild(Project* project, bool web,
                            const std::string& outputDir,
@@ -39,6 +42,8 @@ private:
     void drawFooter(Project* project);
 
     bool openRequested_ = false;
+    std::string nativeProjectRoot_;
+    std::string nativePlayer_;
     BuildPlatform selectedPlatform_ = BuildPlatform::Windows;
     BuildConfig configuration_ = BuildConfig::Release;
     char outputPath_[512] = "build/export";

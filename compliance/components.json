@@ -10,7 +10,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2018-2021 Johannes Kuhlmann",
-      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -37,7 +39,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2005-2026 G-Truc Creation",
-      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -49,7 +53,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2014-2026 Omar Cornut",
-      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -61,7 +67,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright 2021 Jorrit Rouwe",
-      "licenseFiles": ["third_party/jolt/LICENSE"],
+      "licenseFiles": [
+        "third_party/jolt/LICENSE"
+      ],
       "noticeRequired": true
     },
     {
@@ -73,7 +81,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2013-2022 Niels Lohmann",
-      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -85,7 +95,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2016-2024 Arseny Kapoulkine",
-      "licenseFiles": ["third_party/meshoptimizer/LICENSE.md"],
+      "licenseFiles": [
+        "third_party/meshoptimizer/LICENSE.md"
+      ],
       "noticeRequired": true
     },
     {
@@ -97,7 +109,9 @@
       "licenseDeclared": "Unlicense OR MIT-0",
       "licenseConcluded": "MIT-0",
       "copyrightText": "Copyright David Reid",
-      "licenseFiles": ["compliance/licenses/MIT-0.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT-0.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -124,7 +138,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2017-2026 Fabrice Bellard, Charlie Gordon, Ben Noordhuis, Saúl Ibarra Corretgé",
-      "licenseFiles": ["third_party/quickjs/LICENSE"],
+      "licenseFiles": [
+        "third_party/quickjs/LICENSE"
+      ],
       "noticeRequired": true
     },
     {
@@ -136,7 +152,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2008-2026 The RmlUi Team and contributors",
-      "licenseFiles": ["third_party/rmlui/LICENSE.txt"],
+      "licenseFiles": [
+        "third_party/rmlui/LICENSE.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -148,7 +166,9 @@
       "licenseDeclared": "MIT OR Unlicense",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2017 Sean Barrett",
-      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -160,7 +180,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2012-Present Syoyo Fujita and contributors",
-      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -172,7 +194,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2017-2024 Advanced Micro Devices, Inc.",
-      "licenseFiles": ["compliance/licenses/MIT.txt"],
+      "licenseFiles": [
+        "compliance/licenses/MIT.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -184,7 +208,9 @@
       "licenseDeclared": "MIT",
       "licenseConcluded": "MIT",
       "copyrightText": "Copyright (c) 2018-2020 Jonathan Young",
-      "licenseFiles": ["third_party/xatlas/LICENSE"],
+      "licenseFiles": [
+        "third_party/xatlas/LICENSE"
+      ],
       "noticeRequired": true
     },
     {
@@ -196,7 +222,9 @@
       "licenseDeclared": "Zlib",
       "licenseConcluded": "Zlib",
       "copyrightText": "Copyright (c) 2002-2006 Marcus Geelnard; Copyright (c) 2006-2019 Camilla Löwy",
-      "licenseFiles": ["compliance/licenses/Zlib.txt"],
+      "licenseFiles": [
+        "compliance/licenses/Zlib.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -208,7 +236,9 @@
       "licenseDeclared": "Apache-2.0",
       "licenseConcluded": "Apache-2.0",
       "copyrightText": "Copyright (c) The Khronos Group Inc. and contributors",
-      "licenseFiles": ["third_party/openxr/LICENSES/Apache-2.0.txt"],
+      "licenseFiles": [
+        "third_party/openxr/LICENSES/Apache-2.0.txt"
+      ],
       "noticeRequired": true
     },
     {
@@ -220,7 +250,51 @@
       "licenseDeclared": "OFL-1.1",
       "licenseConcluded": "OFL-1.1",
       "copyrightText": "Copyright (c) 2010-2015 Łukasz Dziedzic, with Reserved Font Name Lato",
-      "licenseFiles": ["third_party/rmlui/Samples/assets/LICENSE.txt"],
+      "licenseFiles": [
+        "third_party/rmlui/Samples/assets/LICENSE.txt"
+      ],
+      "noticeRequired": true
+    },
+    {
+      "id": "curl",
+      "name": "libcurl",
+      "version": "8.23.0",
+      "vendoredRoot": "third_party/curl",
+      "downloadLocation": "https://curl.se/download/curl-8.23.0.tar.xz",
+      "licenseDeclared": "curl",
+      "licenseConcluded": "curl",
+      "copyrightText": "Copyright (c) 1996-2026 Daniel Stenberg and contributors",
+      "licenseFiles": [
+        "third_party/curl/COPYING"
+      ],
+      "noticeRequired": true
+    },
+    {
+      "id": "mbedtls",
+      "name": "Mbed TLS",
+      "version": "3.6.7",
+      "vendoredRoot": "third_party/mbedtls",
+      "downloadLocation": "https://github.com/Mbed-TLS/mbedtls/releases/tag/mbedtls-3.6.7",
+      "licenseDeclared": "Apache-2.0 OR GPL-2.0-or-later",
+      "licenseConcluded": "Apache-2.0",
+      "copyrightText": "Copyright The Mbed TLS Contributors",
+      "licenseFiles": [
+        "third_party/mbedtls/LICENSE"
+      ],
+      "noticeRequired": true
+    },
+    {
+      "id": "mozilla-ca",
+      "name": "Mozilla CA certificates",
+      "version": "2026-09-25",
+      "vendoredRoot": "third_party/cacert",
+      "downloadLocation": "https://curl.se/ca/cacert.pem",
+      "licenseDeclared": "MPL-2.0",
+      "licenseConcluded": "MPL-2.0",
+      "copyrightText": "Copyright Mozilla Foundation and certificate contributors",
+      "licenseFiles": [
+        "third_party/cacert/LICENSE"
+      ],
       "noticeRequired": true
     }
   ]

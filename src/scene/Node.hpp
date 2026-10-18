@@ -204,6 +204,12 @@ protected:
     glm::mat4 lastLocalMatrix_{0.0f};
 
 private:
+    struct TransformTraversal;
+    std::unique_ptr<TransformTraversal> transformTraversal_;
+    uint64_t topologyRevision_ = 1;
+    Node* lastTransformParent_ = nullptr;
+    void markTopologyChanged();
+
     // Transform is publicly mutable, including through retained references.
     // Compare its components on read instead of relying on setter invalidation.
     mutable Transform cachedLocalTransform_;

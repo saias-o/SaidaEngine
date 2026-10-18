@@ -31,7 +31,6 @@
 #include "scenario/ScenarioAnchor.hpp"
 #include "scenario/ScenarioDirector.hpp"
 #include "scenario/ScenarioRunnerBehaviour.hpp"
-// <<SAIDA_MCP_INCLUDES>>  (write_cpp_behaviour inserts generated #includes above this line)
 
 namespace saida {
 namespace {
@@ -95,7 +94,6 @@ void registerReflectedTypes() {
     registerNode<FixedJointNode>();
     registerNode<PointJointNode>();
     registerNode<HingeJointNode>();
-    // <<SAIDA_MCP_REGISTER>>  (write_cpp_behaviour inserts registerBehaviour<T>() calls above this line)
 }
 
 } // namespace saida

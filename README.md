@@ -198,6 +198,42 @@ More complete verification and packaging procedures are documented in
 
 ## Run
 
+### Create a separate native game
+
+Build the engine and `saida_tool` once, then copy `templates/native-game` to a
+directory of your choice. The game owns its sources, scenes and build; nothing
+is added to the engine's source tree. For example, using the same UCRT64 compiler
+and configuration as the engine:
+
+```sh
+cmake -S /path/to/MyGame -B /path/to/MyGame/build -G Ninja \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSaidaEngine_DIR=/path/to/SaidaEngine/build/sdk
+cmake --build /path/to/MyGame/build --target MyGame --parallel 2
+/path/to/MyGame/build/MyGame.exe
+```
+
+The template uses `find_package(SaidaEngine CONFIG REQUIRED)` and
+`saida_add_game`, so include paths, link dependencies and Jolt ABI settings come
+from `Saida::Engine`. Its reflected `Spin` behaviour stays in the game's
+`src/generated`, alongside a simple scene using engine primitives. Assets from
+another game are not required. `--project <file-or-directory>` selects another
+project explicitly; `--screenshot`, `--after-frames` and `--profile` work as on
+the stock player.
+
+The template also provides `MyGame_editor`: build that target explicitly to
+inspect/edit the native types through the existing editor and MCP API. Close,
+rebuild and restart it when adding C++ types. JavaScript remains the option for
+live script iteration. `MyGame_package` packages the compiled game and its
+content under `build/package`; it preserves project-native code. The stock Web
+player cannot load this C++ extension and refuses that export explicitly.
+
+This SDK references the engine's source/build tree and requires the same compiler,
+architecture and configuration. It is not a relocatable binary SDK. See
+[SPEC section 2.1](SPEC.md#21-processes-and-libraries) for the contract and
+[ROADMAP.md](ROADMAP.md) for remaining native-extension work.
+
+### Open an existing project
+
 ```sh
 ./build/bin/SaidaEngineHub.exe
 # or

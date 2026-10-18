@@ -8,6 +8,9 @@
 #include "runtime/TestAutoload.hpp"
 #include "runtime/RuntimeRoundTripContract.hpp"
 #include "scene/SceneSerializer.hpp"
+#ifdef SAIDA_GAME_TYPES_HEADER
+#include SAIDA_GAME_TYPES_HEADER
+#endif
 
 #include <cstdlib>
 #include <exception>
@@ -84,6 +87,12 @@ int main(int argc, char** argv) {
         //
         // No SceneSetup: launched directly (no --project), the editor opens on an
         // empty scene. The Hub passes a project via --project to load real content.
+#ifdef SAIDA_DEFAULT_PROJECT
+        if (initialProject.empty()) initialProject = SAIDA_DEFAULT_PROJECT;
+#endif
+#ifdef SAIDA_GAME_TYPES_HEADER
+        saida::registerProjectTypes();
+#endif
         saida::Engine engine(nullptr, initialProject, xrPreview);
         for (const std::string& spec : testAutoloads) {
             std::string error;
@@ -117,6 +126,9 @@ int main(int argc, char** argv) {
 
         // Normal desktop editor.
         saida::EditorApp editor(engine);
+#ifdef SAIDA_GAME_PLAYER
+        editor.setProjectRuntime(SAIDA_DEFAULT_PROJECT, SAIDA_GAME_PLAYER);
+#endif
 
         // --build <out>: automated Build click — same code as the Build dialog
         // button, then immediate exit with the verdict as the return code.

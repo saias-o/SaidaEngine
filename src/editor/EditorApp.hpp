@@ -20,6 +20,9 @@ public:
     // dialog's button on the loaded project, logs [BUILD] PASS/FAIL, and
     // returns the process's exit code. No UI frame required.
     int runAutomatedBuild(bool web, const std::string& outputDir);
+    void setProjectRuntime(const std::string& root, const std::string& executable) {
+        ui_.setProjectRuntime(root, executable);
+    }
 
     bool isPlayMode() const { return playMode_; }
     // Requests a Play/Stop transition. The actual world mount/unmount is DEFERRED

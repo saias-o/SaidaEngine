@@ -4,6 +4,7 @@
 #include "scene/SceneTree.hpp"
 #include "scene/SerializationHelpers.hpp"
 #include "core/Log.hpp"
+#include "core/Profiler.hpp"
 
 #ifndef SAIDA_NO_AUDIO
 #include "audio/AudioManager.hpp"
@@ -12,12 +13,84 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <unordered_map>
 #include <utility>
 
 namespace saida {
 
 uint32_t Node::g_hierarchyVersion = 1;
 uint32_t Node::g_transformVersion = 1;
+
+struct Node::TransformTraversal {
+    static_assert(std::is_trivially_copyable_v<Transform>);
+    struct Entry {
+        Node* node;
+        size_t parent;
+        Transform observed;
+        bool fresh = true;
+        bool dirty = false;
+        bool nonFinite = false;
+    };
+    struct Branch {
+        size_t end;
+        uint64_t topology;
+    };
+    std::vector<Entry> entries;
+    std::vector<Branch> branches;
+    std::vector<Entry> staging;
+    std::vector<Branch> stagingBranches;
+    uint64_t topology = 0;
+
+    void refresh(Node& root) {
+        staging.clear();stagingBranches.clear();
+        staging.reserve(entries.size());stagingBranches.reserve(branches.size());
+        constexpr size_t missing = size_t(-1);
+        auto append = [&](auto&& self, Node* node, size_t parent, size_t old) -> void {
+            const size_t slot = staging.size();
+            const bool matched = old != missing && old < entries.size() && entries[old].node == node;
+            if (matched && branches[old].topology == node->topologyRevision_) {
+                // Keep unobserved retained-reference writes detectable. Reuse
+                // snapshots, never assume an unchanged topology is immobile.
+                for (size_t j = old; j < branches[old].end; ++j) {
+                    auto entry = entries[j];
+                    entry.parent = j == old ? parent : entry.parent - old + slot;
+                    staging.push_back(entry);
+                    stagingBranches.push_back({branches[j].end - old + slot, branches[j].topology});
+                }
+                staging[slot].fresh = true; // The branch may have a new parent.
+                return;
+            }
+            staging.push_back({node, parent, node->transform_});
+            stagingBranches.push_back({0, node->topologyRevision_});
+            size_t next = matched ? old + 1 : missing;
+            const size_t oldEnd = matched ? branches[old].end : 0;
+            std::unordered_map<Node*, size_t> siblings;
+            for (const auto& child : node->children_) {
+                size_t previous = missing;
+                if (matched) {
+                    if (next < oldEnd && entries[next].node == child.get()) previous = next;
+                    else {
+                        // A changed child list needs one lookup table, not a
+                        // quadratic search when a large branch is reordered.
+                        if (siblings.empty())
+                            for (size_t j = old + 1; j < oldEnd; j = branches[j].end)
+                                siblings.emplace(entries[j].node, j);
+                        const auto found = siblings.find(child.get());
+                        if (found != siblings.end()) previous = found->second;
+                    }
+                }
+                self(self, child.get(), slot, previous);
+                if (previous != missing) next = branches[previous].end;
+            }
+            stagingBranches[slot].end = staging.size();
+        };
+        append(append, &root, 0, entries.empty() ? missing : 0);
+        entries.swap(staging);branches.swap(stagingBranches);
+        topology = root.topologyRevision_;
+    }
+};
 
 Node::Node(std::string name) : id_(generateNodeId()), name_(std::move(name)) {
     markResourcesChanged();
@@ -35,9 +108,16 @@ void Node::markResourcesChanged() {
     resourceRevision_ = localRevision_;
 }
 
+void Node::markTopologyChanged() {
+    static uint64_t revision = 1;
+    ++revision;
+    for (Node* n = this; n; n = n->parent_) n->topologyRevision_ = revision;
+}
+
 void Node::clearChildren() {
     if (children_.empty()) return;
     children_.clear();
+    markTopologyChanged();
     markChanged();
 }
 
@@ -60,6 +140,7 @@ Node* Node::addChild(std::unique_ptr<Node> child) {
     child->parent_ = this;
     Node* ptr = child.get();
     children_.push_back(std::move(child));
+    markTopologyChanged();
     markChanged();
     return ptr;
 }
@@ -72,6 +153,7 @@ Node* Node::addChildAt(std::unique_ptr<Node> child, size_t index) {
     } else {
         children_.insert(children_.begin() + index, std::move(child));
     }
+    markTopologyChanged();
     markChanged();
     return ptr;
 }
@@ -114,6 +196,7 @@ bool Node::removeChild(Node* child) {
     for (auto it = children_.begin(); it != children_.end(); ++it) {
         if (it->get() == child) {
             children_.erase(it);
+            markTopologyChanged();
             markChanged();
             return true;
         }
@@ -128,6 +211,7 @@ std::unique_ptr<Node> Node::detachChild(Node* child) {
             std::unique_ptr<Node> detached = std::move(*it);
             children_.erase(it);
             detached->parent_ = nullptr;
+            markTopologyChanged();
             markChanged();
             return detached;
         }
@@ -205,21 +289,65 @@ glm::mat4 Node::localMatrix() const {
 }
 
 void Node::updateTransforms(const glm::mat4& parentWorld, bool parentDirty) {
-    glm::mat4 currentLocal = localMatrix();
-    bool dirty = parentDirty || (currentLocal != lastLocalMatrix_);
-    
-    if (dirty) {
-        worldTransform_ = parentWorld * currentLocal;
-        lastLocalMatrix_ = currentLocal;
-        ++g_transformVersion;
-        static uint64_t revision = 0;
-        ++revision;
-        for (Node* n = this; n; n = n->parent_) n->subtreeTransformRevision_ = revision;
+    if (!transformTraversal_) transformTraversal_ = std::make_unique<TransformTraversal>();
+    auto& walk = *transformTraversal_;
+    const bool rebuild = walk.topology != topologyRevision_;
+    if (rebuild) {
+        SAIDA_PROFILE_SCOPE("Transforms/Rebuild");
+        walk.refresh(*this);
     }
-    
-    for (auto& child : children_) {
-        child->updateTransforms(worldTransform_, dirty);
+
+    static uint64_t revision = 0;
+    uint64_t batchRevision = 0;
+    size_t recomputed = 0;
+    for (size_t i = 0; i < walk.entries.size(); ++i) {
+        auto& entry = walk.entries[i];
+        Node& node = *entry.node;
+#if defined(__GNUC__) || defined(__clang__)
+        constexpr size_t prefetchDistance = 32;
+        if (i + prefetchDistance < walk.entries.size())
+            __builtin_prefetch(&walk.entries[i + prefetchDistance].node->transform_, 0, 1);
+#endif
+        const bool inherited = i == 0 ? parentDirty : walk.entries[entry.parent].dirty;
+        const auto& local = node.transform_;
+        // Retained Transform& writes bypass every setter. Compare even hidden
+        // and disabled nodes, but touch matrices only on affected branches.
+        const bool changed = entry.fresh || entry.nonFinite ||
+            std::memcmp(&local, &entry.observed, sizeof(Transform)) != 0;
+        const bool reparented = (entry.fresh || i == 0) && node.lastTransformParent_ != node.parent_;
+        entry.dirty = false;
+        if (changed || inherited || reparented) {
+            entry.fresh = false;
+            if (changed) {
+                // Copy padding as well, if a platform aligns GLM components.
+                // Matrix comparison still decides whether signed zero or a
+                // different quaternion representation really changed the pose.
+                std::memcpy(&entry.observed, &local, sizeof(Transform));
+                auto finite3 = [](const glm::vec3& v) {
+                    return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+                };
+                entry.nonFinite = !finite3(local.position) || !finite3(local.scale) ||
+                    !std::isfinite(local.rotation.x) || !std::isfinite(local.rotation.y) ||
+                    !std::isfinite(local.rotation.z) || !std::isfinite(local.rotation.w);
+            }
+            const glm::mat4 currentLocal = node.localMatrix();
+            entry.dirty = inherited || reparented || currentLocal != node.lastLocalMatrix_;
+            if (entry.dirty) {
+                const auto& above = i == 0 ? parentWorld : walk.entries[entry.parent].node->worldTransform_;
+                node.worldTransform_ = above * currentLocal;
+                node.lastLocalMatrix_ = currentLocal;
+                node.lastTransformParent_ = node.parent_;
+                ++g_transformVersion;
+                ++recomputed;
+                if (!batchRevision) batchRevision = ++revision;
+                for (Node* n = &node; n && n->subtreeTransformRevision_ != batchRevision; n = n->parent_)
+                    n->subtreeTransformRevision_ = batchRevision;
+            }
+        }
     }
+    SAIDA_PROFILE_COUNTER("Transforms/Compared", walk.entries.size());
+    SAIDA_PROFILE_COUNTER("Transforms/Recomputed", recomputed);
+    SAIDA_PROFILE_COUNTER("Transforms/Rebuilt", rebuild ? 1 : 0);
 }
 
 Node* Node::findByPath(const std::string& path) {

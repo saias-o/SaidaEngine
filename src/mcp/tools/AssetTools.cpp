@@ -2,6 +2,8 @@
 
 #include "core/Log.hpp"
 #include "core/Paths.hpp"
+#include "mcp/ProjectBuild.hpp"
+#include "project/Project.hpp"
 #include "editor/Command.hpp"
 #include "editor/SceneDocument.hpp"
 #include "mcp/tools/ToolRegistry.hpp"
@@ -11,7 +13,11 @@
 #include "scripting/JsRuntime.hpp"
 #include "scripting/ScriptBehaviour.hpp"
 
-#include <cstdio>
+#include <set>
+#include <cmath>
+#include <iomanip>
+#include <limits>
+#include <sstream>
 #include <filesystem>
 #include <string>
 
@@ -43,6 +49,29 @@ json toolWriteUi(const ToolContext& ctx, const json& args) {
     return {{"path", uiPath.absolute}, {"relativePath", uiPath.relative}};
 }
 
+std::string cppString(const std::string& text) {
+    std::string out = "\"";
+    for (unsigned char c : text) {
+        if (c == '\\' || c == '"') { out += '\\'; out += char(c); }
+        else if (c < 32 || c >= 127) {
+            out += '\\';
+            out += char('0' + (c >> 6));
+            out += char('0' + ((c >> 3) & 7));
+            out += char('0' + (c & 7));
+        } else out += char(c);
+    }
+    return out + '"';
+}
+
+std::string cppFloat(const json& value) {
+    const float number = value.get<float>();
+    if (!std::isfinite(number)) fail("C++ float defaults must be finite and representable");
+    std::ostringstream out;
+    out.imbue(std::locale::classic());
+    out << std::scientific << std::setprecision(std::numeric_limits<float>::max_digits10) << number << 'f';
+    return out.str();
+}
+
 std::string cppType(const std::string& t) {
     if (t == "int") return "int";
     if (t == "bool") return "bool";
@@ -53,59 +82,66 @@ std::string cppType(const std::string& t) {
 
 std::string cppDefault(const std::string& t, const json& d) {
     if (t == "bool") return (d.is_boolean() && d.get<bool>()) ? "true" : "false";
-    if (t == "string") return "\"" + (d.is_string() ? d.get<std::string>() : std::string()) + "\"";
+    if (t == "string") return cppString(d.is_string() ? d.get<std::string>() : std::string());
     if (t == "int") return d.is_number() ? std::to_string(d.get<int>()) : "0";
     if (t == "vec3") {
         if (d.is_array() && d.size() == 3)
-            return "{" + std::to_string(d[0].get<float>()) + "f," + std::to_string(d[1].get<float>()) +
-                   "f," + std::to_string(d[2].get<float>()) + "f}";
+            return "{" + cppFloat(d[0]) + "," + cppFloat(d[1]) + "," + cppFloat(d[2]) + "}";
         return "{0.0f, 0.0f, 0.0f}";
     }
-    return (d.is_number() ? std::to_string(d.get<float>()) : "0.0") + "f";
+    return d.is_number() ? cppFloat(d) : "0.0f";
 }
 
-void patchReflectedTypes(const std::string& className) {
-    std::string path = engineRoot() + "/src/scene/ReflectedTypes.cpp";
-    std::string src = readFile(path);
-    if (src.empty()) fail("could not read ReflectedTypes.cpp");
-
-    std::string includeLine = "#include \"generated/" + className + ".hpp\"";
-    std::string registerLine = "    registerBehaviour<" + className + ">();";
-    if (src.find(includeLine) != std::string::npos) return;  // already registered
-
-    const std::string incMarker = "// <<SAIDA_MCP_INCLUDES>>";
-    const std::string regMarker = "// <<SAIDA_MCP_REGISTER>>";
-    auto incPos = src.find(incMarker);
-    auto regPos = src.find(regMarker);
-    if (incPos == std::string::npos || regPos == std::string::npos)
-        fail("ReflectedTypes.cpp markers missing");
-    src.insert(incPos, includeLine + "\n");
-    regPos = src.find(regMarker);  // shifted by the insert above
-    src.insert(regPos, registerLine + "\n    ");
-    writeFile(path, src);
+std::string cppIdentifier(const std::string& text) {
+    static const std::set<std::string> reserved{
+        "std", "glm", "saida", "alignas", "alignof", "and", "and_eq", "asm", "auto", "bitand", "bitor", "bool", "break",
+        "case", "catch", "char", "char16_t", "char32_t", "class", "compl", "const", "constexpr",
+        "const_cast", "continue", "decltype", "default", "delete", "do", "double", "dynamic_cast",
+        "else", "enum", "explicit", "export", "extern", "false", "float", "for", "friend", "goto",
+        "if", "inline", "int", "long", "mutable", "namespace", "new", "noexcept", "not", "not_eq",
+        "nullptr", "operator", "or", "or_eq", "private", "protected", "public", "register", "reinterpret_cast",
+        "return", "short", "signed", "sizeof", "static", "static_assert", "static_cast", "struct",
+        "switch", "template", "this", "thread_local", "throw", "true", "try", "typedef", "typeid",
+        "typename", "union", "unsigned", "using", "virtual", "void", "volatile", "wchar_t", "while", "xor", "xor_eq"};
+    if (text.empty() || sanitizeIdentifier(text) != text || reserved.count(text) ||
+        text.front() == '_' || text.find("__") != std::string::npos)
+        fail("invalid or reserved C++ identifier: " + text);
+    return text;
 }
 
-json toolWriteCppBehaviour(const ToolContext&, const json& args) {
+json toolWriteCppBehaviour(const ToolContext& ctx, const json& args) {
+    requireEdit(ctx);
+    if (!ctx.project || !ctx.project->isLoaded()) fail("open a project before generating C++");
     if (!args.contains("name")) fail("missing 'name'");
-    std::string className = sanitizeIdentifier(args["name"].get<std::string>());
+    std::string className = cppIdentifier(args["name"].get<std::string>());
     const json& props = args.contains("properties") ? args["properties"] : json::array();
     std::string doc = args.value("doc", std::string());
     std::string onUpdate = args.value("onUpdate", std::string());
     std::string onReady = args.value("onReady", std::string());
 
+    std::set<std::string> names{className, "onReady", "onUpdate", "describe", "reflectName", "typeName", "save", "load"};
     // Members + describe() property lines.
     std::string members, describeBody;
     for (const auto& p : props) {
-        std::string pn = sanitizeIdentifier(p.at("name").get<std::string>());
+        std::string pn = cppIdentifier(p.at("name").get<std::string>());
+        if (!names.insert(pn).second) fail("duplicate or reserved property: " + pn);
         std::string ty = p.value("type", std::string("float"));
+        if (ty != "int" && ty != "bool" && ty != "float" && ty != "string" && ty != "vec3")
+            fail("unsupported C++ property type: " + ty);
         json def = p.contains("default") ? p["default"] : json(nullptr);
+        if (!def.is_null() && ((ty == "bool" && !def.is_boolean()) ||
+            (ty == "string" && !def.is_string()) || (ty == "float" && !def.is_number()) ||
+            (ty == "int" && (!def.is_number_integer() || def.get<double>() < -2147483648. || def.get<double>() > 2147483647.)) ||
+            (ty == "vec3" && (!def.is_array() || def.size() != 3 ||
+                !def[0].is_number() || !def[1].is_number() || !def[2].is_number()))))
+            fail("default does not match C++ property type: " + pn);
         members += "    " + cppType(ty) + " " + pn + " = " + cppDefault(ty, def) + ";\n";
         describeBody += "    t.property(\"" + pn + "\", &" + className + "::" + pn + ")";
         if (p.contains("min") && p.contains("max"))
             describeBody += ".range(" + std::to_string(p["min"].get<double>()) + ", " +
                             std::to_string(p["max"].get<double>()) + ")";
         if (p.contains("tooltip"))
-            describeBody += ".tooltip(\"" + p["tooltip"].get<std::string>() + "\")";
+            describeBody += ".tooltip(" + cppString(p["tooltip"].get<std::string>()) + ")";
         describeBody += ";\n";
     }
 
@@ -115,8 +151,8 @@ json toolWriteCppBehaviour(const ToolContext&, const json& args) {
         "#include \"scene/Behaviour.hpp\"\n\n"
         "#include <glm/glm.hpp>\n"
         "#include <string>\n\n"
-        "namespace saida {\n\n"
-        "class " + className + " : public Behaviour {\n"
+        "namespace game {\n\n"
+        "class " + className + " : public saida::Behaviour {\n"
         "public:\n";
     if (!onReady.empty()) header += "    void onReady() override;\n";
     header +=
@@ -124,15 +160,15 @@ json toolWriteCppBehaviour(const ToolContext&, const json& args) {
         "    SAIDA_REFLECT_BEHAVIOUR(" + className + ", \"" + className + "\")\n\n" +
         members +
         "};\n\n"
-        "} // namespace saida\n";
+        "} // namespace game\n";
 
     std::string body =
-        "#include \"generated/" + className + ".hpp\"\n\n"
+        "#include \"" + className + ".hpp\"\n\n"
         "#include \"core/Reflection.hpp\"\n"
         "#include \"scene/Node.hpp\"\n\n"
-        "namespace saida {\n\n"
-        "void " + className + "::describe(reflect::TypeBuilder<" + className + ">& t) {\n";
-    if (!doc.empty()) body += "    t.doc(\"" + doc + "\");\n";
+        "namespace game {\n\n"
+        "void " + className + "::describe(saida::reflect::TypeBuilder<" + className + ">& t) {\n";
+    if (!doc.empty()) body += "    t.doc(" + cppString(doc) + ");\n";
     body += describeBody;
     body += "}\n\n";
     if (!onReady.empty())
@@ -142,28 +178,38 @@ json toolWriteCppBehaviour(const ToolContext&, const json& args) {
         "    (void)dt;\n" +
         onUpdate + "\n"
         "}\n\n"
-        "} // namespace saida\n";
+        "} // namespace game\n";
 
-    std::string dir = engineRoot() + "/src/generated/";
+    const auto hpp = resolveToolPath(ctx, "src/generated/" + className + ".hpp");
+    const auto cpp = resolveToolPath(ctx, "src/generated/" + className + ".cpp");
+    if (fs::exists(hpp.absolute) || fs::exists(cpp.absolute)) fail("behaviour files already exist; edit them explicitly");
+    const std::string dir = fs::path(hpp.absolute).parent_path().string() + "/";
     writeFile(dir + className + ".hpp", header);
     writeFile(dir + className + ".cpp", body);
-    patchReflectedTypes(className);
 
     return {{"type", className},
             {"files", json::array({dir + className + ".hpp", dir + className + ".cpp"})},
-            {"note", "Run the 'build' tool to compile; the type then appears in describe_api."}};
+            {"note", "Build the project's saida_add_game target for its native player. WITH_EDITOR provides a project editor: close it, build <target>_editor externally and restart to discover new types. The stock editor and Web player do not load project C++."}};
 }
 
-json toolBuild(const ToolContext&, const json&) {
-    std::string cmd = "cmake --build \"" + engineRoot() + "/build\" -j 2 2>&1";
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) fail("could not launch build (is cmake on PATH?)");
-    std::string out;
-    char buf[4096];
-    while (fgets(buf, sizeof(buf), pipe)) out += buf;
-    int rc = pclose(pipe);
-    std::string tail = out.size() > 6000 ? out.substr(out.size() - 6000) : out;
-    return {{"ok", rc == 0}, {"exitCode", rc}, {"output", tail}};
+json toolBuild(const ToolContext& ctx, const json& args) {
+    requireEdit(ctx);
+    if (!ctx.project || !ctx.project->isLoaded()) fail("open a project before building");
+    const auto directory = resolveToolPath(ctx, args.value("directory", std::string("build")));
+    if (!fs::is_regular_file(fs::path(directory.absolute) / "CMakeCache.txt"))
+        fail("configure the project's native CMake build first: " + directory.absolute);
+    const auto cache = readFile((fs::path(directory.absolute) / "CMakeCache.txt").string());
+    const std::string key = "\nCMAKE_HOME_DIRECTORY:INTERNAL=";
+    const auto home = cache.find(key);
+    if (home == std::string::npos) fail("CMake cache has no source directory");
+    const auto start = home + key.size();
+    const auto end = cache.find_first_of("\r\n", start);
+    std::error_code pathError;
+    if (!fs::equivalent(fs::path(cache.substr(start, end - start)), fs::path(projectRoot(ctx)), pathError))
+        fail("build directory belongs to another source project; configure this project's CMakeLists.txt");
+    const auto result = buildNativeProject(directory.absolute);
+    return {{"ok", result.exitCode == 0}, {"exitCode", result.exitCode}, {"output", result.output},
+            {"directory", directory.relative}};
 }
 
 json toolHeadlessCheck(const ToolContext& ctx, const json&) {
@@ -212,14 +258,14 @@ void registerAssetTools(ToolRegistry& registry) {
                  objectSchema({{"path", stringSchema()}, {"code", stringSchema()}},
                               {"path", "code"}), toolWriteUi);
     registry.add("write_cpp_behaviour",
-                 "Scaffold a reflected C++ behaviour (perf path). {name, doc?, properties:[{name,type,default,min,max,tooltip}], onReady?, onUpdate?}. Then call 'build'.",
+                 "Scaffold a reflected C++ behaviour under the open project src/generated (native player only). {name, doc?, properties:[{name,type,default,min,max,tooltip}], onReady?, onUpdate?}. Then call 'build'.",
                  objectSchema({{"name", stringSchema()}, {"doc", stringSchema()},
                                {"properties", json{{"type", "array"}}},
                                {"onReady", stringSchema()}, {"onUpdate", stringSchema()}},
                               {"name"}), toolWriteCppBehaviour);
     registry.add("build",
-                 "Compile the engine (picks up new C++ behaviours). Returns ok + compiler output.",
-                 objectSchema({}), toolBuild);
+                 "Build the open project's configured CMake directory (default build). Never edits engine source. Restart the native player to load compiled types.",
+                 objectSchema({{"directory", stringSchema()}}), toolBuild);
     registry.add("run_headless_check",
                  "Validate the current scene: compile every attached script (no GPU). Returns ok + per-script errors.",
                  objectSchema({}), toolHeadlessCheck);

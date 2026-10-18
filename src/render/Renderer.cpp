@@ -1360,8 +1360,9 @@ void Renderer::recordWorldWebCanvases(rhi::RenderPassEncoder& rp, Scene& scene, 
 }
 
 void Renderer::recordShadowPasses(rhi::CommandEncoder& encoder) {
+    uint64_t recordedDraws = 0;
     shadowMap_->record(encoder, shadowCount_,
-        [this](rhi::RenderPassEncoder& rp, int layer) {
+        [this, &recordedDraws](rhi::RenderPassEncoder& rp, int layer) {
             // Set 0 holds the bone palette the skinned casters index into.
             rp.setBindGroup(0, *globalGroups_[currentFrame_]);
             struct ShadowPush {
@@ -1370,12 +1371,18 @@ void Renderer::recordShadowPasses(rhi::CommandEncoder& encoder) {
             } push;
             for (const ShadowDraw& draw : shadowDraws_) {
                 push.mvp = shadowMatrices_[layer] * draw.world;
+                // Offscreen casters may still shadow the camera's view. Reject
+                // only outside this light, and retain animated meshes whose
+                // authored bounds do not enclose every skinned pose.
+                if (!draw.mesh->skinned() && !aabbIntersectsClipVolume(draw.mesh->bounds(), push.mvp)) continue;
                 push.params = glm::vec4(0.0f, static_cast<float>(draw.boneOffset), 0.0f, 0.0f);
                 rp.setPushConstants(&push, sizeof(push));
                 draw.mesh->bind(rp);
                 draw.mesh->draw(rp);
+                ++recordedDraws;
             }
         });
+    SAIDA_PROFILE_COUNTER("Renderer/ShadowDrawCalls", recordedDraws);
 }
 
 void Renderer::updateUniformBuffer(uint32_t frame, Scene& scene, Camera& camera, Project* project) {

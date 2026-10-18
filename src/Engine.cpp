@@ -208,7 +208,10 @@ Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool re
     NodeRegistry::instance().registerType<CharacterBodyNode>("CharacterBody");
     // XR Toolkit nodes/behaviours are registered by xr::registerTypes() above.
     std::string typeMatrixError;
-    if (!verifyRegisteredRuntimeTypes(RuntimeTypeTarget::Native, typeMatrixError))
+    // Games can register their own native types before loading their scenes.
+    // The required engine catalog still has to be complete; exact catalog
+    // verification remains the responsibility of the standalone contract gate.
+    if (!verifyRegisteredRuntimeTypes(RuntimeTypeTarget::Native, typeMatrixError, true))
         throw std::runtime_error("runtime type matrix mismatch: " + typeMatrixError);
     if (project_->isLoaded()) {
         AudioManager::get().setProjectRoot(project_->rootPath());

@@ -15,7 +15,8 @@ void SurfaceDriveBehaviour::command(float throttle, float brake, float steer, bo
 void SurfaceDriveBehaviour::onPhysicsStep(float dt) {
     const float settings[]{acceleration,slopeAssist,braking,maxSpeed,reverseSpeed,wheelbase,steeringAngle,lateralAcceleration,
         yawAcceleration,groundReach,supportDistance,groundStability,groundDamping,selfRightAcceleration,selfRightSpeed,
-        rollingDeceleration,aerodynamicDrag,gripResponse,steeringResponse,bumpLaunchSpeed,bumpSpin,bumpReach};
+        rollingDeceleration,aerodynamicDrag,gripResponse,steeringResponse,bumpLaunchSpeed,bumpSpin,bumpReach,
+        speedSteering,maximumLean};
     grounded_ = false;
     if(!std::isfinite(dt)||dt<=0.f||!std::isfinite(damage)||!std::isfinite(steeringBias))return;
     for(const auto value:settings)if(!std::isfinite(value)||value<0.f)return;
@@ -138,7 +139,8 @@ void SurfaceDriveBehaviour::onPhysicsStep(float dt) {
     const float change = drive * dt - resistanceChange + brakeChange;
     world.applyImpulse(id, heading * (mass * change));
     const float base = std::max(kMinimumWheelbase, wheelbase);
-    const float desiredYaw = -speed_ / base * std::tan(glm::radians(steeringAngle) * steering_);
+    const float lock = glm::radians(steeringAngle) * steering_ / (1.f + speedSteering * speed_ * speed_);
+    const float desiredYaw = -speed_ / base * std::tan(lock);
     const float safeYaw = std::max(0.f, lateralAcceleration) / std::max(1.f, std::abs(speed_));
     const float currentYaw = glm::dot(world.angularVelocity(id), normal);
     const float delta = std::clamp(std::clamp(desiredYaw, -safeYaw, safeYaw) - currentYaw,
@@ -150,7 +152,14 @@ void SurfaceDriveBehaviour::onPhysicsStep(float dt) {
         // exact inertia and exponential decay prevent a narrow chassis from
         // receiving an angular impulse larger than its actual roll momentum.
         const float decay = 1.f - std::exp(-groundDamping * dt);
-        const glm::vec3 restoring = glm::cross(up, normal) * (groundStability * dt);
+        // Bank according to the supported turn, rather than keyboard position.
+        // A stationary body, reversing vehicle or airborne jump must not lean
+        // as if it were following a full-speed forward corner.
+        const float supportedYaw = std::clamp(currentYaw, -safeYaw, safeYaw);
+        const float lean = std::clamp(std::atan2(-speed_ * supportedYaw, std::max(.1f,glm::length(gravity))),
+            -glm::radians(std::min(maximumLean,60.f)), glm::radians(std::min(maximumLean,60.f)));
+        const glm::vec3 targetUp = normal * std::cos(lean) + lateral * std::sin(lean);
+        const glm::vec3 restoring = glm::cross(up, targetUp) * (groundStability * dt);
         for (const auto axis : {heading, lateral}) {
             const float spin = glm::dot(world.angularVelocity(id), axis);
             const float correction = glm::dot(restoring, axis) - spin * decay;
@@ -182,6 +191,8 @@ void SurfaceDriveBehaviour::describe(reflect::TypeBuilder<SurfaceDriveBehaviour>
     t.property("aerodynamicDrag", &SurfaceDriveBehaviour::aerodynamicDrag).range(0, .1);
     t.property("gripResponse", &SurfaceDriveBehaviour::gripResponse).range(0, 60);
     t.property("steeringResponse", &SurfaceDriveBehaviour::steeringResponse).range(0, 60);
+    t.property("speedSteering", &SurfaceDriveBehaviour::speedSteering).range(0, 1);
+    t.property("maximumLean", &SurfaceDriveBehaviour::maximumLean).range(0, 60);
     t.property("damage", &SurfaceDriveBehaviour::damage).range(0, 1);
     t.property("steeringBias", &SurfaceDriveBehaviour::steeringBias).range(-1, 1);
     t.property("parked", &SurfaceDriveBehaviour::parked);

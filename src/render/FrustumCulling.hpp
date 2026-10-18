@@ -4,8 +4,26 @@
 #include "graphics/Mesh.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 namespace saida {
+
+// Test in local space against the light's actual clip volume. Transforming
+// the planes rather than a sphere keeps nonuniform scale and shear conservative.
+inline bool aabbIntersectsClipVolume(const Aabb& bounds, const glm::mat4& clipFromLocal) {
+    const glm::mat4 rows = glm::transpose(clipFromLocal);
+    const glm::vec4 planes[] = {rows[3] + rows[0], rows[3] - rows[0],
+        rows[3] + rows[1], rows[3] - rows[1], rows[2], rows[3] - rows[2]};
+    const glm::vec3 center = bounds.center();
+    const glm::vec3 half = bounds.extent() * .5f;
+    for (const auto& plane : planes) {
+        const float distance = glm::dot(glm::vec3(plane), center) + plane.w;
+        const float radius = glm::dot(glm::abs(glm::vec3(plane)), half);
+        constexpr float relativeTolerance = 1e-4f;
+        if (distance + radius < -relativeTolerance * (1.f + std::abs(distance) + radius)) return false;
+    }
+    return true;
+}
 
 inline bool sphereIntersectsFrustum(const Frustum& frustum,
                                     const glm::vec3& center,

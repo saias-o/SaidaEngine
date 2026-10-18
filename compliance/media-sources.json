@@ -1,0 +1,17 @@
+[
+  {
+    "name": "curl",
+    "url": "https://curl.se/download/curl-8.23.0.tar.xz",
+    "sha256": "8dadd7d2536a314f982ad05a651b713f426bf7d02cc2c76cffb9796f2218e6c5"
+  },
+  {
+    "name": "mbedtls",
+    "url": "https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-3.6.7/mbedtls-3.6.7.tar.bz2",
+    "sha256": "a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6"
+  },
+  {
+    "name": "Mozilla CA bundle via curl",
+    "url": "https://curl.se/ca/cacert.pem",
+    "sha256": "a41b5d356aea97a529fe27e0f7316d2f9d946d75927476cf9cf1b90637d00505"
+  }
+]

@@ -233,6 +233,8 @@ target_compile_definitions(saida_player PRIVATE
     SAIDA_PROJECT_ROOT="/" SAIDA_SHADER_DIR="/shaders" SAIDA_RUNTIME_DIR="/")
 target_compile_options(saida_player PRIVATE -fexceptions $<$<CONFIG:Release>:-Oz> --use-port=emdawnwebgpu)
 target_link_libraries(saida_player PRIVATE quickjs Jolt RmlUi::RmlUi)
+include(${SAIDA_ROOT}/cmake/MediaRuntime.cmake)
+saida_add_media_runtime(saida_player)
 
 target_link_options(saida_player PRIVATE
     --use-port=emdawnwebgpu

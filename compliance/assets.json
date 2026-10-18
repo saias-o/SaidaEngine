@@ -8820,6 +8820,14 @@
       "license": "GPL-3.0-only",
       "copyrightText": "Copyright Saida Engine contributors",
       "provenance": "First-party golden-image reference: a frame of WitnessGame rendered by the engine under Lavapipe, recorded by tools/witness_golden_image.sh --record."
+    },
+    {
+      "path": "third_party/mbedtls/docs/architecture/psa-thread-safety/key-slot-state-transitions.png",
+      "kind": "upstream-documentation",
+      "distribution": false,
+      "license": "Apache-2.0",
+      "copyrightText": "Copyright The Mbed TLS Contributors",
+      "provenance": "Unmodified architecture diagram from pinned Mbed TLS 3.6.7 release; not part of player bundles."
     }
   ]
 }

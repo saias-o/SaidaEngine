@@ -1,9 +1,11 @@
 #include "core/PlatformCaps.hpp"
 #include "runtime/BootManifest.hpp"
+#include "runtime/ProjectArgs.hpp"
 
 #include <cassert>
 #include <sstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -69,6 +71,19 @@ void testPlatformCaps() {
 } // namespace
 
 int main() {
+    auto parse = [](std::vector<std::string> args, bool expected, std::string value = "") {
+        std::vector<char*> argv;
+        for (auto& arg : args) argv.push_back(arg.data());
+        std::string project, error;
+        assert(saida::runtime::parseProjectArgs(int(argv.size()), argv.data(), project, error) == expected);
+        if (expected) assert(project == value);
+        else assert(!error.empty());
+    };
+    parse({"game"}, true);
+    parse({"game", "--project", "A game & tools/game.saidaproj"}, true, "A game & tools/game.saidaproj");
+    parse({"game", "--project"}, false);
+    parse({"game", "--project", "--profile"}, false);
+    parse({"game", "--project", "a", "--project", "b"}, false);
     testBootManifestParse();
     testBootManifestErrors();
     testPlatformCaps();

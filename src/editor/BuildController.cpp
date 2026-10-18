@@ -62,6 +62,10 @@ void BuildController::executeBuild(Project* project, bool web,
     options.productVersion = version_;
     options.companyName = company_;
     options.iconPath = iconPath_;
+    std::error_code identityError;
+    if (!web && !nativeProjectRoot_.empty() &&
+        std::filesystem::equivalent(nativeProjectRoot_, project->rootPath(), identityError))
+        options.runtimeTemplate = nativePlayer_;
 
     BuildExporter::Result result = web
         ? BuildExporter::exportWebBuild(*project, options)

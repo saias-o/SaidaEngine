@@ -96,6 +96,17 @@ native UCRT64 shell.
 
 ## Required verification
 
+Native games must consume the build-tree CMake SDK (`<engine-build>/sdk`) through
+`Saida::Engine`/`saida_add_game`; do not parse Ninja files or duplicate compiler
+flags in a game launcher. Keep gameplay sources and generated registration in
+the project. `WITH_EDITOR` supplies a project editor with those same types;
+never patch the engine's built-in `ReflectedTypes.cpp` to add game logic.
+`templates/native-game` is the minimal independent consumer. CTest's
+`saida_native_sdk_consumer` configures, builds and packages a copy in a path
+containing spaces and a shell metacharacter, builds its project editor and
+verifies that an incompatible SDK configuration fails explicitly. Desktop
+capture/play tests remain separate from this compiler-only check.
+
 Run checks proportional to the change and report exactly which commands were
 run. The baseline verification is:
 

@@ -11,11 +11,26 @@
 #include "scene/Scene.hpp"
 #include "nodes/UICanvasNode.hpp"
 #include "nodes/UITextNode.hpp"
+#include "project/GameTypes.hpp"
 
 #include <cassert>
 #include <memory>
 #include <set>
 #include <string>
+
+namespace game {
+struct ProjectProbe : saida::Behaviour {
+    SAIDA_REFLECT_BEHAVIOUR(ProjectProbe, "ProjectProbe")
+    float value = 3.5f;
+};
+void ProjectProbe::describe(saida::reflect::TypeBuilder<ProjectProbe>& t) {
+    t.property("value", &ProjectProbe::value);
+}
+struct ReservedProbe : saida::Behaviour {
+    SAIDA_REFLECT_BEHAVIOUR(ReservedProbe, "Camera")
+};
+void ReservedProbe::describe(saida::reflect::TypeBuilder<ReservedProbe>&) {}
+} // namespace game
 
 int main() {
     using namespace saida;
@@ -145,5 +160,23 @@ int main() {
     error.clear();
     assert(!verifyRegisteredRuntimeTypes(RuntimeTypeTarget::Headless, error));
     assert(error.find("UnexpectedTestNode") != std::string::npos);
+
+    // Project extensions round-trip without modifying the engine catalog.
+    registerGameBehaviour<game::ProjectProbe>();
+    auto probe = BehaviourRegistry::instance().create("ProjectProbe");
+    assert(dynamic_cast<game::ProjectProbe*>(probe.get()));
+    nlohmann::json properties;
+    probe->save(properties);
+    assert(properties["value"] == 3.5f);
+    properties["value"] = 9.0f;
+    probe->load(properties);
+    assert(dynamic_cast<game::ProjectProbe*>(probe.get())->value == 9.0f);
+    bool collision = false;
+    try { registerGameBehaviour<game::ProjectProbe>(); } catch (const std::runtime_error&) { collision = true; }
+    assert(collision);
+    collision = false;
+    try { registerGameBehaviour<game::ReservedProbe>(); } catch (const std::runtime_error&) { collision = true; }
+    assert(collision);
+    assert(verifyRegisteredRuntimeTypes(RuntimeTypeTarget::Headless, error, true));
     return 0;
 }

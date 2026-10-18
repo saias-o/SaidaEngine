@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-10-13. This document is the engine's technical truth. It describes
+Updated: 2026-10-18. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -72,6 +72,50 @@ by an autoload, not a new global.
 - `saida_player`: WebAssembly/WebGPU game player.
 - `saida_authoring`: headless authoring-core WASM loaded by the platform.
 - `saida_web`: visual WASM/WebGPU runtime embedded in Saida Online.
+
+Native source projects consume the build-tree CMake package at `<build>/sdk`
+with `find_package(SaidaEngine CONFIG REQUIRED)`. `Saida::Engine` and
+`Saida::Editor` export their actual transitive include directories, libraries,
+definitions and ABI options, including Jolt. The consumer must use the same
+compiler version, architecture and single build configuration; mismatches are
+rejected at configure time. This is a source/build-tree SDK, not a relocatable
+installed binary SDK. Engine source and its built dependencies remain required
+for development. OpenXR uses its pinned JSON source rather than a system DLL.
+
+`saida_add_game(Target PROJECT_DIR <root> [SOURCES ...] [CUSTOM_MAIN]
+[WITH_EDITOR])` creates a separate native game target. Without `CUSTOM_MAIN`,
+it uses the engine's existing standalone entry point, the project directory as
+its development default and the project's `mainScene`. `--project <file|dir>`
+overrides that default; a packaged `game.saida` beside the executable takes
+precedence over the baked development default. The package keeps save identity
+in the OS user folder; development leaves project-local storage unchanged.
+`CUSTOM_MAIN` leaves boot/lifecycle ownership with the host, which can include
+the generated `ProjectTypes.hpp` and call `registerProjectTypes()` explicitly.
+
+Project behaviours live in `src/generated/<Class>.hpp/.cpp`, in namespace
+`game`. The helper generates an explicit registration call for every such
+source, avoiding static-library dead stripping and engine-source patching.
+`registerGameBehaviour<T>()` registers reflection and the factory together,
+rejecting duplicate names and reserved built-in names. Native engine startup
+requires the complete engine type catalog while allowing game additions; the
+separate contract verifier retains exact engine-catalog checks.
+`WITH_EDITOR` additionally defines `Target_editor` (excluded from the default
+build), linking the same project types into the existing editor and MCP host.
+Its native Build workflow selects the matching project-compiled player when
+the loaded project is the one the host was built for. Other project roots do
+not inherit that executable override.
+New C++ types require closing, rebuilding and restarting that editor. They are
+not hot-loaded into the stock editor or the stock Web player. Scripts remain
+the live, portable iteration path. `templates/native-game` exercises this model
+with a local rotating-cube behaviour and no external game content.
+
+For the default entry point, `Target_package` exports through the existing
+`BuildExporter`, selecting that project's compiled executable with
+`saida_tool export-game <project> --runtime <executable>`. Native code under
+`src/` or `native/` prevents silently exporting the stock runtime; stock Web
+export also rejects it explicitly. The default entry point understands the
+resulting boot manifest, so packaged native behaviour factories survive export.
+Custom-main hosts must implement their own packaged boot contract.
 
 ### 2.2 Ownership and loop
 
@@ -293,7 +337,13 @@ PBR metallic-roughness, lit/unlit materials, IBL, ACES, directional, point and
 spot lights, PCF shadow mapping, SSAO, bloom, fog, xatlas lightmap baking and
 DDGI. The depth pass skins its casters from the same bone palette as the scene
 pass, so an animated character casts the shadow of the pose it is actually in;
-the shadow pipeline therefore binds set 0, where that palette lives. Point lights
+the shadow pipeline therefore binds set 0, where that palette lives. Rigid
+casters wholly outside each light's Vulkan clip volume are rejected before
+issuing their draw; the local AABB plane test remains conservative under shear
+and nonuniform/negative scale. This uses the light's volume rather than the
+eye's frustum, retaining offscreen casters whose shadows may be visible.
+Skinned meshes are retained because their authored bounds need not contain
+every animated pose. Point lights
 do not yet have a shadow cubemap. Lightmaps are regenerated
 and are not yet part of the durable package.
 
@@ -749,6 +799,12 @@ diagnostic work as well as loading and gameplay. A `--profile` trace carries
 each frame's counters as Chrome counter events (`"ph":"C"`), beside the scopes
 and GPU zones; the log keeps their peaks.
 
+`MemoryProfiler::availableHostBytes()` queries host allocation headroom without
+a Vulkan device or capture. On Windows it returns the smaller of available
+physical RAM and remaining system commit; failure and unsupported platforms
+return `nullopt`. Background producers can use it for admission control; it is
+a sampled estimate, not an allocation guarantee.
+
 ### 4.2 AssetRegistry and AssetLoader
 
 `AssetRegistry` is the only base of identities. `AssetLoader` exposes
@@ -890,11 +946,22 @@ subtrees. Detached prototypes and other scenes do not invalidate the live scene.
 Removal uses cached identities without dereferencing destroyed nodes, including
 reparenting and `clearChildren`. Dense render/simulation lists have unspecified
 iteration order; gameplay must not rely on hierarchy order for per-frame updates.
-This does not eliminate the transform traversal: mutable `Transform&` still
-requires comparison during `updateTransforms`. `Node::localMatrix` caches the
-affine matrix by comparing position, rotation and scale on every read; writes
-through retained transform references are detected without setter invalidation.
-Reading the local cache does not consume world-transform propagation or revisions.
+`Node::updateTransforms` keeps a parent-before-child flat traversal per updated
+root, refreshed only when that subtree's child topology changes. Unchanged
+branches reuse their contiguous traversal records and observed TRS snapshots;
+only changed branches inspect their child lists. Visibility,
+resource and behaviour edits do not rebuild this traversal. Every pass still
+compares local TRS values, including hidden/disabled nodes, to detect writes
+through retained mutable `Transform&` references. Only changed local matrices
+and descendants of changed world poses are propagated. Reparenting invalidates
+the child's world pose even when its local TRS is unchanged. Changed ancestor
+bounds receive a shared revision for the propagation batch; unchanged passes
+leave transform revisions untouched. Subtree updates and rebases remain valid
+independently of a cached traversal at an ancestor.
+`Node::localMatrix` separately caches the affine matrix by comparing position,
+rotation and scale on read. Reading that cache does not consume world-transform
+propagation or revisions. The same comparison runs after physics, so direct
+callback edits remain visible without requiring setter invalidation.
 
 `Transform::matrix` constructs affine TRS directly from scaled rotation columns
 and the translation column. It preserves negative/nonuniform scales without a
@@ -1288,6 +1355,11 @@ gravity or collision response. Support must face against gravity, remain within
 a pitched chassis cannot use a wall as road. Ground probes do not create wheel springs.
 Optional `groundStability` and `groundDamping` apply road-aligned tilt feedback
 using the body's actual angular inertia. They do not operate in flight.
+Optional `speedSteering` reduces steering lock by `1 + coefficient * speed²`.
+Optional `maximumLean` (degrees, default 0, clamped to 60) banks into the supported
+turn using signed speed and measured yaw rate against gravity. It returns upright
+at rest and preserves pitch and airborne solver motion. Both fields are reflected;
+zero retains existing upright handling. Native and Web use the same implementation.
 Optional bump absorption (`bumpLaunchSpeed`, `bumpSpin`, `bumpReach`, default
 off) stands in for a suspension on bodies riding rigid wheel contacts: while the
 road is within `bumpReach` below and the body is upright, an upward separation
@@ -1550,6 +1622,55 @@ before starting sound; the player therefore starts muted and unlocks on the firs
 click/touch. `AudioManager::preload(name)` decodes a file once and keeps it
 resident until shutdown; later `play` calls of it share the decoded data instead
 of reading and decoding the file on the calling thread.
+
+`AudioStream` is an independent C++ HTTP(S) player for remote, non-spatial
+media. `cmake/MediaRuntime.cmake` adds its platform implementation and transport
+to native and Web players. Native builds statically include libcurl 8.23.0,
+Mbed TLS 3.6.7, Mozilla CA certificates and miniaudio's MP3/WAV decoders; they
+need no external player, downloaded codec or certificate file. HTTPS validates
+certificates and hostnames; redirects stay within HTTP(S). Dependency archives
+and the certificate snapshot are pinned in `compliance/media-sources.json`.
+Refresh the trust snapshot and maintained TLS release as part of release upkeep.
+
+Native network and decoding workers communicate through a 512 KiB compressed
+ring and a 131,072-frame stereo float PCM ring (1 MiB), independent of programme
+length. The device callback only consumes PCM, applies gain and fills underruns
+with silence. It performs no I/O or blocking buffer waits. Stopping cancels the
+workers immediately from the caller's perspective; shared job ownership keeps
+late worker/device completion separate from a replacement or destroyed stream.
+Device and decoder teardown belong to the decoder worker. The same implementation
+cross-compiles for Android ARM64, using miniaudio's Android audio backend; Apple
+builds select CoreAudio. MP3/WAV form the portable streaming baseline; this service
+does not promise native AAC decoding through an installed OS codec.
+
+The single-threaded Web implementation uses an HTML media element routed through
+WebAudio source/gain nodes. Its shared context is created in a trusted user
+interaction, including before asynchronous discovery completes. `AwaitingGesture`
+keeps a deferred stream pending until a click, key or touch can start it. Removed
+sources cannot be resurrected by delayed events/promises. Browser CORS, mixed
+content and broadcaster availability remain real constraints: failures are
+reported to the caller, which can advance to another station.
+
+`status()` reports stopped/opening/playing/buffering/ended/failed/awaiting-gesture
+and a backend error. `stop()` releases the current source; volume is finite and
+bounded to 0–1. Local file URLs and ASCII control characters are rejected. Hosts
+apply their master gain. Project audio aliases remain a separate service.
+
+`HttpRequest` provides cancellable, pollable, bounded HTTP GETs to native and Web
+players. Native requests use a worker and the same embedded HTTPS transport;
+Web requests use Fetch/AbortController with no pthreads or Asyncify requirement.
+Responses preserve HTTP status, binary-safe bodies and errors. Late completion
+cannot reach a cancelled/replaced request. Default limits are six seconds and
+16 MiB; redirects and browser policy are not bypassed.
+
+`tests/portable_media` builds these exact sources without a renderer. Native
+stream/HTTP fixtures and real Radio France MP3 playback pass. Browser fixtures
+measure decoded PCM and gain, gesture unlocking, replacement, CORS errors,
+request budgets, timeout and cancellation. An Android API 26 ARM64 shared-library
+fixture links with undefined-symbol checking and only standard Android shared
+libraries. This verifies the media module, not a complete Android/Quest game
+export or on-device playback; physical Android/Quest and Apple validation remain
+open in `ROADMAP.md`.
 
 ### 5.4 Player storage
 
@@ -2358,10 +2479,18 @@ permissions, validation, dry-run/diff, grouped transactions, snapshot/rollback
 and audit. World model, skills and autonomous agents stay out of V1 as long as
 these guardrails are not closed.
 
-`write_cpp_behaviour` writes LLM behaviours under `src/generated/`. CMake globs
-them into `saida_engine` and their registration goes through
-`scene/ReflectedTypes.cpp`. This path is a privileged C++ write: it must stay
-behind permissions, diff, validation, build and rollback.
+`write_cpp_behaviour` writes behaviours under the **open project's**
+`src/generated/`, never the engine checkout, and does not modify its built-in
+registration source. It validates identifiers, property types/defaults and
+escapes string literals; existing files are refused rather than overwritten.
+`build` operates on that project's configured CMake directory (`build` by
+default, project-relative `directory` override), checks the cache's source
+identity and launches CMake directly without a shell. Both operations require
+an open editable project. Compiler output is returned with its real exit code.
+New types become available in its rebuilt native player/project editor, with
+the restart requirement described in section 2.1.
+Project C++ is trusted native host code; it is not constrained by the gameplay
+script capability sandbox.
 
 ### 11.1 Optional Python authoring plugin
 
