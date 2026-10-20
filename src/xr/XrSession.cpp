@@ -91,21 +91,19 @@ void Session::selectReferenceSpace() {
 
 void Session::createReferenceSpace() {
     // Prefer STAGE so physical movement is expressed in a floor-level room-scale
-    // space. LOCAL remains the mandatory fallback. The rig offset is baked into
-    // poseInReferenceSpace so teleport/snap-turn still recenter the whole rig.
+    // space. LOCAL remains the mandatory fallback, lifted to standing eye height
+    // so the rig is the floor in both. The rig is baked into the app space so
+    // teleport/snap-turn recenter everything located in it (views, hands).
     if (appSpace_ != XR_NULL_HANDLE) {
         xrDestroySpace(appSpace_);
         appSpace_ = XR_NULL_HANDLE;
     }
-    const float half = originYaw_ * 0.5f;
+    glm::vec3 floor = originPos_;
+    if (appSpaceType_ == XR_REFERENCE_SPACE_TYPE_LOCAL) floor.y += kLocalSpaceEyeHeight;
     XrReferenceSpaceCreateInfo ci{};
     ci.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
     ci.referenceSpaceType = appSpaceType_;
-    ci.poseInReferenceSpace.orientation.x = 0.0f;
-    ci.poseInReferenceSpace.orientation.y = std::sin(half);
-    ci.poseInReferenceSpace.orientation.z = 0.0f;
-    ci.poseInReferenceSpace.orientation.w = std::cos(half);
-    ci.poseInReferenceSpace.position = {originPos_.x, originPos_.y, originPos_.z};
+    ci.poseInReferenceSpace = appSpacePoseForRig(floor, originYaw_);
     check(xrCreateReferenceSpace(session_, &ci, &appSpace_), "xrCreateReferenceSpace");
 }
 
@@ -114,6 +112,12 @@ void Session::setReferenceOffset(const glm::vec3& position, float yawRadians) {
     originPos_ = position;
     originYaw_ = yawRadians;
     if (session_ != XR_NULL_HANDLE) createReferenceSpace();
+}
+
+void Session::setClipPlanes(float nearZ, float farZ) {
+    if (!(nearZ > 0.0f) || !(farZ > nearZ)) return;
+    nearZ_ = nearZ;
+    farZ_ = farZ;
 }
 
 void Session::syncActions() {

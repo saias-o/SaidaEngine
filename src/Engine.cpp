@@ -53,6 +53,7 @@
 #include "xr/XrRegistration.hpp"
 #include "xr/toolkit/XRInput.hpp"
 #include "xr/toolkit/XROrigin.hpp"
+#include "xr/toolkit/XRTypes.hpp"
 #endif
 
 #include <exception>
@@ -664,6 +665,7 @@ void Engine::runXr() {
         float realDt = static_cast<float>(now - last);
         last = now;
         Time::update(realDt);
+        resources_->pumpAssetLoads();
         Input::newFrame();
         XRInput::beginFrame();
         xrSession_->syncActions();
@@ -675,6 +677,9 @@ void Engine::runXr() {
             XRInput::submitHead(head);
         }
 
+        // The application frame runs here as on desktop: a game is the same
+        // game in a headset, only its presentation differs.
+        if (onFrame_) onFrame_(realDt);
         Scene* activeScene = sceneOverride_ ? sceneOverride_ : scene_.get();
         activeScene->update(Time::delta());
         if(afterSimulation_) {
@@ -682,6 +687,11 @@ void Engine::runXr() {
             activeScene=sceneOverride_?sceneOverride_:scene_.get();
             activeScene->updateTransforms(glm::mat4(1.f),false);
         }
+
+        // The scene camera still owns the lens the eyes share: its clip planes
+        // reach the headset. Its pose does not; the head is the camera.
+        if (sceneTree_->mounted()) cameraDirector_.update(*activeScene, camera_, Time::delta());
+        xrSession_->setClipPlanes(camera_.nearZ, camera_.farZ);
 
         if (sceneTree_->mounted()) {
             sceneTree_->applyDeferred();
@@ -691,17 +701,24 @@ void Engine::runXr() {
         AudioManager::get().update();
 
         {
-            XROrigin* origin = nullptr;
-            activeScene->traverse([&](Node& n, const glm::mat4&) {
-                if (!origin)
-                    if (auto* o = dynamic_cast<XROrigin*>(&n)) origin = o;
-            });
+            // A mounted tree indexes the rig by group; a large world is not
+            // walked node by node every frame to find it.
+            XROrigin* origin = sceneTree_->mounted()
+                ? dynamic_cast<XROrigin*>(sceneTree_->firstInGroup(kXROriginGroup))
+                : nullptr;
+            if (!sceneTree_->mounted())
+                activeScene->traverse([&](Node& n, const glm::mat4&) {
+                    if (!origin)
+                        if (auto* o = dynamic_cast<XROrigin*>(&n)) origin = o;
+                });
             if (origin)
                 xrSession_->setReferenceOffset(origin->transform().position,
                                                glm::radians(origin->yawDegrees));
         }
 
         camera_.position = xrSession_->headPosition();
+        camera_.lookAt(camera_.position +
+                       xrSession_->headOrientation() * glm::vec3(0.0f, 0.0f, -1.0f));
         if (now - lastPoseLog > 1.0) {
             lastPoseLog = now;
             glm::vec3 p = xrSession_->headPosition();

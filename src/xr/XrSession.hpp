@@ -53,7 +53,11 @@ public:
     int64_t colorFormat() const { return colorFormat_; }
 
     // Recenter the reference space for locomotion/teleport.
+    // The rig is the floor: a tracked pose comes back as R(yaw) * pose + position.
     void setReferenceOffset(const glm::vec3& position, float yawRadians);
+
+    // Eye projection clip planes, in metres; an invalid pair is ignored.
+    void setClipPlanes(float nearZ, float farZ);
 
     // Feed XRInput once per frame, before scene update, so edges are fresh.
     void syncActions();

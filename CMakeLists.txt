@@ -264,7 +264,8 @@ foreach(SHADER ${SHADERS})
        OR SHADER_NAME STREQUAL "cartoon_water.vert" OR SHADER_NAME STREQUAL "cartoon_water_surface.vert"
        OR SHADER_NAME STREQUAL "outline.vert" OR SHADER_NAME STREQUAL "terrain_rings.vert"
        OR SHADER_NAME STREQUAL "grass.vert"
-       OR SHADER_NAME STREQUAL "particle_render.vert")
+       OR SHADER_NAME STREQUAL "particle_render.vert"
+       OR SHADER_NAME STREQUAL "web_canvas_world.vert")
         set(MULTIVIEW_OUTPUT ${SHADER_OUT_DIR}/multiview.${SHADER_NAME}.spv)
         add_custom_command(
             OUTPUT ${MULTIVIEW_OUTPUT}
@@ -805,6 +806,18 @@ if (BUILD_TESTING)
     target_include_directories(saida_reversed_depth_tests PRIVATE src)
     target_compile_options(saida_reversed_depth_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_reversed_depth_tests COMMAND $<TARGET_FILE:saida_reversed_depth_tests>)
+
+    # The XR rig is the inverse of the app space OpenXR locates poses in; the
+    # sign is invisible without a headset, so it is proven on the math alone.
+    if(SAIDA_ENABLE_XR)
+        add_executable(saida_xr_rig_pose_tests tests/XrRigPoseTests.cpp)
+        saida_test_target(saida_xr_rig_pose_tests)
+        target_include_directories(saida_xr_rig_pose_tests PRIVATE src)
+        target_link_libraries(saida_xr_rig_pose_tests PRIVATE glm::glm openxr_loader)
+        target_compile_definitions(saida_xr_rig_pose_tests PRIVATE GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE)
+        target_compile_options(saida_xr_rig_pose_tests PRIVATE -Wall -Wextra)
+        add_test(NAME saida_xr_rig_pose_tests COMMAND $<TARGET_FILE:saida_xr_rig_pose_tests>)
+    endif()
 
     # The same flags are obeyed by the editor and the player; a divergence would
     # compare two differently-configured runs. Header-only parser, so the test

@@ -24,12 +24,16 @@ public:
     // Called by the internal tracker behaviour once per scene update.
     void updateTrackingVisuals();
 
+    // A hand made in code rather than loaded from a scene builds its joints
+    // here (loading does it itself); calling again rebuilds with a new colour.
+    void buildVisuals(ResourceManager& resources);
+    void setColor(const glm::vec4& color) { color_ = color; }
+
     const char* typeName() const override { return "XRHand"; }
     void serialize(nlohmann::json& j, ResourceManager& resources) const override;
     void deserialize(const nlohmann::json& j, ResourceManager& resources) override;
 
 private:
-    void buildVisuals(ResourceManager& resources);
     void setVisualsVisible(bool visible);
 
     saida::XRHand hand_;

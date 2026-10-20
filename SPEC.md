@@ -2534,6 +2534,17 @@ device at startup. The test scene is `assets/scenes/XRSetup.scene` (passed via
 `--xr --scene <path>`). Quest Link and the Meta/Oculus runtime must be active for
 a Quest test.
 
+A game opts into XR by constructing `Engine` with `requireXr`. The XR loop is
+the desktop frame minus the window presentation: asset loads, the application
+callback (`setOnFrame`), scene update, `setAfterSimulation`, the CameraDirector
+(whose camera's `nearZ`/`farZ` become the eye clip planes) and deferred tree
+ops; the head then replaces the camera pose. The `XROrigin` rig is the floor in
+both STAGE and LOCAL spaces (LOCAL is lifted by `kLocalSpaceEyeHeight`): a
+tracked pose comes back as `R(yaw) * pose + rig`, the app space being created
+as the rig's inverse (`xr::appSpacePoseForRig`, proven by
+`saida_xr_rig_pose_tests`). A mounted tree finds the rig by its `xr_origin`
+group.
+
 Limits: multiview MSAA/resolve, XR ImGui overlay, real anchors backend and a
 reproducible headsets/runtimes matrix not closed. The logs indicate hand-tracking
 support and active/lost transitions; a compilation does not replace the hardware

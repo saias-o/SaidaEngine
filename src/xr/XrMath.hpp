@@ -35,6 +35,24 @@ inline glm::mat4 viewFromPose(const XrPosef& pose) {
     return glm::inverse(modelFromPose(pose));
 }
 
+// Eye height a LOCAL reference space puts its origin at: LOCAL is centred on
+// the head at startup, STAGE on the floor. The rig (XROrigin) is the floor in
+// both, so a LOCAL space is lifted by this much.
+inline constexpr float kLocalSpaceEyeHeight = 1.6f;
+
+// The pose to create the app space with (poseInReferenceSpace) so that a
+// tracked pose comes back as rig * tracked: world = R(yaw) * tracked + rig.
+// OpenXR locates views *in* the app space, i.e. through the inverse of this
+// pose, so the app space is the inverse of the rig.
+inline XrPosef appSpacePoseForRig(const glm::vec3& rigPosition, float rigYawRadians) {
+    const glm::quat inverse = glm::angleAxis(-rigYawRadians, glm::vec3(0.0f, 1.0f, 0.0f));
+    const glm::vec3 position = inverse * -rigPosition;
+    XrPosef pose{};
+    pose.orientation = {inverse.x, inverse.y, inverse.z, inverse.w};
+    pose.position = {position.x, position.y, position.z};
+    return pose;
+}
+
 // Vulkan Y-down clip space is baked in here; callers must not flip Y again.
 // Depth is reversed like the desktop camera's: near 1, far 0.
 inline glm::mat4 projectionFromFov(const XrFovf& fov, float nearZ, float farZ) {
