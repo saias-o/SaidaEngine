@@ -67,7 +67,7 @@ int usage(std::ostream& out) {
            "  saida_tool validate-clipview <view.sclip> [--root <dir>] [--pretty]\n"
            "  saida_tool validate-animgraph <graph.sgraph> [--root <dir>] [--pretty]\n"
            "  saida_tool validate-sequence <sequence.sseq> [--root <dir>] [--pretty]\n"
-           "  saida_tool render-ui <document> --project <dir> [--size WxH]\n"
+           "  saida_tool render-ui <document> --project <dir> [--size WxH] [--time seconds]\n"
            "                    [--out <png>] [--layout-json <file|->] [--pretty]\n"
            "                    [--allow-warnings]\n"
            "  saida_tool validate-ui <document> --project <dir> [--size WxH] [--pretty]\n"

@@ -212,6 +212,15 @@ public:
     // the assets outside this set.
     void setLiveUsage(AssetUsage usage);
 
+    // Keeps a texture resident although no scene node references it: neither
+    // trimUnused nor the GPU budget evicts a retained texture. For renderer
+    // features that sample textures directly (a menu globe, a UI backdrop).
+    // Counted; each retainTexture needs one releaseTexture. The first retain
+    // also starts the load at Critical priority, ahead of streamed content:
+    // whatever samples it is on screen now. `srgb` as for getTexture.
+    void retainTexture(AssetID id, bool srgb = true);
+    void releaseTexture(AssetID id);
+
     // Hands off a GPU object that may still be referenced by an in-flight
     // frame; it will be destroyed after kRetireFrames pumps (ThumbnailCache pattern).
     void retireBindGroup(std::unique_ptr<rhi::BindGroup> group);

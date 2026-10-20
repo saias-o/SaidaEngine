@@ -69,6 +69,12 @@ public:
     // Pausing
     void pause(const std::string& audioName);
     void pause(AudioID id);
+    // Continues a paused sound where it stopped (a menu's music after play).
+    void resume(AudioID id);
+    // Volume of one playing sound, 0..1 before the master volume: fades.
+    void setVolume(AudioID id, float volume);
+    // False for a paused, finished or unknown sound.
+    bool isPlaying(AudioID id);
 
     void setMasterVolume(float volume);
     float masterVolume() const;

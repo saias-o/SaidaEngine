@@ -1,5 +1,6 @@
 #include "WeatherRenderTestSupport.hpp"
 #include "StormSkyRenderTests.hpp"
+#include "FogSkyRenderTests.hpp"
 #include "graphics/Material.hpp"
 #include "graphics/Mesh.hpp"
 #include "graphics/ResourceManager.hpp"
@@ -134,6 +135,7 @@ int main(int argc, char** argv) {
         const std::filesystem::path output = argc >= 3 ? argv[2] : "build/weather-captures";
         gpu(output);
         saida::weather_test::runStormSkyGpuTests(output);
+        saida::weather_test::runFogSkyGpuTests(output);
     }
     std::printf("[weather] PASS (%d checks)\n", saida::weather_test::checks);
 }

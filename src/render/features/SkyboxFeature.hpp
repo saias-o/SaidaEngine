@@ -12,6 +12,8 @@
 
 namespace saida {
 
+class SceneSettings;
+
 // Equirectangular skybox. Owns its own descriptor set (the environment texture,
 // and the second sky it crossfades into — `SceneSettings::skyboxBlend`) and draws a fullscreen triangle at the far plane. Handles both the mono (desktop)
 // and stereo (XR multiview, per-eye via gl_ViewIndex) paths; in XR passthrough the
@@ -21,6 +23,9 @@ class SkyboxFeature : public ScenePassFeature {
 public:
     ~SkyboxFeature() override;
     void createPipelines(const RenderContext& ctx) override;
+    // Renders the sky probe (RenderFeature.hpp) when the fog asks for the
+    // sky's colour: mono views only.
+    void recordPrePass(const PrePassContext& pc) override;
     void record(FrameContext& fc) override;
 
 private:
@@ -39,7 +44,12 @@ private:
     ResourceManager* resources_ = nullptr;
     bool stereo_ = false;
 
+    // Binds the current sky (and the one it fades into); false without one.
+    bool bindSky(const SceneSettings& settings, float& blend);
+    MonoPush monoPush(const SceneSettings& settings, const glm::mat4& invViewProj, float blend) const;
+
     std::unique_ptr<Pipeline> pipeline_;
+    std::unique_ptr<Pipeline> probePipeline_;
     std::unique_ptr<rhi::BindGroupLayout> setLayout_;
     std::unique_ptr<rhi::BindGroup> set_;
     AssetID currentTexture_ = kAssetInvalid;

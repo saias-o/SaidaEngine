@@ -1169,10 +1169,9 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   went from `display=inline` box `0x0` to `display=block` box `200x80`, with
   the text correctly centred.
 
-  Left open deliberately: tags outside the specified list (`header`, `nav`,
-  `ul`, `li`, `article`, …) keep RCSS's `inline` default and hit the same trap.
-  Extending the list is a contract change, so it is a decision rather than an
-  oversight.
+  Extended on 2026-10-20 to semantic HTML containers, form controls and
+  `[hidden]`, with a rendered authoring test. Tags outside the published list
+  keep RCSS's `inline` default.
 
 - [x] UI: give a screen-space canvas a reference resolution.
   `WebCanvasNode` carries `referenceWidth`/`referenceHeight` and a `scaleMode`
@@ -1231,6 +1230,37 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
 
 #### 6.3.3 Content pipeline and authoring surface
 
+- [x] Animated UI authoring baseline (2026-10-20): unscaled animation clock,
+  requested-update deadlines, hover invalidation without clicks, top-left CPU
+  alpha coverage, HTML-root/stylesheet/void-tag adaptation, Web alpha and
+  millisecond/ease aliases, attribute/value/hidden DOM methods, textContent
+  semantics and common style accessors. `render-ui --time` samples the CSS
+  timeline at 60 Hz; unsupported shader decorators/filters are diagnostics.
+- [x] Native document GPU baseline: immutable draw-list capture, cached source
+  textures, premultiplied triangle blending and sRGB resolve, per-frame owned
+  uploads/descriptors, fence-safe resize/retirement. CPU tooling and the
+  `SAIDA_UI_RENDERER=cpu` comparison path remain available. GPU tests cover
+  pixels, clipping, transforms, JS controls, idle animation, hover and resize;
+  full WebGPU document parity and advanced layers/filters remain open.
+
+  Verification on 2026-10-20: the RelWithDebInfo native build and 102/102 CTest
+  cases pass, as do `describe-engine`, the native runtime contract, the Web
+  player build and the authoring-WASM build/Node smoke. R1World builds against
+  the SDK and its real-menu zoom E2E passes with the GPU canvas. All UI examples
+  validate without diagnostics; captures at 0.5 s and 1.25 s differ as expected.
+  The 1280x800 menu microbenchmark on the local RTX 4070 (16 warm samples)
+  measured CPU raster median 21.01 ms and GPU submit-plus-fence median 0.141 ms
+  (p95 1.23 ms). This excludes layout and is not MX450/whole-game qualification.
+  The Lavapipe golden-image gate was not run: its ICD is unavailable in the
+  configured UCRT64 environment. No frozen reference was regenerated.
+
+- [ ] Make repeated native SDK packaging checks independent of an earlier
+  staged package. A second full-suite run reached 101/102, with
+  `saida_native_sdk_consumer` failing to overwrite its existing runtime
+  (`File exists`). Removing only its generated `build/package` directory and
+  rerunning that test passes. The initial clean full-suite run passed 102/102;
+  no test or exporter was weakened to hide the repeat-run failure.
+
 - [ ] UI: decide the Web parity of `WebCanvasNode`. The Web player compiles
   `UICanvasNode`, `UITextNode`, `UIRenderer`, `HudRasterizer` and the RmlUi CPU
   backend, but **not** `WebCanvasNode` (absent from `web/player` and
@@ -1245,13 +1275,18 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   desktop-only surface and that the portable UI is the node path. Do not leave
   it implicit.
 
-- [ ] UI: templates for the surfaces every game needs. Authoring the menu meant
+- [x] UI: templates for the surfaces every game needs. Authoring the menu meant
   rediscovering, by reading engine and RmlUi sources, how a panel, a button, a
   focus state and a keyboard-driven selection are expressed here. None of it is
   hard once known and none of it is written down. Fix: `templates/ui/` with a
   panel, a button, a list and a menu, each a document that runs as-is against
   the current engine, referenced from CONTRIBUTING. A working example is worth
   more than a description, to a person and to a model alike.
+
+  Delivered in `templates/ui/`: shared component styles, standalone button,
+  list and panel examples, a native RmlUi panel template, and an animated menu
+  with a separate JS controller. Authoring and validation commands are in
+  CONTRIBUTING. This does not close the gamepad verification item below.
 
 - [ ] UI: demonstrate keyboard and gamepad navigation. RmlUi's `nav-*`
   properties exist and key events already reach the context
@@ -1277,7 +1312,9 @@ These items delay no release unless the promise changes explicitly:
 - network multiplayer, large terrains and genre frameworks;
 - generalized SIMD animation, massive pose sharing and GPU crowds;
 - Radiance Cascades and advanced GI research;
-- RmlUi GPU backend as long as the CPU backend meets the budgets;
+- advanced UI layers/filters and the WebGPU document backend; native document
+  GPU rendering was reopened by the user's animated-UI requirement and delivered
+  on 2026-10-20;
 - KTX2/Basis (PNG/JPG textures everywhere today);
 - full SaidaFX graph, trails/ribbons and advanced particle collisions;
 - world model, skills and autonomous agents;

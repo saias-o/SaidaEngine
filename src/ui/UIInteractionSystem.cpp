@@ -297,7 +297,9 @@ bool UIInteractionSystem::update(Scene& scene, const Camera& camera, const glm::
 
         glm::vec2 scroll = Input::scrollDelta();
         if (webInteractive && (scroll.x != 0.0f || scroll.y != 0.0f)) {
-            webHandled = webTarget->fireScrollEvent(scroll.x, scroll.y, modifiers) || true;
+            // GLFW reports positive Y upward; RmlUi and DOM wheel events
+            // report positive Y downward, including scrollable containers.
+            webHandled = webTarget->fireScrollEvent(scroll.x, -scroll.y, modifiers) || true;
         }
     } else {
         hoveredWebCanvas_ = nullptr;

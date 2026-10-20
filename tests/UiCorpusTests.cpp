@@ -475,6 +475,86 @@ void testDocumentOverridesUserAgentStyleSheet() {
             "a document's own display declaration overrides the engine stylesheet");
 }
 
+// -- <button> renders as in a browser (SPEC section 8.2) ----------------------
+//
+// A browser centres a button's label both ways with no CSS asking for it: the
+// UA sheet's `text-align: center`, and the HTML "button layout" rule that
+// centres the content block-wise unless it overflows. Pages written for a
+// browser rely on both. Each case renders white text on a transparent canvas
+// and compares where the glyphs land against the same box laid out as a plain
+// inline-block <div>, which has neither rule.
+
+struct InkBox { int left = -1, top = -1, right = -1, bottom = -1; };
+
+InkBox ink(const Raster& raster) {
+    InkBox box;
+    for (uint32_t y = 0; y < raster.height; ++y)
+        for (uint32_t x = 0; x < raster.width; ++x)
+            if (raster.at(x, y).a > 40) {
+                if (box.left < 0 || int(x) < box.left) box.left = int(x);
+                if (box.top < 0) box.top = int(y);
+                box.right = std::max(box.right, int(x));
+                box.bottom = int(y);
+            }
+    return box;
+}
+
+InkBox renderLabel(const char* label, const std::string& style, const std::string& body, float* lineHeight = nullptr) {
+    ContextFixture ctx(label, 256, 128);
+    Rml::ElementDocument* doc = RmlUiRuntime::loadDocumentFromMemory(*ctx, document(style, body), "<button-corpus>");
+    require(doc != nullptr, "button document loads through the engine loader");
+    doc->Show();
+    ctx->Update();
+    if (lineHeight) *lineHeight = doc->GetElementById("b")->GetLineHeight();
+    const InkBox first = ink(renderContext(*ctx, 256, 128));
+    // Layout runs again on every update; the label must not drift.
+    ctx->Update();
+    const InkBox again = ink(renderContext(*ctx, 256, 128));
+    require(first.top == again.top && first.left == again.left, "a button's label stays put across layouts");
+    require(first.top >= 0, "the label paints");
+    return first;
+}
+
+void testButtonCentresItsLabelLikeABrowser() {
+    const std::string common =
+        "#b { position: absolute; left: 0px; top: 0px; width: 200px; height: 80px; padding: 0px;"
+        "     border-width: 0px; font-family: Arial; font-size: 24px; color: #FFFFFF; }";
+    float lineHeight = 0;
+    const InkBox plain = renderLabel("corpus-button-div", common + "#b { display: inline-block; }",
+                                     "<div id=\"b\">HH</div>", &lineHeight);
+    const InkBox button = renderLabel("corpus-button", common, "<button id=\"b\">HH</button>");
+    require(lineHeight > 0 && lineHeight < 80, "the label's line is shorter than the button");
+    const float expected = 0.5f * (80.f - lineHeight);
+    require(std::abs((button.top - plain.top) - expected) <= 1.f,
+            "the button centres its line box vertically, by half the free height");
+    const float inkCentre = 0.5f * float(button.left + button.right);
+    require(std::abs(inkCentre - 100.f) <= 2.f, "the button centres its label horizontally");
+    require(plain.left <= 2, "a plain inline-block <div> keeps its text at the start");
+
+    // Padding is part of the box, not of the centring: 13px 20px as in a menu.
+    const InkBox padded = renderLabel("corpus-button-padded",
+        common + "#b { height: 58px; width: 188px; padding: 13px 20px; box-sizing: border-box; }",
+        "<button id=\"b\">HH</button>");
+    // Content box 13..45 (32 px): line top at 13 + (32 - lh) / 2, against
+    // (80 - lh) / 2 unpadded -- 11 px higher whatever the line height.
+    require(std::abs((padded.top - button.top) + 11) <= 1,
+            "a padded button centres its label in its content box");
+
+    // What a browser does not centre: overflowing content, flex buttons, and
+    // a document's own text-align.
+    const InkBox overflowing = renderLabel("corpus-button-overflow", common + "#b { height: 10px; }",
+                                           "<button id=\"b\">HH</button>");
+    require(overflowing.top == plain.top, "content taller than the button stays at the top");
+    // (Bare text as a flex item is a separate RmlUi gap; an element child is
+    // what this case is about.)
+    const InkBox flex = renderLabel("corpus-button-flex", common + "#b { display: flex; }",
+                                    "<button id=\"b\"><span>HH</span></button>");
+    require(flex.top == plain.top, "a flex button lays out as flex says");
+    const InkBox left = renderLabel("corpus-button-left", common + "#b { text-align: left; }",
+                                    "<button id=\"b\">HH</button>");
+    require(left.left <= 2 && left.top == button.top, "a document's text-align wins over the baseline");
+}
+
 // -- Shared HUD: the rasterizer used by BOTH desktop and Web -----------------
 //
 // Proves that the shared markup generation + rasterization (HudRasterizer)
@@ -655,6 +735,7 @@ int main() {
     testDpRatioScalesDpUnits();
     testUserAgentStyleSheetMakesABareDivBlock();
     testDocumentOverridesUserAgentStyleSheet();
+    testButtonCentresItsLabelLikeABrowser();
     testHudRasterizerRendersCanvasText();
     testHudRasterizerEmptyCanvasHasNoContent();
     testVerticalSliceMenuButtonHoverMatchesVisualBox();

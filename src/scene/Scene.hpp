@@ -99,6 +99,19 @@ struct SceneSettings {
     float fogRayleighScaleHeight = 8434.0f;
     float fogPlanetRadius = 0.0f;
     glm::vec3 fogPlanetCentre{0.0f};
+    // How much of the fog's colour is the sky's, 0..1. At 1, fogged geometry
+    // fades into the very sky behind it -- its rendered colour in that
+    // direction, storm clouds and sky crossfade included, blurred and taken at
+    // the horizon for rays below it -- so a far building never turns pale
+    // against a dark sky (UE's "inscattering texture", GTA's shared sky/fog
+    // timecycle). `fogColor` is the rest. Needs a skybox; ignored without.
+    float fogSkyColor = 0.0f;
+    // The sky's own fog: drawn sky is fogged as though it stood this many
+    // metres away (0 leaves it clear, as it always was). With layered air a
+    // ray looking up crosses little of it and one skimming the horizon a lot,
+    // so the horizon band dissolves into the same haze as the farthest ground
+    // instead of meeting it at a hard silhouette (UE height fog on the sky).
+    float fogSkyDistance = 0.0f;
 
     // Runtime weather, not authored or serialized. Materials opt in through
     // MaterialDesc::rain; both stereo eyes share the same world-space impacts.

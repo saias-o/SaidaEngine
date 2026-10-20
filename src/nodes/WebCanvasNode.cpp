@@ -12,6 +12,9 @@
 #include "scripting/JsRuntime.hpp"
 #include "scene/SceneTree.hpp"
 #include "ui/RmlUiRenderInterface.hpp"
+#include "ui/RmlUiGpuRenderer.hpp"
+#include "ui/WebCss.hpp"
+#include "ui/WebMarkup.hpp"
 #include "ui/RmlUiRuntime.hpp"
 #include "ui/WorldPanelGeometry.hpp"
 
@@ -19,6 +22,8 @@
 #include <RmlUi/Core/Core.h>
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/ElementDocument.h>
+#include <RmlUi/Core/ElementText.h>
+#include <RmlUi/Core/Elements/ElementFormControl.h>
 #include <RmlUi/Core/Event.h>
 #include <RmlUi/Core/EventListener.h>
 #include <RmlUi/Core/Input.h>
@@ -30,6 +35,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -46,6 +52,32 @@ constexpr float kHotReloadCheckIntervalSeconds = 0.5f;
 JSClassID gElementClassId = 0;
 JSClassID gClassListClassId = 0;
 JSClassID gStyleClassId = 0;
+JSClassID gEventClassId = 0;
+struct UiEventHandle { Rml::Event* event=nullptr; };
+
+void jsEventFinalizer(JSRuntime*,JSValue value) {
+    delete static_cast<UiEventHandle*>(JS_GetOpaque(value,gEventClassId));
+}
+JSValue jsEventStop(JSContext* ctx,JSValueConst value,int,JSValueConst*,int immediate) {
+    auto* handle=static_cast<UiEventHandle*>(JS_GetOpaque2(ctx,value,gEventClassId));
+    if(handle && handle->event) {
+        if(immediate)handle->event->StopImmediatePropagation();else handle->event->StopPropagation();
+    }
+    return JS_UNDEFINED;
+}
+const char* webEventKey(int key) {
+    using namespace Rml::Input;
+    switch(key) {
+    case KI_RETURN:case KI_NUMPADENTER:return "Enter";
+    case KI_ESCAPE:return "Escape";case KI_TAB:return "Tab";
+    case KI_BACK:return "Backspace";case KI_DELETE:return "Delete";
+    case KI_LEFT:return "ArrowLeft";case KI_RIGHT:return "ArrowRight";
+    case KI_UP:return "ArrowUp";case KI_DOWN:return "ArrowDown";
+    case KI_HOME:return "Home";case KI_END:return "End";
+    case KI_PRIOR:return "PageUp";case KI_NEXT:return "PageDown";
+    case KI_SPACE:return " ";default:return "Unidentified";
+    }
+}
 
 struct ElementHandle {
     WebCanvasNode* canvas = nullptr;
@@ -257,9 +289,76 @@ JSValue jsElementQuerySelectorAll(JSContext* ctx, JSValueConst thisValue, int ar
     return makeElementArray(ctx, handle->canvas, elements);
 }
 
+JSValue jsElementGetAttribute(JSContext* ctx, JSValueConst self, int argc, JSValueConst* argv) {
+    auto* element = liveElementFromJs(ctx, self, gElementClassId);
+    if (!element || argc < 1) return JS_NULL;
+    const std::string name = jsToString(ctx, argv[0]);
+    if (!element->HasAttribute(name)) return JS_NULL;
+    return JS_NewString(ctx, element->GetAttribute<Rml::String>(name, "").c_str());
+}
+
+JSValue jsElementSetAttribute(JSContext* ctx, JSValueConst self, int argc, JSValueConst* argv) {
+    auto* element = liveElementFromJs(ctx, self, gElementClassId);
+    auto* handle = elementHandle(ctx, self, gElementClassId);
+    if (element && handle && argc >= 2) {
+        element->SetAttribute(jsToString(ctx, argv[0]), jsToString(ctx, argv[1]));
+        handle->canvas->notifyJsMutation();
+    }
+    return JS_UNDEFINED;
+}
+
+JSValue jsElementRemoveAttribute(JSContext* ctx, JSValueConst self, int argc, JSValueConst* argv) {
+    auto* element = liveElementFromJs(ctx, self, gElementClassId);
+    auto* handle = elementHandle(ctx, self, gElementClassId);
+    if (element && handle && argc >= 1) {
+        element->RemoveAttribute(jsToString(ctx, argv[0]));
+        handle->canvas->notifyJsMutation();
+    }
+    return JS_UNDEFINED;
+}
+
+JSValue jsElementGetValue(JSContext* ctx, JSValueConst self) {
+    auto* element = liveElementFromJs(ctx, self, gElementClassId);
+    auto* control = dynamic_cast<Rml::ElementFormControl*>(element);
+    return control ? JS_NewString(ctx, control->GetValue().c_str()) : JS_UNDEFINED;
+}
+
+JSValue jsElementSetValue(JSContext* ctx, JSValueConst self, JSValueConst value) {
+    auto* element = liveElementFromJs(ctx, self, gElementClassId);
+    auto* handle = elementHandle(ctx, self, gElementClassId);
+    if (auto* control = dynamic_cast<Rml::ElementFormControl*>(element)) {
+        control->SetValue(jsToString(ctx, value));
+        if (handle) handle->canvas->notifyJsMutation();
+    }
+    return JS_UNDEFINED;
+}
+
+JSValue jsElementGetHidden(JSContext* ctx, JSValueConst self) {
+    auto* element = liveElementFromJs(ctx, self, gElementClassId);
+    return JS_NewBool(ctx, element && element->HasAttribute("hidden"));
+}
+
+JSValue jsElementSetHidden(JSContext* ctx, JSValueConst self, JSValueConst value) {
+    auto* element = liveElementFromJs(ctx, self, gElementClassId);
+    auto* handle = elementHandle(ctx, self, gElementClassId);
+    if (element && handle) {
+        if (JS_ToBool(ctx, value)) element->SetAttribute("hidden", "");
+        else element->RemoveAttribute("hidden");
+        handle->canvas->notifyJsMutation();
+    }
+    return JS_UNDEFINED;
+}
+
 JSValue jsElementGetTextContent(JSContext* ctx, JSValueConst thisValue) {
     Rml::Element* element = liveElementFromJs(ctx, thisValue, gElementClassId);
-    return element ? JS_NewString(ctx, element->GetInnerRML().c_str()) : JS_UNDEFINED;
+    if (!element) return JS_UNDEFINED;
+    std::string text;
+    const auto collect = [&](const auto& self, Rml::Element& node) -> void {
+        if (auto* leaf = dynamic_cast<Rml::ElementText*>(&node)) text += leaf->GetText();
+        for (int i = 0; i < node.GetNumChildren(); ++i) self(self, *node.GetChild(i));
+    };
+    collect(collect, *element);
+    return JS_NewString(ctx, text.c_str());
 }
 
 JSValue jsElementSetTextContent(JSContext* ctx, JSValueConst thisValue, JSValueConst value) {
@@ -280,7 +379,7 @@ JSValue jsElementSetInnerHTML(JSContext* ctx, JSValueConst thisValue, JSValueCon
     ElementHandle* handle = elementHandle(ctx, thisValue, gElementClassId);
     Rml::Element* element = liveElementFromJs(ctx, thisValue, gElementClassId);
     if (!element || !handle || !handle->canvas) return JS_UNDEFINED;
-    element->SetInnerRML(jsToString(ctx, value));
+    element->SetInnerRML(normalizeWebMarkup(jsToString(ctx, value)));
     handle->canvas->notifyJsMutation();
     return JS_UNDEFINED;
 }
@@ -442,7 +541,8 @@ JSValue jsStyleSetProperty(JSContext* ctx, JSValueConst thisValue, int argc, JSV
     ElementHandle* handle = elementHandle(ctx, thisValue, gStyleClassId);
     Rml::Element* element = liveElementFromJs(ctx, thisValue, gStyleClassId);
     if (!element || !handle || !handle->canvas || argc < 2) return JS_NewBool(ctx, false);
-    bool ok = element->SetProperty(jsToString(ctx, argv[0]), jsToString(ctx, argv[1]));
+    const std::string name = jsToString(ctx, argv[0]);
+    bool ok = element->SetProperty(name, normalizeWebStyleValue(name, jsToString(ctx, argv[1])));
     handle->canvas->notifyJsMutation();
     return JS_NewBool(ctx, ok);
 }
@@ -453,6 +553,42 @@ JSValue jsStyleRemoveProperty(JSContext* ctx, JSValueConst thisValue, int argc, 
     if (!element || !handle || !handle->canvas || argc < 1) return JS_UNDEFINED;
     element->RemoveProperty(jsToString(ctx, argv[0]));
     handle->canvas->notifyJsMutation();
+    return JS_UNDEFINED;
+}
+
+struct StyleAccessor { const char* js; const char* css; };
+constexpr StyleAccessor kStyleAccessors[] = {
+    {"opacity", "opacity"}, {"transform", "transform"}, {"display", "display"},
+    {"color", "color"}, {"backgroundColor", "background-color"},
+    {"width", "width"}, {"height", "height"}, {"left", "left"}, {"top", "top"},
+    {"right", "right"}, {"bottom", "bottom"}, {"padding", "padding"}, {"margin", "margin"},
+    {"borderRadius", "border-radius"}, {"fontSize", "font-size"},
+    {"transition", "transition"}, {"animation", "animation"}, {"position", "position"}
+};
+
+JSValue jsStyleGetPropertyValue(JSContext* ctx, JSValueConst self, int argc, JSValueConst* argv) {
+    auto* element = liveElementFromJs(ctx, self, gStyleClassId);
+    const Rml::Property* property = element && argc > 0 ? element->GetLocalProperty(jsToString(ctx, argv[0])) : nullptr;
+    return JS_NewString(ctx, property ? property->ToString().c_str() : "");
+}
+
+JSValue jsStyleGetAccessor(JSContext* ctx, JSValueConst self, int magic) {
+    auto* element = liveElementFromJs(ctx, self, gStyleClassId);
+    const Rml::Property* property = element ? element->GetLocalProperty(kStyleAccessors[magic].css) : nullptr;
+    return JS_NewString(ctx, property ? property->ToString().c_str() : "");
+}
+
+JSValue jsStyleSetAccessor(JSContext* ctx, JSValueConst self, JSValueConst value, int magic) {
+    auto* element = liveElementFromJs(ctx, self, gStyleClassId);
+    auto* handle = elementHandle(ctx, self, gStyleClassId);
+    if (element && handle) {
+        const std::string text = jsToString(ctx, value);
+        const char* name = kStyleAccessors[magic].css;
+        if (text.empty()) element->RemoveProperty(name);
+        else if (!element->SetProperty(name, normalizeWebStyleValue(name, text)))
+            return JS_ThrowTypeError(ctx, "Unsupported UI style %s: %s", name, text.c_str());
+        handle->canvas->notifyJsMutation();
+    }
     return JS_UNDEFINED;
 }
 
@@ -496,13 +632,24 @@ public:
     }
 
     void ProcessEvent(Rml::Event& event) override {
-        JSValue eventObject = JS_NewObject(ctx_);
-        JS_SetPropertyStr(ctx_, eventObject, "type", JS_NewString(ctx_, event.GetType().c_str()));
+        JSValue eventObject = JS_NewObjectClass(ctx_,gEventClassId);
+        auto* handle=new UiEventHandle{&event};JS_SetOpaque(eventObject,handle);
+        const auto& type=event.GetType();
+        JS_SetPropertyStr(ctx_, eventObject, "type", JS_NewString(ctx_, type=="mousescroll"?"wheel":type.c_str()));
+        JS_SetPropertyStr(ctx_, eventObject, "key", JS_NewString(ctx_,webEventKey(event.GetParameter<int>("key_identifier",0))));
+        for(auto [name,parameter]:{std::pair{"clientX","mouse_x"},{"clientY","mouse_y"},{"deltaX","wheel_delta_x"},{"deltaY","wheel_delta_y"}})
+            JS_SetPropertyStr(ctx_,eventObject,name,JS_NewFloat64(ctx_,event.GetParameter<float>(parameter,0)));
+        JS_SetPropertyStr(ctx_,eventObject,"deltaMode",JS_NewInt32(ctx_,1));
+        const int button=event.GetParameter<int>("button",-1);
+        JS_SetPropertyStr(ctx_,eventObject,"button",JS_NewInt32(ctx_,button==1?2:button==2?1:button));
+        for(auto [name,parameter]:{std::pair{"ctrlKey","ctrl_key"},{"shiftKey","shift_key"},{"altKey","alt_key"},{"metaKey","meta_key"}})
+            JS_SetPropertyStr(ctx_,eventObject,name,JS_NewBool(ctx_,event.GetParameter<int>(parameter,0)));
         JS_SetPropertyStr(ctx_, eventObject, "target",
             makeElementObject(ctx_, &canvas_, event.GetTargetElement(), gElementClassId));
         JS_SetPropertyStr(ctx_, eventObject, "currentTarget",
             makeElementObject(ctx_, &canvas_, event.GetCurrentElement(), gElementClassId));
         JSValue result = JS_Call(ctx_, callback_, JS_UNDEFINED, 1, &eventObject);
+        handle->event=nullptr; // Retained JS events cannot hold a dead native event.
         if (JS_IsException(result)) {
             JSValue exc = JS_GetException(ctx_);
             const char* message = JS_ToCString(ctx_, exc);
@@ -576,9 +723,11 @@ void WebCanvasNode::retireGpuResources() {
     struct RetiredCanvas {
         std::unique_ptr<Texture> texture;
         std::vector<std::unique_ptr<Buffer>> staging;
+        std::unique_ptr<RmlUiGpuRenderer> gpu;
     };
     auto retired = std::make_shared<RetiredCanvas>();
     retired->texture = std::move(texture_); retired->staging = std::move(stagingBuffers_);
+    retired->gpu = std::move(gpuRenderer_);
     // Called before the next frame is recorded. The ordered fence retains the
     // last displayed image and every staging slot used by preceding frames.
     try { device_->submitUpload([](rhi::vulkan::CommandEncoder&) {}, retired); }
@@ -593,6 +742,8 @@ void WebCanvasNode::init(VulkanDevice& device, uint32_t width, uint32_t height, 
     height_ = height;
     mode_ = mode;
     device_ = &device;
+    const char* renderer = std::getenv("SAIDA_UI_RENDERER");
+    gpuRendering_ = !renderer || std::string(renderer) != "cpu";
     createPlaceholderTexture();
     ensureRmlContext();
     ensureJsContext();
@@ -781,7 +932,7 @@ bool WebCanvasNode::setElementRml(const std::string& id, const std::string& rml)
     if (!document_) return false;
     Rml::Element* element = document_->GetElementById(id);
     if (!element) return false;
-    element->SetInnerRML(rml);
+    element->SetInnerRML(normalizeWebMarkup(rml));
     if (rmlContext_) rmlContext_->Update();
     markUiDirty();
     return true;
@@ -791,11 +942,15 @@ bool WebCanvasNode::fireMouseEvent(MouseEvent type, int x, int y, MouseButton bu
     if (!rmlContext_ || !interactive_) return false;
 
     bool handled = rmlContext_->ProcessMouseMove(x, y, modifiers);
+    if (!pointerKnown_ || x != pointerX_ || y != pointerY_) {
+        pointerKnown_ = true; pointerX_ = x; pointerY_ = y;
+        markUiDirty();
+    }
 
     int rmlButton = 0;
     if (button == MouseButton::Right) rmlButton = 1;
     if (button == MouseButton::Middle) rmlButton = 2;
-    if (button == MouseButton::None) return handled;
+    if (type == MouseEvent::Move || button == MouseButton::None) return handled;
     if (type == MouseEvent::Down) {
         handled = rmlContext_->ProcessMouseButtonDown(rmlButton, modifiers) || handled;
     } else if (type == MouseEvent::Up) {
@@ -810,6 +965,7 @@ bool WebCanvasNode::fireMouseEvent(MouseEvent type, int x, int y, MouseButton bu
 bool WebCanvasNode::fireMouseLeave() {
     if (!rmlContext_ || !interactive_) return false;
     const bool handled = rmlContext_->ProcessMouseLeave();
+    pointerKnown_ = false;
     markUiDirty();
     return handled;
 }
@@ -864,15 +1020,39 @@ void WebCanvasNode::updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& enco
     SAIDA_PROFILE_FUNCTION();
     checkHotReload();
     if (!device_ || !texture_ || !rmlContext_) return;
+    if (gpuRendering_) {
+        if (!uiSchedule_.due(Time::unscaledElapsed(), uiDirty_)) return;
+        rmlContext_->Update();
+        uiSchedule_.updated(Time::unscaledElapsed(), rmlContext_->GetNextUpdateDelay());
+        auto* renderer = RmlUiRuntime::renderer();
+        if (!renderer) return;
+        std::vector<std::string> dependencies;
+        renderer->beginCapture(width_, height_);
+        {
+            RmlDependencyCapture capture(dependencies);
+            rmlContext_->Render();
+        }
+        auto draws = renderer->endCapture();
+        if (!gpuRenderer_) gpuRenderer_ = std::make_unique<RmlUiGpuRenderer>(*device_);
+        gpuRenderer_->render(draws, encoder, *texture_, frameSlot);
+        appendDocumentWatchers(dependencies);
+        uiDirty_ = false;
+        if (!loggedRenderStats_) {
+            Log::info("[WebCanvas] '", name(), "' GPU renderer: ", draws.draws.size(), " draw(s)");
+            loggedRenderStats_ = true;
+        }
+        return;
+    }
     if (rasterFrame_ && !rasterFrame_->ready()) return;
     if (!rasterFrame_) {
-        if (!uiDirty_) return;
+        if (!uiSchedule_.due(Time::unscaledElapsed(), uiDirty_)) return;
         RmlUiRenderInterface* renderer = RmlUiRuntime::renderer();
         if (!renderer || !renderer->beginAsyncFrame(width_, height_)) return;
 
         {
             SAIDA_PROFILE_SCOPE("WebCanvas/RmlUpdate");
             rmlContext_->Update();
+            uiSchedule_.updated(Time::unscaledElapsed(), rmlContext_->GetNextUpdateDelay());
         }
         std::vector<std::string> renderDependencies;
         {
@@ -1018,10 +1198,22 @@ void WebCanvasNode::installDocumentBindings() {
 
     JSContext* ctx = jsContext_->raw();
     installJsClass(ctx, gElementClassId, "NextElement", jsElementFinalizer);
+    installJsClass(ctx, gEventClassId, "UiEvent", jsEventFinalizer);
+    JSValue eventProto=JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx,eventProto,"stopPropagation",JS_NewCFunctionMagic(ctx,jsEventStop,"stopPropagation",0,JS_CFUNC_generic_magic,0));
+    JS_SetPropertyStr(ctx,eventProto,"stopImmediatePropagation",JS_NewCFunctionMagic(ctx,jsEventStop,"stopImmediatePropagation",0,JS_CFUNC_generic_magic,1));
+    JS_SetClassProto(ctx,gEventClassId,eventProto);
     installJsClass(ctx, gClassListClassId, "NextClassList", jsClassListFinalizer);
     installJsClass(ctx, gStyleClassId, "NextStyle", jsStyleFinalizer);
 
     JSValue elementProto = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, elementProto, "getAttribute", JS_NewCFunction(ctx, jsElementGetAttribute, "getAttribute", 1));
+    JS_SetPropertyStr(ctx, elementProto, "setAttribute", JS_NewCFunction(ctx, jsElementSetAttribute, "setAttribute", 2));
+    JS_SetPropertyStr(ctx, elementProto, "removeAttribute", JS_NewCFunction(ctx, jsElementRemoveAttribute, "removeAttribute", 1));
+    defineGetSet(ctx, elementProto, "value", makeGetter(ctx, jsElementGetValue, "get value"),
+                 makeSetter(ctx, jsElementSetValue, "set value"));
+    defineGetSet(ctx, elementProto, "hidden", makeGetter(ctx, jsElementGetHidden, "get hidden"),
+                 makeSetter(ctx, jsElementSetHidden, "set hidden"));
     JS_SetPropertyStr(ctx, elementProto, "addEventListener", JS_NewCFunction(ctx, jsElementAddEventListener, "addEventListener", 2));
     JS_SetPropertyStr(ctx, elementProto, "removeEventListener", JS_NewCFunction(ctx, jsElementRemoveEventListener, "removeEventListener", 2));
     JS_SetPropertyStr(ctx, elementProto, "click", JS_NewCFunction(ctx, jsElementClick, "click", 0));
@@ -1067,6 +1259,15 @@ void WebCanvasNode::installDocumentBindings() {
     JS_SetClassProto(ctx, gClassListClassId, classListProto);
 
     JSValue styleProto = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, styleProto, "getPropertyValue", JS_NewCFunction(ctx, jsStyleGetPropertyValue, "getPropertyValue", 1));
+    for (int i = 0; i < int(std::size(kStyleAccessors)); ++i) {
+        JSCFunctionType getter{}, setter{};
+        getter.getter_magic = jsStyleGetAccessor;
+        setter.setter_magic = jsStyleSetAccessor;
+        defineGetSet(ctx, styleProto, kStyleAccessors[i].js,
+            JS_NewCFunction2(ctx, getter.generic, kStyleAccessors[i].js, 0, JS_CFUNC_getter_magic, i),
+            JS_NewCFunction2(ctx, setter.generic, kStyleAccessors[i].js, 1, JS_CFUNC_setter_magic, i));
+    }
     JS_SetPropertyStr(ctx, styleProto, "setProperty", JS_NewCFunction(ctx, jsStyleSetProperty, "setProperty", 2));
     JS_SetPropertyStr(ctx, styleProto, "removeProperty", JS_NewCFunction(ctx, jsStyleRemoveProperty, "removeProperty", 1));
     JS_SetClassProto(ctx, gStyleClassId, styleProto);
@@ -1233,22 +1434,23 @@ void WebCanvasNode::addJsEventListener(Rml::Element* element, const std::string&
     if (!element || !ctx || !JS_IsFunction(ctx, callback)) return;
     auto record = std::make_unique<JsEventListenerRecord>();
     record->element = element;
-    record->event = event;
+    record->event = event=="wheel"?"mousescroll":event;
     record->listener = std::make_unique<JsRmlEventListener>(*this, ctx, callback);
-    element->AddEventListener(event, record->listener.get());
+    element->AddEventListener(record->event, record->listener.get());
     jsEventListeners_.push_back(std::move(record));
 }
 
 void WebCanvasNode::removeJsEventListener(Rml::Element* element, const std::string& event, JSContext* ctx, JSValueConst callback) {
+    const std::string nativeEvent=event=="wheel"?"mousescroll":event;
     auto it = std::find_if(jsEventListeners_.begin(), jsEventListeners_.end(),
         [&](const std::unique_ptr<JsEventListenerRecord>& record) {
-            return record->element == element && record->event == event &&
+            return record->element == element && record->event == nativeEvent &&
                    record->listener && record->listener->context() == ctx &&
                    JS_IsStrictEqual(ctx, record->listener->callback(), callback);
         });
     if (it == jsEventListeners_.end()) return;
     if (element && (*it)->listener) {
-        element->RemoveEventListener(event, (*it)->listener.get());
+        element->RemoveEventListener(nativeEvent, (*it)->listener.get());
     }
     jsEventListeners_.erase(it);
 }
@@ -1362,6 +1564,7 @@ void WebCanvasNode::clearJsEventListeners() {
 
 void WebCanvasNode::createPlaceholderTexture() {
     if (!device_ || width_ == 0 || height_ == 0) return;
+    retireGpuResources();
 
     constexpr uint32_t kMinPlaceholderExtent = 2;
     uint32_t w = std::max(width_, kMinPlaceholderExtent);
@@ -1379,7 +1582,8 @@ void WebCanvasNode::createPlaceholderTexture() {
         }
     }
 
-    texture_ = std::make_unique<Texture>(*device_, pixels.data(), w, h, rhi::Format::RGBA8Srgb, false);
+    texture_ = std::make_unique<Texture>(*device_, pixels.data(), w, h, rhi::Format::RGBA8Srgb,
+        false, rhi::AddressMode::ClampToEdge, false, gpuRendering_);
     stagingBuffers_.clear();
     rasterFrame_.reset();
     markUiDirty();

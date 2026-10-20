@@ -54,14 +54,6 @@ Rml::Vector2f translated(const Rml::Vertex& v, Rml::Vector2f t) {
 } // namespace
 
 struct RmlUiRenderInterface::AsyncState {
-    struct Draw {
-        std::shared_ptr<const Geometry> geometry;
-        std::shared_ptr<const TextureData> texture;
-        Rml::Vector2f translation;
-        bool scissorEnabled, transformEnabled;
-        Rml::Rectanglei scissor;
-        Rml::Matrix4f transform;
-    };
     struct Job {
         std::shared_ptr<RasterFrame> frame;
         std::vector<Draw> draws;
@@ -164,6 +156,23 @@ void RmlUiRenderInterface::beginFrame(uint32_t width, uint32_t height) {
     rendering_ = true;
 }
 
+void RmlUiRenderInterface::beginCapture(uint32_t width, uint32_t height) {
+    if (rendering_) throw std::logic_error("UI frame recording already active");
+    capture_ = std::make_unique<DrawList>();
+    capture_->width = width; capture_->height = height;
+    scissorEnabled_ = transformEnabled_ = false;
+    scissorRegion_ = Rml::Rectanglei::MakeInvalid();
+    transform_ = Rml::Matrix4f::Identity();
+    rendering_ = true;
+}
+
+RmlUiRenderInterface::DrawList RmlUiRenderInterface::endCapture() {
+    if (!capture_) throw std::logic_error("No UI frame recording");
+    DrawList result = std::move(*capture_);
+    capture_.reset(); rendering_ = false;
+    return result;
+}
+
 void RmlUiRenderInterface::endFrame() {
     for (size_t i = 0; i + 3 < premultipliedPixels_.size(); i += 4) {
         uint8_t a = premultipliedPixels_[i + 3];
@@ -207,6 +216,11 @@ void RmlUiRenderInterface::RenderGeometry(Rml::CompiledGeometryHandle geometryHa
 
     const auto image = textures_.find(texture);
     const auto textureData = image != textures_.end() ? image->second : nullptr;
+    if (capture_) {
+        capture_->draws.push_back({it->second, textureData, translation,
+            scissorEnabled_, transformEnabled_, scissorRegion_, transform_});
+        return;
+    }
     if (async_ && async_->recording) {
         async_->recording->draws.push_back({it->second, textureData, translation,
             scissorEnabled_, transformEnabled_, scissorRegion_, transform_});
@@ -276,6 +290,16 @@ void RmlUiRenderInterface::SetScissorRegion(Rml::Rectanglei region) {
 void RmlUiRenderInterface::SetTransform(const Rml::Matrix4f* transform) {
     transformEnabled_ = transform != nullptr;
     transform_ = transform ? *transform : Rml::Matrix4f::Identity();
+}
+
+Rml::CompiledShaderHandle RmlUiRenderInterface::CompileShader(const Rml::String& name, const Rml::Dictionary&) {
+    RmlUiRuntime::reportDiagnostic("warning", "unsupported UI shader decorator: " + name);
+    return {};
+}
+
+Rml::CompiledFilterHandle RmlUiRenderInterface::CompileFilter(const Rml::String& name, const Rml::Dictionary&) {
+    RmlUiRuntime::reportDiagnostic("warning", "unsupported UI filter: " + name);
+    return {};
 }
 
 RmlUiRenderInterface::Pixel RmlUiRenderInterface::sampleTexture(const TextureData* texture, float u, float v, bool wrap) const {
@@ -360,6 +384,12 @@ void RmlUiRenderInterface::drawTriangle(const Rml::Vertex& a, const Rml::Vertex&
     if (minX > maxX || minY > maxY) return;
 
     const float invArea = 1.0f / area;
+    const auto ownsEdge = [area](Rml::Vector2f a, Rml::Vector2f b) {
+        const float sign = area < 0.0f ? -1.0f : 1.0f;
+        const float dx = (b.x - a.x) * sign, dy = (b.y - a.y) * sign;
+        return dy > 0.0f || (dy == 0.0f && dx < 0.0f);
+    };
+    const bool edge0 = ownsEdge(p1, p2), edge1 = ownsEdge(p2, p0), edge2 = ownsEdge(p0, p1);
     const bool textured = texture != nullptr;
     for (int y = minY; y <= maxY; ++y) {
         for (int x = minX; x <= maxX; ++x) {
@@ -368,6 +398,9 @@ void RmlUiRenderInterface::drawTriangle(const Rml::Vertex& a, const Rml::Vertex&
             float w1 = edge(p2, p0, p) * invArea;
             float w2 = edge(p0, p1, p) * invArea;
             if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f) continue;
+            // Top-left coverage: a shared edge belongs to one triangle. Without
+            // this a transparent quad blends twice along its internal diagonal.
+            if ((w0 == 0.0f && !edge0) || (w1 == 0.0f && !edge1) || (w2 == 0.0f && !edge2)) continue;
 
             Pixel texel{kOpaque, kOpaque, kOpaque, kOpaque};
             if (textured) {

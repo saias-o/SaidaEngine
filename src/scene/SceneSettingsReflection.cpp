@@ -124,6 +124,12 @@ void SceneSettings::describe(reflect::TypeBuilder<SceneSettings>& t) {
     t.property("fogRayleighScaleHeight", &SceneSettings::fogRayleighScaleHeight)
         .group("Fog").range(1.0, 100000.0)
         .tooltip("metres over which clear air thins by e");
+    t.property("fogSkyColor", &SceneSettings::fogSkyColor)
+        .group("Fog").range(0.0, 1.0)
+        .tooltip("share of the fog colour taken from the sky behind the fogged surface (needs a skybox)");
+    t.property("fogSkyDistance", &SceneSettings::fogSkyDistance)
+        .group("Fog").range(0.0, 1.0e7)
+        .tooltip("metres at which the drawn sky is fogged; 0 leaves the sky clear");
     t.property("fogPlanetRadius", &SceneSettings::fogPlanetRadius)
         .group("Fog").range(0.0, 1.0e8)
         .tooltip("0: altitude is world y; else the height above this sphere");

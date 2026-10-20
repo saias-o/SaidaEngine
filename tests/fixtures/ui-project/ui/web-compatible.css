@@ -1,0 +1,5 @@
+body { margin: 0; font-family: NextSans; }
+#navigation { width: 20px; height: 10px; }
+#alpha { position: absolute; left: 0; top: 10px; width: 20px; height: 20px; background-color: rgba(20, 80, 160, 0.5); }
+#animated { position: absolute; left: 40px; top: 40px; width: 10px; height: 10px; background-color: #ff6600; animation: 2s linear-in-out 1 move; }
+@keyframes move { from { left: 0px; } to { left: 40px; } }

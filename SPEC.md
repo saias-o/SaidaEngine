@@ -449,6 +449,27 @@ the height above that sphere around `fogPlanetCentre`: a ray that skims a
 curved world climbs out of the dense air. The camera's altitude is taken in
 double on the CPU.
 
+What the fog adds can come from the sky (`fogSkyColor`, 0..1, the share of
+`fogColor` it replaces): a fogged surface then fades into the sky behind it,
+so a far building never turns pale against a dark sky. Before the scene pass,
+`SkyboxFeature` renders the sky as drawn this frame — the photograph, its
+crossfade and the runtime storm clouds, without the Sun disc — into a 64 x 32
+view-space panorama (`SkyProbe`, `skyprobe.skybox.frag`), each texel averaging
+a 5 x 3 grid of directions about 28 x 17 degrees across; directions below the
+horizon take the horizon. The tonemap reads it by each pixel's view direction.
+It is the approach of Unreal's height fog inscattering texture; a scene
+without a skybox, and XR, keep `fogColor`. `saida_rain_surface_tests --gpu`
+pins a fogged wall to the sky behind it, storm clouds included.
+
+The drawn sky itself is fogged when `fogSkyDistance` > 0, as though it stood
+that many metres away along each pixel's ray (0, the default, leaves it clear).
+With layered air a ray skimming the horizon crosses the dense air and one
+looking up hardly any, so the horizon band dissolves into the haze of the
+farthest ground rather than meeting it at a hard, aliased silhouette — set it
+to the distance of the farthest geometry. With uniform fog the whole sky is
+fogged alike. The same GPU test checks the horizon hazes, the upper sky stays
+clear and 0 leaves the sky as it was.
+
 The rings shadow themselves. Before the scene pass, `terrain_rings_sun.comp`
 marches from every sample toward the brightest shadow-casting directional
 light, one cell of the finest level holding each point a step, until the ray
@@ -1621,7 +1642,10 @@ plays a project alias with `audio.play(alias)`. Browsers require a user gesture
 before starting sound; the player therefore starts muted and unlocks on the first
 click/touch. `AudioManager::preload(name)` decodes a file once and keeps it
 resident until shutdown; later `play` calls of it share the decoded data instead
-of reading and decoding the file on the calling thread.
+of reading and decoding the file on the calling thread. A playing sound is controlled by the
+`AudioID` that `play` returns: `pause`, `resume` (continues where it stopped),
+`setVolume` (0..1, before the master volume) and `isPlaying`
+(`saida_audio_manager_tests`).
 
 `AudioStream` is an independent C++ HTTP(S) player for remote, non-spatial
 media. `cmake/MediaRuntime.cmake` adds its platform implementation and transport
@@ -2018,6 +2042,14 @@ the DOM, local CSS and a project JS module. Layouts use flex, explicit sizes and
 simple units; avoid unsupported CSS functions, network dependencies and
 full-browser assumptions.
 
+HTML authoring accepts `<!DOCTYPE html>`, an `<html>` root, ordinary void tags
+such as `<input>`/`<br>`, and `<link rel="stylesheet" href="menu.css">` or
+`type="text/css"`. The engine adapts these to RmlUi without rewriting raw
+script bodies, comments or quoted attributes. In an HTML-root document,
+embedded styles and style attributes also use Web alpha. Native `<rml>`
+documents keep their existing inline RCSS semantics. This is an explicit
+authoring adapter, not an HTML5 recovery parser.
+
 ### 8.2 Expected authoring surface
 
 - loading of document and stylesheets from the project;
@@ -2033,6 +2065,18 @@ elements, `textContent`, `innerHTML/innerRML`, `id`, `classList`,
 `style.setProperty/removeProperty`, `add/removeEventListener`, `click`, `focus`,
 `blur`, `getBoundingClientRect`, offsets and client sizes.
 
+The bridge also exposes `getAttribute`, `setAttribute`, `removeAttribute`,
+form controls' `value`, and the boolean `hidden` property. Setters invalidate
+the canvas; `value` uses the real RmlUi form control, so `event.target.value`
+and text typed by the player share the same state. No network, OS or global
+timer authority is added.
+
+`textContent` returns descendant text, while `innerHTML`/`innerRML` return
+markup. The style bridge exposes `getPropertyValue` and camel-case accessors
+for opacity, transform, display, color, backgroundColor, width/height,
+left/top/right/bottom, padding/margin, borderRadius, fontSize, position,
+animation and transition. Accessors read local styles, not computed styles.
+
 **Authoring baseline — the engine user-agent stylesheet.** RmlUi ships no
 default stylesheet and RCSS defaults `display` to `inline`, so a `<div>` that
 does not declare its display is an inline box that silently discards `width`,
@@ -2043,11 +2087,15 @@ engine therefore merges its own baseline under every document it loads
 it cannot go missing from a package):
 
 ```rcss
-body, div, p, section, h1, h2, h3, h4, h5, h6 { display: block; }
-img, button { display: inline-block; }
+body, div, p, section, h1, h2, h3, h4, h5, h6, header, footer, main, nav,
+article, aside, form, fieldset, figure, figcaption, ul, ol, li { display: block; }
+img, button, input, select, textarea { display: inline-block; }
+button { text-align: center; }
+[hidden] { display: none; }
 ```
 
-It is a contract, not a theme: it sets `display` and nothing else — no margins,
+It is a contract, not a theme: it sets what a browser's own sheet gives every
+page — `display`, and a button's centred label — and nothing else: no margins,
 no fonts, no colours. It is merged *under* the document, so any rule the
 document declares wins. Documents must be created through
 `RmlUiRuntime::loadDocument`/`loadDocumentFromMemory`; a document loaded
@@ -2057,12 +2105,39 @@ box; the same markup loaded bare still computes to `inline`; a document's own
 `display` overrides it). Tags outside the list above keep RCSS's `inline`
 default — extending the list is a contract change.
 
+**`<button>` layout.** A browser also centres a button's content block-wise
+with no CSS asking for it (HTML rendering rules, "button layout"): unless it
+overflows, the content of a block or inline-block button sits in the middle of
+its content box. RmlUi has no such rule, so the engine registers its own
+`<button>` element (`RmlUiRuntime`), which centres the line boxes and in-flow
+boxes it lays out after layout; overflowing content stays at the top, flex and
+table buttons lay out as their display says, absolutely positioned children
+keep the padding box as reference. `UiCorpusTests` pins it against a plain
+inline-block `<div>`. Known gap: RmlUi renders no bare text placed directly in
+a flex container, where a browser would make it an anonymous flex item; wrap
+such text in an element.
+
 Reliable CSS: block, inline-block, flex, direction/align/justify/gap, margin,
 padding, px/% sizes, position absolute, hover/active, classes, colors, borders,
 backgrounds, fonts and line-height. `text-shadow` is filtered; vendor properties,
 complex transforms, masks, filters and advanced compositing are not guaranteed. A
 `.hidden` class may lose against a more specific selector; use for example
 `#panel.hidden`.
+
+External `.css` stylesheets and JS `style.setProperty` accept comma-form
+`rgba(r,g,b,a)` with Web alpha 0..1, including 1 for fully opaque. The file
+interface converts it to RmlUi byte alpha without changing comments or strings.
+Existing byte alpha values above 1 remain accepted. `.rcss` files and inline
+RML styles retain native byte-alpha semantics; use `#RRGGBBAA` when a style
+must be unambiguous in either profile. Percentage and space/slash colour
+syntax is not translated. A bare `rgba(...,1)` in an existing `.css` file now
+means opaque; native byte-alpha content belongs in `.rcss`.
+
+Web-profile animation/transition declarations accept `ms` and map `linear`,
+`ease`, `ease-in`, `ease-out`, `ease-in-out` to native linear/cubic RmlUi
+tweens. The cubic aliases are convenient approximations, not browser Bezier
+parity. Native RCSS easing names remain valid; arbitrary CSS timing functions
+and animation fill modes are not implemented by this adapter.
 
 A transparent HUD must not steal the game's clicks. Only native
 `button/input/select/textarea` controls and `.ui-hit` elements capture the
@@ -2080,8 +2155,8 @@ The RmlUi CPU backend is proven by the headless corpus `saida_ui_corpus_tests`
 font glyphs, project stylesheet loaded from disk with a filtered web property,
 decoded project image, missing image → magenta checkerboard (same convention as
 `ResourceManager::missingTexture`), `overflow:hidden` actually scissored, CSS
-`transform`, resize and DPI ratio. A GPU/Vulkan RmlUi backend remains a future
-optimization, not a condition if the CPU backend holds the V1 load.
+`transform`, resize and DPI ratio. Native document canvases also have the GPU
+backend described below; the CPU backend remains the tooling reference.
 
 That same backend is exposed headlessly as `saida_tool render-ui <document>
 --project <dir>`, so a UI document is verifiable without a GPU, a window or a
@@ -2113,6 +2188,9 @@ meant. `text-align` is only reported when it differs from the parent's computed
 value, so a legitimately inherited alignment is not flagged, and RmlUi's
 anonymous `#text` elements are skipped — they are always inline and never
 authored.
+
+The fractional-alpha lint applies to native `.rcss` and inline document styles;
+external `.css` is normalized before RmlUi parses it and accepts Web alpha.
 
 Both UI commands share `cli/UiDocumentSession`, which owns the headless
 document: one runtime, one context, one document, engine output routed to
@@ -2340,12 +2418,13 @@ through `AssetID` is deferred (the V1 corpus has no heavy UI assets — assumed
 consequence: UI textures do not go through the `AssetLoader`'s LRU GPU budget,
 like the KTX2 decision).
 
-CPU vs GPU backend — V1 decision: no RmlUi GPU backend. The CPU rasterization of a
+CPU and GPU backends. The CPU rasterization of a
 full 1080p HUD costs O(canvas surface) and is only paid on the frames where the
 content changes (the rasterizer skips an identical HUD); `saida_ui_corpus_tests`
 publishes this cost (Debug measurement) and the Witness harness's Release hitchMax
-(~0.05 s under full load) stays bounded. A RmlUi GPU backend is a P2
-optimization, re-evaluated if a HUD must re-rasterize full-screen every frame.
+(~0.05 s under full load) stays bounded. The CPU path remains the headless and
+Web HUD reference. Native document canvases now use the GPU path below by
+default; `SAIDA_UI_RENDERER=cpu` selects the worker path for comparison.
 
 Native `WebCanvasNode` captures immutable geometry, texture pixels, transforms
 and scissors on the UI thread, then rasterizes them on an owned CPU worker.
@@ -2359,7 +2438,38 @@ and Web path. Native upload staging has a separate buffer for each fenced frame
 slot; retired canvases retain image/buffers through an ordered GPU fence.
 Raster workers stop before RmlUi shutdown. Raster completion adds display latency,
 not a main-thread wait; layout, capture, hot reload and UI texture allocation
-can still cost a frame. This does not add a GPU RmlUi backend.
+can still cost a frame. This worker path is independent of the GPU backend.
+
+Native GPU document rendering (`ui/RmlUiGpuRenderer`) consumes immutable
+RmlUi triangle/texture/scissor/transform command lists. Textures are uploaded
+on first use and retained while referenced; only geometry is uploaded for an
+animated frame. A premultiplied-alpha RGBA8 accumulation pass is resolved to
+the existing straight-alpha sRGB canvas texture, so both screen and world
+compositors keep their contract. The RHI has an explicit premultiplied blend
+mode on Vulkan and WebGPU. Frame-slot buffers, descriptors and texture owners
+are retained until the slot's fence; resizing retires the complete old canvas
+and GPU renderer behind an ordered fence. Native GPU tests compare interior
+samples against the CPU reference, rather than claiming cross-rasterizer bit
+identity. Web document canvases and a WebGPU document rasterizer remain open
+work; this native path does not claim to port them.
+
+Both paths use `UiUpdateSchedule`: RmlUi's requested delay is stored as an
+absolute deadline, including delayed animations and caret blinking. UI time is
+unscaled, so pausing gameplay does not pause menu motion. A real pointer move
+invalidates hover styles even without a pressed button; an unchanged pointer
+does not continually redraw an idle canvas. The CPU rasterizer uses top-left
+triangle coverage to avoid blending transparent quad diagonals twice.
+
+`render-ui --time <seconds>` samples a CSS animation deterministically by
+advancing the UI at 60 Hz before the final raster/layout report. It does not
+execute document JavaScript. The bounded value is 0..3600 seconds. Intermediate
+updates are necessary because RmlUi caps its animation delta at 100 ms.
+
+The CPU/GPU baseline covers geometry, glyphs, images, alpha, clipping and
+transforms. Shader decorators (including gradient shaders) and filters that
+have no backend produce explicit diagnostics; they are not advertised as
+implemented. `templates/ui/` provides shared button/field/list/panel classes,
+an actual native RmlUi panel template, standalone examples and an animated menu.
 
 XR — declared fallback (§10, gate P0.3): the XR UI is not a V1 delivery surface;
 its absence is an announced fallback, not a blocker for the gate.

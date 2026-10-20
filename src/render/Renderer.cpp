@@ -220,6 +220,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, Window& window,
 #else
         rhi::vulkan::fromVk(swapchain_->colorFormat()));
 #endif
+    createSkyProbe();
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
@@ -252,6 +253,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, ResourceManager
 #else
         rhi::vulkan::fromVk(swapchain_->colorFormat()));
 #endif
+    createSkyProbe();
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
@@ -278,6 +280,7 @@ Renderer::Renderer(VulkanDevice& device, Window& window, ResourceManager& resour
     gi_ = std::make_unique<GIVolume>(device_, giDescForTier(device_.capabilities().tier),
                                      resources_.materialSetLayout(), *globalSetLayout_);
     createSunOcclusion();
+    createSkyProbe();
     createGlobalDescriptorSets();
     createXrTargets();
     createXrPipelines();
@@ -674,6 +677,24 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment, Texture* blendE
     cachedEnvironmentSampler_[frame] = environment->sampler();
     cachedBlendEnvironmentView_[frame] = blendEnvironment->imageView();
     cachedBlendEnvironmentSampler_[frame] = blendEnvironment->sampler();
+}
+
+void Renderer::createSkyProbe() {
+    rhi::RenderTextureDesc desc;
+    desc.format = SkyProbe::kFormat;
+    desc.width = SkyProbe::kWidth;
+    desc.height = SkyProbe::kHeight;
+    desc.usage = rhi::TextureUsage::ColorAttachment | rhi::TextureUsage::Sampled;
+    desc.memoryCategory = "sky probe";
+    skyProbeTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
+    skyProbe_ = {};
+    skyProbe_.texture = skyProbeTexture_.get();
+}
+
+void Renderer::readySkyProbe(rhi::CommandEncoder& encoder) {
+    if (skyProbe_.state == rhi::ResourceState::ShaderRead) return;
+    encoder.transition(skyProbeTexture_->image(), skyProbe_.state, rhi::ResourceState::ShaderRead);
+    skyProbe_.state = rhi::ResourceState::ShaderRead;
 }
 
 void Renderer::createSunOcclusion() {
@@ -1183,7 +1204,8 @@ void Renderer::createHdrResources() {
         tonemapPass_->setInputs(
             hdrTexture_->view(),
             depthResolveTexture_ ? depthResolveTexture_->view() : swapchain_->depthView(),
-            postProcessor_->bloomView(), postProcessor_->bloomSampler());
+            postProcessor_->bloomView(), postProcessor_->bloomSampler(),
+            skyProbeTexture_->view());
     }
 }
 
@@ -1240,7 +1262,7 @@ void Renderer::recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageInd
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
         tonemapPass_->record(rp, scene.settings(), camera.view(), camera.projection(), renderRect,
-                             sourceRect, exposure_, pickLensFlareSource(scene));
+                             sourceRect, exposure_, pickLensFlareSource(scene), skyProbe_.written);
     }
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/UI");
@@ -1472,9 +1494,11 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Scene/FeaturesPrePass");
         readySunOcclusion(encoder);
+        skyProbe_.written = false;
         PrePassContext ppc{encoder, currentFrame_, scene, Time::elapsed(), false,
-                           &camera, nullptr, extent, &sunOcclusion_};
+                           &camera, nullptr, extent, &sunOcclusion_, &skyProbe_};
         for (auto& f : features_) f->recordPrePass(ppc);
+        readySkyProbe(encoder);
         writeSunOcclusion(currentFrame_);
     }
 
@@ -1811,6 +1835,9 @@ void Renderer::createXrPipelines() {
                 // depth: AO and fog, and the lens flare's visibility in the vertex shader
                 {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::VertexFragment},
                 {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // bloom
+                // The sky probe the shader declares; XR renders none, so the
+                // fog keeps its own colour (TonemapPass::pushConstants).
+                {6, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},
             });
 
         rhi::SamplerDesc linearDesc;
@@ -1857,8 +1884,13 @@ void Renderer::updateXrTonemapDescriptorSets() {
         bloomEntry.view = xrPostProcessors_[i]->bloomView();
         bloomEntry.sampler = xrPostProcessors_[i]->bloomSampler();
 
+        rhi::BindGroupEntry probeEntry;
+        probeEntry.binding = 6;
+        probeEntry.view = skyProbeTexture_->view();
+        probeEntry.sampler = xrTonemapSampler_->handle();
+
         xrTonemapSets_[i] = std::make_unique<rhi::BindGroup>(*xrTonemapSetLayout_,
-            std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry});
+            std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry, probeEntry});
     }
 }
 
@@ -1898,6 +1930,7 @@ void Renderer::recordXrScenePass(rhi::CommandEncoder& encoder, Scene& scene,
     // Feature pre-pass compute (GPU particle sim) — outside any render pass.
     {
         readySunOcclusion(encoder);
+        readySkyProbe(encoder);
         PrePassContext ppc{encoder, currentFrame_, scene, Time::elapsed(), true,
                            nullptr, &eyes, xrExtent_, &sunOcclusion_};
         for (auto& f : features_) f->recordPrePass(ppc);

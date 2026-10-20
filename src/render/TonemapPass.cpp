@@ -8,6 +8,7 @@
 #include "scene/Scene.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace saida {
@@ -62,6 +63,10 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
     entries.push_back(e);
     e = {}; e.binding = 5; e.type = rhi::BindingType::Sampler; e.visibility = F;
     entries.push_back(e);
+    e = {}; e.binding = 6; e.type = rhi::BindingType::SampledTexture; e.visibility = F;  // sky probe
+    entries.push_back(e);
+    e = {}; e.binding = 7; e.type = rhi::BindingType::Sampler; e.visibility = F;
+    entries.push_back(e);
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(device_, entries);
 #else
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
@@ -70,6 +75,7 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
             // depth: AO and fog, and the lens flare's visibility in the vertex shader
             {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::VertexFragment},
             {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // bloom
+            {6, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // sky probe
         });
 #endif
 
@@ -101,7 +107,7 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
 TonemapPass::~TonemapPass() = default;
 
 void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::TextureView bloom,
-                            rhi::SamplerHandle bloomSampler) {
+                            rhi::SamplerHandle bloomSampler, rhi::TextureView skyProbe) {
     if (!setLayout_ || !colorSampler_ || !depthSampler_) return;
 
     rhi::BindGroupEntry hdrEntry;
@@ -125,7 +131,18 @@ void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::T
     bloomEntry.sampler = bloomSampler;
 #endif
 
+    rhi::BindGroupEntry probeEntry;
+    probeEntry.binding = 6;
+    probeEntry.view = skyProbe;
+#ifndef SAIDA_RHI_WEBGPU
+    probeEntry.sampler = colorSampler_->handle();
+#endif
+
 #ifdef SAIDA_RHI_WEBGPU
+    rhi::BindGroupEntry probeSamplerEntry;
+    probeSamplerEntry.binding = 7;
+    probeSamplerEntry.sampler = colorSampler_->handle();
+
     rhi::BindGroupEntry hdrSamplerEntry;
     hdrSamplerEntry.binding = 3;
     hdrSamplerEntry.sampler = colorSampler_->handle();
@@ -140,10 +157,10 @@ void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::T
 
     set_ = std::make_unique<rhi::BindGroup>(*setLayout_,
         std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry,
-            hdrSamplerEntry, depthSamplerEntry, bloomSamplerEntry});
+            hdrSamplerEntry, depthSamplerEntry, bloomSamplerEntry, probeEntry, probeSamplerEntry});
 #else
     set_ = std::make_unique<rhi::BindGroup>(*setLayout_,
-        std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry});
+        std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry, probeEntry});
 #endif
 }
 
@@ -162,7 +179,9 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
                               std::max(settings.aoRadius, 0.0f),
                               std::max(settings.aoIntensity, 0.0f),
                               std::max(settings.aoPower, kMinAoPower));
-    push.fogColor = settings.fogColor;
+    // The sky's share (fogSkyColor) is set by record() once the frame's sky
+    // probe exists; a view without one keeps the fog its own colour.
+    push.fogColor = glm::vec4(glm::vec3(settings.fogColor), 0.0f);
     push.fogParams = glm::vec4(settings.fogEnabled ? 1.0f : 0.0f,
                                std::max(settings.fogStart, 0.0f),
                                std::max(settings.fogDensity, 0.0f), exposure);
@@ -190,6 +209,7 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
                                    float(radius), 1.0f);
         push.fogUp = glm::vec4(upView, 0.0f);
     }
+    push.fogUp.w = std::isfinite(settings.fogSkyDistance) ? std::max(settings.fogSkyDistance, 0.0f) : 0.0f;
     push.bloomParams = glm::vec4(settings.bloomEnabled ? 1.0f : 0.0f,
                                  std::max(settings.bloomThreshold, 0.0f),
                                  std::max(settings.bloomIntensity, 0.0f),
@@ -205,7 +225,7 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
 void TonemapPass::record(rhi::RenderPassEncoder& rp, const SceneSettings& settings,
                          const glm::mat4& view, const glm::mat4& projection, const rhi::Rect2D& renderRect,
                          const glm::vec4& sourceRect, float exposure,
-                         const LensFlareSource& flare) const {
+                         const LensFlareSource& flare, bool skyProbeWritten) const {
     if (!ready()) return;
     rp.setPipeline(*pipeline_);
     // After setPipeline, as the pre-extraction code did — see the header.
@@ -217,6 +237,8 @@ void TonemapPass::record(rhi::RenderPassEncoder& rp, const SceneSettings& settin
     rp.setBindGroup(0, *set_);
     PushConstants push = pushConstants(settings, view, projection, exposure, outputFormat_, flare);
     push.sourceRect = sourceRect;
+    if (skyProbeWritten && std::isfinite(settings.fogSkyColor))
+        push.fogColor.w = std::clamp(settings.fogSkyColor, 0.0f, 1.0f);
     rp.setPushConstants(&push, sizeof(PushConstants));
     rp.draw(3);
 }

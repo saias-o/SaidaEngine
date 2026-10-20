@@ -186,7 +186,54 @@ also catches a neutral normal map accidentally sampled as sRGB. The sidedness
 check uses explicit ambient illumination so display calibration cannot hide
 otherwise correctly culled panels below its colour threshold.
 
-## Web verification
+## Authoring game UI
+
+Start by copying `templates/ui/` into the game's `ui/` directory. `menu.html`
+loads `components.css`, `menu.css` and `menu.js`; `button.html`, `list.html`
+and `panel.html` are independent examples. `panel.rml` is an actual RmlUi
+template (`<link type="text/template" href="panel.rml"/>`, then
+`<body template="ui-panel">`). Reuse the `.ui-button`, `.ui-panel`, `.ui-field`,
+`.ui-list`, `.ui-list-item`, `.ui-row` and `.ui-stack` classes instead of
+rebuilding focus, hover and spacing rules in each game.
+
+Use normal semantic containers (`main`, `nav`, `header`, `section`, `footer`)
+and flex layout. An ordinary `<html>` root, `<!DOCTYPE html>`, void tags and
+`<link rel="stylesheet" href="menu.css">` are accepted. External `.css` files,
+HTML-root inline styles and the JS style API accept
+`rgba(20, 30, 40, 0.5)` with Web alpha. Native `.rcss` and inline RML styles
+retain byte alpha; `#RRGGBBAA` is unambiguous. Web-profile declarations accept
+`transition: opacity 180ms ease-out` and `animation: enter 800ms ease-out 1`;
+the ease aliases map to native cubic tweens. Native RCSS can use
+`transition: background-color transform 0.18s cubic-out` and
+`animation: 0.8s cubic-out 1 enter`. Set the underlying style to the intended
+resting pose: completed CSS animations return to the underlying style.
+
+The DOM subset includes selectors, classes, text/markup, attribute methods,
+form `.value`, `.hidden`, listeners, `style.setProperty/getPropertyValue` and
+common camel-case style accessors (`element.style.opacity`, `backgroundColor`,
+`transform`, sizes/position, `animation`, `transition`). In a listener,
+read `event.target.value` for the player's input. Use classes for animated
+state changes. CSS animations run autonomously on unscaled UI time; no global
+timer, browser `window`, React runtime or network access is implied.
+
+Validate and inspect the actual renderer before declaring a UI finished:
+
+```powershell
+build-rel/bin/saida_tool.exe validate-ui templates/ui/menu.html --project . --pretty
+build-rel/bin/saida_tool.exe render-ui templates/ui/menu.html --project . --size 1280x800 --time 0.5 --out build-rel/menu-half.png --layout-json build-rel/menu-half.json
+build-rel/tests/saida_ui_gpu_tests.exe build-rel/menu-gpu.png
+```
+
+`render-ui` samples CSS animations at 60 Hz and renders the final state with
+the CPU reference; document JavaScript is exercised in the native canvas.
+The GPU test writes a real Vulkan image plus `.timings.json` with CPU raster
+and GPU submit-plus-fence wall times on that machine. Those timings do not
+qualify another GPU. Inspect the PNG and test the actual clicks, focus and
+resize. Unsupported shader decorators and filters are diagnostics, not
+successful approximations. Native document canvases use GPU rasterization;
+`SAIDA_UI_RENDERER=cpu` selects the reference worker path for comparisons.
+
+## Web verification commands
 
 Activate the Emscripten SDK and build:
 

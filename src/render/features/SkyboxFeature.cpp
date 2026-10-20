@@ -67,15 +67,26 @@ void SkyboxFeature::createPipelines(const RenderContext& ctx) {
     desc.pushConstantSize = pushSize;
     desc.viewMask = ctx.viewMask;
     pipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
+
+    if (!stereo_) {
+        Pipeline::Desc probe;
+        probe.vertPath = shaderPath("skybox.vert.spv");
+        probe.fragPath = shaderPath("skyprobe.skybox.frag.spv");
+        probe.colorFormats = {SkyProbe::kFormat};
+        probe.bindGroupLayouts = {setLayout_.get()};
+        probe.vertexInput = false;
+        probe.depthTest = false;
+        probe.depthWrite = false;
+        probe.cullMode = rhi::CullMode::None;
+        probe.pushConstantSize = sizeof(MonoPush);
+        probePipeline_ = std::make_unique<Pipeline>(ctx.device, probe);
+    }
 }
 
-void SkyboxFeature::record(FrameContext& fc) {
-    if (fc.passthrough) return;  // XR see-through: an opaque sky would hide the world
-
-    const auto& settings = fc.scene.settings();
-    if (settings.skyboxTexture == kAssetInvalid) return;
+bool SkyboxFeature::bindSky(const SceneSettings& settings, float& blend) {
+    if (settings.skyboxTexture == kAssetInvalid) return false;
     Texture* tex = resources_->getTexture(settings.skyboxTexture);
-    if (!tex) return;
+    if (!tex) return false;
 
     // The second sky, when there is one and it has loaded. It is requested even
     // at a blend of zero so it is resident before a fade starts; until it has
@@ -83,7 +94,7 @@ void SkyboxFeature::record(FrameContext& fc) {
     Texture* blendTex = nullptr;
     if (settings.skyboxBlendTexture != kAssetInvalid)
         blendTex = resources_->getTexture(settings.skyboxBlendTexture);
-    const float blend = blendTex ? std::clamp(settings.skyboxBlend, 0.0f, 1.0f) : 0.0f;
+    blend = blendTex ? std::clamp(settings.skyboxBlend, 0.0f, 1.0f) : 0.0f;
     // A layout slot is never left empty: with no second sky, the first fills it.
     Texture* boundBlend = blendTex ? blendTex : tex;
     const AssetID blendId = blendTex ? settings.skyboxBlendTexture : settings.skyboxTexture;
@@ -116,6 +127,68 @@ void SkyboxFeature::record(FrameContext& fc) {
         currentBlendPtr_ = boundBlend;
     }
 
+    return true;
+}
+
+SkyboxFeature::MonoPush SkyboxFeature::monoPush(const SceneSettings& settings,
+                                                const glm::mat4& invViewProj, float blend) const {
+    const float sunLength = glm::length(settings.skySunDirection);
+    MonoPush pc{};
+    pc.invViewProj = invViewProj;
+    pc.exposure = settings.skyboxExposure;
+    pc.rotation = settings.skyboxRotation;
+    pc.blend = blend;
+    pc.blendRotation = settings.skyboxBlendRotation;
+    pc.sunDirection = sunLength > 0.0f
+        ? glm::vec4(settings.skySunDirection / sunLength,
+                    glm::radians(std::max(settings.skySunSize, 0.0f)))
+        : glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
+    const float stormCover = std::isfinite(settings.stormCloudCover)
+        ? std::clamp(settings.stormCloudCover, 0.0f, 1.0f) : 0.0f;
+    pc.sunColor = glm::vec4(glm::max(settings.skySunColor, glm::vec3(0.0f)), stormCover);
+    return pc;
+}
+
+void SkyboxFeature::recordPrePass(const PrePassContext& pc) {
+    SkyProbe* probe = pc.skyProbe;
+    if (!probe || !probe->texture || !probePipeline_ || pc.stereo || !pc.camera) return;
+    const auto& settings = pc.scene.settings();
+    if (!(settings.fogEnabled && settings.fogSkyColor > 0.0f)) return;
+    float blend = 0.0f;
+    if (!bindSky(settings, blend)) return;
+
+    if (probe->state != rhi::ResourceState::ColorAttachment) {
+        pc.encoder.transition(probe->texture->image(), probe->state, rhi::ResourceState::ColorAttachment);
+        probe->state = rhi::ResourceState::ColorAttachment;
+    }
+    rhi::RenderPassDesc pass;
+    pass.colorCount = 1;
+    pass.colors[0].view = probe->texture->view();
+    pass.colors[0].loadOp = rhi::LoadOp::Clear;
+    pass.width = SkyProbe::kWidth;
+    pass.height = SkyProbe::kHeight;
+    rhi::RenderPassEncoder rp = pc.encoder.beginRenderPass(pass);
+    rp.setPipeline(*probePipeline_);
+    rp.setBindGroup(0, *set_);
+    // World from view: the probe is laid out around the camera's own axes.
+    const glm::mat4 worldFromView = glm::mat4(glm::transpose(glm::mat3(pc.camera->view())));
+    const MonoPush push = monoPush(settings, worldFromView, blend);
+    rp.setPushConstants(&push, sizeof(MonoPush));
+    rp.draw(3);
+    rp.end();
+    pc.encoder.transition(probe->texture->image(), rhi::ResourceState::ColorAttachment,
+                          rhi::ResourceState::ShaderRead);
+    probe->state = rhi::ResourceState::ShaderRead;
+    probe->written = true;
+}
+
+void SkyboxFeature::record(FrameContext& fc) {
+    if (fc.passthrough) return;  // XR see-through: an opaque sky would hide the world
+
+    const auto& settings = fc.scene.settings();
+    float blend = 0.0f;
+    if (!bindSky(settings, blend)) return;
+
     fc.pass.setPipeline(*pipeline_);
     fc.pass.setBindGroup(0, *set_);
 
@@ -133,14 +206,7 @@ void SkyboxFeature::record(FrameContext& fc) {
     if (!stereo_) {
         glm::mat4 view = fc.camera->view();
         view[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);  // strip translation
-        MonoPush pc{};
-        pc.invViewProj = glm::inverse(fc.camera->projection() * view);
-        pc.exposure = settings.skyboxExposure;
-        pc.rotation = settings.skyboxRotation;
-        pc.blend = blend;
-        pc.blendRotation = settings.skyboxBlendRotation;
-        pc.sunDirection = sunDirection;
-        pc.sunColor = sunColor;
+        const MonoPush pc = monoPush(settings, glm::inverse(fc.camera->projection() * view), blend);
         fc.pass.setPushConstants(&pc, sizeof(MonoPush));
     } else {
         const auto& eyes = *fc.eyes;

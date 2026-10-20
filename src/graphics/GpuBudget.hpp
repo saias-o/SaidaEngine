@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace saida {
@@ -41,6 +42,14 @@ public:
                           const std::unordered_set<AssetID>& liveTextures);
     void enforce();
 
+    // Retained textures count as live for trimUnused and enforce. A renderer
+    // feature that samples a texture no scene node references (menu
+    // backdrops, overlays) retains it, or residency would evict it mid-use.
+    // Counted: every retain needs one release.
+    void retainTexture(AssetID id) { ++retainedTextures_[id]; }
+    void releaseTexture(AssetID id);
+    bool textureRetained(AssetID id) const { return retainedTextures_.count(id) != 0; }
+
 private:
     MeshCache& meshes_;
     TextureCache& textures_;
@@ -53,6 +62,7 @@ private:
     std::unordered_set<const Mesh*> liveMeshes_;
     std::unordered_set<AssetID> liveTextures_;
     bool hasLiveUsage_ = false;
+    std::unordered_map<AssetID, uint32_t> retainedTextures_;
 };
 
 } // namespace saida

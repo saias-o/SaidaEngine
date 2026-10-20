@@ -39,8 +39,10 @@ public:
     TextureCache(const TextureCache&) = delete;
     TextureCache& operator=(const TextureCache&) = delete;
 
+    // `priority` orders the decode only when this call starts the load.
     Texture* get(AssetID id, bool srgb, AssetRegistry* registry,
-                 AssetLoader& loader, uint64_t frameClock);
+                 AssetLoader& loader, uint64_t frameClock,
+                 AssetLoadPriority priority = AssetLoadPriority::High);
 
     // Records the wrap mode an asset was declared with (glTF sampler). The
     // texture is created much later -- asynchronously, once the decode lands --
@@ -81,6 +83,7 @@ private:
         bool srgb = true;
         rhi::AddressMode address = rhi::AddressMode::Repeat;
         AssetHandle handle;
+        AssetLoadPriority priority = AssetLoadPriority::High;
     };
 
     rhi::AddressMode addressModeFor(AssetID id) const;

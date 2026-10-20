@@ -264,6 +264,24 @@ void AudioManager::pause(AudioID id) {
     }
 }
 
+void AudioManager::resume(AudioID id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = activeSounds_.find(id);
+    if (it != activeSounds_.end()) ma_sound_start(&it->second->sound);
+}
+
+void AudioManager::setVolume(AudioID id, float volume) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = activeSounds_.find(id);
+    if (it != activeSounds_.end()) ma_sound_set_volume(&it->second->sound, std::clamp(volume, 0.f, 1.f));
+}
+
+bool AudioManager::isPlaying(AudioID id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = activeSounds_.find(id);
+    return it != activeSounds_.end() && ma_sound_is_playing(&it->second->sound);
+}
+
 void AudioManager::setMasterVolume(float volume) {
     std::lock_guard<std::mutex> lock(mutex_);
     masterVolume_ = volume;

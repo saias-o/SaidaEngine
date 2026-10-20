@@ -71,24 +71,12 @@ vec2 equirectDy(vec2 uv) {
     return dy;
 }
 
-void main() {
-    // Reconstruct world-space direction from clip-space
-    vec4 worldPos = INV_VIEW_PROJ * vec4(clipPos.xy, 1.0, 1.0);
-    vec3 dir = normalize(worldPos.xyz / worldPos.w);
-
-    vec2 skyUv = equirect(dir, push.rotation);
-    vec3 color = textureGrad(TEX2D(skyboxTex), skyUv,
-                             equirectDx(skyUv), equirectDy(skyUv)).rgb;
-    // Both skies are sampled only while a fade is under way.
-    if (push.blend > 0.0) {
-        vec2 blendUv = equirect(dir, push.blendRotation);
-        vec3 other = textureGrad(TEX2D(blendTex), blendUv,
-                                 equirectDx(blendUv), equirectDy(blendUv)).rgb;
-        color = mix(color, other, clamp(push.blend, 0.0, 1.0));
-    }
+// The sky's own radiance in `dir` with its storm-cloud cover, before the Sun
+// disc. `color` is the sampled sky (crossfade included); `sunTransmission`
+// what the clouds leave of a disc behind them.
+vec3 cloudedSky(vec3 dir, vec3 color, out float sunTransmission) {
     color *= push.exposure;
-
-    float sunTransmission = 1.0;
+    sunTransmission = 1.0;
     if (push.sunColor.w > 0.0) {
         // Low-frequency sky light keeps stars and HDR highlights from painting
         // isolated bright speckles onto the cloud ceiling at night.
@@ -105,6 +93,71 @@ void main() {
         // burns a white hole through the darkest cloud after tonemapping.
         sunTransmission = exp(-28.0 * cloud.a);
     }
+    return color;
+}
+
+#ifdef SKY_PROBE
+// The sky probe (RenderFeature.hpp, SkyProbe): the same sky into a 64 x 32
+// equirectangular image of VIEW space, which the tonemap reads back by view
+// direction to colour the fog. INV_VIEW_PROJ carries the camera's rotation
+// (world from view). Rays below the horizon take the horizon: fog over far
+// ground is the haze of the horizon, not the ground of a sky photograph. Fog
+// scatters light from a wide cone, so each texel averages a 5 x 3 grid of
+// directions about 28 x 17 degrees across: one dark cloud on the horizon must
+// not hang a dark curtain down the fogged land beneath it. No Sun disc: a
+// fraction of one texel wide, it would only smear a hot spot.
+const vec2 PROBE_SIZE = vec2(64.0, 32.0);
+const float PROBE_PI = 3.14159265359;
+vec3 probeDirection(vec2 texel) {
+    vec2 uv = texel / PROBE_SIZE;
+    float phi = (uv.x - 0.5) * 2.0 * PROBE_PI;
+    float theta = clamp((0.5 - uv.y) * PROBE_PI, -0.5 * PROBE_PI, 0.5 * PROBE_PI);
+    vec3 view = vec3(sin(phi) * cos(theta), sin(theta), -cos(phi) * cos(theta));
+    vec3 dir = normalize(mat3(INV_VIEW_PROJ) * view);
+    dir.y = max(dir.y, 0.0);
+    return normalize(dir + vec3(0.0, 1e-4, 0.0));
+}
+// The mip whose texels match the probe's: the blur starts in the sky itself.
+float probeLod(vec2 size) {
+    return max(log2(size.x / PROBE_SIZE.x), 0.0);
+}
+
+void main() {
+    float skyLod = probeLod(vec2(textureSize(TEX2D(skyboxTex), 0)));
+    float blendLod = probeLod(vec2(textureSize(TEX2D(blendTex), 0)));
+    vec3 sum = vec3(0.0);
+    for (int j = -1; j <= 1; ++j) {
+        for (int i = -2; i <= 2; ++i) {
+            vec3 dir = probeDirection(gl_FragCoord.xy + vec2(float(i), float(j)) * 0.85);
+            vec3 color = textureLod(TEX2D(skyboxTex), equirect(dir, push.rotation), skyLod).rgb;
+            if (push.blend > 0.0) {
+                vec3 other = textureLod(TEX2D(blendTex), equirect(dir, push.blendRotation), blendLod).rgb;
+                color = mix(color, other, clamp(push.blend, 0.0, 1.0));
+            }
+            float unused;
+            sum += cloudedSky(dir, color, unused);
+        }
+    }
+    outColor = vec4(min(sum / 15.0, vec3(65000.0)), 1.0);
+}
+#else
+void main() {
+    // Reconstruct world-space direction from clip-space
+    vec4 worldPos = INV_VIEW_PROJ * vec4(clipPos.xy, 1.0, 1.0);
+    vec3 dir = normalize(worldPos.xyz / worldPos.w);
+
+    vec2 skyUv = equirect(dir, push.rotation);
+    vec3 color = textureGrad(TEX2D(skyboxTex), skyUv,
+                             equirectDx(skyUv), equirectDy(skyUv)).rgb;
+    // Both skies are sampled only while a fade is under way.
+    if (push.blend > 0.0) {
+        vec2 blendUv = equirect(dir, push.blendRotation);
+        vec3 other = textureGrad(TEX2D(blendTex), blendUv,
+                                 equirectDx(blendUv), equirectDy(blendUv)).rgb;
+        color = mix(color, other, clamp(push.blend, 0.0, 1.0));
+    }
+    float sunTransmission;
+    color = cloudedSky(dir, color, sunTransmission);
 
     // The Sun disc, in world space and outside the sky's exposure: the exposure
     // normalises photographs, the disc is a radiance of its own.
@@ -120,9 +173,10 @@ void main() {
             color += push.sunColor.rgb * edge * (0.4 + 0.6 * mu) * sunTransmission;
         }
     }
-    
+
     // Write out HDR color. Tonemapping will handle it later. The target is
     // half-float: anything past its 65 504 would be stored as infinity, and a
     // tonemapper dividing by 1 + x turns that into NaN.
     outColor = vec4(min(color, vec3(65000.0)), 1.0);
 }
+#endif

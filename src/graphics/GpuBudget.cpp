@@ -31,12 +31,27 @@ GpuBudget::TrimResult GpuBudget::trimUnused(
     const std::unordered_set<AssetID>& liveTextures) {
     const size_t texturesBefore = textures_.size();
     const size_t meshesBefore = meshes_.size();
-    textures_.sweepUnused(liveTextures, graveyard_, frameClock_);
+    if (retainedTextures_.empty()) {
+        textures_.sweepUnused(liveTextures, graveyard_, frameClock_);
+    } else {
+        std::unordered_set<AssetID> kept = liveTextures;
+        for (const auto& [id, count] : retainedTextures_) {
+            (void)count;
+            kept.insert(id);
+        }
+        textures_.sweepUnused(kept, graveyard_, frameClock_);
+    }
     meshes_.sweepUnused(liveMeshes, graveyard_, frameClock_);
     return {
         texturesBefore - textures_.size(),
         meshesBefore - meshes_.size(),
     };
+}
+
+void GpuBudget::releaseTexture(AssetID id) {
+    const auto it = retainedTextures_.find(id);
+    if (it == retainedTextures_.end()) return;
+    if (--it->second == 0) retainedTextures_.erase(it);
 }
 
 void GpuBudget::enforce() {
@@ -60,7 +75,7 @@ void GpuBudget::enforce() {
     std::vector<TextureCache::EvictionCandidate> textureCandidates;
     textures_.collectEvictionCandidates(liveTextures_, textureCandidates);
     for (const TextureCache::EvictionCandidate& candidate : textureCandidates)
-        candidates.push_back({candidate.id, candidate.lastUse, CacheTag::Texture});
+        if (!textureRetained(candidate.id)) candidates.push_back({candidate.id, candidate.lastUse, CacheTag::Texture});
 
     std::vector<MeshCache::EvictionCandidate> meshCandidates;
     meshes_.collectEvictionCandidates(liveMeshes_, meshCandidates);

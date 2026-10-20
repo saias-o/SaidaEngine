@@ -143,8 +143,9 @@ void Pipeline::build(const BuildInfo& info) {
     colorBlendAttach.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT
                                     | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttach.blendEnable = info.blendMode == BlendMode::None ? VK_FALSE : VK_TRUE;
-    if (info.blendMode == BlendMode::Alpha) {
-        colorBlendAttach.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    if (info.blendMode == BlendMode::Alpha || info.blendMode == BlendMode::PremultipliedAlpha) {
+        colorBlendAttach.srcColorBlendFactor = info.blendMode == BlendMode::PremultipliedAlpha
+            ? VK_BLEND_FACTOR_ONE : VK_BLEND_FACTOR_SRC_ALPHA;
         colorBlendAttach.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
         colorBlendAttach.colorBlendOp = VK_BLEND_OP_ADD;
         colorBlendAttach.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;

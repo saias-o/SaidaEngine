@@ -3,6 +3,10 @@
 #include "cli/UiCommandSupport.hpp"
 #include "cli/UiDocumentSession.hpp"
 #include "core/PngWriter.hpp"
+#include "core/Time.hpp"
+#include <algorithm>
+#include <cmath>
+#include <stdexcept>
 #include "ui/RmlUiRenderInterface.hpp"
 #include "ui/RmlUiRuntime.hpp"
 
@@ -62,6 +66,7 @@ struct Options {
     uint32_t height = kDefaultHeight;
     bool pretty = false;
     bool allowWarnings = false;
+    double timeSeconds = 0.0;
 };
 
 bool parseOptions(const std::vector<std::string>& args, Options& options) {
@@ -88,6 +93,19 @@ bool parseOptions(const std::vector<std::string>& args, Options& options) {
             std::string error;
             if (!parseSize(size, options.width, options.height, error)) {
                 std::cerr << "render-ui: --size " << error << "\n";
+                return false;
+            }
+        } else if (a == "--time") {
+            std::string value;
+            if (!takeValue(i, "--time", value)) return false;
+            try {
+                size_t used = 0;
+                options.timeSeconds = std::stod(value, &used);
+                if (used != value.size() || !std::isfinite(options.timeSeconds) ||
+                    options.timeSeconds < 0.0 || options.timeSeconds > 3600.0)
+                    throw std::invalid_argument("time");
+            } catch (const std::exception&) {
+                std::cerr << "render-ui: --time must be finite seconds in [0, 3600]\n";
                 return false;
             }
         } else if (a == "--pretty") {
@@ -153,6 +171,15 @@ int runRenderUiCommand(const std::vector<std::string>& args) {
         // document loaded and laid out rejects it — and nothing is written.
         // --allow-warnings is the explicit opt-out for a document whose author
         // has accepted its warnings.
+        // RmlUi clamps each animation step to 100 ms. Sample the same timeline
+        // as a 60 Hz host rather than jumping straight to the requested time.
+        double remaining = options.timeSeconds;
+        while (remaining > 1e-9) {
+            const double step = std::min(remaining, 1.0 / 60.0);
+            Time::advance(static_cast<float>(step));
+            session.context().Update();
+            remaining -= step;
+        }
         if (session.hasComplaints() && !options.allowWarnings) {
             std::cerr << "render-ui: '" << session.relativePath()
                       << "' was rejected; RmlUi reported "

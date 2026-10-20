@@ -215,8 +215,9 @@ Pipeline::Pipeline(Device& device, const Desc& desc) : device_(device) {
         fragment.module = frag;
         fragment.entryPoint = sv("main");
 
-        if (desc.blendMode == rhi::BlendMode::Alpha) {
-            blend.color = {WGPUBlendOperation_Add, WGPUBlendFactor_SrcAlpha,
+        if (desc.blendMode == rhi::BlendMode::Alpha || desc.blendMode == rhi::BlendMode::PremultipliedAlpha) {
+            blend.color = {WGPUBlendOperation_Add, desc.blendMode == rhi::BlendMode::PremultipliedAlpha
+                           ? WGPUBlendFactor_One : WGPUBlendFactor_SrcAlpha,
                            WGPUBlendFactor_OneMinusSrcAlpha};
             blend.alpha = {WGPUBlendOperation_Add, WGPUBlendFactor_One,
                            WGPUBlendFactor_OneMinusSrcAlpha};

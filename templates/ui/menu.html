@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Saida UI — An invitation to explore</title>
+    <link rel="stylesheet" href="components.css">
+    <link rel="stylesheet" href="menu.css">
+    <script src="menu.js"></script>
+</head>
+<body>
+    <div id="ambient"><div id="orbit-one"></div><div id="orbit-two"></div><div id="moon"></div></div>
+    <header><span class="wordmark">SAIDA</span><span class="edition">THE EXPLORER COLLECTION / 01</span></header>
+    <main id="invitation" class="ui-stack ui-enter">
+        <span class="ui-label">THERE IS STILL SO MUCH TO FIND</span>
+        <h1>Follow your<br/>curiosity.</h1>
+        <p class="description">A quieter moment. A different horizon.<br/>Your next adventure begins with a place.</p>
+        <div class="ui-row"><button id="explore" class="ui-button">Find somewhere new</button><button id="settings" class="ui-button secondary">Settings</button></div>
+        <p id="selection" class="ui-muted">Choose your own pace.</p>
+    </main>
+    <aside id="destinations" class="ui-panel ui-stack ui-enter">
+        <span class="ui-label">A FEW PLACES TO BEGIN</span>
+        <nav class="ui-list">
+            <button class="ui-list-item selected" id="place-one">01 / The quiet coast</button>
+            <button class="ui-list-item" id="place-two">02 / Beyond the mountains</button>
+            <button class="ui-list-item" id="place-three">03 / Somewhere unexpected</button>
+        </nav>
+        <div id="settings-panel" hidden><label class="ui-label">YOUR TRAVELLER NAME</label><input id="traveller" class="ui-field" type="text" value="Explorer"/></div>
+    </aside>
+    <footer><span>LEAVE A LITTLE ROOM FOR WONDER.</span><span>EXPLORE AT YOUR OWN PACE</span></footer>
+</body>
+</html>

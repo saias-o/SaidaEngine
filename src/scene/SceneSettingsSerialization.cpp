@@ -78,6 +78,8 @@ void writeSceneSettings(const SceneSettings& s, json& out) {
         {"fogScaleHeight", s.fogScaleHeight},
         {"fogRayleigh", vec3ToJson(s.fogRayleigh)},
         {"fogRayleighScaleHeight", s.fogRayleighScaleHeight},
+        {"fogSkyColor", s.fogSkyColor},
+        {"fogSkyDistance", s.fogSkyDistance},
         {"fogPlanetRadius", s.fogPlanetRadius},
         {"fogPlanetCentre", vec3ToJson(s.fogPlanetCentre)},
         {"bloomEnabled", s.bloomEnabled},
@@ -139,6 +141,8 @@ void applySceneSettings(const json& j, SceneSettings& out, const AssetPathResolv
     if (auto it = j.find("fogRayleigh"); it != j.end())
         out.fogRayleigh = jsonToVec3(*it, out.fogRayleigh);
     readInto(j, "fogRayleighScaleHeight", out.fogRayleighScaleHeight);
+    readInto(j, "fogSkyColor", out.fogSkyColor);
+    readInto(j, "fogSkyDistance", out.fogSkyDistance);
     readInto(j, "fogPlanetRadius", out.fogPlanetRadius);
     if (auto it = j.find("fogPlanetCentre"); it != j.end())
         out.fogPlanetCentre = jsonToVec3(*it, out.fogPlanetCentre);

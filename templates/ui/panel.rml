@@ -1,0 +1,4 @@
+<template name="ui-panel" content="ui-panel-content">
+<head><link type="text/rcss" href="components.css"/></head>
+<body><main id="ui-panel-content" class="ui-panel ui-stack"></main></body>
+</template>

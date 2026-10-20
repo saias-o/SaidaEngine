@@ -37,11 +37,11 @@ public:
     Texture(VulkanDevice& device, const std::string& path, bool srgb = true,
             rhi::AddressMode address = rhi::AddressMode::Repeat);
     Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format format = rhi::Format::RGBA8Srgb, bool generateMipmaps = true,
-            rhi::AddressMode address = rhi::AddressMode::Repeat, bool asynchronous = false);
+            rhi::AddressMode address = rhi::AddressMode::Repeat, bool asynchronous = false, bool renderTarget = false);
     // Allocation only: safe on the preparation worker. Command submission and
     // fence polling must remain on the render thread.
     Texture(VulkanDevice& device, uint32_t width, uint32_t height, rhi::Format format,
-            bool generateMipmaps, rhi::AddressMode address);
+            bool generateMipmaps, rhi::AddressMode address, bool renderTarget = false);
     void uploadRows(const std::shared_ptr<Buffer>& staging, uint32_t rows);
     uint32_t uploadedRows() const { return uploadedRows_; }
     ~Texture();

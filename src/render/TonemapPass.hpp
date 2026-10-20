@@ -30,7 +30,7 @@ public:
     // through the static builder below.
     struct PushConstants {
         glm::vec4 aoParams{0.0f};        // x enabled, y radius, z intensity, w power
-        glm::vec4 fogColor{0.0f};
+        glm::vec4 fogColor{0.0f};        // rgb the fog's own colour, w the share taken from the sky probe
         glm::vec4 fogParams{0.0f};       // x enabled, y start, z density, w exposure
         glm::vec4 bloomParams{0.0f};     // x enabled, y threshold, z intensity, w radius px
         glm::vec4 sourceRect{0.0f, 0.0f, 1.0f, 1.0f};
@@ -39,7 +39,8 @@ public:
         glm::vec4 fogRayleigh{0.0f};     // rgb extinction at altitude 0 (1/m), w its scale height
         glm::vec4 fogHeight{0.0f};       // x grey scale height (0 uniform), y camera altitude,
                                          // z planet radius (0 flat), w 1 when the air is layered
-        glm::vec4 fogUp{0.0f};           // xyz the camera's up (away from the planet), view space
+        glm::vec4 fogUp{0.0f};           // xyz the camera's up (away from the planet), view space,
+                                         // w the distance the sky is fogged at (0 clear)
         glm::vec4 outputParams{0.0f};    // x: shader encodes sRGB (UNORM target only)
         glm::vec4 flareSource{0.0f};     // xy the source in viewport UV, z lens flare, w sun star
         glm::vec4 flareRadiance{0.0f};   // rgb the source's linear radiance
@@ -59,7 +60,7 @@ public:
     // are recreated; until it has been called once there is no set to bind and
     // ready() is false.
     void setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::TextureView bloom,
-                   rhi::SamplerHandle bloomSampler);
+                   rhi::SamplerHandle bloomSampler, rhi::TextureView skyProbe);
     bool ready() const { return pipeline_ && set_; }
 
     // Draws the fullscreen triangle into an already-open pass, confined to
@@ -73,7 +74,7 @@ public:
     void record(rhi::RenderPassEncoder& rp, const SceneSettings& settings,
                 const glm::mat4& view, const glm::mat4& projection, const rhi::Rect2D& renderRect,
                 const glm::vec4& sourceRect, float exposure,
-                const LensFlareSource& flare = {}) const;
+                const LensFlareSource& flare = {}, bool skyProbeWritten = false) const;
 
     // Static: the XR tonemap draws this same shader once per eye and still
     // lives in Renderer until XrRenderer is extracted (ROADMAP §3). It needs

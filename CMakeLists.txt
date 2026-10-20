@@ -178,6 +178,10 @@ set(SHADERS
     ${SHADER_DIR}/outline.frag
     ${SHADER_DIR}/ui.vert
     ${SHADER_DIR}/ui.frag
+    ${SHADER_DIR}/rml_ui.vert
+    ${SHADER_DIR}/rml_ui.frag
+    ${SHADER_DIR}/rml_ui_resolve.vert
+    ${SHADER_DIR}/rml_ui_resolve.frag
     ${SHADER_DIR}/web_canvas_world.vert
     ${SHADER_DIR}/web_canvas_world.frag
     ${SHADER_DIR}/voxelize.vert
@@ -269,6 +273,26 @@ foreach(SHADER ${SHADERS})
             COMMENT "Compiling multiview.${SHADER_NAME} -> multiview.${SHADER_NAME}.spv"
         )
         list(APPEND SHADER_SPIRV ${MULTIVIEW_OUTPUT})
+    endif()
+    # The sky probe (SkyProbe, fog coloured by the sky): skybox.frag rendering
+    # a small view-space panorama instead of the screen. Desktop and Web.
+    if(SHADER_NAME STREQUAL "skybox.frag")
+        set(PROBE_OUTPUT ${SHADER_OUT_DIR}/skyprobe.${SHADER_NAME}.spv)
+        add_custom_command(
+            OUTPUT ${PROBE_OUTPUT}
+            COMMAND ${GLSLC} -I ${SHADER_DIR} -DSKY_PROBE ${SHADER} -o ${PROBE_OUTPUT}
+            DEPENDS ${SHADER} ${SHADER_INCLUDES}
+            COMMENT "Compiling skyprobe.${SHADER_NAME} -> skyprobe.${SHADER_NAME}.spv"
+        )
+        list(APPEND SHADER_SPIRV ${PROBE_OUTPUT})
+        set(WEB_PROBE_OUTPUT ${SHADER_OUT_DIR}/web.skyprobe.${SHADER_NAME}.spv)
+        add_custom_command(
+            OUTPUT ${WEB_PROBE_OUTPUT}
+            COMMAND ${GLSLC} -I ${SHADER_DIR} -DWEB -DSKY_PROBE ${SHADER} -o ${WEB_PROBE_OUTPUT}
+            DEPENDS ${SHADER} ${SHADER_INCLUDES}
+            COMMENT "Compiling web.skyprobe.${SHADER_NAME} -> web.skyprobe.${SHADER_NAME}.spv"
+        )
+        list(APPEND SHADER_SPIRV_WEB ${WEB_PROBE_OUTPUT})
     endif()
 endforeach()
 
@@ -445,6 +469,7 @@ add_library(saida_engine STATIC
     src/scripting/ScriptBehaviour.cpp
     src/ui/HudRasterizer.cpp
     src/ui/RmlUiRenderInterface.cpp
+    src/ui/RmlUiGpuRenderer.cpp
     src/ui/RmlUiRuntime.cpp
     src/ui/WorldPanelGeometry.cpp
     src/scene/Behaviour.cpp
@@ -1104,6 +1129,16 @@ if (BUILD_TESTING)
     target_compile_options(saida_ui_corpus_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_ui_corpus_tests COMMAND $<TARGET_FILE:saida_ui_corpus_tests>)
 
+    add_executable(saida_ui_authoring_tests tests/UiAuthoringTests.cpp)
+    saida_test_target(saida_ui_authoring_tests)
+    target_link_libraries(saida_ui_authoring_tests PRIVATE saida_engine)
+    add_test(NAME saida_ui_authoring_tests COMMAND $<TARGET_FILE:saida_ui_authoring_tests>)
+
+    add_executable(saida_ui_gpu_tests tests/UiGpuTests.cpp)
+    saida_test_target(saida_ui_gpu_tests)
+    target_link_libraries(saida_ui_gpu_tests PRIVATE saida_engine)
+    add_test(NAME saida_ui_gpu_tests COMMAND $<TARGET_FILE:saida_ui_gpu_tests>)
+
     # World-Space UI: raycast geometry of a 3D panel (interaction).
     add_executable(saida_ui_worldspace_tests tests/UiWorldPanelTests.cpp)
     saida_test_target(saida_ui_worldspace_tests)
@@ -1217,6 +1252,11 @@ if (BUILD_TESTING)
     target_link_libraries(saida_vehicle_impact_tests PRIVATE saida_engine)
     target_compile_options(saida_vehicle_impact_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_vehicle_impact_tests COMMAND $<TARGET_FILE:saida_vehicle_impact_tests>)
+
+    add_executable(saida_audio_manager_tests tests/AudioManagerTests.cpp)
+    saida_test_target(saida_audio_manager_tests)
+    target_link_libraries(saida_audio_manager_tests PRIVATE saida_engine)
+    add_test(NAME saida_audio_manager_tests COMMAND $<TARGET_FILE:saida_audio_manager_tests>)
 
     add_executable(saida_audio_stream_tests tests/AudioStreamTests.cpp)
     saida_test_target(saida_audio_stream_tests)

@@ -932,6 +932,31 @@ void gpuPreparedTextures(VulkanDevice& device) {
     require(resources.assetLoadsSettled()&&resources.getTexture(bad,false)==resources.missingTexture(),
         "allocation rejection settles to the preallocated missing texture without crashing");
     require(resources.getTexture(id,false)==texture,"failed texture preparation preserves other resident textures");
+    {
+        // Streaming queued a crowd of decodes; a texture retained afterwards
+        // (on screen now) is prepared ahead of all of them. The urgent one is queued
+        // first: unordered iteration visits the newest entry first.
+        std::vector<AssetID> crowd;
+        for(int i=0;i<24;++i)crowd.push_back(resources.queueMemoryTexture(encoded.data(),encoded.size(),false));
+        const AssetID urgent=crowd.front();
+        resources.retainTexture(urgent,false);
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        bool urgentFirst=false;
+        const auto crowdDeadline=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+        while(std::chrono::steady_clock::now()<crowdDeadline) {
+            resources.pumpAssetLoads();
+            int others=0;
+            for(size_t i=1;i<crowd.size();++i)if(resources.getTexture(crowd[i],false))++others;
+            if(resources.getTexture(urgent,false)){urgentFirst=others==0;break;}
+            if(others)break;
+            std::this_thread::yield();
+        }
+        require(urgentFirst,"a retained texture is prepared before textures queued ahead of it");
+        resources.releaseTexture(urgent);
+        while(!resources.assetLoadsSettled()&&std::chrono::steady_clock::now()<crowdDeadline) {
+            resources.pumpAssetLoads();std::this_thread::yield();
+        }
+    }
 
     AssetLoader loader;
     auto projection=loader.requestMemory(0x713,encoded,AssetPayloadKind::EnvironmentSH,environmentSHDecoder());
@@ -1216,6 +1241,25 @@ void gpuLodGroups() {
         told = std::string(e.what()).find("4096 indices requested") != std::string::npos;
     }
     require(told, "an upload the arena cannot hold says what it asked and what was left");
+    {
+        // A texture sampled outside the scene (a menu backdrop) survives both
+        // scene trims and the GPU budget while retained, and only then.
+        const uint8_t pixels[16]={255,255,255,255, 0,0,0,255, 0,0,0,255, 255,255,255,255};
+        const AssetID backdrop=resources.registerGeneratedTexture(pixels,2,2);
+        Texture* resident=resources.getTexture(backdrop);
+        require(resident!=nullptr,"generated texture is resident");
+        ResourceManager::AssetUsage scene;scene.meshes.insert(mesh);
+        resources.retainTexture(backdrop);
+        resources.trimUnused(scene);
+        require(resources.getTexture(backdrop)==resident,"a retained texture survives a scene trim");
+        const uint64_t budget=resources.gpuBudgetBytes();
+        resources.setLiveUsage(scene);resources.setGpuBudget(1);resources.pumpAssetLoads();
+        require(resources.getTexture(backdrop)==resident,"a retained texture survives the GPU budget");
+        resources.setGpuBudget(budget);
+        resources.releaseTexture(backdrop);
+        resources.trimUnused(scene);
+        require(resources.getTexture(backdrop)!=resident,"a released texture is trimmed again");
+    }
     gpuCompaction(device);
     gpuPipelineBatches(device);
     gpuCollisionFrames(resources);

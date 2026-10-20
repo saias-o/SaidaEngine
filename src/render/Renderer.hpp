@@ -197,6 +197,12 @@ private:
     bool sunOcclusionReady_ = false;  // transitioned out of Undefined
 #endif
     SunOcclusionMap sunOcclusion_;
+    // The sky as rendered, for the fog's colour (SkyProbe, RenderFeature.hpp).
+    std::unique_ptr<rhi::RenderTexture> skyProbeTexture_;
+    SkyProbe skyProbe_;
+    void createSkyProbe();
+    // Before the tonemap samples it: readable even on a frame with no sky.
+    void readySkyProbe(rhi::CommandEncoder& encoder);
     void createSunOcclusion();
     void readySunOcclusion(rhi::CommandEncoder& encoder);
     void writeSunOcclusion(uint32_t frame);

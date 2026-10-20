@@ -2,6 +2,7 @@
 
 #include "cli/UiCommandSupport.hpp"
 #include "cli/UiDocumentSession.hpp"
+#include "ui/WebMarkup.hpp"
 
 #include <RmlUi/Core/ComputedValues.h>
 #include <RmlUi/Core/Element.h>
@@ -294,7 +295,7 @@ int runValidateUiCommand(const std::vector<std::string>& args) {
                 std::filesystem::relative(path, projectRoot, ec);
             const std::string label =
                 (ec || relative.empty()) ? path.filename().string() : relative.generic_string();
-            checkFractionalRgbaAlpha(label, contents, issues);
+            if (extension != ".css") checkFractionalRgbaAlpha(label, normalizeWebMarkup(contents), issues);
         }
 
         // RmlUi raises the same complaint once per layout pass; an author needs

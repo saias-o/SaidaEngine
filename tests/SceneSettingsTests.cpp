@@ -85,6 +85,8 @@ saida::SceneSettings distinctive() {
     s.fogScaleHeight = 1200.0f;
     s.fogRayleigh = {5.8e-6f, 1.35e-5f, 3.31e-5f};
     s.fogRayleighScaleHeight = 8000.0f;
+    s.fogSkyColor = 0.75f;
+    s.fogSkyDistance = 42000.0f;
     s.fogPlanetRadius = 6378137.0f;
     s.fogPlanetCentre = {0.0f, -6378137.0f, 0.0f};
     s.bloomEnabled = false;
@@ -137,6 +139,8 @@ void expectEqual(const saida::SceneSettings& a, const saida::SceneSettings& b) {
         assert(near(a.fogPlanetCentre[i], b.fogPlanetCentre[i]));
     }
     assert(near(a.fogRayleighScaleHeight, b.fogRayleighScaleHeight));
+    assert(near(a.fogSkyColor, b.fogSkyColor));
+    assert(near(a.fogSkyDistance, b.fogSkyDistance));
     assert(near(a.fogPlanetRadius, b.fogPlanetRadius));
     assert(a.bloomEnabled == b.bloomEnabled);
     assert(near(a.bloomThreshold, b.bloomThreshold));

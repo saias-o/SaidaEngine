@@ -43,6 +43,7 @@ enum class BlendMode : uint32_t {
     None,
     Alpha,
     Additive,
+    PremultipliedAlpha,
 };
 
 } // namespace saida::rhi

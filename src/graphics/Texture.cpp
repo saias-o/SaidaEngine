@@ -124,8 +124,8 @@ Texture::Texture(VulkanDevice& device, const std::string& path, bool srgb,
 }
 
 Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, uint32_t height, rhi::Format fmt, bool genMipmaps,
-                 rhi::AddressMode address, bool asynchronous)
-    : Texture(device, width, height, fmt, genMipmaps, address) {
+                 rhi::AddressMode address, bool asynchronous, bool renderTarget)
+    : Texture(device, width, height, fmt, genMipmaps, address, renderTarget) {
     SAIDA_PROFILE_SCOPE("Resource/CreateMemoryTexture");
     if (!pixels) throw std::invalid_argument("Texture pixels are null");
     const uint64_t bytes = uint64_t(width_) * height_ * texelBytes_;
@@ -136,7 +136,7 @@ Texture::Texture(VulkanDevice& device, const uint8_t* pixels, uint32_t width, ui
 }
 
 Texture::Texture(VulkanDevice& device, uint32_t width, uint32_t height, rhi::Format fmt, bool genMipmaps,
-                 rhi::AddressMode address)
+                 rhi::AddressMode address, bool renderTarget)
     : address_(address), device_(device), width_(width), height_(height) {
     SAIDA_PROFILE_SCOPE("Resource/AllocateTexture");
     const VkFormat format = rhi::vulkan::toVk(fmt);
@@ -163,6 +163,7 @@ Texture::Texture(VulkanDevice& device, uint32_t width, uint32_t height, rhi::For
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (renderTarget) imageInfo.usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
 

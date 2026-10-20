@@ -11,6 +11,7 @@ public:
     static float delta() { return delta_; }            // scaled seconds since last frame
     static float unscaledDelta() { return unscaledDelta_; }
     static float elapsed() { return elapsed_; }        // scaled seconds since start
+    static double unscaledElapsed() { return unscaledElapsed_; }
     static float scale() { return scale_; }
     static void setScale(float s) {
         scale_ = s;
@@ -29,11 +30,13 @@ private:
         unscaledDelta_ = realDeltaSeconds;
         delta_ = realDeltaSeconds * scale_;
         elapsed_ += delta_;
+        unscaledElapsed_ += realDeltaSeconds;
     }
 
     static inline float delta_ = 0.0f;
     static inline float unscaledDelta_ = 0.0f;
     static inline float elapsed_ = 0.0f;
+    static inline double unscaledElapsed_ = 0.0;
     static inline float scale_ = 1.0f;
 };
 

@@ -4,6 +4,7 @@
 #include "graphics/Texture.hpp"  // fwd-declares rhi::vulkan::CommandEncoder
 #include "scene/Node.hpp"
 #include "ui/RmlUiRenderInterface.hpp"
+#include "ui/UiUpdateSchedule.hpp"
 
 #include <memory>
 #include <string>
@@ -12,6 +13,7 @@
 #include <quickjs.h>
 
 namespace saida {
+class RmlUiGpuRenderer;
 
 class JsContext;
 class Buffer;
@@ -202,14 +204,19 @@ private:
     std::unique_ptr<Texture> texture_;
     std::vector<std::unique_ptr<Buffer>> stagingBuffers_;
     std::shared_ptr<RmlUiRenderInterface::RasterFrame> rasterFrame_;
+    std::unique_ptr<RmlUiGpuRenderer> gpuRenderer_;
+    bool gpuRendering_ = true;
     void retireGpuResources();
     std::unique_ptr<JsContext> jsContext_;
     std::string rmlContextName_;
     Rml::Context* rmlContext_ = nullptr;
     Rml::ElementDocument* document_ = nullptr;
     bool uiDirty_ = true;
+    UiUpdateSchedule uiSchedule_;
     bool hotReloadEnabled_ = true;
     bool interactive_ = true;
+    bool pointerKnown_ = false;
+    int pointerX_ = 0, pointerY_ = 0;
     float worldWidth_ = 1.0f;
     int renderOrder_ = 0;
     float hotReloadTimer_ = 0.0f;

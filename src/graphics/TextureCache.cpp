@@ -190,13 +190,20 @@ void TextureCache::registerBindless(Texture* texture) {
 }
 
 Texture* TextureCache::get(AssetID id, bool srgb, AssetRegistry* registry,
-                           AssetLoader& loader, uint64_t frameClock) {
+                           AssetLoader& loader, uint64_t frameClock,
+                           AssetLoadPriority priority) {
     if (id == kAssetInvalid) return nullptr;
     if (auto it = textures_.find(id); it != textures_.end()) {
         lastUse_[id] = frameClock;
         return it->second.get();
     }
     if (failed_.count(id)) return missing();
+    // A later, more urgent request reorders preparation of a decode in flight.
+    if (auto it = pending_.find(id); it != pending_.end()) {
+        if (static_cast<uint8_t>(priority) > static_cast<uint8_t>(it->second.priority))
+            it->second.priority = priority;
+        return nullptr;
+    }
     if (!registry) return nullptr;
 
     const bool preparing =
@@ -207,10 +214,10 @@ Texture* TextureCache::get(AssetID id, bool srgb, AssetRegistry* registry,
         false;
 #endif
     if (!pending_.count(id) && !uploading_.count(id) && !preparing) {
-        AssetHandle handle = loader.request(id, AssetLoadPriority::High,
+        AssetHandle handle = loader.request(id, priority,
                                             AssetPayloadKind::Image, makeImageDecoder());
         if (!handle) return nullptr;
-        pending_.emplace(id, PendingTexture{srgb, addressModeFor(id), std::move(handle)});
+        pending_.emplace(id, PendingTexture{srgb, addressModeFor(id), std::move(handle), priority});
     }
     return nullptr;
 }
@@ -232,46 +239,59 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
     constexpr uint64_t kPreparationBudgetBytes = 64 * 1024 * 1024;
     if (preparing_.size() + transferring_.size() >= kMaxPreparedTextures) return;
 #endif
+    // Failed decodes settle at once. Of the decoded images, the one requested
+    // at the highest priority is prepared first (one per pump): a texture on
+    // screen now must not wait behind hundreds queued by streaming.
+    auto best = pending_.end();
     for (auto it = pending_.begin(); it != pending_.end();) {
         const AssetLoadState state = it->second.handle.state();
         if (state == AssetLoadState::Queued || state == AssetLoadState::Loading) {
             ++it;
             continue;
         }
-
-        const AssetID id = it->first;
-        bool created = false;
-        if (state == AssetLoadState::Ready) {
-            if (auto image =
-                    std::static_pointer_cast<DecodedImage>(it->second.handle.payload())) {
-#ifndef SAIDA_RHI_WEBGPU
-                const uint64_t bytes = uint64_t(image->width)*image->height*(image->hdr ? 16 : 4);
-                // An oversized image runs alone instead of deadlocking at the
-                // soft preparation limit or silently losing source resolution.
-                if (preparationBytes_ && (bytes > kPreparationBudgetBytes || preparationBytes_ > kPreparationBudgetBytes-bytes)) { ++it; continue; }
-                if (!preparation_) preparation_ = std::make_unique<PreparationQueue>(device_);
-                preparation_->submit({id, bytes, std::move(it->second)});
-                preparing_.insert(id); preparationBytes_ += bytes;
-#else
-                SAIDA_PROFILE_SCOPE("Resource/FinalizeAsyncTexture");
-                rhi::Format format = it->second.srgb
-                    ? rhi::Format::RGBA8Srgb
-                    : rhi::Format::RGBA8Unorm;
-                auto texture = std::make_unique<Texture>(
-                    device_, static_cast<const uint8_t*>(image->pixels),
-                    image->width, image->height, format, true, it->second.address, true);
-                residentBytes_ += texture->gpuBytes();
-                uploading_.emplace(id, std::move(texture));
-#endif
-                created = true;
-            }
+        auto image = state == AssetLoadState::Ready
+            ? std::static_pointer_cast<DecodedImage>(it->second.handle.payload())
+            : nullptr;
+        if (!image) {
+            failed_.insert(it->first);
+            completed.push_back(it->first);
+            it = pending_.erase(it);
+            continue;
         }
-        if (!created) failed_.insert(id);
-        it = pending_.erase(it);
-        if (!created) completed.push_back(id);
-        // Enqueue at most one preparation (one image on Web) per pump.
-        if (created) break;
+#ifndef SAIDA_RHI_WEBGPU
+        const uint64_t bytes = uint64_t(image->width)*image->height*(image->hdr ? 16 : 4);
+        // An oversized image runs alone instead of deadlocking at the
+        // soft preparation limit or silently losing source resolution.
+        if (preparationBytes_ && (bytes > kPreparationBudgetBytes || preparationBytes_ > kPreparationBudgetBytes-bytes)) { ++it; continue; }
+#endif
+        if (best == pending_.end() ||
+            static_cast<uint8_t>(it->second.priority) > static_cast<uint8_t>(best->second.priority))
+            best = it;
+        ++it;
     }
+    if (best == pending_.end()) return;
+
+    const AssetID id = best->first;
+    auto image = std::static_pointer_cast<DecodedImage>(best->second.handle.payload());
+#ifndef SAIDA_RHI_WEBGPU
+    const uint64_t bytes = uint64_t(image->width)*image->height*(image->hdr ? 16 : 4);
+    if (!preparation_) preparation_ = std::make_unique<PreparationQueue>(device_);
+    preparation_->submit({id, bytes, std::move(best->second)});
+    preparing_.insert(id); preparationBytes_ += bytes;
+#else
+    {
+        SAIDA_PROFILE_SCOPE("Resource/FinalizeAsyncTexture");
+        rhi::Format format = best->second.srgb
+            ? rhi::Format::RGBA8Srgb
+            : rhi::Format::RGBA8Unorm;
+        auto texture = std::make_unique<Texture>(
+            device_, static_cast<const uint8_t*>(image->pixels),
+            image->width, image->height, format, true, best->second.address, true);
+        residentBytes_ += texture->gpuBytes();
+        uploading_.emplace(id, std::move(texture));
+    }
+#endif
+    pending_.erase(best);
 }
 AssetID TextureCache::queueMemory(const uint8_t* data, size_t size, bool srgb,
                                   rhi::AddressMode address, AssetLoader& loader) {

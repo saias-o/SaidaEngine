@@ -4,10 +4,15 @@
 #include "core/Paths.hpp"
 #include "core/Time.hpp"
 #include "ui/RmlUiRenderInterface.hpp"
+#include "ui/WebCss.hpp"
+#include "ui/WebMarkup.hpp"
 
 #include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/Core.h>
 #include <RmlUi/Core/ElementDocument.h>
+#include <RmlUi/Core/ElementInstancer.h>
+#include <RmlUi/Core/ElementText.h>
+#include <RmlUi/Core/FontEngineInterface.h>
 #include <RmlUi/Core/Factory.h>
 #include <RmlUi/Core/FileInterface.h>
 #include <RmlUi/Core/StyleSheetContainer.h>
@@ -17,12 +22,14 @@
 #include <cstdio>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <memory>
 #include <sstream>
+#include <vector>
 
 namespace saida {
 
@@ -50,7 +57,7 @@ void recordDependencyPath(const std::filesystem::path& path) {
 class NextRmlSystemInterface final : public Rml::SystemInterface {
 public:
     double GetElapsedTime() override {
-        return static_cast<double>(Time::elapsed());
+        return Time::unscaledElapsed();
     }
 
     bool LogMessage(Rml::Log::Type type, const Rml::String& message) override {
@@ -78,13 +85,17 @@ class NextRmlFileInterface final : public Rml::FileInterface {
 public:
     Rml::FileHandle Open(const Rml::String& path) override {
         std::filesystem::path resolved = resolve(path);
-        if (isStylesheet(resolved)) {
+        if (isStylesheet(resolved) || resolved.extension() == ".html") {
             std::ifstream in(resolved, std::ios::binary);
             if (!in) return 0;
             std::ostringstream ss;
             ss << in.rdbuf();
             auto* handle = new FileHandle;
-            handle->data = sanitizeStylesheet(ss.str());
+            handle->data = isStylesheet(resolved) ? sanitizeStylesheet(ss.str()) : normalizeWebMarkup(ss.str());
+            std::string extension = resolved.extension().string();
+            std::transform(extension.begin(), extension.end(), extension.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            if (extension == ".css") handle->data = normalizeWebCss(handle->data);
             recordDependencyPath(resolved);
             return reinterpret_cast<Rml::FileHandle>(handle);
         }
@@ -239,15 +250,120 @@ std::unique_ptr<RmlUiRenderInterface> gRenderInterface;
 // left-aligned run of text with nothing logged.
 //
 // This sheet is the engine's authoring baseline (SPEC section 8.2): it restores
-// the block/inline-block distinction HTML authors already assume, and nothing
-// else. It is a contract, not a theme — no margins, no fonts, no colours — and
+// what HTML authors already assume of the browser's own sheet — the block /
+// inline-block distinction, and a button's centred label — and nothing else.
+// It is a contract, not a theme — no margins, no fonts, no colours — and
 // it is embedded rather than shipped as a file so it can never go missing from
 // a package. It is merged *under* each document, so any rule the document
 // declares wins.
 constexpr const char* kUserAgentStyleSheet = R"RCSS(
-body, div, p, section, h1, h2, h3, h4, h5, h6 { display: block; }
-img, button { display: inline-block; }
+body, div, p, section, h1, h2, h3, h4, h5, h6, header, footer, main, nav,
+article, aside, form, fieldset, figure, figcaption, ul, ol, li { display: block; }
+img, button, input, select, textarea { display: inline-block; }
+button { text-align: center; }
+[hidden] { display: none; }
 )RCSS";
+
+// ── <button> layout ──────────────────────────────────────────────────────────
+//
+// A browser centres a button's content vertically in the button, whatever the
+// author's CSS: the HTML rendering rules ("button layout") wrap the content in
+// an anonymous box that, unless it overflows, is centred in the block axis of a
+// button laid out as block or inline-block. No property expresses this, so a
+// document written for a browser declares nothing and RmlUi, which has no such
+// rule, leaves the label at the top. The engine's <button> applies it after
+// layout. Flex and table buttons lay out as their display says, as in browsers;
+// absolutely positioned children keep the padding box as their reference.
+class ButtonElement final : public Rml::Element {
+public:
+    using Rml::Element::Element;
+
+protected:
+    void OnLayout() override {
+        Rml::Element::OnLayout();
+        using Rml::Style::Display;
+        const Display display = GetDisplay();
+        if (display != Display::Block && display != Display::InlineBlock) return;
+
+        // Everything laid out with this button as its offset parent: its
+        // children, and the descendants of inline children (an inline box is
+        // not a containing block, so its text is placed relative to us).
+        std::vector<Rml::Element*> placed;
+        collect(this, placed);
+        float top = 0, bottom = 0;
+        bool any = false;
+        for (Rml::Element* element : placed) {
+            float a = 0, b = 0;
+            if (!extent(element, a, b)) continue;
+            top = any ? std::min(top, a) : a;
+            bottom = any ? std::max(bottom, b) : b;
+            any = true;
+        }
+        if (!any) return;
+
+        const Rml::Box& box = GetBox();
+        const float contentTop = box.GetEdge(Rml::BoxArea::Border, Rml::BoxEdge::Top) +
+                                 box.GetEdge(Rml::BoxArea::Padding, Rml::BoxEdge::Top);
+        const float contentHeight = box.GetSize(Rml::BoxArea::Content).y;
+        // Overflowing content stays where the flow put it.
+        if (bottom - top > contentHeight) return;
+        // Centring the measured extent rather than adding an offset keeps this
+        // idempotent: RmlUi submits an inline-block's layout a second time when
+        // it places the button on its line, without laying its content again.
+        const float shift = contentTop + 0.5f * (contentHeight - (bottom - top)) - top;
+        if (std::abs(shift) < 0.01f) return;
+        for (Rml::Element* element : placed) {
+            // SetOffset takes the flow position, before any `position:
+            // relative` offset, which the element re-applies itself.
+            const Rml::Vector2f current{element->GetOffsetLeft(), element->GetOffsetTop()};
+            element->SetOffset({0, 0}, this);
+            const Rml::Vector2f relative{element->GetOffsetLeft(), element->GetOffsetTop()};
+            element->SetOffset(current - relative + Rml::Vector2f{0, shift}, this);
+        }
+    }
+
+private:
+    static bool outOfFlow(Rml::Element* element) {
+        const auto position = element->GetPosition();
+        return position == Rml::Style::Position::Absolute || position == Rml::Style::Position::Fixed ||
+               element->GetDisplay() == Rml::Style::Display::None;
+    }
+    void collect(Rml::Element* parent, std::vector<Rml::Element*>& out) {
+        for (int i = 0; i < parent->GetNumChildren(); ++i) {
+            Rml::Element* child = parent->GetChild(i);
+            if (outOfFlow(child) || child->GetOffsetParent() != this) continue;
+            out.push_back(child);
+            if (child->GetDisplay() == Rml::Style::Display::Inline) collect(child, out);
+        }
+    }
+    // The vertical span an element takes in the flow, relative to our border
+    // box: line boxes for text, margin boxes for everything else.
+    static bool extent(Rml::Element* element, float& top, float& bottom) {
+        if (auto* text = rmlui_dynamic_cast<Rml::ElementText*>(element)) {
+            const Rml::FontFaceHandle face = text->GetFontFaceHandle();
+            if (!face || text->GetLines().empty()) return false;
+            const Rml::FontMetrics& metrics = Rml::GetFontEngineInterface()->GetFontMetrics(face);
+            const float lineHeight = text->GetLineHeight();
+            const float above = metrics.ascent + 0.5f * (lineHeight - (metrics.ascent + metrics.descent));
+            bool first = true;
+            for (const auto& line : text->GetLines()) {
+                const float baseline = text->GetOffsetTop() + line.position.y;
+                top = first ? baseline - above : std::min(top, baseline - above);
+                bottom = first ? baseline - above + lineHeight : std::max(bottom, baseline - above + lineHeight);
+                first = false;
+            }
+            return true;
+        }
+        if (element->GetDisplay() == Rml::Style::Display::Inline) return false; // its text counts
+        const Rml::Box& box = element->GetBox();
+        top = element->GetOffsetTop() - box.GetEdge(Rml::BoxArea::Margin, Rml::BoxEdge::Top);
+        bottom = element->GetOffsetTop() + box.GetSize(Rml::BoxArea::Border).y +
+                 box.GetEdge(Rml::BoxArea::Margin, Rml::BoxEdge::Bottom);
+        return true;
+    }
+};
+
+Rml::ElementInstancerGeneric<ButtonElement> gButtonInstancer;
 
 Rml::SharedPtr<Rml::StyleSheetContainer> gUserAgentSheet;
 
@@ -398,6 +514,7 @@ bool RmlUiRuntime::ensureInitialized() {
         gFileInterface.reset();
         gSystemInterface.reset();
     } else {
+        Rml::Factory::RegisterElementInstancer("button", &gButtonInstancer);
         loadDefaultFonts();
     }
     return initialized_;
@@ -446,7 +563,7 @@ Rml::ElementDocument* RmlUiRuntime::loadDocument(Rml::Context& context, const st
 Rml::ElementDocument* RmlUiRuntime::loadDocumentFromMemory(Rml::Context& context,
                                                            const std::string& markup,
                                                            const std::string& sourceName) {
-    Rml::ElementDocument* document = context.LoadDocumentFromMemory(markup, sourceName);
+    Rml::ElementDocument* document = context.LoadDocumentFromMemory(normalizeWebMarkup(markup), sourceName);
     if (document) applyUserAgentStyleSheet(*document);
     return document;
 }

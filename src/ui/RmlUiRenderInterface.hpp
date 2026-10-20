@@ -48,8 +48,10 @@ public:
     void EnableScissorRegion(bool enable) override;
     void SetScissorRegion(Rml::Rectanglei region) override;
     void SetTransform(const Rml::Matrix4f* transform) override;
+    Rml::CompiledShaderHandle CompileShader(const Rml::String& name, const Rml::Dictionary& parameters) override;
+    Rml::CompiledFilterHandle CompileFilter(const Rml::String& name, const Rml::Dictionary& parameters) override;
 
-private:
+public:
     struct Geometry {
         std::vector<Rml::Vertex> vertices;
         std::vector<int> indices;
@@ -65,6 +67,24 @@ private:
         Rml::Vector2i size{0, 0};
         std::vector<uint8_t> premultipliedRgba;
     };
+
+    struct Draw {
+        std::shared_ptr<const Geometry> geometry;
+        std::shared_ptr<const TextureData> texture;
+        Rml::Vector2f translation;
+        bool scissorEnabled = false, transformEnabled = false;
+        Rml::Rectanglei scissor;
+        Rml::Matrix4f transform;
+    };
+    struct DrawList {
+        uint32_t width = 0, height = 0;
+        std::vector<Draw> draws;
+    };
+    void beginCapture(uint32_t width, uint32_t height);
+    DrawList endCapture();
+
+private:
+    std::unique_ptr<DrawList> capture_;
 
     struct Pixel {
         uint8_t r = 0;

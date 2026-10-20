@@ -88,6 +88,22 @@ struct SunOcclusionMap {
     int light = -1;               // index in the lighting UBO's lights
 };
 
+// The sky as rendered this frame, small and therefore blurred: a 64 x 32
+// equirectangular image in VIEW space (u around the camera's up axis, centred
+// on its forward direction; v from up to down), with directions below the
+// horizon taking the horizon's colour. Owned by the Renderer; the sky feature
+// renders it before the scene pass, the tonemap colours the fog with it
+// (SceneSettings::fogSkyColor). `written` is reset every frame: a frame with
+// no sky leaves the fog its own colour.
+struct SkyProbe {
+    static constexpr uint32_t kWidth = 64;
+    static constexpr uint32_t kHeight = 32;
+    static constexpr rhi::Format kFormat = rhi::Format::RGBA16Float;
+    rhi::RenderTexture* texture = nullptr;
+    rhi::ResourceState state = rhi::ResourceState::Undefined;
+    bool written = false;
+};
+
 // Compute features run here because neither backend permits compute inside a render pass.
 struct PrePassContext {
     rhi::CommandEncoder& encoder;
@@ -99,6 +115,7 @@ struct PrePassContext {
     const std::vector<EyeRenderInfo>* eyes = nullptr;
     rhi::Extent2D extent{};
     SunOcclusionMap* sunOcclusion = nullptr;  // desktop; null where there is none
+    SkyProbe* skyProbe = nullptr;             // mono views; null in XR
 };
 
 class ScenePassFeature {

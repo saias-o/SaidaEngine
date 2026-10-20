@@ -126,6 +126,16 @@ void ResourceManager::setLiveUsage(AssetUsage usage) {
                              std::move(usage.textures));
 }
 
+void ResourceManager::retainTexture(AssetID id, bool srgb) {
+    gpuBudget_->retainTexture(id);
+    textureCache_->get(id, srgb, registry_, *assetLoader_,
+                       gpuBudget_->frameClock(), AssetLoadPriority::Critical);
+}
+
+void ResourceManager::releaseTexture(AssetID id) {
+    gpuBudget_->releaseTexture(id);
+}
+
 uint64_t ResourceManager::gpuResidentBytes() const {
     return gpuBudget_->residentBytes();
 }

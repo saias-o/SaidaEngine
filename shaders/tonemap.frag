@@ -7,6 +7,8 @@
 
 DECL_TEX2D(0, 0, 3, hdrInput);
 DECL_TEX2D(0, 2, 5, bloomInput);
+// The sky as rendered this frame, a small view-space panorama (SkyProbe).
+DECL_TEX2D(0, 6, 7, skyProbe);
 
 layout(location = 0) in vec2 fragUV;
 layout(location = 1) flat in float flareVisibility;  // tonemap.vert
@@ -156,17 +158,38 @@ vec3 fogDepth(vec3 viewPos, float dist) {
     return fogged * (push.fogParams.z * grey + push.fogRayleigh.rgb * air);
 }
 
+// What the fog adds: its own colour, or as much of the sky behind the fogged
+// point as SceneSettings::fogSkyColor asks (push.fogColor.w). The probe is laid
+// out as skybox.frag's SKY_PROBE writes it: u around view up from forward (-z),
+// v from up to down.
+vec3 fogInscatter(vec3 viewPos) {
+    if (push.fogColor.w <= 0.0) return push.fogColor.rgb;
+    vec3 d = normalize(viewPos);
+    vec2 probeUv = vec2(atan(d.x, -d.z) * 0.15915494309 + 0.5,
+                        0.5 - asin(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
+    vec3 sky = textureLod(TEX2D(skyProbe), probeUv, 0.0).rgb;
+    return mix(push.fogColor.rgb, sky, push.fogColor.w);
+}
+
 vec3 applyFog(vec3 color, vec2 uv) {
     if (push.fogParams.x < 0.5) return color;
 
     float depth = sampleDepth(uv);
-    if (nothingDrawn(depth)) return color;
-
-    vec3 viewPos = reconstructViewPosition(uv, depth);
+    vec3 viewPos;
+    if (nothingDrawn(depth)) {
+        // The sky, fogged as though it stood push.fogUp.w metres away.
+        if (push.fogUp.w <= 0.0) return color;
+        vec2 clipXY = uv * 2.0 - 1.0;
+        vec3 ray = normalize(vec3(clipXY.x * push.projectionParams.x,
+                                  clipXY.y * push.projectionParams.y, -1.0));
+        viewPos = ray * push.fogUp.w;
+    } else {
+        viewPos = reconstructViewPosition(uv, depth);
+    }
     // Per channel: clear air takes blue several times faster than red, and
     // what it takes is replaced by the colour of the air itself.
     vec3 transmitted = exp(-fogDepth(viewPos, length(viewPos)));
-    return color * transmitted + push.fogColor.rgb * (1.0 - transmitted);
+    return color * transmitted + fogInscatter(viewPos) * (1.0 - transmitted);
 }
 
 // Lens effects of one directional light (LightNode lensFlare / sunStar), in
