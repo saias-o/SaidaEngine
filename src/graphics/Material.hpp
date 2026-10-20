@@ -90,6 +90,9 @@ struct MaterialDesc {
     float environmentReflection = 0.0f;
     SurfaceVariation variation;
     RainSurface rain;
+    // Opt-in cutout foliage: diffuse wrap, leaf transmission, normalized sway,
+    // normal mode (0 off, 0.5 tangent-space, 1 object-space RGB + visibility A).
+    glm::vec4 foliage{0.f};
     bool doubleSided = false;
     MaterialType type = MaterialType::Lit;
 
@@ -104,7 +107,7 @@ struct MaterialDesc {
                baseColor == o.baseColor && emissiveColor == o.emissiveColor &&
                metallic == o.metallic && roughness == o.roughness && ao == o.ao &&
                alphaCutoff == o.alphaCutoff && normalStrength == o.normalStrength &&
-               variation == o.variation && rain == o.rain && doubleSided == o.doubleSided && type == o.type;
+               variation == o.variation && rain == o.rain && foliage == o.foliage && doubleSided == o.doubleSided && type == o.type;
     }
 };
 
@@ -143,6 +146,7 @@ struct hash<saida::MaterialDesc> {
         combine(std::hash<float>()(d.variation.macroAlbedo)); combine(std::hash<float>()(d.variation.macroNormal));
         combine(std::hash<float>()(d.rain.reception)); combine(std::hash<float>()(d.rain.puddleAmount));
         combine(std::hash<float>()(d.rain.rippleStrength)); combine(std::hash<float>()(d.rain.wetDarkening));
+        for (int i = 0; i < 4; ++i) combine(std::hash<float>()(d.foliage[i]));
         combine(std::hash<bool>()(d.doubleSided));
         combine(std::hash<uint32_t>()(static_cast<uint32_t>(d.type)));
         return h;

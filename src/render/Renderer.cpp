@@ -341,7 +341,7 @@ void Renderer::createGlobalSetLayout() {
     WE e{};
     e.binding = 0; e.type = rhi::BindingType::UniformBuffer; e.visibility = V;
     entries.push_back(e);
-    e = {}; e.binding = 1; e.type = rhi::BindingType::UniformBuffer; e.visibility = FC;
+    e = {}; e.binding = 1; e.type = rhi::BindingType::UniformBuffer; e.visibility = FC | V;
     entries.push_back(e);
     e = {}; e.binding = 2; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
     e.dim = Dim::Dim2DArray; e.depthTexture = true;
@@ -378,7 +378,7 @@ void Renderer::createGlobalSetLayout() {
     globalSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
         std::vector<rhi::BindGroupLayoutEntry>{
             {0, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Vertex},                       // camera
-            {1, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // lighting
+            {1, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute | rhi::ShaderStages::Vertex},  // lighting
             {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // shadow array
             {3, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},                        // bone matrices
             {4, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI irradiance
@@ -1023,7 +1023,7 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
                 mesh = node->meshForLod(level);
                 shadowMaterial = node->materialForLod(level);
             }
-            if (shadowMaterial && shadowMaterial->desc().billboardColumns) continue;
+            if (shadowMaterial && (shadowMaterial->desc().billboardColumns || shadowMaterial->desc().foliage.w > 0.f)) continue;
             // Same palette the scene pass uses; boneOffsetFor caches per animator.
             if (mesh) shadowDraws_.push_back(ShadowDraw{mesh, world, boneOffsetFor(node)});
         }
@@ -1057,7 +1057,7 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
                     bool inside = true;
                     if (cullFrustum) {
                         inside = meshIntersectsFrustum(
-                            *drawMesh, world, *cullFrustum);
+                            *drawMesh, world, *cullFrustum, foliageWindMargin(drawMat->desc().foliage));
                     }
 
                     const int32_t boneOffset =
@@ -1135,7 +1135,7 @@ void Renderer::uploadGpuDrivenDraws() {
         instance.boundingSphere = glm::vec4(
             bounds.center(),
             std::max(glm::length(bounds.extent()) * 0.5f,
-                     kMinBoundsRadius));
+                     kMinBoundsRadius) + foliageWindMargin(draw.material->desc().foliage));
         instance.materialIndex = draw.material->bindlessIndex();
         instance.boneOffset = draw.boneOffset;
         instance.doubleSided = draw.material->desc().doubleSided ? 1u : 0u;

@@ -470,6 +470,24 @@ to the distance of the farthest geometry. With uniform fog the whole sky is
 fogged alike. The same GPU test checks the horizon hazes, the upper sky stays
 clear and 0 leaves the sky as it was.
 
+With an active fog and a sky texture, the lower photographed sky converges to
+the same linear HDR `fogColor`: fully matched below 1 degree above the local
+horizon, smoothly returning to the authored image by 6 degrees. The blend runs
+after photographic exposure and storm clouds, before the independent Sun disc
+and display tonemapping. The local vertical follows `fogPlanetCentre` for a
+spherical world; XR uses its eye poses rather than a desktop camera. Fog off
+or zero extinction preserves the original sky. This is a photographic horizon
+match, not a replacement physical sky model; environment lighting still uses
+the authored HDR images.
+
+The same active sky/fog pairing fades remaining scene transmittance over the
+last 10% of a finite far clip, hiding the terrain's artificial end. Infinite
+projections and scenes without a sky retain their distance fog. These choices
+follow the shared sky/fog colour and depth reconstruction described in
+[Crytek's NVIDIA-hosted D3D tutorial, slides 18–20](https://developer.download.nvidia.com/presentations/2007/D3DTutorial_Crytek.pdf).
+`saida_rain_surface_tests --gpu` checks HDR colour matching, preserved upper sky,
+clouds, a low Sun, camera pitch, night and the finite terrain edge.
+
 The rings shadow themselves. Before the scene pass, `terrain_rings_sun.comp`
 marches from every sample toward the brightest shadow-casting directional
 light, one cell of the finest level holding each point a step, until the ray
@@ -612,8 +630,8 @@ azimuths with coverage-weighted albedo/alpha and chooses the nearest elevation.
 Random instance yaw and world rebasing retain the authored view frame.
 Classic/Web atlas dimensions use `push.params.zw`; bindless uses the existing
 `MaterialData.reflection.w` as the exact float integer `columns + 256*rows`.
-The material SSBO is visible to vertex/fragment/compute stages; its size remains
-128 bytes. Material cache equality/hash include both dimensions.
+The material SSBO is visible to vertex/fragment/compute stages; its size is
+160 bytes, including the opt-in foliage block. Material cache equality/hash include both dimensions.
 
 Impostors use cheap ambient, diffuse sky SH and directional illumination. Without a
 normal atlas they retain the broad volume response scaled by light color,
@@ -644,6 +662,35 @@ diffuse sky color/crossfade and coverage-weighted normal blending with captured
 native pixels.
 `tools/verify_billboard_web.mjs` compiles the actual translated scene pipeline
 in browser WebGPU. Mono and multiview use the same surface equations.
+
+Low-cost cutout foliage is an opt-in Lit material retaining its authored mesh
+transform; combining it with SAIDA_billboard is rejected. `MaterialDesc::foliage` stores diffuse wrap, leaf transmission, normalized
+sway amplitude and normal mode (zero disables, 0.5 tangent space, 1 object space).
+glTF reads `material.extras.SAIDA_foliage: {"wrap":0.35,"transmission":0.16,
+"wind":0.035,"normalSpace":"object"}`. Wrap/transmission accept finite 0..1,
+wind finite 0..0.25, and normalSpace only `object` or `tangent`. Object mode
+requires a linear normal texture: authored-frame RGB normals and hemisphere
+visibility in alpha; UV tangents are not required. Instance inverse transpose
+transforms those normals. Classic/Web MaterialUBO is 128 bytes; both material
+layouts append the same vec4, with zero defaults and cache equality/hash.
+
+Foliage evaluates wrapped diffuse, sky SH/static visibility and backlighting
+with two texture fetches, without GGX, specular environment sampling or DDGI.
+It receives the existing directional/point/spot lights, shadow maps and terrain
+sun occlusion. Foliage does not cast depth-only shadows: alpha-cutout casting
+remains separate work. Object-mode depth slices fade at grazing view angles;
+a bounded derivative-based cutoff adjustment retains fine leaf coverage in
+minified textures. Wind uses the shared world clock, authored local Y root
+weights (0..1.2, squared) and a per-instance phase, entirely in the vertex
+shader. Assets should be authored around a Y=0 root, normally one unit high,
+and scaled through instances. Colour variation is small and per instance.
+Phase/colour use a smooth rotation/scale seed, preserving their appearance under
+floating-origin translation. CPU/GPU frustum bounds include maximum wind sway.
+The lighting UBO and classic material UBO are visible to the vertex stage on
+both backends; ordinary materials retain zero foliage parameters.
+`saida_rain_surface_tests --foliage <output>` verifies actual GPU pixels for
+normal frames/visibility, transmission, wind and zero-sway stability.
+`--foliage-asset <glTF> <output>` checks import and captures four orbit views.
 
 Screen coverage (`computeScreenCoverage`, for MeshNode LOD chains and LOD
 groups alike) divides the bounding sphere by its distance to the eye, not by

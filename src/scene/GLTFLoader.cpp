@@ -169,7 +169,7 @@ static Material* resolvePrimitiveMaterial(cgltf_primitive* prim, cgltf_data* dat
         // MikkTSpace and would silently produce incorrect lighting.
         // (MikkTSpace: P1.)
         // Billboard atlases encode authored-frame normals, independent of UV tangents.
-        if (desc.normalId != kAssetInvalid && !desc.billboardColumns && !primHasAuthorTangents(prim)) {
+        if (desc.normalId != kAssetInvalid && !desc.billboardColumns && desc.foliage.w <= .75f && !primHasAuthorTangents(prim)) {
             Log::warn("GLTFLoader: material ", matIdx, " has a normal map but the "
                       "primitive has no authored tangents — normal mapping disabled");
             desc.normalId = kAssetInvalid;
@@ -662,6 +662,20 @@ static bool instantiateGltf(PreparedGltf& prepared, Node& rootNode, ResourceMana
         if (mat.extras.data) {
             try {
                 const auto extras = nlohmann::json::parse(mat.extras.data);
+                if (extras.contains("SAIDA_foliage")) {
+                    const auto& f = extras.at("SAIDA_foliage");
+                    const float wrap = f.value("wrap", .35f);
+                    const float transmission = f.value("transmission", .15f);
+                    const float wind = f.value("wind", .03f);
+                    const auto space = f.value("normalSpace", std::string("tangent"));
+                    if (!std::isfinite(wrap) || !std::isfinite(transmission) || !std::isfinite(wind) ||
+                        wrap < 0.f || wrap > 1.f || transmission < 0.f || transmission > 1.f ||
+                        wind < 0.f || wind > .25f || (space != "object" && space != "tangent"))
+                        throw std::runtime_error("foliage requires wrap/transmission 0..1, wind 0..0.25, normalSpace object or tangent");
+                    if (space == "object" && desc.normalId == kAssetInvalid)
+                        throw std::runtime_error("object-space foliage requires a normal/visibility texture");
+                    desc.foliage = {wrap, transmission, wind, space == "object" ? 1.f : .5f};
+                }
                 if (extras.contains("SAIDA_billboard")) {
                     const auto& atlas = extras.at("SAIDA_billboard");
                     const int columns = atlas.at("columns").get<int>();
@@ -670,6 +684,8 @@ static bool instantiateGltf(PreparedGltf& prepared, Node& rootNode, ResourceMana
                         throw std::runtime_error("atlas requires 1..32 columns and 1..17 rows");
                     desc.billboardColumns = uint32_t(columns);
                     desc.billboardRows = uint32_t(rows);
+                    if (desc.foliage.w > 0.f)
+                        throw std::runtime_error("SAIDA_foliage keeps authored geometry and cannot combine with SAIDA_billboard");
                 }
             } catch (const std::exception& e) {
                 Log::error("GLTFLoader: invalid material extras: ", e.what());

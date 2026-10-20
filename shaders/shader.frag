@@ -15,18 +15,7 @@
 DECL_TEX2D(1, 0, 5, texAlbedo);
 DECL_TEX2D(1, 1, 6, texNormal);
 DECL_TEX2D(1, 2, 7, texMetallicRoughness);
-layout(set = 1, binding = 3) uniform MaterialUBO {
-    vec4 baseColor;
-    float metallic;
-    float roughness;
-    float ao;
-    float alphaCutoff;
-    vec4 emissive;
-    vec4 variation;  // MaterialDesc::variation
-    vec4 detail;     // x normal strength, y environment reflection
-    vec4 specular;   // rgb dielectric F0, a dielectric lobe strength
-    vec4 rain;       // reception, puddle amount, ripple slope, darkening
-} material;
+#include "material_params.glsl"
 DECL_TEX2D(1, 4, 8, texEmissive);
 DECL_TEX2D(1, 9, 11, texSpecularColor);
 DECL_TEX2D(1, 10, 12, texSpecularStrength);
@@ -132,12 +121,69 @@ void main() {
         albedoSample.rgb = mix(albedoSample.rgb * albedoSample.a, adjacent.rgb * adjacent.a, weight) / max(alpha, 0.0001);
         albedoSample.a = alpha;
     }
+#ifdef BINDLESS
+    vec4 foliage = mat.foliage;
+#else
+    vec4 foliage = material.foliage;
+#endif
+    if (foliage.w > 0.75) {
+        // Grazing depth slices contribute no convincing picture and cause
+        // duplicate leaves/overdraw. Their contribution fades with view angle.
+        vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
+        albedoSample.a *= smoothstep(0.08, 0.6, abs(dot(normalize(fragNormal), V)));
+#ifdef BINDLESS
+        vec2 texels = vec2(textureSize(globalTextures[nonuniformEXT(mat.albedoTexIdx)], 0));
+#else
+        vec2 texels = vec2(textureSize(TEX2D(texAlbedo), 0));
+#endif
+        // Preserve fine leaf coverage as a mip averages leaves with empty sky.
+        float footprint = max(length(st.dx * texels), length(st.dy * texels));
+        matAlphaCutoff *= mix(1.0, 0.4, clamp(log2(max(footprint, 1.0)) / 5.0, 0.0, 1.0));
+    }
     // Alpha test. Cut-out art (Mario's moustache, castle windows, foliage) would
     // otherwise show the texture's black backing, since the renderer has no
     // blended pass. A cutoff of 0 disables the test entirely.
     if (albedoSample.a * baseColor.a < matAlphaCutoff) discard;
 
     vec3 albedo = albedoSample.rgb * fragColor * baseColor.rgb;
+    if (foliage.w > 0.0) {
+#ifdef BINDLESS
+        vec4 surface = textureGrad(globalTextures[nonuniformEXT(mat.normalTexIdx)], st.uv, st.dx, st.dy);
+#else
+        vec4 surface = textureGrad(TEX2D(texNormal), st.uv, st.dx, st.dy);
+#endif
+        vec3 authored = surface.rgb * 2.0 - 1.0;
+        mat3 frame = foliage.w > 0.75
+            ? mat3(fragBillboardNormalX, fragBillboardNormalY, fragBillboardNormalZ)
+            : mat3(normalize(fragTangent), normalize(fragBitangent), normalize(fragNormal));
+        vec3 mapped = frame * authored;
+        vec3 N = dot(mapped,mapped)>0.0001 ? normalize(mapped) : normalize(fragBillboardNormalY);
+        if (foliage.w <= 0.75 && !gl_FrontFacing) N = -N;
+        float visibility = foliage.w > 0.75 ? clamp(surface.a, 0.15, 1.0) : 1.0;
+        vec3 irradiance = lights.ambient.rgb * mix(0.45, 1.0, visibility);
+        if (lights.environmentParams.x >= 0.5 && lights.environmentParams.y > 0.0)
+            irradiance += environmentIrradiance(N) * lights.environmentParams.y * visibility;
+        vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
+        for (int i = 0; i < lights.counts.x; ++i) {
+            Light light = lights.lights[i];
+            if (light.colorInt.w <= 0.0) continue;
+            vec3 delta = light.posRange.xyz - fragWorldPos;
+            bool directional = light.dirType.w == 0.0;
+            vec3 L = directional ? normalize(-light.dirType.xyz) : delta/max(length(delta),0.0001);
+            float attenuation = directional ? 1.0 : pow(clamp(1.0 - dot(delta,delta) / max(light.posRange.w * light.posRange.w, 0.0001), 0.0, 1.0), 2.0);
+            if (light.dirType.w == 2.0)
+                attenuation *= smoothstep(light.spotShadow.y, light.spotShadow.x, dot(-L, normalize(light.dirType.xyz)));
+            float diffuse = max(dot(N, L) + foliage.x, 0.0) / pow(1.0 + foliage.x, 2.0);
+            float transmission = foliage.y * pow(max(dot(-L, V), 0.0), 3.0) * (1.0 - abs(dot(N, L)));
+            float occlusion = directional && int(lights.sunOcclusion.x) == i ? sunOcclusionAt(fragWorldPos) : 1.0;
+            if (light.spotShadow.z >= 0.0)
+                occlusion *= shadowFactor(int(light.spotShadow.z + 0.5), fragWorldPos, dot(N,L));
+            irradiance += light.colorInt.rgb * light.colorInt.w * attenuation * occlusion
+                          * (diffuse * 0.31830988618 + transmission) * mix(0.65, 1.0, visibility);
+        }
+        outColor = vec4(albedo * irradiance * matAO, albedoSample.a * baseColor.a);
+        return;
+    }
     if (fragBillboardView.z >= 0.0) {
         // Optional authored-frame normals and static visibility restore surface
         // contrast without evaluating PBR or sampling runtime shadow maps.

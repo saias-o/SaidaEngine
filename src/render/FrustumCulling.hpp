@@ -8,6 +8,12 @@
 
 namespace saida {
 
+// shader.vert: two sine waves (1 + .35), root weight <=1.2^2,
+// and a local (1,0,.43) sway direction. Bound the complete displacement.
+inline float foliageWindMargin(glm::vec4 parameters) {
+    return parameters.w > 0.f ? std::max(0.f,parameters.z)*2.12f : 0.f;
+}
+
 // Test in local space against the light's actual clip volume. Transforming
 // the planes rather than a sphere keeps nonuniform scale and shear conservative.
 inline bool aabbIntersectsClipVolume(const Aabb& bounds, const glm::mat4& clipFromLocal) {
@@ -37,7 +43,7 @@ inline bool sphereIntersectsFrustum(const Frustum& frustum,
 }
 
 inline bool meshIntersectsFrustum(const Mesh& mesh, const glm::mat4& world,
-                                  const Frustum& frustum) {
+                                  const Frustum& frustum, float localPadding = 0.f) {
     constexpr float kMinBoundsRadius = 0.001f;
     constexpr float kUnitCubeBoundsRadius = 0.866f;
 
@@ -48,7 +54,7 @@ inline bool meshIntersectsFrustum(const Mesh& mesh, const glm::mat4& world,
     });
     const float localRadius = glm::length(mesh.bounds().extent()) * 0.5f;
     const float radius =
-        (localRadius > kMinBoundsRadius ? localRadius : kUnitCubeBoundsRadius) *
+        ((localRadius > kMinBoundsRadius ? localRadius : kUnitCubeBoundsRadius) + localPadding) *
         maxScale;
     const glm::vec3 center =
         glm::vec3(world * glm::vec4(mesh.bounds().center(), 1.0f));

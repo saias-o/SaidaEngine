@@ -189,6 +189,14 @@ vec3 applyFog(vec3 color, vec2 uv) {
     // Per channel: clear air takes blue several times faster than red, and
     // what it takes is replaced by the colour of the air itself.
     vec3 transmitted = exp(-fogDepth(viewPos, length(viewPos)));
+    // A finite terrain must disappear into the same horizon color before it
+    // is clipped, even when the authored clear-air extinction is very small.
+    // Infinite projections have invP33 == 0 and need no finite-edge fade.
+    if (push.projectionParams2.z > 0.5 && push.projectionParams.w > 0.0) {
+        float farDepth = abs(push.projectionParams2.y / push.projectionParams.w);
+        float edge = smoothstep(0.9 * farDepth, farDepth, abs(viewPos.z));
+        transmitted *= 1.0 - edge;
+    }
     return color * transmitted + fogInscatter(viewPos) * (1.0 - transmitted);
 }
 

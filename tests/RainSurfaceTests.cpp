@@ -1,6 +1,8 @@
 #include "WeatherRenderTestSupport.hpp"
 #include "StormSkyRenderTests.hpp"
 #include "FogSkyRenderTests.hpp"
+#include "HorizonFogRenderTests.hpp"
+#include "FoliageRenderTests.hpp"
 #include "graphics/Material.hpp"
 #include "graphics/Mesh.hpp"
 #include "graphics/ResourceManager.hpp"
@@ -131,11 +133,18 @@ void gpu(const std::filesystem::path& output) {
 
 int main(int argc, char** argv) {
     contracts();
+    if (argc >= 2 && std::string(argv[1]) == "--foliage") {
+        saida::weather_test::runFoliageGpuTests(argc>=3?argv[2]:"build/foliage-captures");
+    }
+    if (argc >= 4 && std::string(argv[1]) == "--foliage-asset") {
+        saida::weather_test::captureFoliageAsset(argv[2],argv[3]);
+    }
     if (argc >= 2 && std::string(argv[1]) == "--gpu") {
         const std::filesystem::path output = argc >= 3 ? argv[2] : "build/weather-captures";
         gpu(output);
         saida::weather_test::runStormSkyGpuTests(output);
         saida::weather_test::runFogSkyGpuTests(output);
+        saida::weather_test::runHorizonFogGpuTests(output);
     }
     std::printf("[weather] PASS (%d checks)\n", saida::weather_test::checks);
 }

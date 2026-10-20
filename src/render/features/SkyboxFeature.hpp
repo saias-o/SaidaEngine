@@ -18,7 +18,8 @@ class SceneSettings;
 // and the second sky it crossfades into — `SceneSettings::skyboxBlend`) and draws a fullscreen triangle at the far plane. Handles both the mono (desktop)
 // and stereo (XR multiview, per-eye via gl_ViewIndex) paths; in XR passthrough the
 // sky is skipped so the real world shows through. A runtime storm-cloud cover
-// overlays the HDR sky without changing its authored textures or descriptors.
+// overlays the HDR sky. Fog blends the lower sky in linear HDR before the Sun
+// disc; the upper photograph and authored textures remain intact.
 class SkyboxFeature : public ScenePassFeature {
 public:
     ~SkyboxFeature() override;
@@ -32,13 +33,15 @@ private:
     struct MonoPush {
         glm::mat4 invViewProj; float exposure; float rotation; float blend; float blendRotation;
         glm::vec4 sunDirection; glm::vec4 sunColor;
+        glm::vec4 fogColor; glm::vec4 fogUp;
     };
     struct StereoPush {
         glm::mat4 invViewProj[2]; float exposure; float rotation; float blend; float blendRotation;
         glm::vec4 sunDirection; glm::vec4 sunColor;
+        glm::vec4 fogColor; glm::vec4 fogUp;
     };
-    static_assert(sizeof(MonoPush) == 112, "Skybox mono push layout must match GLSL");
-    static_assert(sizeof(StereoPush) == 176, "Skybox XR push layout must match GLSL");
+    static_assert(sizeof(MonoPush) == 144, "Skybox mono push layout must match GLSL");
+    static_assert(sizeof(StereoPush) == 208, "Skybox XR push layout must match GLSL");
 
     rhi::Device* device_ = nullptr;
     ResourceManager* resources_ = nullptr;

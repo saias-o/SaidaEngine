@@ -426,6 +426,13 @@ void testLayeredFogKnowsTheCameraAltitude() {
     // No layering asked: the fog stays the uniform haze it always was.
     const auto plain = saida::TonemapPass::pushConstants(saida::SceneSettings{}, view, glm::mat4(1.0f), 1.0f);
     if (plain.fogHeight.w != 0.0f) std::abort();
+    s.fogEnabled = true;
+    s.skyboxTexture = 123;
+    const auto sky = saida::TonemapPass::pushConstants(s, view, glm::mat4(1.0f), 1.0f);
+    if (sky.projectionParams2.z != 1.f) std::abort();
+    s.fogEnabled = false;
+    const auto off = saida::TonemapPass::pushConstants(s, view, glm::mat4(1.0f), 1.0f);
+    if (off.projectionParams2.z != 0.f) std::abort();
 }
 
 void testDisplayTransferMatchesAttachment() {

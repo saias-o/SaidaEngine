@@ -67,7 +67,7 @@ ResourceManager::ResourceManager(rhi::Device& device, AssetRegistry* registry, G
             {0, rhi::BindingType::SampledTexture, rhi::ShaderStages::Fragment}, // albedo texture
             {1, rhi::BindingType::SampledTexture, rhi::ShaderStages::Fragment}, // normal texture
             {2, rhi::BindingType::SampledTexture, rhi::ShaderStages::Fragment}, // metallic/roughness texture
-            {3, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment},  // params
+            {3, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment | rhi::ShaderStages::Vertex},  // params
             {4, rhi::BindingType::SampledTexture, rhi::ShaderStages::Fragment}, // emissive texture
             {5, rhi::BindingType::Sampler, rhi::ShaderStages::Fragment},        // albedo sampler
             {6, rhi::BindingType::Sampler, rhi::ShaderStages::Fragment},        // normal sampler
@@ -84,7 +84,7 @@ ResourceManager::ResourceManager(rhi::Device& device, AssetRegistry* registry, G
             {0, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // albedo
             {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // normal
             {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // metallic/roughness
-            {3, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment},         // params
+            {3, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment | rhi::ShaderStages::Vertex},         // params
             {4, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // emissive
               {9, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // specular color
               {10, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment}, // specular strength

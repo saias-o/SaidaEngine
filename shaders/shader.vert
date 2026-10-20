@@ -7,6 +7,7 @@
 
 #include "web_compat.glsl"
 #include "billboard.glsl"
+#include "lighting_data.glsl"
 
 // Camera is an array of 2 (left/right eye). Mono/desktop uses index 0; the XR
 // multiview variant selects per-eye via gl_ViewIndex. One layout for both paths.
@@ -34,6 +35,10 @@ struct InstanceData {
 layout(std140, set = 2, binding = 0) readonly buffer InstanceBuffer {
     InstanceData instances[];
 };
+#endif
+
+#ifndef BINDLESS
+#include "material_params.glsl"
 #endif
 
 #include "skinning.glsl"
@@ -119,6 +124,26 @@ void main() {
     fragTangent = normalize(normalMatrix * localTangent);
     fragBitangent = cross(fragNormal, fragTangent) * inTangent.w;
     fragColor = inColor;
+    // Root-anchored sway in the authored Y-up frame. Phase is per instance;
+    // neighbouring plants share a slow gust but never move in lockstep.
+#ifdef BINDLESS
+    vec4 foliage = materials[fragMaterialIndex].foliage;
+#else
+    vec4 foliage = material.foliage;
+#endif
+    if (foliage.w > 0.0) {
+        // Rotation/scale survive floating-origin translation. A translation
+        // hash would change every plant's colour and wind phase on rebasing.
+        float phase = dot(normalize(modelMat[0].xyz), vec3(3.17,1.27,2.71)) + length(modelMat[1].xyz)*1.93;
+        float time = lights.rainParams.z;
+        float gust = sin(time * 1.35 + phase) + 0.35 * sin(time * 3.1 + phase * 1.7);
+        float weight = pow(clamp(localPos.y, 0.0, 1.2), 2.0);
+        worldPos.xyz += mat3(modelMat) * vec3(gust * weight * foliage.z, 0.0,
+                                              gust * weight * foliage.z * 0.43);
+        fragWorldPos = worldPos.xyz;
+        float tint = 0.5 + 0.5 * sin(phase * 2.17);
+        fragColor *= mix(vec3(0.82, 0.84, 0.71), vec3(1.0, 1.0, 0.98), tint);
+    }
     fragTexCoord = localUV;
 #ifdef MULTIVIEW
     int viewIndex = gl_ViewIndex;

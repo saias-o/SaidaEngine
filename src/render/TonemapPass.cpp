@@ -217,7 +217,9 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
     push.sourceRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
     push.projectionParams = glm::vec4(invProjection[0][0], invProjection[1][1],
                                       invProjection[2][3], invProjection[3][3]);
-    push.projectionParams2 = glm::vec4(invProjection[2][2], invProjection[3][2], 0.0f, 0.0f);
+    const bool skyFog = settings.fogEnabled && settings.skyboxTexture != kAssetInvalid &&
+        (settings.fogDensity > 0.0f || glm::any(glm::greaterThan(settings.fogRayleigh, glm::vec3(0.0f))));
+    push.projectionParams2 = glm::vec4(invProjection[2][2], invProjection[3][2], skyFog ? 1.0f : 0.0f, 0.0f);
     writeLensFlare(push, flare, view, projection);
     return push;
 }

@@ -15,7 +15,7 @@ PUSH_QUALIFIER PushConstants {
     vec4 bloomParams;     // x enabled, y threshold, z intensity, w radius px
     vec4 sourceRect;      // xy = source UV origin, zw = source UV size
     vec4 projectionParams; // x invP00, y invP11, z invP23, w invP33
-    vec4 projectionParams2; // x invP22, y invP32
+    vec4 projectionParams2; // x invP22, y invP32, z sky/fog far-clip fade enabled
     vec4 fogRayleigh;     // rgb extinction at altitude 0 (1/m), w its scale height
     vec4 fogHeight;       // x grey scale height (0 uniform), y camera altitude, z planet radius, w layered
     vec4 fogUp;           // xyz the camera's up, view space

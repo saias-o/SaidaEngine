@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-18. This file is the engine's **single backlog**: everything
+Updated: 2026-10-19. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -8,6 +8,17 @@ is in [README.md](README.md).
 Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
+
+## Photographic sky / fog horizon — 2026-10-19
+
+- [x] Match the lower HDR sky to the scene's fog colour after clouds and before
+  the independent Sun, with a smooth 1–6 degree band around the local vertical.
+  Preserve authored upper-sky pixels and fog-disabled scenes; hide a finite
+  terrain's far clip in the last 10% of its range. This is a photographic
+  horizon correction, not a new physical sky model.
+  Proof: 148 GPU weather/horizon checks on the MX450, native CTest 100/100,
+  mono/multiview SPIR-V and Web WGSL builds, both postprocess pipelines accepted
+  by Chrome WebGPU, and fixed-camera/lighting before/after captures in R1World.
 
 ## Independent native projects — 2026-10-18
 

@@ -199,14 +199,31 @@ void SkyboxFeature::record(FrameContext& fc) {
         : glm::vec4(0.0f, 1.0f, 0.0f, 0.0f);
     const float stormCover = std::isfinite(settings.stormCloudCover)
         ? std::clamp(settings.stormCloudCover,0.0f,1.0f) : 0.0f;
-    // Reuse the unused alpha lane: the XR block remains 176 bytes, with no
-    // larger push-constant requirement on mobile Vulkan or the Web UBO path.
+    // Cloud cover shares the Sun's unused alpha lane.
     const glm::vec4 sunColor(glm::max(settings.skySunColor, glm::vec3(0.0f)), stormCover);
+    const bool fogActive = settings.fogEnabled &&
+        (settings.fogDensity > 0.0f || glm::any(glm::greaterThan(settings.fogRayleigh, glm::vec3(0.0f))));
+    const glm::vec4 fogColor(glm::vec3(settings.fogColor), fogActive ? 1.0f : 0.0f);
+    glm::dvec3 up(0.0, 1.0, 0.0);
+    if (settings.fogPlanetRadius > 0.0f) {
+        // XR has per-eye poses and deliberately no desktop camera.
+        glm::dvec3 eye(0.0);
+        if (fc.camera) eye = glm::dvec3(fc.camera->position);
+        else if (fc.eyes && !fc.eyes->empty()) {
+            for (const auto& view : *fc.eyes) eye += glm::dvec3(view.eyePosition);
+            eye /= double(fc.eyes->size());
+        }
+        const glm::dvec3 radial = eye - glm::dvec3(settings.fogPlanetCentre);
+        if (glm::length(radial) > 0.0) up = glm::normalize(radial);
+    }
+    const glm::vec4 fogUp(glm::vec3(up), 0.0f);
 
     if (!stereo_) {
         glm::mat4 view = fc.camera->view();
         view[3] = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);  // strip translation
-        const MonoPush pc = monoPush(settings, glm::inverse(fc.camera->projection() * view), blend);
+        MonoPush pc = monoPush(settings, glm::inverse(fc.camera->projection() * view), blend);
+        pc.fogColor = fogColor;
+        pc.fogUp = fogUp;
         fc.pass.setPushConstants(&pc, sizeof(MonoPush));
     } else {
         const auto& eyes = *fc.eyes;
@@ -224,6 +241,8 @@ void SkyboxFeature::record(FrameContext& fc) {
         pc.blendRotation = settings.skyboxBlendRotation;
         pc.sunDirection = sunDirection;
         pc.sunColor = sunColor;
+        pc.fogColor = fogColor;
+        pc.fogUp = fogUp;
         fc.pass.setPushConstants(&pc, sizeof(StereoPush));
     }
 

@@ -29,6 +29,8 @@ layout(push_constant) uniform PushConsts {
     float blendRotation;
     vec4 sunDirection;  // xyz toward the Sun, w angular radius in radians
     vec4 sunColor;      // rgb radiance; w runtime storm cloud cover
+    vec4 fogColor;      // rgb linear HDR fog color; w atmosphere enabled
+    vec4 fogUp;         // xyz world-space local vertical
 } push;
 #define INV_VIEW_PROJ push.invViewProj[gl_ViewIndex]
 #else
@@ -40,6 +42,8 @@ PUSH_QUALIFIER PushConsts {
     float blendRotation;
     vec4 sunDirection;  // xyz toward the Sun, w angular radius in radians
     vec4 sunColor;      // rgb radiance; w runtime storm cloud cover
+    vec4 fogColor;      // rgb linear HDR fog color; w atmosphere enabled
+    vec4 fogUp;         // xyz world-space local vertical
 } push;
 #define INV_VIEW_PROJ push.invViewProj
 #endif
@@ -158,6 +162,16 @@ void main() {
     }
     float sunTransmission;
     color = cloudedSky(dir, color, sunTransmission);
+
+    if (push.fogColor.w > 0.5) {
+        // Match the distant scene's scattering color in linear HDR, after
+        // clouds and exposure. Keep the upper photograph and the Sun intact.
+        const float HORIZON_FULL = 0.017452406;  // sin(1 degree)
+        const float HORIZON_CLEAR = 0.104528463; // sin(6 degrees)
+        float elevation = dot(dir, push.fogUp.xyz);
+        float haze = 1.0 - smoothstep(HORIZON_FULL, HORIZON_CLEAR, elevation);
+        color = mix(color, push.fogColor.rgb, haze);
+    }
 
     // The Sun disc, in world space and outside the sky's exposure: the exposure
     // normalises photographs, the disc is a radiance of its own.
