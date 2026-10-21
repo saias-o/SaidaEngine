@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-19. This file is the engine's **single backlog**: everything
+Updated: 2026-10-21. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -604,6 +604,28 @@ supervised, not autonomous.
 ## 5. P1 — Subsystem quality
 
 Post-V1 unless the scope changes explicitly.
+
+- [ ] Rendering: optimized dynamic global illumination that works outdoors,
+  for a next-generation look. Optional and off by default, but important
+  (user decision, 2026-10-21). Today's DDGI is a single fine grid
+  (20x10x20 probes at 1.2 m on High, about 24 m across): room scale, useless
+  for a streamed city, so outdoor scenes run with GI off and light their
+  shadowed side with a flat ambient. The target:
+  - covers a whole outdoor view: nested probe volumes (clipmaps) that
+    follow the camera, coarser with distance, scrolling instead of
+    rebuilding as it moves;
+  - dynamic: follows the sun, time of day and weather, and indirect light
+    from the sky and the ground, with no bake;
+  - budgeted per quality tier, with updates amortized over frames
+    (a few cascades/probes per frame), measured with `--profile`, so the
+    low tier stays usable and the high tier looks next-gen;
+  - optional per scene, and per material: content can opt out, and a
+    material that opts out renders exactly as with GI off;
+  - proven by before/after captures of an outdoor street, and by a capture
+    with GI off that is identical to today's.
+  Not Radiance Cascades: tried before this repository's first commit and it
+  did not work (user, 2026-10-21); the reason was not recorded, so record it
+  if they are ever reopened.
 
 - [ ] XR: validate targeted headsets/runtimes, controllers and hand tracking.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
@@ -1337,7 +1359,9 @@ These items delay no release unless the promise changes explicitly:
 
 - network multiplayer, large terrains and genre frameworks;
 - generalized SIMD animation, massive pose sharing and GPU crowds;
-- Radiance Cascades and advanced GI research;
+- research-grade GI beyond the optimized outdoor GI of §5 (reopened by the
+  user on 2026-10-21); Radiance Cascades were tried before the first commit
+  and did not work;
 - advanced UI layers/filters and the WebGPU document backend; native document
   GPU rendering was reopened by the user's animated-UI requirement and delivered
   on 2026-10-20;
