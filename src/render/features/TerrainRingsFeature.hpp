@@ -17,6 +17,8 @@ namespace saida {
 // Render feature for TerrainRingsNode: each present level is one draw of a
 // procedural grid (no vertex input), its heights and layers read from storage
 // buffers that are rewritten only where a level's revision changed.
+// A per-frame compute pass rejects cells wholly inside a hole, with a
+// perspective pixel guard for MSAA; the vertex shader reads one flag per cell.
 //
 // The rings' own shadow: before the scene pass, terrain_rings_sun.comp
 // marches from every sample toward the brightest directional light that casts
@@ -35,6 +37,7 @@ public:
     static constexpr uint32_t kSunGroupSize = 64;
     static constexpr uint32_t kOcclusionGroupSize = 8;
     static constexpr uint32_t kVerticesPerCell = 6;  // two triangles, no index buffer
+    static constexpr uint32_t kCullGroupSize = 64;   // terrain_rings_cull.comp
 
     ~TerrainRingsFeature() override;
     void createPipelines(const RenderContext& ctx) override;
@@ -62,11 +65,15 @@ private:
         glm::ivec4 holeCount{0};
         glm::vec4 sun{0.0f};     // xyz toward the shadowing light, node-local; w its index + 1, 0 none
         glm::vec4 relief{0.0f};  // x the highest sample
+        glm::mat4 localToClip[2]{glm::mat4(1.0f), glm::mat4(1.0f)};
     };
     struct Push {
         uint32_t slot;
         uint32_t level;
         float time = 0.0f;
+        float inverseWidth = 0.0f;
+        float inverseHeight = 0.0f;
+        uint32_t views = 0;
     };
 
     // What a march toward the light was run for: it holds while the terrain,
@@ -93,12 +100,14 @@ private:
         std::unique_ptr<Buffer> heights;
         std::unique_ptr<Buffer> layers;
         std::unique_ptr<Buffer> sunlight;
+        std::unique_ptr<Buffer> cellCull;
         std::unique_ptr<rhi::BindGroup> set;
         std::array<Uploaded, kMaxTerrains> uploaded{};
     };
 
     // Packs and uploads this frame's terrains into `packed_` / `count_`.
     void prepare(Scene& scene, uint32_t frameIndex);
+    bool recordCellCull(const PrePassContext& pc, FrameBuffers& f);
     // Fills the renderer's SunOcclusionMap when it is stale; true if it ran.
     bool recordOcclusion(const PrePassContext& pc, FrameBuffers& f);
     // What a march over slot `slot` of frame buffers `f` would be run for now.
@@ -110,6 +119,7 @@ private:
     bool materialFallbackReported_ = false;
     std::unique_ptr<Pipeline> pipeline_;
     std::unique_ptr<ComputePipeline> sunPipeline_;
+    std::unique_ptr<ComputePipeline> cullPipeline_;
     std::unique_ptr<ComputePipeline> occlusionPipeline_;
     std::unique_ptr<rhi::BindGroupLayout> occlusionLayout_;
     std::unique_ptr<rhi::BindGroup> occlusionSet_;

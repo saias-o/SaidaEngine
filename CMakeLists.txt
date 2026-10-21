@@ -165,6 +165,7 @@ set(SHADERS
     ${SHADER_DIR}/terrain_rings.frag
     ${SHADER_DIR}/terrain_rings_sun.comp
     ${SHADER_DIR}/terrain_rings_occlusion.comp
+    ${SHADER_DIR}/terrain_rings_cull.comp
     ${SHADER_DIR}/grass.vert
     ${SHADER_DIR}/grass.frag
     ${SHADER_DIR}/particle_render.vert
@@ -943,11 +944,26 @@ if (BUILD_TESTING)
 
     # Rings that meet without a crack need each level's samples to nest on the
     # next level's, wherever the focus is: proven without a GPU.
-    add_executable(saida_terrain_rings_tests tests/TerrainRingsTests.cpp)
+    add_executable(saida_terrain_rings_tests tests/TerrainRingsTests.cpp tests/TerrainRingsRenderTests.cpp)
     saida_test_target(saida_terrain_rings_tests)
     target_link_libraries(saida_terrain_rings_tests PRIVATE saida_engine)
     target_compile_options(saida_terrain_rings_tests PRIVATE -Wall -Wextra)
+    set(TERRAIN_REFERENCE_VERTEX "${CMAKE_BINARY_DIR}/tests/terrain-rings-reference.vert.spv")
+    add_custom_command(OUTPUT "${TERRAIN_REFERENCE_VERTEX}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${CMAKE_BINARY_DIR}/tests"
+        COMMAND ${GLSLC} -I ${SHADER_DIR} -DTERRAIN_RINGS_FRAGMENT_CLIP_ONLY
+            "${SHADER_DIR}/terrain_rings.vert" -o "${TERRAIN_REFERENCE_VERTEX}"
+        DEPENDS "${SHADER_DIR}/terrain_rings.vert" ${SHADER_INCLUDES}
+        VERBATIM)
+    add_custom_target(TerrainRingsReferenceShader DEPENDS "${TERRAIN_REFERENCE_VERTEX}")
+    add_dependencies(saida_terrain_rings_tests TerrainRingsReferenceShader Shaders)
+    target_compile_definitions(saida_terrain_rings_tests PRIVATE
+        SAIDA_TERRAIN_REFERENCE_VERTEX="${TERRAIN_REFERENCE_VERTEX}")
     add_test(NAME saida_terrain_rings_tests COMMAND $<TARGET_FILE:saida_terrain_rings_tests>)
+    add_test(NAME saida_terrain_rings_render_tests COMMAND $<TARGET_FILE:saida_terrain_rings_tests>
+        --gpu "${CMAKE_BINARY_DIR}/terrain-rings-captures")
+    set_tests_properties(saida_terrain_rings_render_tests PROPERTIES
+        ENVIRONMENT "SAIDA_WINDOW_HIDDEN=1;SAIDA_WINDOW_SIZE=640x360")
 
     add_executable(saida_grass_tests tests/GrassTests.cpp)
     saida_test_target(saida_grass_tests)

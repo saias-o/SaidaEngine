@@ -167,7 +167,10 @@ void testTextureSettingsAreFiniteAndPhysical() {
 
 }  // namespace
 
-int main() {
+int terrainRingsRenderTests(int argc, char** argv);
+
+int main(int argc, char** argv) {
+    if (argc > 1) return terrainRingsRenderTests(argc, argv);
     testLevelsNestOnEachOthersSamples();
     testReachIsTheHorizon();
     testMalformedLevelsAreRefused();

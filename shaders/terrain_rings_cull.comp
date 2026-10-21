@@ -1,0 +1,37 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// One invocation per cell rather than six copies of the hole/raster test in
+// the vertex shader. Every level is rewritten for this frame's camera/holes.
+#define CELL_CULL_WRITER
+#include "terrain_rings.glsl"
+#include "terrain_rings_geometry.glsl"
+#include "terrain_rings_culling.glsl"
+
+layout(local_size_x = 64) in;
+void main() {
+    uint cell = gl_GlobalInvocationID.x;
+    if (cell >= uint(RES * RES)) return;
+    GpuTerrain t = terrains.items[push.slot];
+    vec4 L = t.levels[push.level];
+    int base = levelBase(push.slot, push.level);
+    if (push.views == 0u) {
+        cellHidden[base * RES * RES + int(cell)] = 0u;
+        return;
+    }
+    ivec2 q = ivec2(int(cell) % RES, int(cell) / RES);
+    vec2 cellLo = L.xy + (vec2(q) - mod(vec2(q), 2.0)) * L.z;
+    vec2 cellHi = L.xy + vec2(q + 1) * L.z;
+    bool hidden = false;
+    for (int i = 0; !hidden && i < t.holeCount.x; ++i) {
+        vec4 ab = t.holes[2 * i], cd = t.holes[2 * i + 1];
+        if (insideHole(ab, cd, cellLo) && insideHole(ab, cd, cellHi) &&
+            insideHole(ab, cd, vec2(cellLo.x, cellHi.y)) &&
+            insideHole(ab, cd, vec2(cellHi.x, cellLo.y))) {
+            hidden = true;
+            for (uint eye = 0u; eye < push.views; ++eye)
+                hidden = hidden && rasterInsideCell(t, L, base, q, ab, cd, int(eye));
+        }
+    }
+    cellHidden[base * RES * RES + int(cell)] = hidden ? 1u : 0u;
+}

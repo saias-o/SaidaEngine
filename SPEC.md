@@ -432,6 +432,18 @@ desktop-only and this runtime layer API has no serialized authoring contract.
 `innerRadius` and up to
 16 convex `holes` (node-local quadrilaterals) leave to the caller the ground it
 draws itself, exactly where it is.
+Before drawing, a compute invocation per cell rejects cells wholly inside one
+hole. The test bounds the odd-sample morph and checks both actual triangles in
+screen space: a full pixel of perspective-interpolated edge distance is kept
+for MSAA pixel centres outside a covered triangle. Grazing, degenerate and
+subpixel triangles remain conservative; stereo requires containment in both
+eyes. The vertex shader reads a per-cell flag and emits a degenerate cell before
+height/material work. Boundary cells retain the original fragment clipping and
+its unconditional derivatives. Masks are per frame in flight, rewritten before
+drawing and made visible by the compute-to-graphics barrier; recording without
+a pre-pass retains fragment-only clipping. `saida_terrain_rings_render_tests`
+compares every pixel against a fragment-only shader at air, eye-height and
+subpixel distances, with both hole windings, morphing, water and rain.
 
 Indirect probe lighting fades to the ambient fallback across the volume's last
 probe cell and uses that fallback outside its bounds. Distant surfaces never

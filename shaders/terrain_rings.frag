@@ -26,19 +26,6 @@ layout(location = 6) in vec3 fragLocalNormal;
 
 layout(location = 0) out vec4 outColor;
 
-float edgeSide(vec2 a, vec2 b, vec2 p) {
-    vec2 e = b - a, d = p - a;
-    return e.x * d.y - e.y * d.x;
-}
-
-// Inside a convex quadrilateral: on the same side of its four edges.
-bool insideHole(vec4 ab, vec4 cd, vec2 p) {
-    float s0 = edgeSide(ab.xy, ab.zw, p), s1 = edgeSide(ab.zw, cd.xy, p);
-    float s2 = edgeSide(cd.xy, cd.zw, p), s3 = edgeSide(cd.zw, ab.xy, p);
-    return (s0 >= 0.0 && s1 >= 0.0 && s2 >= 0.0 && s3 >= 0.0) ||
-           (s0 <= 0.0 && s1 <= 0.0 && s2 <= 0.0 && s3 <= 0.0);
-}
-
 void main() {
     GpuTerrain t = terrains.items[push.slot];
     float footprint = waterFootprint(fragWorldPos, normalize(fragNormal));

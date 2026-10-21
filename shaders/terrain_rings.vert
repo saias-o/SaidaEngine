@@ -16,6 +16,7 @@ layout(set = 0, binding = 0) uniform CameraUBO {
 } cam;
 
 #include "terrain_rings.glsl"
+#include "terrain_rings_geometry.glsl"
 
 layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
@@ -24,12 +25,6 @@ layout(location = 3) out vec4 fragSurface;  // albedo, roughness: the cells arou
 layout(location = 4) out float fragSunlight;
 layout(location = 5) out vec3 fragLocalPos;
 layout(location = 6) out vec3 fragLocalNormal;
-
-float sampleAt(int base, int i, int j) {
-    i = clamp(i, 0, RES);
-    j = clamp(j, 0, RES);
-    return heights[base * SAMPLES * SAMPLES + j * SAMPLES + i];
-}
 
 // What the ground is made of at a sample: the four cells that share it,
 // averaged, so a forest's edge is a gradient a cell wide, not a staircase.
@@ -52,17 +47,12 @@ float sunlightAt(int base, vec2 g) {
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-// Bilinear between samples, at fractional grid coordinates.
-float heightAt(int base, vec2 g) {
-    g = clamp(g, vec2(0.0), vec2(float(RES)));
-    ivec2 i0 = min(ivec2(floor(g)), ivec2(RES - 1));
-    vec2 f = g - vec2(i0);
-    float a = sampleAt(base, i0.x, i0.y), b = sampleAt(base, i0.x + 1, i0.y);
-    float c = sampleAt(base, i0.x, i0.y + 1), d = sampleAt(base, i0.x + 1, i0.y + 1);
-    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-}
-
 void main() {
+#ifdef MULTIVIEW
+    int vi = gl_ViewIndex;
+#else
+    int vi = 0;
+#endif
     GpuTerrain t = terrains.items[push.slot];
     vec4 L = t.levels[push.level];
     int base = levelBase(push.slot, push.level);
@@ -72,6 +62,8 @@ void main() {
     int qx = quad % RES;
     int qz = quad / RES;
 
+    bool hidden = false;
+
     // The finer level's square, in this level's cells: whole cells, since a
     // level's centre is snapped to twice its spacing.
     if (push.level > 0u) {
@@ -80,18 +72,23 @@ void main() {
             vec2 lo = (F.xy - L.xy) / L.z;
             vec2 hi = lo + vec2(float(RES) * F.z / L.z);
             vec2 q = vec2(float(qx) + 0.5, float(qz) + 0.5);
-            if (all(greaterThan(q, lo)) && all(lessThan(q, hi))) {
-                gl_Position = vec4(2.0, 2.0, 2.0, 1.0);  // degenerate: nothing drawn
-                fragWorldPos = vec3(0.0);
-                fragNormal = vec3(0.0, 1.0, 0.0);
-                fragLocalXZ = vec2(0.0);
-                fragSurface = vec4(0.0);
-                fragSunlight = 1.0;
-                fragLocalPos = vec3(0.0);
-                fragLocalNormal = vec3(0.0, 1.0, 0.0);
-                return;
-            }
+            hidden = all(greaterThan(q, lo)) && all(lessThan(q, hi));
         }
+    }
+
+#ifndef TERRAIN_RINGS_FRAGMENT_CLIP_ONLY
+    if (push.views > 0u) hidden = hidden || cellHidden[base * RES * RES + quad] != 0u;
+#endif
+    if (hidden) {
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);  // all six vertices: no rasterization
+        fragWorldPos = vec3(0.0);
+        fragNormal = vec3(0.0, 1.0, 0.0);
+        fragLocalXZ = vec2(0.0);
+        fragSurface = vec4(0.0);
+        fragSunlight = 1.0;
+        fragLocalPos = vec3(0.0);
+        fragLocalNormal = vec3(0.0, 1.0, 0.0);
+        return;
     }
 
     const ivec2 OFF[6] = ivec2[6](ivec2(0, 0), ivec2(1, 0), ivec2(1, 1),
@@ -100,12 +97,7 @@ void main() {
 
     // Morph: over the outer fifth of the ring, odd samples slide onto the
     // even sample before them, fully by 95% of the half-extent.
-    float halfRes = 0.5 * float(RES);
-    vec2 fromCentre = abs(g - vec2(halfRes)) / halfRes;
-    float alpha = clamp((max(fromCentre.x, fromCentre.y) - RING_MORPH_START) /
-                        (RING_MORPH_END - RING_MORPH_START), 0.0, 1.0);
-    vec2 odd = mod(g, 2.0);
-    vec2 gm = g - odd * alpha;
+    vec2 gm = morphGrid(g);
 
     float h = heightAt(base, gm);
     float hx0 = heightAt(base, gm - vec2(1.0, 0.0)), hx1 = heightAt(base, gm + vec2(1.0, 0.0));
@@ -124,10 +116,5 @@ void main() {
     // Morphed samples take the surface of the even sample they slide onto.
     fragSurface = surfaceAt(t, base, ivec2(gm + 0.5));
 
-#ifdef MULTIVIEW
-    int vi = gl_ViewIndex;
-#else
-    int vi = 0;
-#endif
     gl_Position = cam.proj[vi] * cam.view[vi] * world;
 }

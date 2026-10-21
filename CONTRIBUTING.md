@@ -122,6 +122,21 @@ the run ends, and the log gets the most expensive scopes per frame. Measure an
 optimized build: the Debug tree is several times slower and ranks scopes
 differently.
 
+The terrain-ring test executable also provides a fixed-content GPU benchmark:
+
+```powershell
+$env:SAIDA_WINDOW_HIDDEN = '1'; $env:SAIDA_WINDOW_SIZE = '1600x900'
+build-rel/tests/saida_terrain_rings_tests.exe --benchmark air --profile air.json --out air.png
+build-rel/tests/saida_terrain_rings_tests.exe --benchmark eye --profile eye.json --out eye.png
+```
+
+Add `--reference` to bypass whole-cell rejection in the vertex shader, retaining
+the original fragment clip. The native CTest render case compares exact pixels
+against that shader, including the MSAA boundary guard. Benchmark traces include
+the culling pre-pass: compare total GPU frame time as well as the ring draw, and
+exclude capture/readback frames when reporting steady timings. These fixtures
+do not qualify a complete game's frame budget.
+
 The native semantic contract can also be checked without a project:
 
 ```sh

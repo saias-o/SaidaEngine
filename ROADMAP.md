@@ -9,6 +9,21 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
+## Terrain-hole raster cost — 2026-10-20
+
+- [x] Reject whole cells inside convex terrain holes before rasterization,
+  without changing visible shading. A compute invocation per cell produces
+  per-frame-in-flight flags; the vertex shader emits degenerate covered cells.
+  The perspective edge guard retains MSAA boundary samples in both views.
+  Computing the guard six times per cell in the vertex shader was measured
+  slower at eye height and was rejected. Terrains without holes skip the pass.
+  Native CTest passes 105/105; thirteen image pairs compare exact pixels
+  against fragment-only clipping, including water/rain, morphing, relief,
+  grazing/subpixel cells and hole removal. On the MX450 at 1600x900, the fixed
+  benchmark's total GPU time changes from 30.05 to 1.38 ms at 500 m and from
+  23.01 to 16.53 ms at 1.8 m, including the culling pre-pass (0.10/0.28 ms).
+  These fixture timings are not whole-game or all-world 30 fps qualification.
+
 ## Photographic sky / fog horizon — 2026-10-19
 
 - [x] Match the lower HDR sky to the scene's fog colour after clouds and before

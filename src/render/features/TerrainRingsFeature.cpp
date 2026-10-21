@@ -1,6 +1,7 @@
 #include "render/features/TerrainRingsFeature.hpp"
 
 #include "core/Paths.hpp"
+#include "core/Camera.hpp"
 #include "core/Log.hpp"
 #include "graphics/Material.hpp"
 #include "graphics/ResourceManager.hpp"
@@ -62,7 +63,7 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
     const uint32_t frames = std::max(1u, ctx.framesInFlight);
 
     // set 1: the terrains' UBO, their heights, their layers and their
-    // sunlight, one copy per frame-in-flight so a frame never rewrites what
+    // sunlight and cell visibility, one copy per frame-in-flight so a frame never rewrites what
     // the GPU still reads. The sun pass reads the first two and writes the
     // last.
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(*device_,
@@ -72,6 +73,7 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
             {1, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
             {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment},
             {3, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
+            {4, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
         });
 
     const uint64_t uboBytes = sizeof(GpuTerrain) * kMaxTerrains;
@@ -87,11 +89,14 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
         // As many floats as heights; only the GPU writes and reads it.
         f.sunlight = std::make_unique<Buffer>(*device_, heightBytes, rhi::BufferUsage::Storage,
                                               MemoryUsage::GpuOnly);
-        std::vector<rhi::BindGroupEntry> entries(4);
+        f.cellCull = std::make_unique<Buffer>(*device_, layerBytes * sizeof(uint32_t),
+                                              rhi::BufferUsage::Storage, MemoryUsage::GpuOnly);
+        std::vector<rhi::BindGroupEntry> entries(5);
         entries[0].binding = 0; entries[0].buffer = f.ubo.get(); entries[0].range = uboBytes;
         entries[1].binding = 1; entries[1].buffer = f.heights.get(); entries[1].range = heightBytes;
         entries[2].binding = 2; entries[2].buffer = f.layers.get(); entries[2].range = layerBytes;
         entries[3].binding = 3; entries[3].buffer = f.sunlight.get(); entries[3].range = heightBytes;
+        entries[4].binding = 4; entries[4].buffer = f.cellCull.get(); entries[4].range = layerBytes * sizeof(uint32_t);
         f.set = std::make_unique<rhi::BindGroup>(*setLayout_, entries);
     }
 
@@ -112,6 +117,8 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
 
     // The sun pass declares set 1 like the rings; set 0 is laid out, not bound.
     sunPipeline_ = std::make_unique<ComputePipeline>(*device_, shaderPath("terrain_rings_sun.comp.spv"),
+        std::vector<rhi::vulkan::BindGroupLayoutRef>{ctx.globalSetLayout, *setLayout_}, uint32_t(sizeof(Push)));
+    cullPipeline_ = std::make_unique<ComputePipeline>(*device_, shaderPath("terrain_rings_cull.comp.spv"),
         std::vector<rhi::vulkan::BindGroupLayoutRef>{ctx.globalSetLayout, *setLayout_}, uint32_t(sizeof(Push)));
     occlusionLayout_ = std::make_unique<rhi::BindGroupLayout>(*device_,
         std::vector<rhi::BindGroupLayoutEntry>{{0, rhi::BindingType::StorageImage, rhi::ShaderStages::Compute}});
@@ -195,7 +202,7 @@ void TerrainRingsFeature::recordPrePass(const PrePassContext& pc) {
     }
 
     FrameBuffers& f = frames_[std::min<size_t>(pc.frameIndex, frames_.size() - 1)];
-    bool dispatched = false;
+    bool dispatched = recordCellCull(pc, f);
     for (uint32_t slot = 0; slot < count_; ++slot) {
         const GpuTerrain& g = packed_[slot];
         if (!flagged(g.sun.w)) continue;
@@ -224,6 +231,38 @@ void TerrainRingsFeature::recordPrePass(const PrePassContext& pc) {
         if (recordOcclusion(pc, f)) dispatched = true;
     }
     if (dispatched) pc.encoder.computeToGraphicsBarrier();
+}
+
+bool TerrainRingsFeature::recordCellCull(const PrePassContext& pc, FrameBuffers& f) {
+    bool hasHoles = false;
+    for (uint32_t slot = 0; slot < count_; ++slot) hasHoles |= packed_[slot].holeCount.x > 0;
+    if (!hasHoles) return false;
+    const uint32_t views = pc.eyes ? uint32_t(std::min<size_t>(2, pc.eyes->size())) : pc.camera ? 1u : 0u;
+    for (uint32_t slot = 0; slot < count_; ++slot)
+        for (uint32_t eye = 0; eye < views; ++eye) {
+            const glm::mat4 toClip = pc.eyes ? (*pc.eyes)[eye].projection * (*pc.eyes)[eye].view
+                                           : pc.camera->projection() * pc.camera->view();
+            packed_[slot].localToClip[eye] = toClip * packed_[slot].localToWorld;
+        }
+    f.ubo->write(packed_.data(), sizeof(GpuTerrain) * count_);
+    {
+        rhi::ComputePassEncoder cp = pc.encoder.beginComputePass();
+        cp.setPipeline(*cullPipeline_);
+        cp.setBindGroup(1, *f.set);
+        for (uint32_t slot = 0; slot < count_; ++slot)
+            for (int k = 0; k < kLevels; ++k) {
+                if (packed_[slot].holeCount.x == 0 || !flagged(packed_[slot].levels[k].w)) continue;
+                Push push{slot, uint32_t(k)};
+                push.inverseWidth = pc.extent.width ? 1.0f / float(pc.extent.width) : 0.0f;
+                push.inverseHeight = pc.extent.height ? 1.0f / float(pc.extent.height) : 0.0f;
+                push.views = views;
+                cp.setPushConstants(&push, sizeof(Push));
+                cp.dispatch(ComputePipeline::groupCount(TerrainRingsNode::kResolution * TerrainRingsNode::kResolution,
+                                                        kCullGroupSize));
+            }
+        cp.end();
+    }
+    return true;
 }
 
 bool TerrainRingsFeature::recordOcclusion(const PrePassContext& pc, FrameBuffers& f) {
@@ -273,6 +312,7 @@ bool TerrainRingsFeature::recordOcclusion(const PrePassContext& pc, FrameBuffers
 void TerrainRingsFeature::record(FrameContext& fc) {
     // A frame recorded without the pre-pass draws its rings unshadowed rather
     // than over sunlight marched for other heights.
+    const bool cellCullReady = prepared_;
     if (!prepared_) {
         prepare(fc.scene, fc.frameIndex);
         for (uint32_t slot = 0; slot < count_; ++slot) packed_[slot].sun.w = 0.0f;
@@ -292,6 +332,9 @@ void TerrainRingsFeature::record(FrameContext& fc) {
         for (int k = 0; k < kLevels; ++k) {
             if (!flagged(packed_[slot].levels[k].w)) continue;
             Push pc{slot, uint32_t(k), fc.time};
+            pc.inverseWidth = fc.extent.width ? 1.0f / float(fc.extent.width) : 0.0f;
+            pc.inverseHeight = fc.extent.height ? 1.0f / float(fc.extent.height) : 0.0f;
+            pc.views = cellCullReady && packed_[slot].holeCount.x > 0 ? 1u : 0u;
             fc.pass.setPushConstants(&pc, sizeof(Push));
             fc.pass.draw(vertices);
         }

@@ -11,6 +11,18 @@ const int MAX_HOLES = 16;     // TerrainRingsNode::kMaxHoles
 const float RING_MORPH_START = 0.8;
 const float RING_MORPH_END = 0.95;
 
+float edgeSide(vec2 a, vec2 b, vec2 p) {
+    vec2 e = b - a, d = p - a;
+    return e.x * d.y - e.y * d.x;
+}
+
+bool insideHole(vec4 ab, vec4 cd, vec2 p) {
+    float s0 = edgeSide(ab.xy, ab.zw, p), s1 = edgeSide(ab.zw, cd.xy, p);
+    float s2 = edgeSide(cd.xy, cd.zw, p), s3 = edgeSide(cd.zw, ab.xy, p);
+    return (s0 >= 0.0 && s1 >= 0.0 && s2 >= 0.0 && s3 >= 0.0) ||
+           (s0 <= 0.0 && s1 <= 0.0 && s2 <= 0.0 && s3 <= 0.0);
+}
+
 // Marches toward the light (terrain_rings_sun.comp, terrain_rings_occlusion.comp):
 // at most this many steps, one cell of the level holding each point a step,
 // and a penumbra of about a degree -- the Sun's disc and what a cell cannot
@@ -30,6 +42,7 @@ struct GpuTerrain {
     ivec4 holeCount;            // x
     vec4 sun;                   // xyz toward the shadowing light (node-local, unit); w its index + 1, 0 none
     vec4 relief;                // x the highest sample of any level
+    mat4 localToClip[2];        // current mono/stereo views for cell culling
 };
 
 layout(set = 1, binding = 0) uniform TerrainUBO {
@@ -58,10 +71,23 @@ layout(std430, set = 1, binding = 3) readonly buffer SunlightBuffer {
 };
 #endif
 
+#ifdef CELL_CULL_WRITER
+layout(std430, set = 1, binding = 4) writeonly buffer CellCullBuffer {
+    uint cellHidden[];
+};
+#else
+layout(std430, set = 1, binding = 4) readonly buffer CellCullBuffer {
+    uint cellHidden[];
+};
+#endif
+
 layout(push_constant) uniform Push {
     uint slot;
     uint level;
     float time;
+    float inverseWidth;
+    float inverseHeight;
+    uint views;                 // cull pass: view count; drawing: cell mask is available
 } push;
 
 int levelBase(uint slot, uint level) {
