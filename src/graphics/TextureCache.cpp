@@ -151,21 +151,30 @@ void TextureCache::pumpPrepared(std::vector<AssetID>& completed) {
         completed.push_back(front.id);
         preparationBytes_ -= front.bytes; transferring_.pop_front();
     }
-    if (transferring_.empty()) return;
-    auto& front = *transferring_.front();
-    auto& texture = *front.texture;
-    if (texture.uploadedRows() == texture.height() || device_.pendingUploads() >= rhi::Device::kMaxPendingUploads) return;
-    constexpr uint64_t kUploadBytesPerFrame = 2 * 1024 * 1024;
-    const uint64_t rowBytes = front.bytes / texture.height();
-    const uint32_t rows = static_cast<uint32_t>(std::min<uint64_t>(texture.height()-texture.uploadedRows(),
-        std::max<uint64_t>(1, kUploadBytesPerFrame/rowBytes)));
-    SAIDA_PROFILE_COUNTER_ADD("Assets/TextureUploadBytes", double(rows*rowBytes));
-    try { texture.uploadRows(front.staging, rows); }
-    catch (const std::exception& e) {
-        Log::error("TextureCache: upload ", front.id, " rejected: ", e.what());
-        failed_.insert(front.id); completed.push_back(front.id);
-        residentBytes_ -= texture.gpuBytes(); preparationBytes_ -= front.bytes;
-        transferring_.pop_front();
+    // Slices go in FIFO order across the textures in flight until the pump's
+    // byte budget is spent: a city's worth of textures arriving at once must
+    // not trickle in at one texture's slice per frame.
+    constexpr uint64_t kUploadBytesPerFrame = 16 * 1024 * 1024;
+    uint64_t budget = kUploadBytesPerFrame;
+    for (auto it = transferring_.begin(); it != transferring_.end() && budget;) {
+        auto& item = **it;
+        auto& texture = *item.texture;
+        if (texture.uploadedRows() == texture.height()) { ++it; continue; }
+        if (device_.pendingUploads() >= rhi::Device::kMaxPendingUploads) return;
+        const uint64_t rowBytes = item.bytes / texture.height();
+        const uint32_t rows = static_cast<uint32_t>(std::min<uint64_t>(texture.height()-texture.uploadedRows(),
+            std::max<uint64_t>(1, budget/rowBytes)));
+        SAIDA_PROFILE_COUNTER_ADD("Assets/TextureUploadBytes", double(rows*rowBytes));
+        try {
+            texture.uploadRows(item.staging, rows);
+            budget -= std::min(budget, rows*rowBytes);
+            ++it;
+        } catch (const std::exception& e) {
+            Log::error("TextureCache: upload ", item.id, " rejected: ", e.what());
+            failed_.insert(item.id); completed.push_back(item.id);
+            residentBytes_ -= texture.gpuBytes(); preparationBytes_ -= item.bytes;
+            it = transferring_.erase(it);
+        }
     }
 }
 #endif
@@ -233,15 +242,25 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
         completed.push_back(it->first);
         it = uploading_.erase(it);
     }
-    if (device_.pendingUploads() >= rhi::Device::kMaxPendingUploads) return;
+    // Native keeps up to kMaxPreparedTextures images in flight, starting
+    // several per pump; WebGPU creates one ready image per pump.
 #ifndef SAIDA_RHI_WEBGPU
-    constexpr size_t kMaxPreparedTextures = 2;
+    constexpr size_t kMaxPreparedTextures = 8;
+    while (device_.pendingUploads() < rhi::Device::kMaxPendingUploads &&
+           preparing_.size() + transferring_.size() < kMaxPreparedTextures &&
+           prepareNext(completed)) {}
+#else
+    if (device_.pendingUploads() < rhi::Device::kMaxPendingUploads) prepareNext(completed);
+#endif
+}
+
+bool TextureCache::prepareNext(std::vector<AssetID>& completed) {
+#ifndef SAIDA_RHI_WEBGPU
     constexpr uint64_t kPreparationBudgetBytes = 64 * 1024 * 1024;
-    if (preparing_.size() + transferring_.size() >= kMaxPreparedTextures) return;
 #endif
     // Failed decodes settle at once. Of the decoded images, the one requested
-    // at the highest priority is prepared first (one per pump): a texture on
-    // screen now must not wait behind hundreds queued by streaming.
+    // at the highest priority is prepared first: a texture on screen now must
+    // not wait behind hundreds queued by streaming.
     auto best = pending_.end();
     for (auto it = pending_.begin(); it != pending_.end();) {
         const AssetLoadState state = it->second.handle.state();
@@ -269,7 +288,7 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
             best = it;
         ++it;
     }
-    if (best == pending_.end()) return;
+    if (best == pending_.end()) return false;
 
     const AssetID id = best->first;
     auto image = std::static_pointer_cast<DecodedImage>(best->second.handle.payload());
@@ -292,6 +311,7 @@ void TextureCache::finalizePending(std::vector<AssetID>& completed) {
     }
 #endif
     pending_.erase(best);
+    return true;
 }
 AssetID TextureCache::queueMemory(const uint8_t* data, size_t size, bool srgb,
                                   rhi::AddressMode address, AssetLoader& loader) {

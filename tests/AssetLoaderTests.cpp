@@ -2,6 +2,7 @@
 #include "project/AssetRegistry.hpp"
 #include "scene/animation/AnimationAssetDecoders.hpp"
 
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <filesystem>
@@ -217,6 +218,33 @@ int main() {
     assert(badGraph.error().find("missing") != std::string::npos);
     badGraph.reset();
     assert(waitForResidentZero(loader));
+
+    // Decoders run side by side: each of these two waits for the other to
+    // start, which a single worker would never let happen.
+    if (std::thread::hardware_concurrency() >= 4) {
+        auto started = std::make_shared<std::atomic<int>>(0);
+        auto meeting = [started](std::vector<uint8_t>&&, saida::AssetDecodeResult& out,
+                                 std::string& error) {
+            started->fetch_add(1);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+            while (started->load() < 2) {
+                if (std::chrono::steady_clock::now() >= deadline) {
+                    error = "decoded alone";
+                    return false;
+                }
+                std::this_thread::yield();
+            }
+            out.payload = std::make_shared<int>(0);
+            return true;
+        };
+        auto first = loader.requestMemory(0x9100, {1}, saida::AssetPayloadKind::Image, meeting);
+        auto second = loader.requestMemory(0x9101, {2}, saida::AssetPayloadKind::Image, meeting);
+        assert(waitForTerminal(first) && waitForTerminal(second));
+        assert(first.ready() && second.ready());
+        first.reset();
+        second.reset();
+        assert(waitForResidentZero(loader));
+    }
 
     fs::remove_all(root);
     return 0;

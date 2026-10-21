@@ -92,6 +92,8 @@ private:
 
     void ensureDefaultTextures();
     void registerBindless(Texture* texture);
+    // Starts preparing the most urgent decoded image; false when none is ready.
+    bool prepareNext(std::vector<AssetID>& completed);
 
     rhi::Device& device_;
     BindlessTables& bindlessTables_;

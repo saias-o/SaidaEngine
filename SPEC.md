@@ -900,13 +900,14 @@ the failure and rewrites it after a fresh scan, as specified in §13 and tracked
 for correction in the roadmap. Durable references should use project-relative
 paths wherever their format permits it.
 
-Textures and `.obj` meshes follow this path: worker read/decode on desktop,
-`pump()` on Web, then the resource-specific preparation and transfer phases
+Textures and `.obj` meshes follow this path: worker read/decode on desktop
+(one worker per two hardware threads, between one and four, taking jobs by
+priority from one queue; decoders must therefore be reentrant), `pump()` on Web, then the resource-specific preparation and transfer phases
 below. During loading, a fallback is visible; a failure uses a magenta
 checkerboard. Mesh proxies stay stable and
 physics rebuilds the body when the mesh becomes available.
 
-`GLTFLoader::request` uses the same AssetLoader worker for glTF parsing, buffer
+`GLTFLoader::request` uses the same AssetLoader workers for glTF parsing, buffer
 and meshopt decoding, accessor conversion, tangent preparation, bounds,
 collision positions, skins and animation tracks. On Web this executes in the
 existing single-thread `pump()`. `instantiate` consumes a caller's ready handle
@@ -935,11 +936,12 @@ Embedded textures can use `queueMemoryTexture`: compressed bytes are owned and
 budgeted by the loader and decoded on the worker. On native, a separate owned
 preparation worker allocates the image/view/sampler and fills immutable staging
 data; it never uses the render thread's command pool, queue or upload tracker.
-At most two preparations/transfers coexist, with a soft 64 MiB base-image
-staging limit; a larger source runs alone, preserving its resolution. The VMA
-allocator retains its internal thread synchronization. Each resource pump records
-at most 2 MiB of base-level rows (at least one whole row), followed by the
-complete mip chain on the last slice. Textures are bound and materials re-bound
+At most eight preparations/transfers coexist, several started per pump, with a
+soft 64 MiB base-image staging limit; a larger source runs alone, preserving
+its resolution. The VMA allocator retains its internal thread synchronization.
+Each resource pump records at most 16 MiB of base-level rows across the
+textures in transfer, in FIFO order (at least one whole row per slice), each
+followed by its complete mip chain on its last slice. Textures are bound and materials re-bound
 only after the last fence completes. Preparations and partial transfers count
 as pending loads. Allocation/transfer exceptions log the asset and requested
 size, settle to the preallocated missing texture, and preserve resident assets.

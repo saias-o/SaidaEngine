@@ -89,7 +89,9 @@ AssetLoader::AssetLoader(AssetRegistry* registry, uint64_t budgetBytes)
     : registry_(registry), accounting_(std::make_shared<Accounting>()) {
     accounting_->budgetBytes.store(budgetBytes, std::memory_order_relaxed);
 #ifndef __EMSCRIPTEN__
-    worker_ = std::thread(&AssetLoader::workerMain, this);
+    const unsigned workers = std::clamp(std::thread::hardware_concurrency() / 2, 1u, 4u);
+    for (unsigned i = 0; i < workers; ++i)
+        workers_.emplace_back(&AssetLoader::workerMain, this);
 #endif
 }
 
@@ -100,7 +102,8 @@ AssetLoader::~AssetLoader() {
     }
     wake_.notify_all();
 #ifndef __EMSCRIPTEN__
-    if (worker_.joinable()) worker_.join();
+    for (std::thread& worker : workers_)
+        if (worker.joinable()) worker.join();
 #endif
 }
 

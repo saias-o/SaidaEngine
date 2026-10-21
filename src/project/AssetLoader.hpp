@@ -170,7 +170,10 @@ private:
     uint64_t nextSequence_ = 1;
     bool stopping_ = false;
 #ifndef __EMSCRIPTEN__
-    std::thread worker_;
+    // Decoding (PNG/JPEG, glTF) is the slow part of a load: one worker per
+    // two hardware threads, between one and four, so a city's worth of
+    // textures arriving at once does not queue behind a single decoder.
+    std::vector<std::thread> workers_;
 #endif
 };
 
