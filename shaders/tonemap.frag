@@ -48,8 +48,9 @@ vec3 acesFilmic(vec3 x) {
 vec3 reconstructViewPosition(vec2 uv, float depth) {
     vec2 clipXY = uv * 2.0 - 1.0;
     float viewW = push.projectionParams.z * depth + push.projectionParams.w;
-    vec3 view = vec3(clipXY.x * push.projectionParams.x,
-                     clipXY.y * push.projectionParams.y,
+    vec2 viewXY = clipXY * push.projectionParams.xy
+                + push.projectionOffsets.xy + push.projectionOffsets.zw * depth;
+    vec3 view = vec3(viewXY,
                      push.projectionParams2.x * depth + push.projectionParams2.y);
     return view / max(viewW, 1e-6);
 }
@@ -76,7 +77,8 @@ float ambientOcclusion(vec2 uv) {
     vec3 center = reconstructViewPosition(uv, centerDepth);
     vec3 normal = viewNormalFromDepth(uv, center);
     float viewDepth = max(abs(center.z), 0.05);
-    vec2 uvRadius = vec2(0.5 * push.aoParams.y / viewDepth);
+    vec2 uvRadius = (0.5 * push.aoParams.y / viewDepth)
+                  / max(abs(push.projectionParams.xy), vec2(1e-6));
 
     float occlusion = 0.0;
     float samples = 0.0;
@@ -179,9 +181,7 @@ vec3 applyFog(vec3 color, vec2 uv) {
     if (nothingDrawn(depth)) {
         // The sky, fogged as though it stood push.fogUp.w metres away.
         if (push.fogUp.w <= 0.0) return color;
-        vec2 clipXY = uv * 2.0 - 1.0;
-        vec3 ray = normalize(vec3(clipXY.x * push.projectionParams.x,
-                                  clipXY.y * push.projectionParams.y, -1.0));
+        vec3 ray = normalize(reconstructViewPosition(uv, 1.0));
         viewPos = ray * push.fogUp.w;
     } else {
         viewPos = reconstructViewPosition(uv, depth);

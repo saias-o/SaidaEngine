@@ -371,6 +371,13 @@ hard-code a version string anywhere else.
 
 ## License and assets
 
+The built-in XR hand models come from the MIT-licensed Godot OpenXR demo.
+`python tools/import_xr_hands.py` fetches its pinned upstream revision and packs
+the glTF buffers and texture into standalone `assets/xr/hands/*.glb`, retaining
+the original rig and mesh. It also saves the upstream MIT notice. Python is
+needed only to reimport these assets, never to build or run the engine. Run
+`saida_xr_hand_tests` after changing the models or tracking-to-rig mapping.
+
 All contributions are distributed under GPL-3.0. New dependencies and assets
 must have explicit license, provenance and distribution entries. Compliance
 generation intentionally fails when an entry is missing.

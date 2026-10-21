@@ -2587,8 +2587,28 @@ fallback.
 
 OpenXR manages session, swapchains, actions, multiview and SaidaXRTK: grab,
 teleportation, abstract anchors, passthrough depending on the extension and hand
-tracking `XR_EXT_hand_tracking`. Procedural hands serve as a fallback without an
-asset.
+tracking `XR_EXT_hand_tracking`. `XRHand` loads the built-in left/right skinned
+GLBs under `assets/xr/hands/` by default (Godot's OpenXR hand-tracking demo,
+MIT; upstream revision and license ship alongside the models). The standard
+Animator drives all 25 humanoid bones from the corresponding OpenXR joints;
+Palm is not a skin bone. The pose converts OpenXR axes to humanoid axes and
+world-space tracking to mesh space, including transformed ancestors. Missing
+joint data uses that bone's rest transform; inactive tracking or an invalid
+wrist hides the mesh. Missing/incompatible assets log a warning and use the
+procedural joints/bones fallback. Generated visuals are never serialized;
+`hand`, material tint `color` (white by default) and fallback `jointScale`
+retain their existing scene representation. Desktop game exports include the
+two GLBs and their MIT notice.
+
+The mesh multiview shader derives its view-dependent lighting position from the
+current eye's view matrix, rather than sharing the head centroid for specular,
+parallax and view-biased GI. The head centroid still serves shared scene work.
+Per-eye tonemapping retains inverse-projection offsets for OpenXR's asymmetric
+frusta: SSAO surface positions/normals and fog rays reconstruct in the actual
+eye space. The AO sample radius also follows that eye's projection scale.
+`saida_xr_projection_tests` checks frustum edges, reversed depth, reconstruction
+of one world-space plane through both eyes while the head turns/rolls, and
+desktop perspective/orthographic reconstruction, without creating a window.
 
 The XR preview is a separate process `--xr` because OpenXR must create the Vulkan
 device at startup. The test scene is `assets/scenes/XRSetup.scene` (passed via

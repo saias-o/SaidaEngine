@@ -1,0 +1,7 @@
+/build/
+/cache/
+/saves/
+/prefs/
+*.local.json
+pipeline_cache.bin
+.play_mode_backup.scene

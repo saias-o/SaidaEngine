@@ -10,6 +10,25 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### OpenXR lighting with asymmetric eye projections
+
+- SSAO and fog reconstruction now keep each eye's inverse-projection offsets,
+  and the AO sampling radius follows the projection scale. The centred-camera
+  assumption reconstructed the wrong surfaces/normals with OpenXR frusta.
+- Mesh specular, parallax and view-biased GI use the actual eye position in
+  multiview, rather than the head centroid shared by both eyes. Projection and
+  world-plane reconstruction are checked by `saida_xr_projection_tests` without
+  a window; the Meta Link visual result still requires a headset retest.
+
+### Default skinned OpenXR hands
+
+- `XRHand` now uses the left/right GLBs from Godot's MIT-licensed OpenXR
+  hand-tracking demo, including their texture, with tracking-driven skeletal
+  animation. World-space poses are converted to mesh space and humanoid bone
+  axes; tracking loss hides the mesh. Procedural hands remain the explicit
+  fallback if an asset cannot load. Desktop exports bundle the models and MIT
+  notice. `saida_xr_hand_tests` covers both rigs and the runtime connection.
+
 ### Keyboard focus given by the application
 
 - `UIInteractionSystem::focusWebCanvas` (reached as `Engine::uiInteraction()`)

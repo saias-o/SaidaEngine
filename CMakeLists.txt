@@ -818,6 +818,20 @@ if (BUILD_TESTING)
         target_compile_definitions(saida_xr_rig_pose_tests PRIVATE GLM_FORCE_RADIANS GLM_FORCE_DEPTH_ZERO_TO_ONE)
         target_compile_options(saida_xr_rig_pose_tests PRIVATE -Wall -Wextra)
         add_test(NAME saida_xr_rig_pose_tests COMMAND $<TARGET_FILE:saida_xr_rig_pose_tests>)
+
+        add_executable(saida_xr_projection_tests tests/XrProjectionTests.cpp)
+        saida_test_target(saida_xr_projection_tests)
+        target_link_libraries(saida_xr_projection_tests PRIVATE saida_engine openxr_loader)
+        target_compile_options(saida_xr_projection_tests PRIVATE -Wall -Wextra)
+        add_test(NAME saida_xr_projection_tests COMMAND $<TARGET_FILE:saida_xr_projection_tests>)
+
+        add_executable(saida_xr_hand_tests tests/XrHandTests.cpp)
+        saida_test_target(saida_xr_hand_tests)
+        target_link_libraries(saida_xr_hand_tests PRIVATE saida_engine)
+        target_compile_options(saida_xr_hand_tests PRIVATE -Wall -Wextra)
+        add_test(NAME saida_xr_hand_tests COMMAND $<TARGET_FILE:saida_xr_hand_tests>)
+        set_tests_properties(saida_xr_hand_tests PROPERTIES ENVIRONMENT "SAIDA_WINDOW_HIDDEN=1")
+        add_test(NAME saida_xr_hand_pose_tests COMMAND $<TARGET_FILE:saida_xr_hand_tests> --pose-only)
     endif()
 
     # The same flags are obeyed by the editor and the player; a divergence would

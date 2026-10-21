@@ -10,22 +10,21 @@ namespace saida {
 
 class MeshNode;
 
-// Visible procedural hand driven by XRInput's OpenXR skeleton. The generated
-// cube joints/bones are runtime implementation details and are intentionally not
-// serialized; a scene only needs one XRHand node per side.
+// Skinned hand driven by XRInput's world-space OpenXR skeleton. The built-in
+// GLB and procedural fallback are runtime children, reconstructed on load.
 class XRHandNode : public Node {
 public:
     explicit XRHandNode(saida::XRHand hand = saida::XRHand::Left);
 
     saida::XRHand hand() const { return hand_; }
-    void setHand(saida::XRHand hand) { hand_ = hand; }
+    void setHand(saida::XRHand hand);
     bool isTracked() const;
 
     // Called by the internal tracker behaviour once per scene update.
     void updateTrackingVisuals();
 
-    // A hand made in code rather than loaded from a scene builds its joints
-    // here (loading does it itself); calling again rebuilds with a new colour.
+    // A hand made in code builds its visuals here (loading does it itself).
+    // Calling again rebuilds with a new colour.
     void buildVisuals(ResourceManager& resources);
     void setColor(const glm::vec4& color) { color_ = color; }
 
@@ -35,12 +34,15 @@ public:
 
 private:
     void setVisualsVisible(bool visible);
+    bool buildSkinnedVisuals(ResourceManager& resources);
 
     saida::XRHand hand_;
-    glm::vec4 color_{0.2f, 0.75f, 1.0f, 1.0f};
+    glm::vec4 color_{1.0f};
     float jointScale_ = 1.0f;
     std::array<MeshNode*, kXRHandJointCount> jointNodes_{};
     std::vector<MeshNode*> boneNodes_;
+    std::vector<MeshNode*> skinnedNodes_;
+    ResourceManager* resources_ = nullptr;
     bool visualsBuilt_ = false;
 };
 

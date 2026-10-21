@@ -55,6 +55,7 @@ layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragColor;
 layout(location = 3) out vec2 fragTexCoord;
+layout(location = 4) flat out vec3 fragEyePosition;
 layout(location = 5) out vec3 fragTangent;
 layout(location = 6) out vec3 fragBitangent;
 layout(location = 10) out vec3 fragBillboardView;
@@ -147,8 +148,12 @@ void main() {
     fragTexCoord = localUV;
 #ifdef MULTIVIEW
     int viewIndex = gl_ViewIndex;
+    // A rigid view's inverse translation is the eye's world position. Keep
+    // specular, parallax and view-biased GI in the same eye as the geometry.
+    fragEyePosition = -transpose(mat3(cam.view[viewIndex])) * cam.view[viewIndex][3].xyz;
 #else
     int viewIndex = 0;
+    fragEyePosition = lights.cameraPos.xyz;
 #endif
     gl_Position = cam.proj[viewIndex] * cam.view[viewIndex] * worldPos;
 }

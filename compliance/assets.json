@@ -22,6 +22,26 @@
   ],
   "assets": [
     {
+      "path": "assets/xr/hands/LeftHand.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "MIT",
+      "copyrightText": "Copyright Godot Engine contributors",
+      "provenance": "Godot OpenXR hand-tracking demo, revision b761b4cd5718a7118f2c95eb55f181d0a5f004f1; glTF, buffer and hand.png packed into a standalone GLB by tools/import_xr_hands.py.",
+      "source": "https://github.com/godotengine/godot-demo-projects/tree/b761b4cd5718a7118f2c95eb55f181d0a5f004f1/xr/openxr_hand_tracking_demo",
+      "note": "MIT notice: assets/xr/hands/LICENSE.txt"
+    },
+    {
+      "path": "assets/xr/hands/RightHand.glb",
+      "kind": "model",
+      "distribution": true,
+      "license": "MIT",
+      "copyrightText": "Copyright Godot Engine contributors",
+      "provenance": "Godot OpenXR hand-tracking demo, revision b761b4cd5718a7118f2c95eb55f181d0a5f004f1; glTF, buffer and hand.png packed into a standalone GLB by tools/import_xr_hands.py.",
+      "source": "https://github.com/godotengine/godot-demo-projects/tree/b761b4cd5718a7118f2c95eb55f181d0a5f004f1/xr/openxr_hand_tracking_demo",
+      "note": "MIT notice: assets/xr/hands/LICENSE.txt"
+    },
+    {
       "path": "BeachDemo/assets/skies/sunset.png",
       "kind": "image",
       "distribution": true,

@@ -130,6 +130,21 @@ bool copyEngineFonts(const fs::path& outRoot, std::string& log, std::string& err
     return true;
 }
 
+bool copyEngineXrHands(const fs::path& outRoot, std::string& log, std::string& error) {
+    const fs::path source = fs::path(engineRoot()) / "assets/xr/hands";
+    if (!copyTree(source, outRoot / "assets/xr/hands", log)) {
+        error = "failed to copy built-in XR hands";
+        return false;
+    }
+    for (const char* file : {"LeftHand.glb", "RightHand.glb", "LICENSE.txt"}) {
+        if (!fs::is_regular_file(outRoot / "assets/xr/hands" / file)) {
+            error = std::string("built-in XR hand resource not found: ") + file;
+            return false;
+        }
+    }
+    return true;
+}
+
 bool copyProjectData(const Project& project, const fs::path& outRoot, std::string& log) {
     const fs::path root(project.rootPath());
     for (const char* dir : {"assets", "scenes", "scripts", "ui", "anim", "shaders"}) {
@@ -313,6 +328,7 @@ BuildExporter::Result BuildExporter::exportWindowsBuild(const Project& project,
     {
         std::string fontError;
         if (!copyEngineFonts(outDir, r.log, fontError)) return fail(fontError);
+        if (!copyEngineXrHands(outDir, r.log, fontError)) return fail(fontError);
     }
     if (!copyProjectData(project, outDir, r.log))
         return fail("failed to copy project data");

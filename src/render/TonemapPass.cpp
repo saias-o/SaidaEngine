@@ -220,6 +220,8 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
     const bool skyFog = settings.fogEnabled && settings.skyboxTexture != kAssetInvalid &&
         (settings.fogDensity > 0.0f || glm::any(glm::greaterThan(settings.fogRayleigh, glm::vec3(0.0f))));
     push.projectionParams2 = glm::vec4(invProjection[2][2], invProjection[3][2], skyFog ? 1.0f : 0.0f, 0.0f);
+    push.projectionOffsets = glm::vec4(invProjection[3][0], invProjection[3][1],
+                                       invProjection[2][0], invProjection[2][1]);
     writeLensFlare(push, flare, view, projection);
     return push;
 }

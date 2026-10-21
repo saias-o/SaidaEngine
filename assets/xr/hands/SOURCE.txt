@@ -1,0 +1,11 @@
+Godot OpenXR Hand Tracking Demo
+https://github.com/godotengine/godot-demo-projects/tree/b761b4cd5718a7118f2c95eb55f181d0a5f004f1/xr/openxr_hand_tracking_demo
+
+License: MIT (see LICENSE.txt).
+Copyright Godot Engine contributors.
+
+LeftHand.glb and RightHand.glb are packed from assets/gltf/LeftHandHumanoid.gltf
+and RightHandHumanoid.gltf, their .bin buffers and the shared hand.png texture.
+Mesh, weights, texture, joint hierarchy and rest transforms are preserved.
+Godot humanoid joint axes are converted to OpenXR at runtime by XRHandPose.
+Reproduce with: python tools/import_xr_hands.py

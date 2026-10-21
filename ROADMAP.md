@@ -628,6 +628,15 @@ Post-V1 unless the scope changes explicitly.
   if they are ever reopened.
 
 - [ ] XR: validate targeted headsets/runtimes, controllers and hand tracking.
+  Default skinned hands now use the MIT Godot OpenXR demo GLBs; both handed
+  rigs, world/mesh-space pose conversion, finger motion, invalid-joint fallback,
+  tracking visibility and scene reload are covered by `saida_xr_hand_tests`
+  without a headset. Visual alignment and latency still require hardware.
+  Asymmetric eye depth reconstruction and per-eye mesh lighting are corrected;
+  `saida_xr_projection_tests` covers surface/normal consistency under head
+  motion. Binocular image agreement and the reported lighting instability on
+  Meta Link still need a headset retest; CPU tests and shader compilation do
+  not establish the headset result.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
 
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and

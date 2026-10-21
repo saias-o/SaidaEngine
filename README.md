@@ -247,6 +247,14 @@ The editor is a GUI application with an event loop. Automation should use
 CTest, `saida_tool` and the dedicated harnesses instead of leaving the editor
 running.
 
+### VR hand-tracking demo
+
+[`VRDemo`](VRDemo/README.md) is a standard engine demo project with skinned
+tracked hands and a physical cube to grab, move and release. With Meta Link
+connected and the Meta OpenXR runtime active, run `VRDemo\PlayVR.cmd` on Windows.
+`VRDemo\OpenEditor.cmd` opens its project and editable scene in the editor.
+Both launchers use the engine's `build-rel` binaries.
+
 ## Web builds
 
 Activate the Emscripten SDK environment, then build the player and authoring

@@ -31,6 +31,7 @@ layout(location = 0) in vec3 fragWorldPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragColor;
 layout(location = 3) in vec2 fragTexCoord;
+layout(location = 4) flat in vec3 fragEyePosition;
 layout(location = 5) in vec3 fragTangent;
 layout(location = 6) in vec3 fragBitangent;
 layout(location = 10) in vec3 fragBillboardView;
@@ -88,7 +89,7 @@ void main() {
     SurfaceCoords st = warpedCoords(fragTexCoord, uvDx, uvDy, variation.x);
     if (mat.parallaxDepth > 0.0) {
         vec3 n = normalize(fragNormal), t = normalize(fragTangent), b = normalize(fragBitangent);
-        vec3 toEye = normalize(lights.cameraPos.xyz - fragWorldPos);
+        vec3 toEye = normalize(fragEyePosition - fragWorldPos);
         st = parallaxCoords(mat.heightTexIdx, mat.parallaxDepth, st,
                             vec3(dot(toEye, t), dot(toEye, b), dot(toEye, n)));
     }
@@ -129,7 +130,7 @@ void main() {
     if (foliage.w > 0.75) {
         // Grazing depth slices contribute no convincing picture and cause
         // duplicate leaves/overdraw. Their contribution fades with view angle.
-        vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
+        vec3 V = normalize(fragEyePosition - fragWorldPos);
         albedoSample.a *= smoothstep(0.08, 0.6, abs(dot(normalize(fragNormal), V)));
 #ifdef BINDLESS
         vec2 texels = vec2(textureSize(globalTextures[nonuniformEXT(mat.albedoTexIdx)], 0));
@@ -163,7 +164,7 @@ void main() {
         vec3 irradiance = lights.ambient.rgb * mix(0.45, 1.0, visibility);
         if (lights.environmentParams.x >= 0.5 && lights.environmentParams.y > 0.0)
             irradiance += environmentIrradiance(N) * lights.environmentParams.y * visibility;
-        vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
+        vec3 V = normalize(fragEyePosition - fragWorldPos);
         for (int i = 0; i < lights.counts.x; ++i) {
             Light light = lights.lights[i];
             if (light.colorInt.w <= 0.0) continue;
@@ -313,7 +314,7 @@ void main() {
     applyRainSurface(fragWorldPos, geometricNormal, rainDx, rainDy, rainReception,
                      N, albedo, roughness, dielectricF0, dielectricF90);
 
-    vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
+    vec3 V = normalize(fragEyePosition - fragWorldPos);
 
     LightTerms t = accumulateReflectance(N, V, fragWorldPos, albedo, metallic, roughness,
                                          dielectricF0, dielectricF90);

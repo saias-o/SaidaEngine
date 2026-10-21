@@ -1,0 +1,1009 @@
+{
+  "schema": 2,
+  "version": 2,
+  "scene": {
+    "type": "Scene",
+    "id": 1,
+    "name": "VRDemo",
+    "enabled": true,
+    "transform": {
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "behaviours": [],
+    "children": [
+      {
+        "type": "XROrigin",
+        "id": 2,
+        "name": "XR Origin",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "yawDegrees": 0
+      },
+      {
+        "type": "XRController",
+        "id": 3,
+        "name": "Left Grab Interactor",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [
+          {
+            "type": "XRDirectInteractor",
+            "enabled": true,
+            "reach": 0.07
+          }
+        ],
+        "children": [],
+        "hand": 0
+      },
+      {
+        "type": "XRHand",
+        "id": 4,
+        "name": "Left Tracked Hand",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "hand": 0,
+        "color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "jointScale": 1
+      },
+      {
+        "type": "XRController",
+        "id": 5,
+        "name": "Right Grab Interactor",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [
+          {
+            "type": "XRDirectInteractor",
+            "enabled": true,
+            "reach": 0.07
+          }
+        ],
+        "children": [],
+        "hand": 1
+      },
+      {
+        "type": "XRHand",
+        "id": 6,
+        "name": "Right Tracked Hand",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "hand": 1,
+        "color": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "jointScale": 1
+      },
+      {
+        "type": "Camera",
+        "id": 7,
+        "name": "Inspection Camera",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            1.55,
+            1.1
+          ],
+          "rotation": [
+            -0.195090322,
+            0,
+            0,
+            0.98078528
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "fovDegrees": 65,
+        "nearZ": 0.03,
+        "farZ": 30
+      },
+      {
+        "type": "LightNode",
+        "id": 8,
+        "name": "Key Light",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            3,
+            1
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "lightType": 0,
+        "color": [
+          1,
+          0.95,
+          0.88
+        ],
+        "intensity": 2.5,
+        "direction": [
+          -0.35,
+          -0.85,
+          -0.4
+        ],
+        "castShadows": true
+      },
+      {
+        "type": "LightNode",
+        "id": 9,
+        "name": "Fill Light",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            2.2,
+            -1
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "lightType": 0,
+        "color": [
+          0.75,
+          0.85,
+          1
+        ],
+        "intensity": 0.5,
+        "direction": [
+          0.5,
+          -0.5,
+          0.5
+        ],
+        "castShadows": false
+      },
+      {
+        "type": "StaticBody",
+        "id": 10,
+        "name": "Floor",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            -0.05,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [
+          {
+            "type": "MeshNode",
+            "id": 11,
+            "name": "Floor Surface",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                4,
+                0.1,
+                4
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "mesh": 1,
+            "baseColor": [
+              0.08,
+              0.1,
+              0.13,
+              1
+            ],
+            "metallic": 0,
+            "roughness": 0.65,
+            "castShadows": true,
+            "meshEnabled": true
+          },
+          {
+            "type": "CollisionShape",
+            "id": 12,
+            "name": "Floor Collider",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "shapeType": 1,
+            "halfExtents": [
+              2,
+              0.05,
+              2
+            ],
+            "offset": [
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "friction": 0.8,
+        "restitution": 0
+      },
+      {
+        "type": "StaticBody",
+        "id": 13,
+        "name": "Table",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0.85,
+            -0.6
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [],
+        "children": [
+          {
+            "type": "MeshNode",
+            "id": 14,
+            "name": "Tabletop",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1.1,
+                0.08,
+                0.56
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "mesh": 1,
+            "baseColor": [
+              0.12,
+              0.17,
+              0.21,
+              1
+            ],
+            "metallic": 0,
+            "roughness": 0.65,
+            "castShadows": true,
+            "meshEnabled": true
+          },
+          {
+            "type": "CollisionShape",
+            "id": 15,
+            "name": "Tabletop Collider",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "shapeType": 1,
+            "halfExtents": [
+              0.55,
+              0.04,
+              0.28
+            ],
+            "offset": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "type": "MeshNode",
+            "id": 16,
+            "name": "Table Leg",
+            "enabled": true,
+            "transform": {
+              "position": [
+                -0.45,
+                -0.445,
+                -0.2
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                0.07,
+                0.81,
+                0.07
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "mesh": 1,
+            "baseColor": [
+              0.07,
+              0.09,
+              0.12,
+              1
+            ],
+            "metallic": 0,
+            "roughness": 0.65,
+            "castShadows": true,
+            "meshEnabled": true
+          },
+          {
+            "type": "CollisionShape",
+            "id": 17,
+            "name": "Leg Collider",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "shapeType": 1,
+            "halfExtents": [
+              0.035,
+              0.405,
+              0.035
+            ],
+            "offset": [
+              -0.45,
+              -0.445,
+              -0.2
+            ]
+          },
+          {
+            "type": "MeshNode",
+            "id": 18,
+            "name": "Table Leg",
+            "enabled": true,
+            "transform": {
+              "position": [
+                -0.45,
+                -0.445,
+                0.2
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                0.07,
+                0.81,
+                0.07
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "mesh": 1,
+            "baseColor": [
+              0.07,
+              0.09,
+              0.12,
+              1
+            ],
+            "metallic": 0,
+            "roughness": 0.65,
+            "castShadows": true,
+            "meshEnabled": true
+          },
+          {
+            "type": "CollisionShape",
+            "id": 19,
+            "name": "Leg Collider",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "shapeType": 1,
+            "halfExtents": [
+              0.035,
+              0.405,
+              0.035
+            ],
+            "offset": [
+              -0.45,
+              -0.445,
+              0.2
+            ]
+          },
+          {
+            "type": "MeshNode",
+            "id": 20,
+            "name": "Table Leg",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0.45,
+                -0.445,
+                -0.2
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                0.07,
+                0.81,
+                0.07
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "mesh": 1,
+            "baseColor": [
+              0.07,
+              0.09,
+              0.12,
+              1
+            ],
+            "metallic": 0,
+            "roughness": 0.65,
+            "castShadows": true,
+            "meshEnabled": true
+          },
+          {
+            "type": "CollisionShape",
+            "id": 21,
+            "name": "Leg Collider",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "shapeType": 1,
+            "halfExtents": [
+              0.035,
+              0.405,
+              0.035
+            ],
+            "offset": [
+              0.45,
+              -0.445,
+              -0.2
+            ]
+          },
+          {
+            "type": "MeshNode",
+            "id": 22,
+            "name": "Table Leg",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0.45,
+                -0.445,
+                0.2
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                0.07,
+                0.81,
+                0.07
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "mesh": 1,
+            "baseColor": [
+              0.07,
+              0.09,
+              0.12,
+              1
+            ],
+            "metallic": 0,
+            "roughness": 0.65,
+            "castShadows": true,
+            "meshEnabled": true
+          },
+          {
+            "type": "CollisionShape",
+            "id": 23,
+            "name": "Leg Collider",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "shapeType": 1,
+            "halfExtents": [
+              0.035,
+              0.405,
+              0.035
+            ],
+            "offset": [
+              0.45,
+              -0.445,
+              0.2
+            ]
+          }
+        ],
+        "friction": 0.7,
+        "restitution": 0
+      },
+      {
+        "type": "RigidBody",
+        "id": 24,
+        "name": "Grab Cube",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0.96,
+            -0.46
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "behaviours": [
+          {
+            "type": "XRGrabbable",
+            "enabled": true,
+            "grabRadius": 0.05,
+            "snapToHand": false
+          }
+        ],
+        "children": [
+          {
+            "type": "MeshNode",
+            "id": 25,
+            "name": "Orange Cube",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                0.12,
+                0.12,
+                0.12
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "mesh": 1,
+            "baseColor": [
+              0.45,
+              0.14,
+              0.025,
+              1
+            ],
+            "metallic": 0,
+            "roughness": 0.65,
+            "castShadows": true,
+            "meshEnabled": true
+          },
+          {
+            "type": "CollisionShape",
+            "id": 26,
+            "name": "Cube Collider",
+            "enabled": true,
+            "transform": {
+              "position": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "scale": [
+                1,
+                1,
+                1
+              ]
+            },
+            "behaviours": [],
+            "children": [],
+            "shapeType": 1,
+            "halfExtents": [
+              0.06,
+              0.06,
+              0.06
+            ],
+            "offset": [
+              0,
+              0,
+              0
+            ]
+          }
+        ],
+        "mass": 0.25,
+        "kinematic": false,
+        "gravityFactor": 1,
+        "linearDamping": 0.1,
+        "angularDamping": 0.15,
+        "friction": 0.65,
+        "restitution": 0.08,
+        "continuousCollision": true
+      },
+      {
+        "type": "MeshNode",
+        "id": 27,
+        "name": "Standing Marker",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0.001,
+            0.15
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            0.6,
+            0.002,
+            0.4
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "mesh": 1,
+        "baseColor": [
+          0.055,
+          0.2,
+          0.21,
+          1
+        ],
+        "metallic": 0,
+        "roughness": 0.65,
+        "castShadows": true,
+        "meshEnabled": true
+      },
+      {
+        "type": "MeshNode",
+        "id": 28,
+        "name": "Table Front Accent",
+        "enabled": true,
+        "transform": {
+          "position": [
+            0,
+            0.856,
+            -0.316
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1.0,
+            0.018,
+            0.006
+          ]
+        },
+        "behaviours": [],
+        "children": [],
+        "mesh": 1,
+        "baseColor": [
+          0.08,
+          0.28,
+          0.3,
+          1
+        ],
+        "metallic": 0,
+        "roughness": 0.65,
+        "castShadows": true,
+        "meshEnabled": true
+      }
+    ],
+    "settings": {
+      "ambient": [
+        0.14,
+        0.16,
+        0.19
+      ],
+      "clearColor": [
+        0.025,
+        0.04,
+        0.065
+      ],
+      "postProcessing": true,
+      "giEnabled": false,
+      "iblEnabled": false,
+      "aoEnabled": true,
+      "bloomEnabled": false,
+      "changeRenderingAtLoad": true
+    }
+  }
+}

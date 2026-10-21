@@ -1905,8 +1905,9 @@ void Renderer::updateUniformBufferXr(uint32_t frame, const std::vector<EyeRender
     if (n == 1) { ubo.view[1] = ubo.view[0]; ubo.proj[1] = ubo.proj[0]; }
     uniformBuffers_[frame]->write(&ubo, sizeof(ubo));
 
-    // Specular/view-dependent terms use the eye centroid (head). No frustum cull:
-    // a single combined-stereo frustum isn't worth the complexity here.
+    // Shared scene work uses the head centroid; the multiview mesh shader
+    // derives view-dependent lighting from each eye's view matrix. No frustum
+    // cull: a single combined-stereo frustum isn't worth the complexity here.
     glm::vec3 head(0.0f);
     for (uint32_t i = 0; i < n; ++i) head += eyes[i].eyePosition;
     head /= static_cast<float>(std::max(1u, n));

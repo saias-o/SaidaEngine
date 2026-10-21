@@ -36,6 +36,9 @@ public:
         glm::vec4 sourceRect{0.0f, 0.0f, 1.0f, 1.0f};
         glm::vec4 projectionParams{0.0f};
         glm::vec4 projectionParams2{0.0f};
+        // xy = invProjection[3].xy, zw = invProjection[2].xy. OpenXR's
+        // off-centre frusta need these terms when reconstructing from depth.
+        glm::vec4 projectionOffsets{0.0f};
         glm::vec4 fogRayleigh{0.0f};     // rgb extinction at altitude 0 (1/m), w its scale height
         glm::vec4 fogHeight{0.0f};       // x grey scale height (0 uniform), y camera altitude,
                                          // z planet radius (0 flat), w 1 when the air is layered

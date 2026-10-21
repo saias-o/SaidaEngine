@@ -1,9 +1,15 @@
 #include "xr/toolkit/XRHand.hpp"
 
+#include "core/Log.hpp"
+#include "core/Paths.hpp"
 #include "graphics/Material.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "nodes/MeshNode.hpp"
+#include "scene/GLTFLoader.hpp"
+#include "scene/animation/Animator.hpp"
+#include "scene/animation/AnimNode.hpp"
 #include "xr/toolkit/XRInput.hpp"
+#include "xr/toolkit/XRHandPose.hpp"
 
 #include <glm/gtc/constants.hpp>
 #include <nlohmann/json.hpp>
@@ -22,6 +28,28 @@ public:
     void onUpdate(float) override {
         static_cast<XRHandNode*>(node())->updateTrackingVisuals();
     }
+};
+
+glm::mat4 currentWorldMatrix(const Node& node) {
+    glm::mat4 matrix = node.localMatrix();
+    for (const Node* parent = node.parent(); parent; parent = parent->parent())
+        matrix = parent->localMatrix() * matrix;
+    return matrix;
+}
+
+class XRTrackedHandAnimation final : public AnimNode {
+public:
+    XRTrackedHandAnimation(const Rig& rig, const Node& mesh, const XRHandNode& hand)
+        : pose_(rig, hand.hand()), mesh_(mesh), hand_(hand) {}
+    bool valid() const { return pose_.valid(); }
+    void update(float) override {}
+    void evaluate(const LocalPose&, LocalPose& output) const override {
+        pose_.evaluate(XRInput::skeleton(hand_.hand()), currentWorldMatrix(mesh_), output);
+    }
+private:
+    XRHandPose pose_;
+    const Node& mesh_;
+    const XRHandNode& hand_;
 };
 
 struct BonePair { XRHandJoint from; XRHandJoint to; };
@@ -75,19 +103,58 @@ glm::quat rotatePositiveZTo(const glm::vec3& direction) {
 
 XRHandNode::XRHandNode(saida::XRHand hand)
     : Node(hand == saida::XRHand::Left ? "XR Hand (L)" : "XR Hand (R)"), hand_(hand) {
-    if (hand_ == saida::XRHand::Right)
-        color_ = {1.0f, 0.45f, 0.25f, 1.0f};
     addBehaviour<XRHandVisualTracker>();
+}
+
+void XRHandNode::setHand(saida::XRHand hand) {
+    if (hand_ == hand) return;
+    hand_ = hand;
+    if (resources_) buildVisuals(*resources_);
 }
 
 bool XRHandNode::isTracked() const {
     return XRInput::handTrackingActive(hand_);
 }
 
+bool XRHandNode::buildSkinnedVisuals(ResourceManager& resources) {
+    const std::string path = assetPath(hand_ == saida::XRHand::Left
+        ? "assets/xr/hands/LeftHand.glb" : "assets/xr/hands/RightHand.glb");
+    if (!GLTFLoader::load(path, *this, resources)) return false;
+    bool valid = true;
+    traverse([&](Node& node, const glm::mat4&) {
+        auto* mesh = dynamic_cast<MeshNode*>(&node);
+        if (!mesh) return;
+        auto* animator = mesh->getBehaviour<Animator>();
+        if (!animator || !animator->rig()) { valid = false; return; }
+        auto tracking = std::make_unique<XRTrackedHandAnimation>(*animator->rig(), *mesh, *this);
+        if (!tracking->valid()) { valid = false; return; }
+        animator->setRootNode(std::move(tracking));
+        mesh->castShadows() = false;
+        mesh->setMeshEnabled(false);
+        if (mesh->material()) {
+            MaterialDesc desc = mesh->material()->desc();
+            desc.baseColor *= color_;
+            mesh->setMaterial(resources.getMaterial(desc));
+        }
+        skinnedNodes_.push_back(mesh);
+    });
+    return valid && !skinnedNodes_.empty();
+}
+
 void XRHandNode::buildVisuals(ResourceManager& resources) {
+    resources_ = &resources;
+    visualsBuilt_ = false;
     clearChildren();
     jointNodes_.fill(nullptr);
     boneNodes_.clear();
+    skinnedNodes_.clear();
+    if (buildSkinnedVisuals(resources)) {
+        visualsBuilt_ = true;
+        return;
+    }
+    Log::warn("XRHand: built-in skinned hand unavailable or incompatible; using procedural fallback");
+    clearChildren();
+    skinnedNodes_.clear();
 
     Mesh* cube = resources.getMesh(kAssetBuiltinCube);
     MaterialDesc materialDesc;
@@ -116,6 +183,7 @@ void XRHandNode::buildVisuals(ResourceManager& resources) {
 }
 
 void XRHandNode::setVisualsVisible(bool visible) {
+    for (MeshNode* mesh : skinnedNodes_) mesh->setMeshEnabled(visible);
     for (MeshNode* joint : jointNodes_)
         if (joint) joint->setMeshEnabled(visible);
     for (MeshNode* bone : boneNodes_)
@@ -125,6 +193,10 @@ void XRHandNode::setVisualsVisible(bool visible) {
 void XRHandNode::updateTrackingVisuals() {
     if (!visualsBuilt_) return;
     const XRHandSkeletonState& skeleton = XRInput::skeleton(hand_);
+    if (!skinnedNodes_.empty()) {
+        setVisualsVisible(skeleton.active && skeleton.joint(XRHandJoint::Wrist).valid);
+        return;
+    }
     if (!skeleton.active) {
         setVisualsVisible(false);
         return;
