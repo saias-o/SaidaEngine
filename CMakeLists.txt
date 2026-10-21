@@ -821,6 +821,7 @@ if (BUILD_TESTING)
 
         add_executable(saida_xr_projection_tests tests/XrProjectionTests.cpp)
         saida_test_target(saida_xr_projection_tests)
+        target_include_directories(saida_xr_projection_tests PRIVATE shaders)
         target_link_libraries(saida_xr_projection_tests PRIVATE saida_engine openxr_loader)
         target_compile_options(saida_xr_projection_tests PRIVATE -Wall -Wextra)
         add_test(NAME saida_xr_projection_tests COMMAND $<TARGET_FILE:saida_xr_projection_tests>)
@@ -1025,6 +1026,15 @@ if (BUILD_TESTING)
     target_link_libraries(saida_lens_flare_tests PRIVATE saida_engine)
     target_compile_options(saida_lens_flare_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_lens_flare_tests COMMAND $<TARGET_FILE:saida_lens_flare_tests>)
+
+    # shaders/ssao.glsl compiles as C++ over GLM, so the tonemap pass's own AO
+    # code is checked on ray-cast depth buffers without a window or GPU.
+    add_executable(saida_ssao_tests tests/SsaoTests.cpp)
+    saida_test_target(saida_ssao_tests)
+    target_include_directories(saida_ssao_tests PRIVATE shaders)
+    target_link_libraries(saida_ssao_tests PRIVATE saida_engine)
+    target_compile_options(saida_ssao_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_ssao_tests COMMAND $<TARGET_FILE:saida_ssao_tests>)
 
     add_executable(saida_scene_timer_tests tests/SceneTimerQueueTests.cpp)
     saida_test_target(saida_scene_timer_tests)

@@ -66,7 +66,6 @@ constexpr float kSafeUpCollinearityThreshold = 0.99f;
 constexpr float kHighGiProbeSpacing = 1.2f;
 constexpr float kMediumGiProbeSpacing = 1.5f;
 constexpr float kLowGiProbeSpacing = 2.4f;
-constexpr float kMinAoPower = 0.001f;
 constexpr float kMinBoundsRadius = 0.001f;
 constexpr uint32_t kAllTextureLayers = ~0u;
 

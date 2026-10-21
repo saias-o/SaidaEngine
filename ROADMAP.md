@@ -634,9 +634,12 @@ Post-V1 unless the scope changes explicitly.
   without a headset. Visual alignment and latency still require hardware.
   Asymmetric eye depth reconstruction and per-eye mesh lighting are corrected;
   `saida_xr_projection_tests` covers surface/normal consistency under head
-  motion. Binocular image agreement and the reported lighting instability on
-  Meta Link still need a headset retest; CPU tests and shader compilation do
-  not establish the headset result.
+  motion. The reported lighting instability on Meta Link disappeared with SSAO
+  alone disabled (VRDemo `DiagnoseLighting.ps1 -Mode NoAO`, 2026-10-21); SSAO
+  has since been rewritten (texel-centred samples, two-sided normals, fixed
+  sample weights; SPEC 4.1, `saida_ssao_tests`). Binocular agreement and the
+  instability with AO enabled still need a headset comparison against that
+  NoAO baseline; CPU tests and shader compilation do not establish it.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
 
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and

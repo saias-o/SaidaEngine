@@ -1,99 +1,55 @@
 # SSAO repair handoff
 
-## Confirmed diagnosis (2026-10-21)
+## Diagnosis (2026-10-21)
 
-The user reports unstable lighting when moving the camera in SaidaEngine PC
-games, much more pronounced in VR over Meta Link, with binocular disagreement.
-This is specific to SaidaEngine, not games using other engines.
+Lighting was unstable when the camera moved in SaidaEngine PC games, much more
+so in VR over Meta Link, with the two eyes disagreeing. **With only SSAO
+disabled, VRDemo's lighting was perfect** (`DiagnoseLighting.ps1 -Mode NoAO`).
+VRDemo already has GI and IBL off. Do not change shadows, GI or IBL without new
+evidence.
 
-**The user tested VRDemo with only SSAO disabled and reported that the lighting
-was perfect, with no remaining problem.** This isolates the reported artifact
-to the screen-space ambient occlusion pass. VRDemo already has GI and IBL off.
-Do not keep changing shadows, GI or IBL without new evidence.
+The user forbids opening windows while they work: do not launch the editor,
+game, headset session or a rendering window. Compiling, CPU checks and
+generating diagnostic scenes are allowed. The user runs headset tests.
 
-The user explicitly forbids opening windows while they work. Do not launch the
-editor, game, headset session or a rendering window automatically. Compilation,
-CPU checks and generating diagnostic scenes are allowed. The user performs
-headset tests themselves.
+## Done (2026-10-21)
 
-## Current code and unsuccessful symptom fixes
+SSAO was rewritten; SPEC 4.1 describes the result and CHANGELOG the defects.
 
-- `shaders/tonemap.frag` currently owns SSAO: 8 directions x 2 samples,
-  reconstruction of normals from the centre/right/down depth samples, and
-  multiplication of the entire HDR colour by the AO factor.
-- `src/render/TonemapPass.cpp/.hpp` pack AO and inverse-projection parameters.
-- Previous changes preserve asymmetric OpenXR projection offsets, scale the AO
-  sample radius by projection, and use per-eye positions for mesh specular,
-  parallax and view-biased GI. These are concrete corrections, but **the user
-  confirmed they did not resolve the reported instability**.
-- `tests/XrProjectionTests.cpp` checks frustum edges, reversed depth, a world
-  plane reconstructed through both eyes under head motion, and desktop
-  perspective/orthographic reconstruction. All 52 checks passed. These prove
-  projection math, not the visual quality/stability of SSAO.
-- Native shaders and `WebShaders` compiled successfully. The 5 targeted tests
-  (`xr_projection`, `xr_rig_pose`, `reversed_depth`, `scene_settings`,
-  `lens_flare`) passed without a window.
+- One owner: `shaders/ssao.glsl`, with `depth_reconstruction.glsl` shared with
+  fog. `tonemap.frag` only calls `ssaoVisibility`. The dead `kMinAoPower` in
+  `Renderer.cpp` is gone; the used clamp stays in `TonemapPass.cpp`.
+- Samples are rebuilt at the centre of the texel their depth comes from.
+- Normals take, per screen axis, the side whose two texels continue the
+  centre's plane, else the smaller depth step; degenerate tangents fall back to
+  the view direction instead of NaN.
+- Every sample weighs 1/16; a rejected one counts as unoccluded.
+- `saida_ssao_tests` compiles `ssao.glsl` as C++ over GLM and checks it on
+  ray-cast depth buffers. Reinjecting each previous defect (and each
+  intermediate normal rule tried) makes at least one of its checks fail.
 
-## Diagnostic launcher
+Known limit: a face under three texels thick on a screen axis, at a crease,
+can still take a neighbour's normal (a 5-tap estimate cannot tell the two
+sides apart there). The AO factor still multiplies the whole HDR colour,
+direct light included, as before.
 
-The engine demo is **`VRDemo/` inside the engine repository**, not a sibling of
-the engine. It is a normal `.saidaproj` plus an editable `scenes/main.scene`.
-`PlayVR.cmd` launches `../build-rel/bin/SaidaEngine.exe` with `--xr`.
+## Remaining: headset comparison
 
-From `engine/VRDemo`, the confirmed successful comparison was:
+Rebuilt and verified without a window: `build-rel` (all targets), `Shaders`,
+`WebShaders`, and CTest `saida_ssao_tests`, `saida_xr_projection_tests`,
+`saida_xr_rig_pose_tests`, `saida_reversed_depth_tests`,
+`saida_scene_settings_tests`, `saida_lens_flare_tests`. Not run: the Witness
+golden image (it renders; the AO change is expected to move it and needs a
+deliberate `--record` after looking at the image).
+
+The user compares, in the headset, from `engine/VRDemo`:
 
 ```powershell
+.\PlayVR.cmd
 powershell -NoProfile -ExecutionPolicy Bypass -File .\DiagnoseLighting.ps1 -Mode NoAO
 ```
 
-Other available modes are `NoShadows` and `NoAOOrShadows`. Add `-PrepareOnly`
-to generate a variant without launching anything. Variants are written under
-ignored `VRDemo/build/lighting-diagnostics/`; the authored scene is unchanged.
-Structural comparisons verified that NoAO changes only `settings.aoEnabled`,
-and NoShadows changes only the casting light's `castShadows` field.
-
-## Next work
-
-The user's latest technical request is to clean up the AO implementation,
-which they consider tangled and ineffective. Do not add more speculative
-renderer patches or simply present disabling AO as an implementation fix.
-
-1. Audit and simplify the shared PC/VR SSAO implementation. Give it one clear
-   owner, ideally a small shader include, rather than mixing all AO logic into
-   tonemapping. Keep depth reconstruction shared with fog where appropriate.
-   Remove dead remnants such as the unused `kMinAoPower` in `Renderer.cpp`;
-   the used clamp belongs in `TonemapPass.cpp`.
-2. Fix depth-edge normal estimation. Current right/down-only finite differences
-   can combine two different objects, or a surface and background. A simple
-   numerical example gives a normal error of 89.98 degrees for a flat surface
-   next to a distant depth sample. This can make lighting patches move with
-   silhouettes. Use valid neighbours from both sides of each axis and prefer
-   the smaller depth discontinuity; guard degenerate cross products before
-   normalization. This proposed change has **not yet been implemented**.
-3. Review occlusion normalization. Currently `samples` increases only after
-   depth/distance rejection. A few surviving samples can therefore amplify
-   darkening abruptly as the camera moves. A fixed attempted-sample weight
-   with rejected samples treated as unoccluded is a candidate, to be tested,
-   not a verified fix. Keep radius/distance weights continuous.
-4. Add meaningful no-window tests for flat planes, depth edges, background
-   neighbours, degenerate normals, camera motion and left/right consistency.
-   Prefer testing actual shared shader math over copying an implementation
-   into a test. One possible approach is to keep the small GLSL math include
-   within a C++-compatible subset and compile it in the CPU test using GLM.
-   No new AO refactor or test has been written yet.
-5. Rebuild native shaders, WebShaders and the binaries the user actually runs.
-   Run proportional headless checks. Retest with AO enabled on the same scene,
-   and ask the user to compare against the confirmed NoAO baseline. A passing
-   build or projection test does not establish that the visual problem is fixed.
-
-## Build and repository notes
-
-Follow `AGENTS.md`, `CONTRIBUTING.md`, `SPEC.md` and `ROADMAP.md`. Keep durable
-engine contracts in SPEC, open work in ROADMAP, and demo-specific instructions
-in `VRDemo/README.md`. This handoff is temporary, not a competing specification.
-
-Use the existing `build-rel` MSYS2 UCRT64 configuration; put
-`C:\msys64\ucrt64\bin;C:\msys64\usr\bin` first on PATH. Mixing MINGW64 DLLs can
-cause a silent `ld returned 116` unrelated to the change. The parent R1World
-repository tracks this engine as a Git submodule; commit/push engine changes
-before updating and pushing the parent's submodule reference.
+AO enabled should now be as stable as the NoAO baseline, apart from the
+intended darkening in creases and contacts. A passing build or CPU test does
+not establish the headset result; delete this file once it is confirmed and
+close the ROADMAP XR item's lighting part.

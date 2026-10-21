@@ -449,6 +449,29 @@ Indirect probe lighting fades to the ambient fallback across the volume's last
 probe cell and uses that fallback outside its bounds. Distant surfaces never
 sample clamped edge probes; the directional environment lighting still applies.
 
+Ambient occlusion (`aoEnabled`, `aoRadius` in metres, `aoIntensity`,
+`aoPower`) is evaluated in the tonemap pass from the resolved depth alone, by
+`shaders/ssao.glsl`; `depth_reconstruction.glsl` holds the reversed-depth
+reconstruction it shares with fog. A fixed kernel of 8 directions x 2 samples
+spans `aoRadius` at each pixel's depth under perspective, off-centre OpenXR and
+orthographic projections alike, and every sample is rebuilt at the centre of
+the texel its depth comes from. The normal comes from one neighbour per screen
+axis: of the two sides, the one whose two texels continue the centre's plane
+(reversed depth is affine across a plane in screen space) or, failing that,
+the one with the smaller depth step. Silhouettes, creases and floors at
+grazing angles therefore keep their own normal; a face under three texels
+thick on an axis can still take a neighbour's. Tangents that span no plane
+fall back to the view direction rather than NaN. Every sample weighs 1/16 and
+a rejected one (outside the viewport, sky, beyond the radius) counts as
+unoccluded, so visibility does not jump when a sample's validity changes. The
+result multiplies the whole HDR scene colour, direct light included.
+`saida_ssao_tests` compiles `ssao.glsl` as C++ over GLM and runs it on depth
+buffers ray-cast through the engine's projections and push constants, without
+a window: flat floors stay exactly unoccluded at any pitch, sub-pixel offset or
+projection; normals at silhouettes and creases match their faces; there is no
+rim or halo; rejected samples weigh as unoccluded; a 1 mm camera move changes
+visibility gradually; and both eyes agree.
+
 Fog is a uniform grey haze by default (`fogDensity`, per metre past
 `fogStart`, toward `fogColor`). It becomes layered air when `fogScaleHeight`
 or `fogRayleigh` is set: `fogDensity` is then the grey extinction at altitude
@@ -2608,7 +2631,8 @@ frusta: SSAO surface positions/normals and fog rays reconstruct in the actual
 eye space. The AO sample radius also follows that eye's projection scale.
 `saida_xr_projection_tests` checks frustum edges, reversed depth, reconstruction
 of one world-space plane through both eyes while the head turns/rolls, and
-desktop perspective/orthographic reconstruction, without creating a window.
+desktop perspective/orthographic reconstruction, without creating a window; the
+reconstruction it checks is the shader's own `depth_reconstruction.glsl`.
 
 The XR preview is a separate process `--xr` because OpenXR must create the Vulkan
 device at startup. The test scene is `assets/scenes/XRSetup.scene` (passed via

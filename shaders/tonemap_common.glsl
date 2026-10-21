@@ -5,6 +5,7 @@
 // the depth input and how a viewport coordinate reaches the targets.
 
 #include "web_compat.glsl"
+#include "depth_reconstruction.glsl"
 
 DECL_TEX2D(0, 1, 4, depthInput);
 
@@ -32,14 +33,6 @@ vec2 sourceUV(vec2 viewportUV) {
 // The viewport's size in pixels: the editor draws into a part of the targets.
 vec2 viewportPixels() {
     return max(vec2(textureSize(TEX2D(depthInput), 0)) * push.sourceRect.zw, vec2(1.0));
-}
-
-// Depth is reversed (rhi/PipelineState.hpp): the clear value 0 is the far
-// plane, and only a pixel nothing was drawn on holds it exactly. A threshold
-// near it would take distant ground for sky: the conventional test this
-// replaces, depth >= 0.9999, left everything past a kilometre unfogged.
-bool nothingDrawn(float depth) {
-    return depth <= 0.0;
 }
 
 #endif  // TONEMAP_COMMON_GLSL

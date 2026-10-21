@@ -10,6 +10,26 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### Ambient occlusion that holds still under camera motion
+
+- SSAO has one owner, `shaders/ssao.glsl`, instead of living inside the
+  tonemap shader; `depth_reconstruction.glsl` holds the reconstruction it
+  shares with fog. Three defects made the occlusion move with the view, each
+  now reproduced by a test: samples were rebuilt at their own coordinate with
+  their texel's depth, so a flat floor at a grazing angle occluded itself
+  (down to 0.66 visibility); normals came from right/down differences only,
+  wrong across every right or bottom silhouette (up to 118 degrees), which
+  darkened rims and haloed the background; and dividing by the samples that
+  survived let a few of them darken a pixel abruptly. Samples are now texel-
+  centred, normals take the side that continues the centre's plane, rejected
+  samples count as unoccluded, and degenerate tangents no longer give NaN.
+- `saida_ssao_tests` compiles the shader file itself as C++ over GLM and
+  checks it on ray-cast depth buffers without a window: flat floors, silhouettes
+  and creases, halos, rejected samples, camera motion and both eyes.
+  `saida_xr_projection_tests` now checks the shader's own reconstruction too.
+  The Meta Link result still requires a headset comparison against the NoAO
+  baseline.
+
 ### OpenXR lighting with asymmetric eye projections
 
 - SSAO and fog reconstruction now keep each eye's inverse-projection offsets,

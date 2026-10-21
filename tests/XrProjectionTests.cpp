@@ -8,6 +8,11 @@
 #include <cstdlib>
 #include <iostream>
 
+namespace tonemap_shader {
+using namespace glm;
+#include "depth_reconstruction.glsl"
+}  // namespace tonemap_shader
+
 using namespace saida;
 
 namespace {
@@ -20,15 +25,12 @@ void require(bool condition, const char* message) {
     }
 }
 
-// Consume the shader's packed inverse-projection contract. The oracle is a
-// world-space surface projected through an independently supplied eye pose.
+// The shader's own reconstruction (shaders/depth_reconstruction.glsl) of the
+// packed inverse projection. The oracle is a world-space surface projected
+// through an independently supplied eye pose.
 glm::vec3 reconstruct(const TonemapPass::PushConstants& push, glm::vec2 uv, float depth) {
-    const glm::vec2 xy = (uv * 2.0f - 1.0f) * glm::vec2(push.projectionParams)
-        + glm::vec2(push.projectionOffsets)
-        + glm::vec2(push.projectionOffsets.z, push.projectionOffsets.w) * depth;
-    const float z = push.projectionParams2.x * depth + push.projectionParams2.y;
-    const float w = push.projectionParams.z * depth + push.projectionParams.w;
-    return glm::vec3(xy, z) / w;
+    return tonemap_shader::viewPositionFromDepth(uv, depth, push.projectionParams,
+                                                 push.projectionParams2, push.projectionOffsets);
 }
 
 const std::array<XrFovf, 2> eyeFovs{{
