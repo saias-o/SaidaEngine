@@ -77,7 +77,7 @@ struct BorderPush {
 
 GIVolume::GIVolume(rhi::Device& device, const GIVolumeDesc& desc,
                    rhi::BindGroupLayout& materialSetLayout, rhi::BindGroupLayout& globalSetLayout)
-    : device_(device), desc_(desc) {
+    : device_(device), desc_(desc), available_(device.capabilities().fragmentStorageWrites) {
     probesPerRow_ = std::max(1, static_cast<int>(std::ceil(std::sqrt(
                         static_cast<double>(desc_.probeCount())))));
 
@@ -99,7 +99,7 @@ GIVolume::GIVolume(rhi::Device& device, const GIVolumeDesc& desc,
     createSampler();
     fillConstant();
     createVoxelResources(materialSetLayout);
-    createComputeResources(globalSetLayout);
+    if (available_) createComputeResources(globalSetLayout);
 
     Log::info("GIVolume: ", desc_.probeCount(), " probes (", desc_.counts.x, "x",
               desc_.counts.y, "x", desc_.counts.z, "), irradiance atlas ", irr.x,
@@ -148,6 +148,19 @@ void GIVolume::createVoxelResources(rhi::BindGroupLayout& materialSetLayout) {
     voxelDesc.depth = res;
     voxelDesc.usage = kAtlasUsage;
     voxelTexture_ = std::make_unique<rhi::RenderTexture>(device_, voxelDesc);
+    // Global descriptors exist even with GI off, before the first voxelization.
+    device_.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) {
+        enc.transition(voxelTexture_->image(), rhi::ResourceState::Undefined,
+                       rhi::ResourceState::CopyDst);
+        enc.clearColorTexture(voxelTexture_->image(), {0.f, 0.f, 0.f, 0.f});
+        enc.transition(voxelTexture_->image(), rhi::ResourceState::CopyDst,
+                       rhi::ResourceState::ShaderRead);
+    });
+
+    if (!available_) {
+        Log::warn("GI disabled: the device does not support fragment storage writes for voxelization; using ambient fallback.");
+        return;
+    }
 
     voxelUbo_ = std::make_unique<Buffer>(device_, sizeof(VoxelUBOData),
         rhi::BufferUsage::Uniform, MemoryUsage::HostVisible);
@@ -219,6 +232,7 @@ void GIVolume::createVoxelResources(rhi::BindGroupLayout& materialSetLayout) {
 
 void GIVolume::voxelize(rhi::CommandEncoder& encoder, const DrawGeometryFn& drawGeometry,
                         GpuProfiler* profiler) {
+    if (!available_) return;
     SAIDA_GPU_PROFILE_SCOPE(profiler, encoder.handle(), "DDGI/Voxelize");
     const uint32_t res = static_cast<uint32_t>(desc_.voxelResolution);
     glm::vec3 extent = worldExtent();
@@ -357,6 +371,7 @@ void GIVolume::createComputeResources(rhi::BindGroupLayout& globalSetLayout) {
 
 void GIVolume::update(rhi::CommandEncoder& encoder, const rhi::BindGroup& globalSet,
                       GpuProfiler* profiler) {
+    if (!available_) return;
     const int probeCount = desc_.probeCount();
     const rhi::BindGroup& giSet = *giComputeSets_[curr_];
 

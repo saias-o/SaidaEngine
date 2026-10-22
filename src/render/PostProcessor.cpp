@@ -149,9 +149,9 @@ void PostProcessor::updateDescriptorSets() {
 void PostProcessor::createPipelines() {
     Pipeline::Desc desc;
 #ifdef SAIDA_RHI_WEBGPU
-    desc.vertPath = "/shaders/tonemap.vert.wgsl";
+    desc.vertPath = "/shaders/fullscreen.vert.wgsl";
 #else
-    desc.vertPath = shaderPath("tonemap.vert.spv");
+    desc.vertPath = shaderPath("fullscreen.vert.spv");
 #endif
     desc.colorFormats = {hdrFormat_};
     desc.bindGroupLayouts = {inputLayout_.get()};

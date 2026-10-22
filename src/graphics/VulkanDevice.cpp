@@ -435,8 +435,12 @@ void VulkanDevice::createLogicalDevice() {
         queueCIs.push_back(qci);
     }
 
+    VkPhysicalDeviceFeatures supported{};
+    vkGetPhysicalDeviceFeatures(physicalDevice_, &supported);
+    capabilities_.fragmentStorageWrites = supported.fragmentStoresAndAtomics;
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = VK_TRUE;
+    features.fragmentStoresAndAtomics = capabilities_.fragmentStorageWrites;
 
     VkDeviceCreateInfo ci{};
     ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -468,7 +472,7 @@ void VulkanDevice::createLogicalDevice() {
         e12.bufferDeviceAddress = capabilities_.bufferDeviceAddress;
         e12.drawIndirectCount = capabilities_.drawIndirectCount;
         e11.multiview = capabilities_.multiview;
-        e2.features.samplerAnisotropy = VK_TRUE;
+        e2.features = features;
         e2.features.multiDrawIndirect = capabilities_.multiDrawIndirect;
         ci.pNext = &e2;  // when using features2, pEnabledFeatures must be null
     } else {

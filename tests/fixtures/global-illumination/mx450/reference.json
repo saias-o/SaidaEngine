@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "rendererCommit": "1c43aaa",
+  "gpu": "[info] GPU: NVIDIA GeForce MX450",
+  "dimensions": [
+    640,
+    360
+  ],
+  "frames": 240,
+  "corpus": "GlobalIlluminationCapture.cpp phase 0",
+  "pixels": {
+    "open": "6daea5578a570f41e55b19ba43a371cb2e67b650c601af071985f57a2befc35b",
+    "canyon-red": "358b62ff660a29c370d6c44b0e18104af7daca1a39ffad28772223fe36eb38fb",
+    "room": "1bc6a67f7d74b82c0f81e3217fdea84c2d7c601715dcb79ee146d063d184a0be",
+    "metal": "6daea5578a570f41e55b19ba43a371cb2e67b650c601af071985f57a2befc35b"
+  }
+}

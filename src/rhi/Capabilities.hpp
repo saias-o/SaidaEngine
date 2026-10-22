@@ -38,6 +38,7 @@ struct Capabilities {
     bool drawIndirectCount = false;  // indirect draw with a GPU-provided count
     bool multiview = false;          // single-pass stereo (VR)
     bool multiDrawIndirect = false;  // indirect draw with drawCount > 1
+    bool fragmentStorageWrites = false; // raster voxelization writes storage textures
 
     bool rayQuery = false;           // optional hardware ray tracing
 

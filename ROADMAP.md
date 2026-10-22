@@ -39,12 +39,18 @@ the corresponding contracts of `SPEC.md`.
   pay for itself. Measure where its time goes before changing it.
 - [ ] XR: the AO path (multiview pre-pass, one AO layer per eye) is built and
   shares the desktop code, but no headset has run it yet.
-- [ ] Fix what `SAIDA_VULKAN_VALIDATION=1` reports outside AO, present before
-  it: `PostProcessor`'s bloom pipelines reuse `tonemap.vert` without its
-  binding 1 (`depthInput`) or its 208-byte push range (theirs is 32); the GI
-  voxelization pipeline declares `cam` and `voxelAlbedo` against layouts that
-  do not match; one colour image is sampled every frame while still
-  `UNDEFINED`.
+- [x] Give bloom its own fullscreen vertex stage instead of `tonemap.vert`'s
+  depth binding and 208-byte push block. Proof (GI phase-0 prerequisite,
+  2026-10-22): native CTest 109/109; Chrome accepts both bloom pipelines with
+  their real 32-byte layout and rejects the old vertex/layout combination
+  (`tools/verify_postprocess_web.mjs`); Web player rebuilt. This removes the
+  Lavapipe pipeline-creation crash reproduced with the original runtime.
+- [ ] Fix what `SAIDA_VULKAN_VALIDATION=1` still reports outside AO/GI:
+  the world-space WebCanvas pipeline binds the texture array at set 0 where its
+  vertex shader expects `cam` (isolated by logging each shader pair during
+  the GI phase-0 audit). Validation also reports legacy device-layer enablement,
+  sampled-image update-after-bind enablement and descriptor-pool type warnings.
+  GI's fragment-storage and first-use image defects are tracked in section 5.
 - [ ] `saida_rain_surface_tests --gpu` fails "the horizon band dissolves into
   the haze" on the MX450, identically at bb57e40, before this work: with
   `fogSkyDistance` 0 the sampled band, just above the horizon, is already pale
@@ -657,6 +663,36 @@ Post-V1 unless the scope changes explicitly.
     coloured canyon bounce, closed room, metal, material opt-out, scrolling,
     origin rebase), and profile Witness GI-on and the outdoor client GI-off.
     Record existing failures; all eight contracts must pass by phase 7.
+    Completed prerequisites on 2026-10-22: fragment storage writes enabled when
+    supported (explicit ambient fallback otherwise), voxel initialization and
+    first-use terrain-map transition; the voxel-storage and undefined-image
+    errors are absent from the final validation corpus. The `cam` error was
+    isolated to WebCanvas, not voxelization. Native CTest: first run 103/109,
+    six temporary-file failures pass with workspace TMP/TEMP, final full run
+    109/109. AO, IBL and 23 billboard pixel checks pass; Web player and authoring
+    WASM build; Chrome accepts the translated scene and both bloom pipelines.
+    `tools/verify_global_illumination.py` keeps all eight checks strict: corpus
+    `build-rel/global-illumination-run/run-r7pncs9l` has GI-off bit-identical to
+    the four frozen MX450 references captured at renderer `1c43aaa`, and seven
+    expected failures of the original DDGI. Ambient open-sky energy ratio is
+    0.61972; with diffuse IBL it is 2.08078 (double sky). No GI qualification is
+    claimed. The frozen images were inspected; no reference was regenerated.
+    Exploratory profile baselines: Witness GI-on at 640x360, 91 GI update
+    samples, median/p95 9.390/12.568 ms; the offline Paris capture exits 0 and
+    records no GI work, last 150 GPU-frame samples 31.131/33.968 ms median/p95.
+    The client changes its window to 1920x1055, despite requesting 1080p; this
+    stationary capture (with software-backend checks alongside) is not an I4
+    or full offline-smoke qualification. Raw traces: `build-rel/gi-witness-native.json`
+    and `build-rel/gi-rivoli-off.json`.
+    **Blocking proof:** Lavapipe's original pipeline-creation access violation
+    was reproduced with the unmodified runtime; the bloom fix gets past it,
+    but both subsequent runs (sandboxed and unsandboxed, two LLVM threads)
+    fail presenting with `VK_ERROR_MEMORY_MAP_FAILED` (-5), before a PNG.
+    Logs: `build-rel/gi-witness-original-lavapipe.log`,
+    `gi-witness-lavapipe-bloom.log`, `gi-witness-lavapipe-final.log`.
+    The Witness golden gate has not passed and has not been bypassed. Phase 0
+    stays open; phase 1 must wait for a working software backend or an explicit
+    decision accepting the native exact-reference corpus in its place.
   - [ ] Phase 1: extract GIRenderer state/descriptors/cadence without changing
     behaviour; prove native, Web and authoring WASM builds and image parity.
     This precedes the leaf-first order in section 3 because GI work opens
@@ -664,6 +700,10 @@ Post-V1 unless the scope changes explicitly.
   - [ ] Phase 2: one indirect-diffuse entry for every surface, one sky owner,
     metallic/Fresnel weighting and material receiveGlobalIllumination;
     preserve each surface's exact legacy GI-off/opt-out formula.
+    The phase-0 trace also proves that static FullRealtime currently stops
+    after eight warmup updates (`run-mv9smq9f/canyon-red.json`: 8 GPU/DDGI
+    events in 240 drawn frames). Fix and prove continued convergence instead
+    of treating a long capture delay as evidence of convergence.
   - [ ] Phase 3a: tested CPU clipmap/scheduler (hysteresis, toroidal indices,
     entering slabs, translation/rotation rebase, teleport, fairness); anchored
     single-cascade array atlases with staging/scatter instead of ping-pong.

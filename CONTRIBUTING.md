@@ -156,8 +156,20 @@ python tools/verify_ibl_environment.py --build build    # Pillow; HDR transfer a
 python tools/verify_specular_materials.py --build build # Pillow; glTF IOR/specular RGB and alpha pixel checks
 python tools/verify_billboard_materials.py --build build # Pillow; atlas facing/blend and directional lighting
 python tools/verify_ambient_occlusion.py --build build   # Pillow; AO on indirect light only, pre-pass leaves the image
+python tools/verify_global_illumination.py --build build-rel # Pillow; eight GI GPU contracts, all failures reported
 node tools/verify_billboard_web.mjs build/shaders/wgsl # Playwright; translated scene pipeline validation
+node tools/verify_postprocess_web.mjs build/shaders/wgsl # Playwright; bloom layouts, former vertex mismatch rejected
 ```
+
+The GI verifier builds on `saida_gi_capture`, a native fixed-clock fixture
+driver. Its default GI-off reference was captured on the MX450 before the GI
+refactor. For another device/driver, record a separate reference directory on
+the unmodified renderer with `--cases off --record-off <new-directory>`, inspect
+those images, then supply `--reference <directory>` (and optionally `--icd`).
+Recording refuses an existing directory. Several semantic contracts deliberately
+fail on the original single-volume DDGI; phase-0 evidence is their measured
+failure, not a passing GI qualification. Every run retains PNGs, request JSON,
+logs, profiles and a per-case report under `build-rel/global-illumination-run`.
 
 An optimized build validates its Vulkan usage on request: set
 `SAIDA_VULKAN_VALIDATION=1` and, for the MSYS2 layer, `VK_ADD_LAYER_PATH` to

@@ -1016,6 +1016,14 @@ if (BUILD_TESTING)
     set_tests_properties(saida_terrain_rings_render_tests PROPERTIES
         ENVIRONMENT "SAIDA_WINDOW_HIDDEN=1;SAIDA_WINDOW_SIZE=640x360")
 
+    # Semantic GI pixel contracts are run by tools/verify_global_illumination.py.
+    # Keep the driver independent of a packaged game and its authored assets.
+    add_executable(saida_gi_capture tests/GlobalIlluminationCapture.cpp)
+    saida_test_target(saida_gi_capture)
+    target_link_libraries(saida_gi_capture PRIVATE saida_engine)
+    target_compile_options(saida_gi_capture PRIVATE -Wall -Wextra)
+    add_dependencies(saida_gi_capture Shaders)
+
     add_executable(saida_grass_tests tests/GrassTests.cpp)
     saida_test_target(saida_grass_tests)
     target_link_libraries(saida_grass_tests PRIVATE saida_engine)

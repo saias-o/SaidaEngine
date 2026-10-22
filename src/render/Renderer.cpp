@@ -1001,7 +1001,7 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
     ubo.counts = glm::ivec4(lightCount, mode, 0, 0);
 
     const GIVolumeDesc& gd = gi_->desc();
-    ubo.giOrigin  = glm::vec4(gd.origin, settings.giEnabled ? 1.0f : 0.0f);
+    ubo.giOrigin  = glm::vec4(gd.origin, settings.giEnabled && gi_->available() ? 1.0f : 0.0f);
     ubo.giSpacing = glm::vec4(gd.spacing, settings.giIntensity);  // w = indirect multiplier
     ubo.giCounts  = glm::ivec4(gd.counts, gi_->probesPerRow());
     ubo.giAtlas   = glm::ivec4(gd.irradianceTexels, gd.visibilityTexels,
@@ -1659,6 +1659,9 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
 
     if (giUpdateThisFrame_) {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "GPU/DDGI");
+        // The trace pipeline declares the terrain map before feature pre-passes
+        // have run on the first frame. Its descriptor must already be valid.
+        readySunOcclusion(encoder);
         gi_->voxelize(encoder, scene, gpuProfiler);
 #ifdef SAIDA_RHI_WEBGPU
         gi_->update(encoder, *giComputeGlobalGroups_[currentFrame_], gpuProfiler);
@@ -2367,6 +2370,7 @@ void Renderer::drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eye
     if (giUpdateThisFrame_) {
         GpuProfiler* gpuProfiler = Profiler::instance().enabled() ? gpuProfiler_.get() : nullptr;
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "GPU/DDGI");
+        readySunOcclusion(encoder);
         gi_->voxelize(encoder, scene, gpuProfiler);
         gi_->update(encoder, *globalGroups_[currentFrame_], gpuProfiler);
     }

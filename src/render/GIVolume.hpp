@@ -72,6 +72,7 @@ public:
     rhi::SamplerHandle sampler() const { return sampler_->handle(); }
 
     const GIVolumeDesc& desc() const { return desc_; }
+    bool available() const { return available_; }
     int probesPerRow() const { return probesPerRow_; }
     // World-space size of the volume box (probe lattice extent).
     glm::vec3 worldExtent() const { return glm::vec3(desc_.counts - 1) * desc_.spacing; }
@@ -93,6 +94,7 @@ private:
 
     rhi::Device& device_;
     GIVolumeDesc desc_;
+    bool available_ = false;
     int probesPerRow_ = 1;
     int curr_ = 0;
 

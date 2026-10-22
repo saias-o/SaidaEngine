@@ -75,6 +75,7 @@ void Device::initialize(WGPUInstance instance, WGPUDevice device) {
     capabilities_.drawIndirectCount = false;  // culled draw slots are zeroed
     capabilities_.multiview = false;          // XR is out of the web scope
     capabilities_.multiDrawIndirect = false;
+    capabilities_.fragmentStorageWrites = true; // write-only storage textures are core WebGPU
     capabilities_.rayQuery = false;
     capabilities_.dedicatedComputeQueue = false;
     capabilities_.discreteGpu = false;        // unknown; assume conservative

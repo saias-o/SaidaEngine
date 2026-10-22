@@ -449,6 +449,21 @@ Indirect probe lighting fades to the ambient fallback across the volume's last
 probe cell and uses that fallback outside its bounds. Distant surfaces never
 sample clamped edge probes; the directional environment lighting still applies.
 
+Native raster voxelization requires fragment storage-image writes. The Vulkan
+device enables `fragmentStoresAndAtomics` when supported, and advertises the
+same capability as WebGPU's core write-only fragment storage textures. Without
+it the GI volume logs its unavailability, creates no voxelization pipeline and
+performs no GI update; surface shading uses the exact GI-off ambient fallback.
+The voxel texture is cleared and transitioned for sampling before any global
+descriptor refers to it, including scenes which never enable GI.
+The terrain-occlusion image is transitioned before the first GI trace, which
+declares that descriptor before feature pre-passes have run.
+
+Bloom uses `fullscreen.vert` with its own 32-byte push block and source-image
+layout. It has no vertex-stage depth lookup or lens-flare parameters; those
+belong to the separate tonemapping pipeline. The Web layout verifier rejects
+substituting the tonemap vertex stage into either bloom pipeline.
+
 Ambient occlusion (`aoEnabled`, `aoRadius` in metres, `aoIntensity`, `aoPower`)
 occludes indirect light only -- GI, the flat ambient and the environment's
 diffuse and specular -- never a light's direct contribution, which its shadow
