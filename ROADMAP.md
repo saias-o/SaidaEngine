@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-21. This file is the engine's **single backlog**: everything
+Updated: 2026-10-22. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -8,6 +8,38 @@ is in [README.md](README.md).
 Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
+
+## Ambient occlusion on indirect light only — 2026-10-22
+
+- [x] Occlude indirect light only, after a depth pre-pass, with a kernel turned
+  per pixel and an edge-aware average (SPEC 4.1). Proof: `saida_ssao_tests`
+  (both stages compiled from the shader files, within 0.001 of a 32-times
+  denser kernel where a fixed one strays three times as far, and every earlier
+  defect reinjected fails it), `tools/verify_ambient_occlusion.py` (direct
+  light bit-identical with AO on and off on the GPU, GPU-driven path, MSAA),
+  the other five pixel verifiers, `saida_terrain_rings_render_tests`, Vulkan
+  validation with synchronization checks (nothing new with AO on, and the MSAA
+  depth-resolve hazard it showed fixed), the Web player built and its new WGSL
+  compiled and pipelined by Chrome WebGPU, and R1World's rue de Rivoli captured
+  with AO on and off.
+- [ ] Bring the AO map's cost down: 4.3 ms of a 24.4 ms GPU frame in that view
+  on the MX450 at 1600 x 900 (the pre-pass, 3.0 ms, already pays for itself).
+  Computing the kernel at half resolution with a depth-aware upsample is the
+  usual way; it must keep `saida_ssao_tests`' bounds.
+- [ ] XR: the AO path (multiview pre-pass, one AO layer per eye) is built and
+  shares the desktop code, but no headset has run it yet.
+- [ ] Fix what `SAIDA_VULKAN_VALIDATION=1` reports outside AO, present before
+  it: `PostProcessor`'s bloom pipelines reuse `tonemap.vert` without its
+  binding 1 (`depthInput`) or its 208-byte push range (theirs is 32); the GI
+  voxelization pipeline declares `cam` and `voxelAlbedo` against layouts that
+  do not match; one colour image is sampled every frame while still
+  `UNDEFINED`.
+- [ ] `saida_rain_surface_tests --gpu` fails "the horizon band dissolves into
+  the haze" on the MX450, identically at bb57e40, before this work: with
+  `fogSkyDistance` 0 the sampled band, just above the horizon, is already pale
+  (0.894), within the skybox's 1–6 degree horizon match, so it is no clear-sky
+  reference. Its measurements are lost on failure: `printf` is not flushed
+  before `abort`.
 
 ## Terrain-hole raster cost — 2026-10-20
 
@@ -636,10 +668,10 @@ Post-V1 unless the scope changes explicitly.
   `saida_xr_projection_tests` covers surface/normal consistency under head
   motion. The reported lighting instability on Meta Link disappeared with SSAO
   alone disabled (VRDemo `DiagnoseLighting.ps1 -Mode NoAO`, 2026-10-21); SSAO
-  has since been rewritten (texel-centred samples, two-sided normals, fixed
-  sample weights; SPEC 4.1, `saida_ssao_tests`). Binocular agreement and the
-  instability with AO enabled still need a headset comparison against that
-  NoAO baseline; CPU tests and shader compilation do not establish it.
+  has since been rewritten and now occludes indirect light only (SPEC 4.1,
+  `saida_ssao_tests`). Binocular agreement and the instability with AO enabled
+  still need a headset comparison against that NoAO baseline; CPU tests and
+  desktop captures do not establish it.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
 
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and

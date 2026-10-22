@@ -18,6 +18,10 @@ struct RenderTextureDesc {
     uint32_t height = 1;
     uint32_t depth = 1;
     uint32_t layers = 1;
+    // The whole-resource view is a 2D array even with a single layer, and
+    // layerView() exists for it: for a shader that reads the layer of its
+    // view (gl_ViewIndex), mono and multiview alike.
+    bool arrayView = false;
     uint32_t samples = 1;
     rhi::TextureUsage usage = rhi::TextureUsage::None;
     std::string memoryCategory;  // accepted for API parity; no profiler on web yet

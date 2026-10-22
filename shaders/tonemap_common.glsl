@@ -10,7 +10,6 @@
 DECL_TEX2D(0, 1, 4, depthInput);
 
 PUSH_QUALIFIER PushConstants {
-    vec4 aoParams;        // x enabled, y radius, z intensity, w power
     vec4 fogColor;        // rgb = linear HDR fog color
     vec4 fogParams;       // x enabled, y start, z density, w exposure
     vec4 bloomParams;     // x enabled, y threshold, z intensity, w radius px

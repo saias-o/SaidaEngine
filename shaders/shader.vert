@@ -9,6 +9,10 @@
 #include "billboard.glsl"
 #include "lighting_data.glsl"
 
+// The depth pre-pass draws with this same shader; its depth must match the
+// scene pass's bit for bit, which only `invariant` guarantees across pipelines.
+invariant gl_Position;
+
 // Camera is an array of 2 (left/right eye). Mono/desktop uses index 0; the XR
 // multiview variant selects per-eye via gl_ViewIndex. One layout for both paths.
 layout(set = 0, binding = 0) uniform CameraUBO {

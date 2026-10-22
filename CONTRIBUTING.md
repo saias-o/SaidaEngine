@@ -155,8 +155,17 @@ python tools/verify_material_sidedness.py --build build  # Pillow; native front/
 python tools/verify_ibl_environment.py --build build    # Pillow; HDR transfer and environment pixel checks
 python tools/verify_specular_materials.py --build build # Pillow; glTF IOR/specular RGB and alpha pixel checks
 python tools/verify_billboard_materials.py --build build # Pillow; atlas facing/blend and directional lighting
+python tools/verify_ambient_occlusion.py --build build   # Pillow; AO on indirect light only, pre-pass leaves the image
 node tools/verify_billboard_web.mjs build/shaders/wgsl # Playwright; translated scene pipeline validation
 ```
+
+An optimized build validates its Vulkan usage on request: set
+`SAIDA_VULKAN_VALIDATION=1` and, for the MSYS2 layer, `VK_ADD_LAYER_PATH` to
+`C:\msys64\ucrt64\bin`, then run the executable; messages go to stderr, and
+`VK_KHRONOS_VALIDATION_VALIDATE_SYNC=true` adds synchronization hazards. The
+variables were seen to reach the program when it was started from PowerShell,
+and not from Git Bash. Compare a run with the feature under test on and off:
+messages present in both predate it.
 
 The desktop and Web restart checks must restore the saved progression and reach
 their explicit PASS verdict.

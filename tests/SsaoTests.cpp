@@ -1,10 +1,10 @@
-// The tonemap pass's SSAO (shaders/ssao.glsl) compiled as C++ over GLM: these
-// checks run the code the GPU runs, on depth buffers ray-cast from known
-// geometry through the engine's projections and TonemapPass push constants.
-// No window, device or GPU is involved.
+// AmbientOcclusionPass's SSAO (shaders/ssao.glsl) compiled as C++ over GLM:
+// these checks run the code the GPU runs, on depth buffers ray-cast from known
+// geometry through the engine's projections and the pass's push constants. No
+// window, device or GPU is involved.
 
 #include "core/Camera.hpp"
-#include "render/TonemapPass.hpp"
+#include "render/AmbientOcclusionPass.hpp"
 #include "scene/Scene.hpp"
 
 #include <glm/glm.hpp>
@@ -22,7 +22,8 @@
 namespace ssao_shader {
 using namespace glm;
 float sampleDepth(vec2 viewportUV);
-#include "ssao.glsl"
+float sampleRawVisibility(vec2 viewportUV);
+#include "ssao_denoise.glsl"
 }  // namespace ssao_shader
 
 using namespace saida;
@@ -59,8 +60,9 @@ struct Eye {
     glm::mat4 projection;
 };
 
-// What the scene pass would leave: reversed depth (0 where nothing was drawn),
-// and as the oracle, which box each pixel sees and that box's world normal.
+// What the depth pre-pass would leave: reversed depth (0 where nothing was
+// drawn), and as the oracle, which box each pixel sees and that box's world
+// normal. `raw` is what the kernel stage then leaves (runKernel).
 struct DepthImage {
     int width = kWidth;
     int height = kHeight;
@@ -68,6 +70,7 @@ struct DepthImage {
     std::vector<int> object;
     std::vector<glm::vec3> worldPoint;
     std::vector<glm::vec3> worldNormal;
+    std::vector<float> raw;
     size_t index(int x, int y) const { return size_t(y) * size_t(width) + size_t(x); }
 };
 
@@ -135,7 +138,8 @@ DepthImage render(const std::vector<Box>& scene, const Eye& eye) {
     return image;
 }
 
-// The image ssao_shader::sampleDepth reads, for the duration of one shader call.
+// The image ssao_shader::sampleDepth and sampleRawVisibility read, for the
+// duration of one shader call.
 const DepthImage* sampled = nullptr;
 
 class Sampling {
@@ -151,20 +155,39 @@ glm::vec2 pixelUV(const DepthImage& image, int x, int y) {
 }
 
 SsaoInputs inputsFor(const Eye& eye, const DepthImage& image, const SceneSettings& settings = {}) {
-    const TonemapPass::PushConstants push =
-        TonemapPass::pushConstants(settings, eye.view, eye.projection, 1.0f);
+    const AmbientOcclusionPass::PushConstants push =
+        AmbientOcclusionPass::pushConstants(settings, eye.projection);
     SsaoInputs inputs;
-    inputs.settings = push.aoParams;
-    inputs.invProjection = push.projectionParams;
-    inputs.invProjection2 = push.projectionParams2;
-    inputs.invOffsets = push.projectionOffsets;
+    inputs.settings = push.settings;
+    inputs.invProjection = push.invProjection;
+    inputs.invProjection2 = push.invProjection2;
+    inputs.invOffsets = push.invOffsets;
     inputs.pixels = glm::vec2(image.width, image.height);
     return inputs;
 }
 
-float visibilityAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
+// The kernel stage's output at one texel.
+float rawVisibilityAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
     const Sampling sampling(image);
-    return ssao_shader::ssaoVisibility(inputs, pixelUV(image, x, y));
+    return ssao_shader::ssaoRawVisibility(inputs, pixelUV(image, x, y));
+}
+
+// The kernel stage over the whole image, as the first AO pass leaves it.
+void runKernel(DepthImage& image, const SsaoInputs& inputs) {
+    image.raw.assign(image.depth.size(), 1.0f);
+    for (int y = 0; y < image.height; ++y)
+        for (int x = 0; x < image.width; ++x)
+            image.raw[image.index(x, y)] = rawVisibilityAt(image, inputs, x, y);
+}
+
+// What the scene pass reads at a texel: the denoise stage over runKernel's output.
+float visibilityAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
+    if (image.raw.size() != image.depth.size()) {
+        std::cerr << "[ssao] FAIL: the denoise stage read an image the kernel stage never ran on\n";
+        std::abort();
+    }
+    const Sampling sampling(image);
+    return ssao_shader::ssaoDenoise(inputs, pixelUV(image, x, y));
 }
 
 glm::vec3 shaderNormalAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
@@ -227,8 +250,9 @@ void testFlatFloorNeverOccludesItself() {
                 const glm::vec3 position(0.0011f * float(shift), 1.6f, -0.0023f * float(shift));
                 const glm::vec3 forward(std::cos(p) * std::sin(yaw), std::sin(p), -std::cos(p) * std::cos(yaw));
                 const Eye eye{lookFrom(position, position + forward), projection};
-                const DepthImage image = render({kFloor}, eye);
+                DepthImage image = render({kFloor}, eye);
                 const SsaoInputs inputs = inputsFor(eye, image);
+                runKernel(image, inputs);
                 for (int y = 0; y < image.height; ++y) {
                     for (int x = 0; x < image.width; ++x) {
                         if (image.object[image.index(x, y)] == kNoObject) continue;
@@ -303,6 +327,19 @@ bool faceSpansThreeTexels(const DepthImage& image, int x, int y) {
            ((same(0, -1) && same(0, -2)) || (same(0, 1) && same(0, 2)));
 }
 
+// Whether every texel of the same face in the denoise stage's block around
+// (x, y) -- whose raw values it averages -- spans three texels too.
+bool blockSpansThreeTexels(const DepthImage& image, int x, int y) {
+    const int half = ssao_shader::AO_PATTERN / 2;
+    for (int dy = -half; dy < half; ++dy)
+        for (int dx = -half; dx < half; ++dx)
+            if (inside(image, x + dx, y + dy) &&
+                sameFace(image, image.index(x, y), image.index(x + dx, y + dy)) &&
+                !faceSpansThreeTexels(image, x + dx, y + dy))
+                return false;
+    return true;
+}
+
 struct NormalErrors {
     float worstDegrees = 0.0f;
     long edgePixels = 0;  // a neighbour shows another face: a silhouette or a crease
@@ -365,15 +402,16 @@ void testSilhouettesNeitherDarkenNorHalo() {
         for (const glm::mat4& projection : {desktopProjection(), kLeftEye, kRightEye}) {
             for (const glm::vec3& position : kPlateViewpoints) {
                 const Eye eye{lookFrom(position, glm::vec3(0.0f, 1.2f, 0.0f)), projection};
-                const DepthImage image = render(scene.boxes, eye);
+                DepthImage image = render(scene.boxes, eye);
                 const SsaoInputs inputs = inputsFor(eye, image);
+                runKernel(image, inputs);
                 for (int y = 0; y < image.height; ++y) {
                     for (int x = 0; x < image.width; ++x) {
                         const float visibility = visibilityAt(image, inputs, x, y);
                         finite = finite && std::isfinite(visibility) && visibility >= 0.0f && visibility <= 1.0f;
                         const int object = image.object[image.index(x, y)];
                         if (object == PlateScene::kPlate) {
-                            if (faceSpansThreeTexels(image, x, y)) worstPlate = std::min(worstPlate, visibility);
+                            if (blockSpansThreeTexels(image, x, y)) worstPlate = std::min(worstPlate, visibility);
                             else worstThin = std::min(worstThin, visibility);
                         } else if (object != kNoObject && wallGap > 1.0f) {
                             worstFarWall = std::min(worstFarWall, visibility);
@@ -383,7 +421,7 @@ void testSilhouettesNeitherDarkenNorHalo() {
             }
         }
     }
-    std::cout << "[ssao] lowest visibility on plate texels too thin to confirm: " << worstThin << '\n';
+    std::cout << "[ssao] lowest visibility on plate texels averaging a texel too thin to confirm: " << worstThin << '\n';
     require(finite, "visibility is finite and within [0, 1] at every pixel, edges included");
     require(worstPlate == 1.0f, describe("a flat plate is unoccluded up to its silhouette; lowest "
                                          "visibility", worstPlate));
@@ -443,6 +481,68 @@ void testSameSurfaceSideFromDepth() {
             "the only side with a neighbour is taken, however far its depth");
 }
 
+// Whether every texel within `reach` of (x, y) shows that texel's face: away
+// from silhouettes and creases, where the denoise stage's average changes
+// composition, and where a step in the visibility can only be the kernel's.
+bool faceAround(const DepthImage& image, int x, int y, int reach) {
+    for (int dy = -reach; dy <= reach; ++dy)
+        for (int dx = -reach; dx <= reach; ++dx)
+            if (!inside(image, x + dx, y + dy) ||
+                !sameFace(image, image.index(x, y), image.index(x + dx, y + dy)))
+                return false;
+    return true;
+}
+
+// The occlusion integral, as a kernel 32 times denser than the GPU's measures
+// it: the same estimator, 64 directions and 16 steps, the same for every texel.
+float denseVisibilityAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
+    const Sampling sampling(image);
+    return std::pow(ssao_shader::ssaoKernelVisibility(inputs, pixelUV(image, x, y), 64, 16, 0.5f, 0.5f),
+                    inputs.settings.w);
+}
+
+// A kernel the same for every texel samples the occlusion integral at the
+// same sixteen places everywhere, and prints one hard-edged copy of each
+// occluder per sample: bands on every floor and wall near a contact. What the
+// scene pass reads must follow the integral instead -- within each face, away
+// from its edges, close to what the dense kernel measures.
+void testOcclusionFollowsTheIntegral() {
+    double total = 0.0;
+    float largest = 0.0f;
+    float lowest = 1.0f;
+    long texels = 0;
+    for (const glm::mat4& projection : {desktopProjection(), kLeftEye}) {
+        for (const glm::vec3& position : kTableViewpoints) {
+            const Eye eye{lookFrom(position, kTableTarget), projection};
+            DepthImage image = render(tableScene(), eye);
+            const SsaoInputs inputs = inputsFor(eye, image);
+            runKernel(image, inputs);
+            for (int y = 0; y < image.height; ++y) {
+                for (int x = 0; x < image.width; ++x) {
+                    if (image.object[image.index(x, y)] == kNoObject || !faceAround(image, x, y, 3)) continue;
+                    const float dense = denseVisibilityAt(image, inputs, x, y);
+                    const float error = std::abs(visibilityAt(image, inputs, x, y) - dense);
+                    total += error;
+                    largest = std::max(largest, error);
+                    lowest = std::min(lowest, dense);
+                    ++texels;
+                }
+            }
+        }
+    }
+    const double mean = total / double(std::max(texels, 1L));
+    std::cout << "[ssao] integral: " << texels << " texels, mean error " << mean << ", largest " << largest
+              << ", lowest " << lowest << '\n';
+    require(texels > 20000, "the views cover the table's faces");
+    require(lowest < 0.9f, describe("the faces include real occlusion; lowest visibility", lowest));
+    // A kernel the same for every texel, denoised alike, stays twice as far.
+    constexpr double kMeanError = 0.001;
+    constexpr float kLargestError = 0.03f;
+    require(mean < kMeanError, describe("the visibility follows the occlusion integral; mean error", mean));
+    require(largest < kLargestError,
+            describe("the visibility follows the occlusion integral; largest error", largest));
+}
+
 // A rejected sample weighs exactly what an unoccluding one does: replacing the
 // floor below the table's edge (beyond the radius, rejected) with more flat
 // table top (in the tangent plane, no occlusion) changes no visibility on the
@@ -464,8 +564,8 @@ void testRejectedSamplesCountAsUnoccluded() {
                 // A texel too thin to confirm its face has its normal, and
                 // so its visibility, decided by its neighbours.
                 if (!faceSpansThreeTexels(edged, x, y)) continue;
-                largest = std::max(largest, std::abs(visibilityAt(edged, inputs, x, y) -
-                                                     visibilityAt(extended, inputs, x, y)));
+                largest = std::max(largest, std::abs(rawVisibilityAt(edged, inputs, x, y) -
+                                                     rawVisibilityAt(extended, inputs, x, y)));
                 ++compared;
             }
         }
@@ -516,8 +616,9 @@ void testCameraMotionChangesVisibilityGradually() {
             // 1 mm per frame: a slow head drift, a tenth of a pixel here.
             const glm::vec3 position = start + right * (0.001f * float(frame));
             const Eye eye{lookFrom(position, target), desktopProjection()};
-            const DepthImage image = render(scene, eye);
+            DepthImage image = render(scene, eye);
             const SsaoInputs inputs = inputsFor(eye, image);
+            runKernel(image, inputs);
             for (size_t i = 0; i < tracked.size(); ++i) {
                 const float visibility = visibilitySeenAt(eye, image, inputs, tracked[i]);
                 lowest = std::min(lowest, visibility);
@@ -546,10 +647,12 @@ void testBothEyesAgree() {
         const glm::vec3 forward = glm::normalize(target - head);
         const Eye left{lookFrom(head - right * 0.032f, head - right * 0.032f + forward), kLeftEye};
         const Eye rightEye{lookFrom(head + right * 0.032f, head + right * 0.032f + forward), kRightEye};
-        const DepthImage leftImage = render(scene, left);
-        const DepthImage rightImage = render(scene, rightEye);
+        DepthImage leftImage = render(scene, left);
+        DepthImage rightImage = render(scene, rightEye);
         const SsaoInputs leftInputs = inputsFor(left, leftImage);
         const SsaoInputs rightInputs = inputsFor(rightEye, rightImage);
+        runKernel(leftImage, leftInputs);
+        runKernel(rightImage, rightInputs);
         for (int y = 0; y < leftImage.height; ++y) {
             for (int x = 0; x < leftImage.width; ++x) {
                 const size_t i = leftImage.index(x, y);
@@ -580,11 +683,21 @@ void testBothEyesAgree() {
 }
 }  // namespace
 
-float ssao_shader::sampleDepth(glm::vec2 viewportUV) {
-    // The tonemap pass's depth read: the nearest texel, clamped to the edge.
+namespace {
+// The AO pass's reads: the nearest texel, clamped to the edge.
+size_t sampledTexel(glm::vec2 viewportUV) {
     const int x = std::clamp(int(std::floor(viewportUV.x * float(sampled->width))), 0, sampled->width - 1);
     const int y = std::clamp(int(std::floor(viewportUV.y * float(sampled->height))), 0, sampled->height - 1);
-    return sampled->depth[sampled->index(x, y)];
+    return sampled->index(x, y);
+}
+}  // namespace
+
+float ssao_shader::sampleDepth(glm::vec2 viewportUV) {
+    return sampled->depth[sampledTexel(viewportUV)];
+}
+
+float ssao_shader::sampleRawVisibility(glm::vec2 viewportUV) {
+    return sampled->raw[sampledTexel(viewportUV)];
 }
 
 int main() {
@@ -594,6 +707,7 @@ int main() {
     testNormalsStayOnTheirSurface();
     testSilhouettesNeitherDarkenNorHalo();
     testRejectedSamplesCountAsUnoccluded();
+    testOcclusionFollowsTheIntegral();
     testCameraMotionChangesVisibilityGradually();
     testBothEyesAgree();
     std::cout << "[ssao] " << checks << " checks passed without a window\n";

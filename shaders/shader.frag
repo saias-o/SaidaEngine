@@ -1,9 +1,17 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#ifndef WEB
+#extension GL_EXT_multiview : require
+#endif
+
+// A mesh's surface. Compiled -DDEPTH_ONLY for the depth pre-pass, it keeps
+// every discard -- LOD cross-fade, sidedness, alpha test -- so that the
+// pre-pass leaves exactly the depth the scene pass then shades at.
 
 #include "lighting.glsl"
 #include "surface_variation.glsl"
 #include "rain_ripples.glsl"
+#include "screen_ambient_occlusion.glsl"
 
 #ifdef BINDLESS
 
@@ -46,7 +54,9 @@ layout(location = 8) flat in uint fragDoubleSided;
 layout(location = 9) flat in float fragLodFade;
 #endif
 
+#ifndef DEPTH_ONLY
 layout(location = 0) out vec4 outColor;
+#endif
 
 // Screen-door LOD cross-fade (MeshNode::lodFade): a level fading in draws the
 // pixels whose threshold is under its share t, the level fading out (-t) the
@@ -145,7 +155,11 @@ void main() {
     // otherwise show the texture's black backing, since the renderer has no
     // blended pass. A cutoff of 0 disables the test entirely.
     if (albedoSample.a * baseColor.a < matAlphaCutoff) discard;
+#ifndef DEPTH_ONLY
 
+    // The material's occlusion and the screen-space map's, on indirect light
+    // only: a crease receives less sky and bounce, not less sunlight.
+    float indirectOcclusion = matAO * screenAmbientOcclusion();
     vec3 albedo = albedoSample.rgb * fragColor * baseColor.rgb;
     if (foliage.w > 0.0) {
 #ifdef BINDLESS
@@ -164,6 +178,7 @@ void main() {
         vec3 irradiance = lights.ambient.rgb * mix(0.45, 1.0, visibility);
         if (lights.environmentParams.x >= 0.5 && lights.environmentParams.y > 0.0)
             irradiance += environmentIrradiance(N) * lights.environmentParams.y * visibility;
+        irradiance *= indirectOcclusion;
         vec3 V = normalize(fragEyePosition - fragWorldPos);
         for (int i = 0; i < lights.counts.x; ++i) {
             Light light = lights.lights[i];
@@ -182,7 +197,7 @@ void main() {
             irradiance += light.colorInt.rgb * light.colorInt.w * attenuation * occlusion
                           * (diffuse * 0.31830988618 + transmission) * mix(0.65, 1.0, visibility);
         }
-        outColor = vec4(albedo * irradiance * matAO, albedoSample.a * baseColor.a);
+        outColor = vec4(albedo * irradiance, albedoSample.a * baseColor.a);
         return;
     }
     if (fragBillboardView.z >= 0.0) {
@@ -216,6 +231,7 @@ void main() {
         vec3 irradiance = lights.ambient.rgb;
         if (lights.environmentParams.x >= 0.5 && lights.environmentParams.y > 0.0)
             irradiance += environmentIrradiance(surfaceNormal) * lights.environmentParams.y * visibility;
+        irradiance *= indirectOcclusion;
         for (int i = 0; i < lights.counts.x; ++i) {
             Light light = lights.lights[i];
             if (light.dirType.w != 0.0 || light.colorInt.w <= 0.0) continue;
@@ -227,7 +243,7 @@ void main() {
             }
             irradiance += light.colorInt.rgb * light.colorInt.w * response;
         }
-        outColor = vec4(albedo * irradiance * matAO, albedoSample.a * baseColor.a);
+        outColor = vec4(albedo * irradiance, albedoSample.a * baseColor.a);
         return;
     }
     // Macro variation: brightness and slope over several repeats, mean zero.
@@ -317,7 +333,7 @@ void main() {
     vec3 V = normalize(fragEyePosition - fragWorldPos);
 
     LightTerms t = accumulateReflectance(N, V, fragWorldPos, albedo, metallic, roughness,
-                                         dielectricF0, dielectricF90);
+                                         dielectricF0, dielectricF90, indirectOcclusion);
     vec3 lit = t.diffuse + t.specular;
 #ifdef BINDLESS
     float reflection = mat.reflection.x;
@@ -327,10 +343,8 @@ void main() {
     // Where the scene's IBL is on, `accumulate` already reflected it.
     if (reflection > 0.0 && lights.environmentParams.x < 0.5)
         lit += environmentReflection(N, V, albedo, metallic, roughness,
-                                      dielectricF0, dielectricF90) * reflection;
+                                      dielectricF0, dielectricF90) * reflection * indirectOcclusion;
 
-    lit *= matAO;
-    
 #ifdef BINDLESS
     vec3 emissive = textureGrad(globalTextures[nonuniformEXT(mat.emissiveTexIdx)], st.uv, st.dx, st.dy).rgb * matEmissive.rgb;
 #else
@@ -338,4 +352,5 @@ void main() {
 #endif
 
     outColor = vec4(lit + emissive, albedoSample.a * baseColor.a);
+#endif  // DEPTH_ONLY
 }

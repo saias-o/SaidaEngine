@@ -1,8 +1,10 @@
 #ifndef SSAO_GLSL
 #define SSAO_GLSL
 
-// Screen-space ambient occlusion, from the depth buffer alone: the visibility
-// tonemap.frag multiplies the scene by. The includer first defines
+// Screen-space ambient occlusion from the depth buffer alone: the raw kernel
+// (ambient_occlusion.frag) whose result ssao_denoise.glsl turns into the
+// visibility the scene pass's lit shaders put on their indirect light. The
+// includer first defines
 //     float sampleDepth(vec2 viewportUV)
 // returning the reversed depth of the texel at that viewport coordinate.
 //
@@ -14,10 +16,15 @@
 
 #include "depth_reconstruction.glsl"
 
-// AO_DIR_COUNT directions, AO_STEP_COUNT samples along each, the same for
-// every pixel: a fixed kernel does not crawl across surfaces as the view moves.
+// AO_DIR_COUNT directions, AO_STEP_COUNT samples along each. One kernel for
+// every pixel would print a copy of each occluder per sample, in hard-edged
+// bands; instead each pixel of an AO_PATTERN x AO_PATTERN block turns the
+// directions and slides the steps by its own share (ssaoPatternIndex), and
+// ssao_denoise.glsl averages exactly such a block, so that every pixel sees
+// all AO_PATTERN^2 kernels and the bands become noise, then smoothness.
 const int AO_DIR_COUNT = 8;
 const int AO_STEP_COUNT = 2;
+const int AO_PATTERN = 4;
 const float AO_TWO_PI = 6.28318530718f;
 // Elevation cosine every sample gives up, so that a flat surface does not
 // occlude itself through depth quantization.
@@ -29,12 +36,29 @@ const float AO_FULL_WEIGHT_SHARE = 0.25f;
 const float AO_MIN_TANGENT_SINE = 1e-3f;
 
 struct SsaoInputs {
-    vec4 settings;         // TonemapPass aoParams: x enabled, y radius (m), z intensity, w power
-    vec4 invProjection;    // TonemapPass projectionParams
-    vec4 invProjection2;   // TonemapPass projectionParams2
-    vec4 invOffsets;       // TonemapPass projectionOffsets
+    vec4 settings;         // AmbientOcclusionPass: x enabled, y radius (m), z intensity, w power
+    vec4 invProjection;    // InverseProjection::scale
+    vec4 invProjection2;   // InverseProjection::depth
+    vec4 invOffsets;       // InverseProjection::offsets
     vec2 pixels;           // the viewport's size in depth texels
 };
+
+// The texel's place in its AO_PATTERN x AO_PATTERN block, 0 to AO_PATTERN^2 - 1,
+// as a 4 x 4 ordered-dither (Bayer) matrix lays it out: neighbours far apart
+// in the sequence. `transposed` reads the matrix the other way, a second
+// sequence little correlated with the first.
+int ssaoPatternIndex(vec2 texelUV, vec2 pixels, bool transposed) {
+    int x = int(floor(texelUV.x * pixels.x));
+    int y = int(floor(texelUV.y * pixels.y));
+    if (transposed) {
+        int swap = x;
+        x = y;
+        y = swap;
+    }
+    int fine = 2 * ((x ^ y) & 1) + (y & 1);
+    int coarse = 2 * (((x >> 1) ^ (y >> 1)) & 1) + ((y >> 1) & 1);
+    return 4 * fine + coarse;
+}
 
 vec3 ssaoViewPosition(SsaoInputs inputs, vec2 uv, float depth) {
     return viewPositionFromDepth(uv, depth, inputs.invProjection, inputs.invProjection2,
@@ -157,12 +181,16 @@ vec2 ssaoScreenRadius(SsaoInputs inputs, float depth) {
     return (0.5f * inputs.settings.y * viewW) / max(halfExtent, vec2(1e-6f));
 }
 
-// Ambient visibility at viewport `uv`: 1 unoccluded, 0 fully occluded.
-// Every attempted sample has the same weight, and a rejected one (outside the
-// viewport, nothing drawn, beyond the radius) counts as unoccluded. Dividing
-// by the surviving samples instead let a single survivor darken a pixel
-// entirely, and how many survive changes as the camera moves.
-float ssaoVisibility(SsaoInputs inputs, vec2 uv) {
+// The linear visibility at viewport `uv` that a kernel of `directions`
+// directions, turned by `turn` of one direction's sector, and `steps` samples
+// along each, slid by `slide` of one step's share of the radius, measures:
+// 1 unoccluded, 0 fully occluded. Every attempted sample has the same weight,
+// and a rejected one (outside the viewport, nothing drawn, beyond the radius)
+// counts as unoccluded. Dividing by the surviving samples instead let a
+// single survivor darken a pixel entirely, and how many survive changes as
+// the camera moves.
+float ssaoKernelVisibility(SsaoInputs inputs, vec2 uv, int directions, int steps, float turn,
+                           float slide) {
     float radius = inputs.settings.y;
     if (inputs.settings.x < 0.5f || !(radius > 0.0f) || !(inputs.settings.z > 0.0f)) return 1.0f;
 
@@ -174,19 +202,28 @@ float ssaoVisibility(SsaoInputs inputs, vec2 uv) {
     vec2 uvRadius = ssaoScreenRadius(inputs, depth);
 
     float occlusion = 0.0f;
-    for (int dirIndex = 0; dirIndex < AO_DIR_COUNT; ++dirIndex) {
-        float angle = (float(dirIndex) + 0.5f) * AO_TWO_PI / float(AO_DIR_COUNT);
+    for (int dirIndex = 0; dirIndex < directions; ++dirIndex) {
+        float angle = (float(dirIndex) + turn) * AO_TWO_PI / float(directions);
         vec2 offset = vec2(cos(angle), sin(angle)) * uvRadius;
-        for (int stepIndex = 1; stepIndex <= AO_STEP_COUNT; ++stepIndex) {
-            float along = float(stepIndex) / float(AO_STEP_COUNT);
+        for (int stepIndex = 0; stepIndex < steps; ++stepIndex) {
+            float along = (float(stepIndex) + slide) / float(steps);
             vec4 occluder = ssaoSurfaceAt(inputs, texelUV + offset * along);
             if (occluder.w > 0.5f)
                 occlusion += ssaoOcclusion(centre, normal, vec3(occluder), radius);
         }
     }
-    float attempted = float(AO_DIR_COUNT * AO_STEP_COUNT);
-    float visibility = clamp(1.0f - inputs.settings.z * occlusion / attempted, 0.0f, 1.0f);
-    return pow(visibility, inputs.settings.w);
+    float attempted = float(directions * steps);
+    return clamp(1.0f - inputs.settings.z * occlusion / attempted, 0.0f, 1.0f);
+}
+
+// The kernel stage's output at viewport `uv`, before denoising and before the
+// power: this texel's own turn and slide of the AO_DIR_COUNT x AO_STEP_COUNT kernel.
+float ssaoRawVisibility(SsaoInputs inputs, vec2 uv) {
+    vec2 texelUV = ssaoTexelCentre(uv, inputs.pixels);
+    float patternCells = float(AO_PATTERN * AO_PATTERN);
+    float turn = (float(ssaoPatternIndex(texelUV, inputs.pixels, false)) + 0.5f) / patternCells;
+    float slide = (float(ssaoPatternIndex(texelUV, inputs.pixels, true)) + 0.5f) / patternCells;
+    return ssaoKernelVisibility(inputs, uv, AO_DIR_COUNT, AO_STEP_COUNT, turn, slide);
 }
 
 #endif  // SSAO_GLSL

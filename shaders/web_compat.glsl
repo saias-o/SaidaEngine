@@ -14,6 +14,11 @@
     layout(set = _set, binding = sb) uniform sampler   name##_s
 #define TEX2D(name) sampler2D(name##_t, name##_s)
 
+#define DECL_TEX2DARRAY(_set, tb, sb, name) \
+    layout(set = _set, binding = tb) uniform texture2DArray name##_t; \
+    layout(set = _set, binding = sb) uniform sampler        name##_s
+#define TEX2DARRAY(name) sampler2DArray(name##_t, name##_s)
+
 #define DECL_TEX3D(_set, tb, sb, name) \
     layout(set = _set, binding = tb) uniform texture3D name##_t; \
     layout(set = _set, binding = sb) uniform sampler   name##_s
@@ -37,6 +42,8 @@
 #else
 #define DECL_TEX2D(_set, tb, sb, name)         layout(set = _set, binding = tb) uniform sampler2D name
 #define TEX2D(name) name
+#define DECL_TEX2DARRAY(_set, tb, sb, name)    layout(set = _set, binding = tb) uniform sampler2DArray name
+#define TEX2DARRAY(name) name
 #define DECL_TEX3D(_set, tb, sb, name)         layout(set = _set, binding = tb) uniform sampler3D name
 #define TEX3D(name) name
 #define DECL_TEXCUBE(_set, tb, sb, name)       layout(set = _set, binding = tb) uniform samplerCube name

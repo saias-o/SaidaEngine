@@ -5,6 +5,7 @@
 #ifndef SAIDA_RHI_WEBGPU
 #include "graphics/VulkanDevice.hpp"
 #endif
+#include "render/InverseProjection.hpp"
 #include "scene/Scene.hpp"
 
 #include <algorithm>
@@ -14,9 +15,6 @@
 namespace saida {
 
 namespace {
-// A zero exponent would make the AO term constant; clamping keeps a
-// hand-edited scene from silently disabling the effect it asked for.
-constexpr float kMinAoPower = 0.001f;
 // A source this close to the camera plane (or behind it) has no screen
 // position; one further than this outside the viewport cannot reach its edge
 // with the visibility probe (tonemap.vert) and draws nothing anyway.
@@ -174,11 +172,6 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
     // surface needs the shader transfer instead; neither path may do it twice.
     push.outputParams.x = outputFormat == rhi::Format::RGBA8Unorm ||
                           outputFormat == rhi::Format::BGRA8Unorm ? 1.0f : 0.0f;
-    const glm::mat4 invProjection = glm::inverse(projection);
-    push.aoParams = glm::vec4(settings.aoEnabled ? 1.0f : 0.0f,
-                              std::max(settings.aoRadius, 0.0f),
-                              std::max(settings.aoIntensity, 0.0f),
-                              std::max(settings.aoPower, kMinAoPower));
     // The sky's share (fogSkyColor) is set by record() once the frame's sky
     // probe exists; a view without one keeps the fog its own colour.
     push.fogColor = glm::vec4(glm::vec3(settings.fogColor), 0.0f);
@@ -215,13 +208,12 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
                                  std::max(settings.bloomIntensity, 0.0f),
                                  std::max(settings.bloomRadius, 0.0f));
     push.sourceRect = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f);
-    push.projectionParams = glm::vec4(invProjection[0][0], invProjection[1][1],
-                                      invProjection[2][3], invProjection[3][3]);
+    const InverseProjection inverse = inverseProjection(projection);
+    push.projectionParams = inverse.scale;
     const bool skyFog = settings.fogEnabled && settings.skyboxTexture != kAssetInvalid &&
         (settings.fogDensity > 0.0f || glm::any(glm::greaterThan(settings.fogRayleigh, glm::vec3(0.0f))));
-    push.projectionParams2 = glm::vec4(invProjection[2][2], invProjection[3][2], skyFog ? 1.0f : 0.0f, 0.0f);
-    push.projectionOffsets = glm::vec4(invProjection[3][0], invProjection[3][1],
-                                       invProjection[2][0], invProjection[2][1]);
+    push.projectionParams2 = glm::vec4(inverse.depth.x, inverse.depth.y, skyFog ? 1.0f : 0.0f, 0.0f);
+    push.projectionOffsets = inverse.offsets;
     writeLensFlare(push, flare, view, projection);
     return push;
 }

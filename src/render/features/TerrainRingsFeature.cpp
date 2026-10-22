@@ -113,6 +113,14 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
     desc.cullMode = rhi::CullMode::None;
     desc.pushConstantSize = sizeof(Push);
     desc.viewMask = ctx.viewMask;
+    // The depth pre-pass draws the rings with the same vertex shader and
+    // discards; the scene pass then shades at that very depth.
+    Pipeline::Desc depth = desc;
+    depth.fragPath = shaderPath(textured_ ? "bindless.depth.terrain_rings.frag.spv"
+                                          : "depth.terrain_rings.frag.spv");
+    depth.colorFormats.clear();
+    depthPipeline_ = std::make_unique<Pipeline>(ctx.device, depth);
+    desc.depthCompare = rhi::kDepthCloserOrEqual;
     pipeline_ = std::make_unique<Pipeline>(ctx.device, desc);
 
     // The sun pass declares set 1 like the rings; set 0 is laid out, not bound.
@@ -321,9 +329,19 @@ void TerrainRingsFeature::record(FrameContext& fc) {
     }
     prepared_ = false;
     if (count_ == 0) return;
+    drawRings(fc, *pipeline_, cellCullReady);
+}
 
+void TerrainRingsFeature::recordDepth(FrameContext& fc) {
+    // Only after this frame's pre-pass: unprepared, record() draws the rings
+    // unshadowed on its own, and they simply take no ambient occlusion.
+    if (!prepared_ || count_ == 0) return;
+    drawRings(fc, *depthPipeline_, true);
+}
+
+void TerrainRingsFeature::drawRings(FrameContext& fc, Pipeline& pipeline, bool cellCullReady) {
     FrameBuffers& f = frames_[std::min<size_t>(fc.frameIndex, frames_.size() - 1)];
-    fc.pass.setPipeline(*pipeline_);
+    fc.pass.setPipeline(pipeline);
     fc.pass.setBindGroup(0, *fc.globalSet);
     fc.pass.setBindGroup(1, *f.set);
     if (textured_) fc.pass.setBindGroup(2, resources_->globalMaterialSet());

@@ -16,8 +16,9 @@ namespace saida {
 class SceneSettings;
 
 // Resolves the HDR scene target onto the swapchain: the tonemap curve itself,
-// plus the AO and fog it evaluates from depth, the bloom it composites and the
-// lens effects of one directional light (LensFlare.hpp).
+// plus the fog it evaluates from depth, the bloom it composites and the lens
+// effects of one directional light (LensFlare.hpp). Ambient occlusion is the
+// scene pass's (AmbientOcclusionPass): it occludes indirect light only.
 //
 // It does NOT open a render pass. The same pass carries the UI and the editor
 // overlay afterwards, and only Renderer::drawFrame sequences that (ROADMAP §3:
@@ -29,7 +30,6 @@ public:
     // Every field the shader reads. Public because the XR path builds one too,
     // through the static builder below.
     struct PushConstants {
-        glm::vec4 aoParams{0.0f};        // x enabled, y radius, z intensity, w power
         glm::vec4 fogColor{0.0f};        // rgb the fog's own colour, w the share taken from the sky probe
         glm::vec4 fogParams{0.0f};       // x enabled, y start, z density, w exposure
         glm::vec4 bloomParams{0.0f};     // x enabled, y threshold, z intensity, w radius px

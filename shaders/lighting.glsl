@@ -474,13 +474,17 @@ LightTerms directLighting(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, 
 
 // Full realtime lighting in a single loop (diffuse incl. ambient, + specular).
 // As `accumulate`, light `occluded` (an index into lights.lights; -1 for
-// none) scaled by `visibility`.
+// none) scaled by `visibility`. `indirectOcclusion` is the surface's ambient
+// occlusion -- its material's and the screen-space map's -- and scales the
+// indirect terms alone (GI, ambient, environment): it describes how much sky
+// and bounce light a crease receives, while what blocks a light is its shadow.
 LightTerms accumulateOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
-                              float roughness, int occluded, float visibility) {
+                              float roughness, int occluded, float visibility,
+                              float indirectOcclusion) {
     LightTerms total;
     LightTerms env = environmentLighting(N, V, albedo, metallic, roughness);
-    total.diffuse = giIndirectDiffuse(wp, N, V, albedo) + env.diffuse;
-    total.specular = env.specular;
+    total.diffuse = (giIndirectDiffuse(wp, N, V, albedo) + env.diffuse) * indirectOcclusion;
+    total.specular = env.specular * indirectOcclusion;
     for (int i = 0; i < lights.counts.x; ++i) {
         LightTerms t = lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
                                                  i == occluded ? visibility : 1.0, i != occluded);
@@ -490,16 +494,20 @@ LightTerms accumulateOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metall
     return total;
 }
 
-LightTerms accumulate(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, float roughness) {
-    return accumulateOccluded(N, V, wp, albedo, metallic, roughness, -1, 1.0);
+LightTerms accumulate(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic, float roughness,
+                      float indirectOcclusion) {
+    return accumulateOccluded(N, V, wp, albedo, metallic, roughness, -1, 1.0, indirectOcclusion);
 }
 
 LightTerms accumulateReflectanceOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
                                           float roughness, int occluded, float visibility,
-                                          vec3 dielectricF0, float dielectricF90) {
+                                          vec3 dielectricF0, float dielectricF90,
+                                          float indirectOcclusion) {
     LightTerms total = environmentLighting(N, V, albedo, metallic, roughness,
                                            dielectricF0, dielectricF90);
     total.diffuse += giIndirectDiffuse(wp, N, V, albedo);
+    total.diffuse *= indirectOcclusion;
+    total.specular *= indirectOcclusion;
     for (int i = 0; i < lights.counts.x; ++i) {
         LightTerms t = lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
                                                  i == occluded ? visibility : 1.0, i != occluded,
@@ -511,7 +519,8 @@ LightTerms accumulateReflectanceOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, f
 }
 
 LightTerms accumulateReflectance(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metallic,
-                                 float roughness, vec3 dielectricF0, float dielectricF90) {
+                                 float roughness, vec3 dielectricF0, float dielectricF90,
+                                 float indirectOcclusion) {
     return accumulateReflectanceOccluded(N, V, wp, albedo, metallic, roughness,
-                                          -1, 1.0, dielectricF0, dielectricF90);
+                                          -1, 1.0, dielectricF0, dielectricF90, indirectOcclusion);
 }

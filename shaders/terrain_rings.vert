@@ -15,6 +15,10 @@ layout(set = 0, binding = 0) uniform CameraUBO {
     mat4 proj[2];
 } cam;
 
+// The depth pre-pass draws with this same shader; its depth must match the
+// scene pass's bit for bit, which only `invariant` guarantees across pipelines.
+invariant gl_Position;
+
 #include "terrain_rings.glsl"
 #include "terrain_rings_geometry.glsl"
 

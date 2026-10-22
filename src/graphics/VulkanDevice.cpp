@@ -7,6 +7,7 @@
 #include "rhi/vulkan/CommandEncoder.hpp"
 #include "vk_mem_alloc.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <set>
@@ -146,9 +147,15 @@ std::vector<const char*> VulkanDevice::requiredInstanceExtensions() const {
 }
 
 void VulkanDevice::createInstance() {
-    validationEnabled_ = kEnableValidationLayers && checkValidationLayerSupport();
-    if (kEnableValidationLayers && !validationEnabled_)
+    // An optimized build validates on request: the build a game ships is the
+    // one whose synchronization needs checking, and it differs from Debug.
+    const char* requested = std::getenv("SAIDA_VULKAN_VALIDATION");
+    const bool validate = kEnableValidationLayers || (requested && std::strcmp(requested, "1") == 0);
+    validationEnabled_ = validate && checkValidationLayerSupport();
+    if (validate && !validationEnabled_)
         Log::warn("validation layers requested but not available, continuing without them");
+    else if (validationEnabled_)
+        Log::info("Vulkan validation layers enabled");
 
     // Request Vulkan 1.3 when the loader supports it (for dynamic rendering,
     // synchronization2, timeline semaphores…), capped at what's available.

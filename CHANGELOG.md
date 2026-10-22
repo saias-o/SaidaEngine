@@ -10,6 +10,27 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### Ambient occlusion on indirect light only
+
+- Ambient occlusion no longer darkens direct light, as in other engines: it
+  scales GI, the flat ambient and the environment's light, and a light's
+  contribution is left to its shadow. The tonemap stopped multiplying the whole
+  image; a depth-only pre-pass over the opaque meshes and terrain now precedes
+  the scene pass, `AmbientOcclusionPass` turns that depth into an AO map, and
+  the lit shaders read it on their indirect terms. The material's `ao` was
+  darkening direct light as well and follows the same rule (glTF's).
+- The kernel no longer prints a hard-edged copy of each occluder per sample:
+  each pixel of a 4 x 4 block turns it by its own share and an edge-aware blur
+  averages one block, so occlusion follows the integral three times more
+  closely. The pre-pass also lets the scene pass skip hidden surfaces.
+- `tools/verify_ambient_occlusion.py` checks the image on the GPU: direct light
+  bit-identical with AO on and off, ambient light only darkened.
+- `SAIDA_VULKAN_VALIDATION=1` enables the validation layers in an optimized
+  build. They showed the MSAA depth resolve racing the barriers around it,
+  which did not cover the colour-output stage depth resolves run in; fixed.
+- In R1World's rue de Rivoli view on a GeForce MX450 at 1600 x 900 the
+  pre-pass costs 3.0 ms and saves 3.8 ms of shading; the AO map costs 4.3 ms.
+
 ### Ambient occlusion that holds still under camera motion
 
 - SSAO has one owner, `shaders/ssao.glsl`, instead of living inside the

@@ -8,6 +8,7 @@ enum class Format : uint32_t {
     Undefined = 0,
 
     // 8-bit unsigned normalized / sRGB
+    R8Unorm,
     RGBA8Unorm,
     RGBA8Srgb,
     BGRA8Unorm,
@@ -37,6 +38,7 @@ inline constexpr bool isDepthFormat(Format f) {
 inline constexpr uint32_t bytesPerTexel(Format f) {
     switch (f) {
         case Format::Undefined:            return 0;
+        case Format::R8Unorm:              return 1;
         case Format::RGBA8Unorm:
         case Format::RGBA8Srgb:
         case Format::BGRA8Unorm:

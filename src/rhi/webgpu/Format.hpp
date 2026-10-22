@@ -9,6 +9,7 @@ namespace saida::rhi::webgpu {
 inline WGPUTextureFormat toWgpu(Format f) {
     switch (f) {
         case Format::Undefined:            return WGPUTextureFormat_Undefined;
+        case Format::R8Unorm:              return WGPUTextureFormat_R8Unorm;
         case Format::RGBA8Unorm:           return WGPUTextureFormat_RGBA8Unorm;
         case Format::RGBA8Srgb:            return WGPUTextureFormat_RGBA8UnormSrgb;
         case Format::BGRA8Unorm:           return WGPUTextureFormat_BGRA8Unorm;

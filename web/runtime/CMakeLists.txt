@@ -92,6 +92,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/render/PostProcessor.cpp
     ${SAIDA_ROOT}/src/render/LensFlare.cpp
     ${SAIDA_ROOT}/src/render/TonemapPass.cpp
+    ${SAIDA_ROOT}/src/render/AmbientOcclusionPass.cpp
     ${SAIDA_ROOT}/src/render/Renderer.cpp
     ${SAIDA_ROOT}/src/render/EnvironmentSH.cpp
     ${SAIDA_ROOT}/src/runtime/RuntimeRoundTripContract.cpp

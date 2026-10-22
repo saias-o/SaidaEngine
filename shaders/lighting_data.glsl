@@ -34,4 +34,5 @@ layout(set = 0, binding = 1) uniform LightingUBO {
     vec4 sunOcclusion;
     vec4 rainParams; // intensity, wetness, world seconds, unused
     vec4 rainUp;     // normalized world-space up shared by both eyes
+    vec4 ambientOcclusion; // x 1 when this frame's screen-space AO map holds values
 } lights;

@@ -14,6 +14,7 @@
 #include "render/EnvironmentSH.hpp"
 #include "render/GpuDrivenLayout.hpp"
 #include "render/RenderFeature.hpp"  // EyeRenderInfo, RenderContext, FrameContext, ScenePassFeature
+#include "render/AmbientOcclusionPass.hpp"
 #include "render/TonemapPass.hpp"
 #include "rhi/Rhi.hpp"
 
@@ -88,6 +89,7 @@ struct LightingUBO {
     glm::vec4 sunOcclusion{-1.0f, 0.0f, 0.0f, 0.0f};
     glm::vec4 rainParams{0.0f}; // intensity, wetness, world seconds, unused
     glm::vec4 rainUp{0.0f, 1.0f, 0.0f, 0.0f};
+    glm::vec4 ambientOcclusion{0.0f}; // x 1 when this frame's screen-space AO map holds values
 };
 
 class Renderer {
@@ -142,11 +144,19 @@ private:
     void createGlobalSetLayout();
     void createPipeline(rhi::BindGroupLayout& materialSetLayout);
     void createWebCanvasWorldPipeline();
+    // Which of the two passes over the opaque meshes a draw is recorded for:
+    // the depth pre-pass (only when ambient occlusion is on) or the scene pass.
+    enum class MeshPass { Depth, Scene };
     // Layout-compatible variants keep existing binds valid across a switch.
-    rhi::Pipeline* scenePipelineFor(MaterialType type, bool doubleSided = false) const {
-        if (doubleSided) return type == MaterialType::Unlit ? twoSidedUnlitPipeline_.get() : twoSidedPipeline_.get();
-        return (type == MaterialType::Unlit && unlitPipeline_) ? unlitPipeline_.get()
-                                                               : pipeline_.get();
+    rhi::Pipeline* scenePipelineFor(MaterialType type, bool doubleSided = false,
+                                    MeshPass pass = MeshPass::Scene) const {
+        const bool unlit = type == MaterialType::Unlit;
+        if (pass == MeshPass::Depth) {
+            if (doubleSided) return unlit ? depthTwoSidedUnlitPipeline_.get() : depthTwoSidedPipeline_.get();
+            return unlit ? depthUnlitPipeline_.get() : depthPipeline_.get();
+        }
+        if (doubleSided) return unlit ? twoSidedUnlitPipeline_.get() : twoSidedPipeline_.get();
+        return (unlit && unlitPipeline_) ? unlitPipeline_.get() : pipeline_.get();
     }
     const std::vector<SceneDraw>& featureDraws() const;
     void createHdrResources();
@@ -167,7 +177,18 @@ private:
     void gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& cameraPos,
                      const Frustum* cullFrustum, Project* project,
                      const glm::mat4* view = nullptr, const glm::mat4* proj = nullptr);
-    void recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstPipeline, bool xrMultiview);
+    void recordMeshDraws(rhi::RenderPassEncoder& rp, MeshPass pass, bool xrMultiview);
+    void recordSceneMeshes(rhi::RenderPassEncoder& rp, MeshPass pass);
+
+    // Ambient occlusion: the depth pre-pass, AmbientOcclusionPass into the
+    // AO map, then the scene pass reading it (shaders/screen_ambient_occlusion.glsl).
+    void createAmbientOcclusionPass();
+    bool ambientOcclusionActive(const SceneSettings& settings) const;
+    void readyAmbientOcclusionMap(rhi::CommandEncoder& encoder);
+    void recordDepthPrePass(rhi::CommandEncoder& encoder, Scene& scene, const Camera& camera,
+                            const rhi::Rect2D& renderRect, bool msaa);
+    void recordAmbientOcclusion(rhi::CommandEncoder& encoder, Scene& scene, const Camera& camera,
+                                const rhi::Rect2D& renderRect, bool msaa);
     void recordWorldWebCanvases(rhi::RenderPassEncoder& rp, Scene& scene, const Camera& camera);
     void recordShadowPasses(rhi::CommandEncoder& encoder);
     void recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageIndex, Scene& scene,
@@ -186,6 +207,13 @@ private:
     std::unique_ptr<rhi::Pipeline> unlitPipeline_;   // scene pipeline: MaterialType::Unlit
     // Material type comes from the bindless material table.
     std::unique_ptr<rhi::Pipeline> gpuDrivenPipeline_;
+    // The depth pre-pass's: same vertex shader, depth.shader.frag's discards
+    // (unlit materials discard nothing: no fragment shader), no colour.
+    std::unique_ptr<rhi::Pipeline> depthPipeline_;
+    std::unique_ptr<rhi::Pipeline> depthTwoSidedPipeline_;
+    std::unique_ptr<rhi::Pipeline> depthUnlitPipeline_;
+    std::unique_ptr<rhi::Pipeline> depthTwoSidedUnlitPipeline_;
+    std::unique_ptr<rhi::Pipeline> gpuDrivenDepthPipeline_;
     std::unique_ptr<rhi::Pipeline> webCanvasWorldPipeline_;
     std::unique_ptr<ShadowMap> shadowMap_;
     std::unique_ptr<UIRenderer> uiRenderer_;
@@ -221,6 +249,27 @@ private:
     std::unique_ptr<rhi::RenderTexture> hdrMsaaTexture_;       // MSAA scene target (when MSAA on)
     std::unique_ptr<rhi::RenderTexture> depthResolveTexture_;  // single-sample depth for AO when MSAA on
     std::unique_ptr<PostProcessor> postProcessor_;
+
+    std::unique_ptr<AmbientOcclusionPass> aoPass_;
+    // The AO map (AmbientOcclusionPass::kFormat): the desktop view's, one
+    // layer, or in XR mode one per eye. Sampled through set 0 binding 17, so
+    // it rests in ShaderRead between passes.
+    std::unique_ptr<rhi::RenderTexture> aoTexture_;
+    rhi::ResourceState aoState_ = rhi::ResourceState::Undefined;
+    std::unique_ptr<rhi::RenderTexture> aoRawTexture_;  // the kernel's, laid out as aoTexture_
+    rhi::ResourceState aoRawState_ = rhi::ResourceState::Undefined;
+    AmbientOcclusionPass::Inputs aoInputs_;  // the desktop view's
+    // One view's AmbientOcclusionPass run: its inputs, projection and layer.
+    struct AmbientOcclusionView {
+        const AmbientOcclusionPass::Inputs* inputs = nullptr;
+        glm::mat4 projection{1.0f};
+        uint32_t layer = 0;
+    };
+    void recordAmbientOcclusionStages(rhi::CommandEncoder& encoder, const SceneSettings& settings,
+                                      const std::vector<AmbientOcclusionView>& views,
+                                      const rhi::Rect2D& renderRect, const glm::vec4& sourceRect);
+    std::unique_ptr<rhi::Sampler> aoSampler_;  // nearest; texelFetch ignores it
+    std::array<rhi::TextureView, 2> cachedAoView_{};
 
     // Resolves HDR -> swapchain. Owns its pipeline, layout, samplers and
     // descriptor set; Renderer still sequences the pass around it (bloom,
@@ -344,14 +393,28 @@ private:
     std::unique_ptr<rhi::BindGroupLayout> xrTonemapSetLayout_;
     std::unique_ptr<rhi::Sampler> xrTonemapSampler_;
     std::unique_ptr<rhi::Sampler> xrTonemapDepthSampler_;
-    rhi::Pipeline* xrScenePipelineFor(MaterialType type, bool doubleSided = false) const {
-        if (doubleSided) return type == MaterialType::Unlit ? xrTwoSidedUnlitPipeline_.get() : xrTwoSidedPipeline_.get();
-        return (type == MaterialType::Unlit && xrUnlitPipeline_) ? xrUnlitPipeline_.get()
-                                                                 : xrScenePipeline_.get();
+    std::unique_ptr<rhi::Pipeline> xrDepthPipeline_;    // the multiview depth pre-pass's
+    std::unique_ptr<rhi::Pipeline> xrDepthTwoSidedPipeline_;
+    std::unique_ptr<rhi::Pipeline> xrDepthUnlitPipeline_;
+    std::unique_ptr<rhi::Pipeline> xrDepthTwoSidedUnlitPipeline_;
+    rhi::Pipeline* xrScenePipelineFor(MaterialType type, bool doubleSided = false,
+                                      MeshPass pass = MeshPass::Scene) const {
+        const bool unlit = type == MaterialType::Unlit;
+        if (pass == MeshPass::Depth) {
+            if (doubleSided) return unlit ? xrDepthTwoSidedUnlitPipeline_.get() : xrDepthTwoSidedPipeline_.get();
+            return unlit ? xrDepthUnlitPipeline_.get() : xrDepthPipeline_.get();
+        }
+        if (doubleSided) return unlit ? xrTwoSidedUnlitPipeline_.get() : xrTwoSidedPipeline_.get();
+        return (unlit && xrUnlitPipeline_) ? xrUnlitPipeline_.get() : xrScenePipeline_.get();
     }
+    void recordXrDepthPrePass(rhi::CommandEncoder& encoder, Scene& scene,
+                              const std::vector<EyeRenderInfo>& eyes);
+    void recordXrAmbientOcclusion(rhi::CommandEncoder& encoder, Scene& scene,
+                                  const std::vector<EyeRenderInfo>& eyes);
 
     std::unique_ptr<rhi::RenderTexture> xrHdrTexture_;
     std::unique_ptr<rhi::RenderTexture> xrDepthTexture_;
+    std::array<AmbientOcclusionPass::Inputs, 2> xrAoInputs_;  // one per eye layer
 
     std::array<std::unique_ptr<rhi::BindGroup>, 2> xrTonemapSets_;   // one per eye layer
     std::array<std::unique_ptr<PostProcessor>, 2> xrPostProcessors_;

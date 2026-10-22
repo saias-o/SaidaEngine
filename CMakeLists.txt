@@ -151,6 +151,9 @@ set(SHADERS
     ${SHADER_DIR}/culling.comp
     ${SHADER_DIR}/tonemap.vert
     ${SHADER_DIR}/tonemap.frag
+    ${SHADER_DIR}/fullscreen.vert
+    ${SHADER_DIR}/ambient_occlusion.frag
+    ${SHADER_DIR}/ambient_occlusion_denoise.frag
     ${SHADER_DIR}/bloom_downsample.frag
     ${SHADER_DIR}/bloom_upsample.frag
     ${SHADER_DIR}/skybox.vert
@@ -208,6 +211,7 @@ set(WEB_READY_SHADERS
     shader.vert shader.frag unlit.frag
     shadow.vert
     tonemap.vert tonemap.frag
+    fullscreen.vert ambient_occlusion.frag ambient_occlusion_denoise.frag
     bloom_downsample.frag bloom_upsample.frag
     skybox.vert skybox.frag
     outline.vert outline.frag
@@ -255,6 +259,36 @@ foreach(SHADER ${SHADERS})
             COMMENT "Compiling bindless.${SHADER_NAME} -> bindless.${SHADER_NAME}.spv"
         )
         list(APPEND SHADER_SPIRV ${BINDLESS_OUTPUT})
+    endif()
+
+    # Depth pre-pass (-DDEPTH_ONLY): the same fragment shader with its discards
+    # and none of its shading, so the pre-pass leaves the scene pass's depth.
+    if(SHADER_NAME STREQUAL "shader.frag" OR SHADER_NAME STREQUAL "terrain_rings.frag")
+        set(DEPTH_OUTPUT ${SHADER_OUT_DIR}/depth.${SHADER_NAME}.spv)
+        add_custom_command(
+            OUTPUT ${DEPTH_OUTPUT}
+            COMMAND ${GLSLC} -I ${SHADER_DIR} -DDEPTH_ONLY ${SHADER} -o ${DEPTH_OUTPUT}
+            DEPENDS ${SHADER} ${SHADER_INCLUDES}
+            COMMENT "Compiling depth.${SHADER_NAME} -> depth.${SHADER_NAME}.spv"
+        )
+        set(BINDLESS_DEPTH_OUTPUT ${SHADER_OUT_DIR}/bindless.depth.${SHADER_NAME}.spv)
+        add_custom_command(
+            OUTPUT ${BINDLESS_DEPTH_OUTPUT}
+            COMMAND ${GLSLC} -I ${SHADER_DIR} -DBINDLESS -DDEPTH_ONLY ${SHADER} -o ${BINDLESS_DEPTH_OUTPUT}
+            DEPENDS ${SHADER} ${SHADER_INCLUDES}
+            COMMENT "Compiling bindless.depth.${SHADER_NAME} -> bindless.depth.${SHADER_NAME}.spv"
+        )
+        list(APPEND SHADER_SPIRV ${DEPTH_OUTPUT} ${BINDLESS_DEPTH_OUTPUT})
+        if(SHADER_NAME IN_LIST WEB_READY_SHADERS)
+            set(WEB_DEPTH_OUTPUT ${SHADER_OUT_DIR}/web.depth.${SHADER_NAME}.spv)
+            add_custom_command(
+                OUTPUT ${WEB_DEPTH_OUTPUT}
+                COMMAND ${GLSLC} -I ${SHADER_DIR} -DWEB -DDEPTH_ONLY ${SHADER} -o ${WEB_DEPTH_OUTPUT}
+                DEPENDS ${SHADER} ${SHADER_INCLUDES}
+                COMMENT "Compiling web.depth.${SHADER_NAME} -> web.depth.${SHADER_NAME}.spv"
+            )
+            list(APPEND SHADER_SPIRV_WEB ${WEB_DEPTH_OUTPUT})
+        endif()
     endif()
 
     # Multiview (XR stereo, 1 pass / 2 layers): shaders that read per-eye data via
@@ -568,6 +602,7 @@ add_library(saida_engine STATIC
     src/render/PostProcessor.cpp
     src/render/LensFlare.cpp
     src/render/TonemapPass.cpp
+    src/render/AmbientOcclusionPass.cpp
     src/render/RenderFeatureRegistry.cpp
     src/fx/ParticleRuntime.cpp
     src/render/features/WaterFeature.cpp

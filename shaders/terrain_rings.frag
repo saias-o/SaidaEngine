@@ -1,12 +1,15 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_multiview : require
 
 // A TerrainRingsNode's surface: its layer's albedo under the scene's lights,
 // the same Cook-Torrance terms as any lit mesh, the directional light cut by
 // the rings' own shadow (terrain_rings_sun.comp). Distance haze is the
-// tonemap pass's, from depth, like everything else drawn.
+// tonemap pass's, from depth, like everything else drawn. Compiled
+// -DDEPTH_ONLY for the depth pre-pass, it keeps the discards and nothing else.
 
 #include "lighting.glsl"
+#include "screen_ambient_occlusion.glsl"
 #include "rain_ripples.glsl"
 #include "terrain_rings.glsl"
 #include "water_types.glsl"
@@ -24,7 +27,9 @@ layout(location = 4) in float fragSunlight;
 layout(location = 5) in vec3 fragLocalPos;
 layout(location = 6) in vec3 fragLocalNormal;
 
+#ifndef DEPTH_ONLY
 layout(location = 0) out vec4 outColor;
+#endif
 
 void main() {
     GpuTerrain t = terrains.items[push.slot];
@@ -42,6 +47,7 @@ void main() {
     if (length(fragLocalXZ - t.focus.xy) < t.focus.z) discard;
     for (int i = 0; i < t.holeCount.x; ++i)
         if (insideHole(t.holes[2 * i], t.holes[2 * i + 1], fragLocalXZ)) discard;
+#ifndef DEPTH_ONLY
 
     vec4 level = t.levels[push.level];
     vec2 grid = (fragLocalXZ-level.xy)/level.z;
@@ -99,6 +105,7 @@ void main() {
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
     LightTerms lit = accumulateReflectanceOccluded(N, V, fragWorldPos, layer.rgb, metallic, layer.a,
                                         int(t.sun.w + 0.5) - 1, clamp(fragSunlight, 0.0, 1.0),
-                                        dielectricF0, dielectricF90);
+                                        dielectricF0, dielectricF90, screenAmbientOcclusion());
     outColor = mix(vec4(lit.diffuse + lit.specular, 1.0),waterColor,waterWeight);
+#endif  // DEPTH_ONLY
 }

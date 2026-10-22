@@ -3,7 +3,9 @@
 
 #include "tonemap_common.glsl"
 
-// HDR -> LDR tonemap pass with AO, fog, bloom and lens effects.
+// HDR -> LDR tonemap pass with fog, bloom and lens effects. Ambient occlusion
+// is not applied here: it occludes indirect light only, inside the scene pass
+// (AmbientOcclusionPass, screen_ambient_occlusion.glsl).
 
 DECL_TEX2D(0, 0, 3, hdrInput);
 DECL_TEX2D(0, 2, 5, bloomInput);
@@ -19,13 +21,11 @@ vec4 sampleHdr(vec2 viewportUV) {
 }
 
 float sampleDepth(vec2 viewportUV) {
-    // Explicit LOD: depth has no mips (identical result) and the AO/fog loops
-    // call this from non-uniform control flow, which WGSL forbids for the
+    // Explicit LOD: depth has no mips (identical result) and the fog loop
+    // calls this from non-uniform control flow, which WGSL forbids for the
     // implicit-derivative texture() variant.
     return textureLod(TEX2D(depthInput), sourceUV(viewportUV), 0.0).r;
 }
-
-#include "ssao.glsl"
 
 // ACES filmic tonemap, Krzysztof Narkowicz 2015 fit.
 vec3 acesFilmic(vec3 x) {
@@ -40,16 +40,6 @@ vec3 acesFilmic(vec3 x) {
 vec3 reconstructViewPosition(vec2 uv, float depth) {
     return viewPositionFromDepth(uv, depth, push.projectionParams, push.projectionParams2,
                                  push.projectionOffsets);
-}
-
-float ambientOcclusion(vec2 uv) {
-    SsaoInputs inputs;
-    inputs.settings = push.aoParams;
-    inputs.invProjection = push.projectionParams;
-    inputs.invProjection2 = push.projectionParams2;
-    inputs.invOffsets = push.projectionOffsets;
-    inputs.pixels = viewportPixels();
-    return ssaoVisibility(inputs, uv);
 }
 
 vec3 bloom(vec2 uv) {
@@ -234,7 +224,6 @@ void main() {
     vec4 hdr4 = sampleHdr(fragUV);
     vec3 hdr = hdr4.rgb;
 
-    hdr *= ambientOcclusion(fragUV);
     hdr = applyFog(hdr, fragUV);
     hdr += bloom(fragUV);
     hdr += lensEffects(fragUV);

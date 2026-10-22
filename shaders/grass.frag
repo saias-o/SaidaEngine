@@ -63,7 +63,10 @@ void main() {
     float elevation = V.y / max(length(V.xz), 1e-3);
     float seen = clamp(VIEW_DEPTH * elevation, LEAST_SEEN, 1.0);
     vec3 albedo = fragColor * mix(1.0, occlusion * light / seenShade(1.0 - seen), fragDetail);
-    LightTerms t = accumulate(N, V, fragWorldPos, albedo, 0.0, mix(GROUND_ROUGHNESS, ROUGHNESS, fragDetail));
+    // No screen-space AO: the depth pre-pass leaves blades out, a texel wide
+    // as most are, and ROOT_SHADE above is their own occlusion.
+    LightTerms t = accumulate(N, V, fragWorldPos, albedo, 0.0, mix(GROUND_ROUGHNESS, ROUGHNESS, fragDetail),
+                              1.0);
     vec3 lit = t.diffuse + t.specular;
     // Through the blade: the directional lights from behind, as diffuse.
     for (int i = 0; i < lights.counts.x; ++i) {

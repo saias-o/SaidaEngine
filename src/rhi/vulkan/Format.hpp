@@ -11,6 +11,7 @@ namespace saida::rhi::vulkan {
 inline VkFormat toVk(Format f) {
     switch (f) {
         case Format::Undefined:            return VK_FORMAT_UNDEFINED;
+        case Format::R8Unorm:              return VK_FORMAT_R8_UNORM;
         case Format::RGBA8Unorm:           return VK_FORMAT_R8G8B8A8_UNORM;
         case Format::RGBA8Srgb:            return VK_FORMAT_R8G8B8A8_SRGB;
         case Format::BGRA8Unorm:           return VK_FORMAT_B8G8R8A8_UNORM;
@@ -33,6 +34,7 @@ inline VkFormat toVk(Format f) {
 inline Format fromVk(VkFormat f) {
     switch (f) {
         case VK_FORMAT_UNDEFINED:            return Format::Undefined;
+        case VK_FORMAT_R8_UNORM:             return Format::R8Unorm;
         case VK_FORMAT_R8G8B8A8_UNORM:       return Format::RGBA8Unorm;
         case VK_FORMAT_R8G8B8A8_SRGB:        return Format::RGBA8Srgb;
         case VK_FORMAT_B8G8R8A8_UNORM:       return Format::BGRA8Unorm;

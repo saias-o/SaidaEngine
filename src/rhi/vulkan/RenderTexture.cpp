@@ -68,11 +68,12 @@ RenderTexture::RenderTexture(VulkanDevice& device, const RenderTextureDesc& desc
         return view;
     };
 
+    const bool layered = !is3d && (desc_.layers > 1 || desc_.arrayView);
     const VkImageViewType wholeType = is3d ? VK_IMAGE_VIEW_TYPE_3D
-                                    : desc_.layers > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY
-                                                       : VK_IMAGE_VIEW_TYPE_2D;
+                                    : layered ? VK_IMAGE_VIEW_TYPE_2D_ARRAY
+                                              : VK_IMAGE_VIEW_TYPE_2D;
     view_ = makeView(wholeType, 0, desc_.layers);
-    if (desc_.layers > 1) {
+    if (layered) {
         layerViews_.reserve(desc_.layers);
         for (uint32_t i = 0; i < desc_.layers; ++i)
             layerViews_.push_back(makeView(VK_IMAGE_VIEW_TYPE_2D, i, 1));

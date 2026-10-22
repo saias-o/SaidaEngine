@@ -40,14 +40,15 @@ RenderTexture::RenderTexture(Device& device, const RenderTextureDesc& desc)
 
     WGPUTextureViewDescriptor vd = {};
     vd.format = td.format;
+    const bool layered = !is3d && (desc_.layers > 1 || desc_.arrayView);
     vd.dimension = is3d ? WGPUTextureViewDimension_3D
-                 : desc_.layers > 1 ? WGPUTextureViewDimension_2DArray
-                                    : WGPUTextureViewDimension_2D;
+                 : layered ? WGPUTextureViewDimension_2DArray
+                           : WGPUTextureViewDimension_2D;
     vd.mipLevelCount = 1;
     vd.arrayLayerCount = is3d ? 1 : desc_.layers;
     view_ = wgpuTextureCreateView(texture_, &vd);
 
-    if (!is3d && desc_.layers > 1) {
+    if (layered) {
         layerViews_.reserve(desc_.layers);
         for (uint32_t i = 0; i < desc_.layers; ++i) {
             WGPUTextureViewDescriptor ld = {};

@@ -42,6 +42,7 @@ public:
     ~TerrainRingsFeature() override;
     void createPipelines(const RenderContext& ctx) override;
     void recordPrePass(const PrePassContext& pc) override;
+    void recordDepth(FrameContext& fc) override;
     void record(FrameContext& fc) override;
 
 private:
@@ -107,6 +108,7 @@ private:
 
     // Packs and uploads this frame's terrains into `packed_` / `count_`.
     void prepare(Scene& scene, uint32_t frameIndex);
+    void drawRings(FrameContext& fc, Pipeline& pipeline, bool cellCullReady);
     bool recordCellCull(const PrePassContext& pc, FrameBuffers& f);
     // Fills the renderer's SunOcclusionMap when it is stale; true if it ran.
     bool recordOcclusion(const PrePassContext& pc, FrameBuffers& f);
@@ -118,6 +120,7 @@ private:
     bool textured_ = false;
     bool materialFallbackReported_ = false;
     std::unique_ptr<Pipeline> pipeline_;
+    std::unique_ptr<Pipeline> depthPipeline_;  // the depth pre-pass: no colour
     std::unique_ptr<ComputePipeline> sunPipeline_;
     std::unique_ptr<ComputePipeline> cullPipeline_;
     std::unique_ptr<ComputePipeline> occlusionPipeline_;

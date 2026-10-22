@@ -181,6 +181,33 @@ void hashMat4(uint64_t& h, const glm::mat4& m) {
     for (int c = 0; c < 4; ++c) hashVec4(h, m[c]);
 }
 
+// `rect` in normalized coordinates of a target of `full` pixels: how a pass
+// confined to the editor's viewport finds that region in a full-size input.
+glm::vec4 normalizedRect(const rhi::Rect2D& rect, rhi::Extent2D full) {
+    const float width = static_cast<float>(std::max(1u, full.width));
+    const float height = static_cast<float>(std::max(1u, full.height));
+    return glm::vec4(static_cast<float>(rect.offset.x) / width, static_cast<float>(rect.offset.y) / height,
+                     static_cast<float>(rect.extent.width) / width,
+                     static_cast<float>(rect.extent.height) / height);
+}
+
+// The depth pre-pass's four mesh pipelines, in the order lit, unlit, lit and
+// unlit two-sided: `lit`'s vertex shader and bindings, depth.shader.frag's
+// discards for a lit surface and no fragment shader for an unlit one, which
+// discards nothing; no colour.
+std::vector<rhi::Pipeline::Desc> depthPrePassVariants(rhi::Pipeline::Desc lit) {
+    lit.fragPath = shaderPath("depth.shader.frag.spv");
+    lit.colorFormats.clear();
+    lit.depthCompare = rhi::kDepthCloser;
+    rhi::Pipeline::Desc unlit = lit;
+    unlit.fragPath.clear();
+    rhi::Pipeline::Desc twoSided = lit;
+    rhi::Pipeline::Desc twoSidedUnlit = unlit;
+    twoSided.cullMode = rhi::CullMode::None;
+    twoSidedUnlit.cullMode = rhi::CullMode::None;
+    return {lit, unlit, twoSided, twoSidedUnlit};
+}
+
 // Light-space view-proj for a spot light (perspective from its cone), Vulkan-flipped.
 glm::mat4 spotMatrix(const glm::vec3& pos, const glm::vec3& dir, float outerAngleDeg, float range) {
     float fovy = glm::clamp(glm::radians(outerAngleDeg) * 2.0f, glm::radians(10.0f), glm::radians(170.0f));
@@ -220,6 +247,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, Window& window,
         rhi::vulkan::fromVk(swapchain_->colorFormat()));
 #endif
     createSkyProbe();
+    createAmbientOcclusionPass();
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
@@ -253,6 +281,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, ResourceManager
         rhi::vulkan::fromVk(swapchain_->colorFormat()));
 #endif
     createSkyProbe();
+    createAmbientOcclusionPass();
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
@@ -280,8 +309,10 @@ Renderer::Renderer(VulkanDevice& device, Window& window, ResourceManager& resour
                                      resources_.materialSetLayout(), *globalSetLayout_);
     createSunOcclusion();
     createSkyProbe();
-    createGlobalDescriptorSets();
+    createAmbientOcclusionPass();
+    // The targets first: set 0 binds the eyes' AO map.
     createXrTargets();
+    createGlobalDescriptorSets();
     createXrPipelines();
     gpuProfiler_ = std::make_unique<GpuProfiler>(device_, kMaxFramesInFlight);
 }
@@ -372,6 +403,13 @@ void Renderer::createGlobalSetLayout() {
     entries.push_back(e);
     e = {}; e.binding = 16; e.type = rhi::BindingType::Sampler; e.visibility = FC;
     entries.push_back(e);
+    // The screen-space AO map, a 2D array of one layer (texelFetch: the
+    // sampler is declared, never used).
+    e = {}; e.binding = 17; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
+    e.dim = Dim::Dim2DArray;
+    entries.push_back(e);
+    e = {}; e.binding = 18; e.type = rhi::BindingType::Sampler; e.visibility = FC;
+    entries.push_back(e);
     globalSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_, entries);
 #else
     globalSetLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
@@ -386,6 +424,7 @@ void Renderer::createGlobalSetLayout() {
             {7, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // environment
             {13, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute}, // sun occlusion
             {15, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute}, // second environment
+            {17, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute}, // screen-space AO map
         });
 #endif
 }
@@ -405,12 +444,16 @@ void Renderer::createPipeline(rhi::BindGroupLayout& materialSetLayout) {
     classic.samples = sampleCountValue(swapchain_->samples());
 #endif
     classic.bindGroupLayouts = {globalSetLayout_.get(), &materialSetLayout};
+    const std::vector<rhi::Pipeline::Desc> depth = depthPrePassVariants(classic);
+    // The depth pre-pass has already written these surfaces' depth.
+    classic.depthCompare = rhi::kDepthCloserOrEqual;
     rhi::Pipeline::Desc unlit = classic;
     unlit.fragPath = shaderPath("unlit.frag.spv");
     auto twoSided = classic; twoSided.cullMode = rhi::CullMode::None;
     auto twoSidedUnlit = twoSided;
     twoSidedUnlit.fragPath = shaderPath("unlit.frag.spv");
     std::vector<rhi::Pipeline::Desc> descriptions{classic, unlit, twoSided, twoSidedUnlit};
+    descriptions.insert(descriptions.end(), depth.begin(), depth.end());
 
 #ifndef SAIDA_RHI_WEBGPU
     if (gpuDrivenAvailable_) {
@@ -420,7 +463,12 @@ void Renderer::createPipeline(rhi::BindGroupLayout& materialSetLayout) {
         gpuDriven.fragPath = shaderPath("bindless.shader.frag.spv");
         gpuDriven.bindGroupLayouts = {globalSetLayout_.get(), resources_.globalMaterialSetLayout(),
                                       cullingSetLayout_.get()};
+        rhi::Pipeline::Desc gpuDrivenDepth = gpuDriven;
+        gpuDrivenDepth.fragPath = shaderPath("bindless.depth.shader.frag.spv");
+        gpuDrivenDepth.colorFormats.clear();
+        gpuDrivenDepth.depthCompare = rhi::kDepthCloser;
         descriptions.push_back(gpuDriven);
+        descriptions.push_back(gpuDrivenDepth);
     }
 #endif
     auto built = buildGraphicsPipelines(device_, descriptions);
@@ -428,8 +476,15 @@ void Renderer::createPipeline(rhi::BindGroupLayout& materialSetLayout) {
     unlitPipeline_ = std::move(built[1]);
     twoSidedPipeline_ = std::move(built[2]);
     twoSidedUnlitPipeline_ = std::move(built[3]);
+    depthPipeline_ = std::move(built[4]);
+    depthUnlitPipeline_ = std::move(built[5]);
+    depthTwoSidedPipeline_ = std::move(built[6]);
+    depthTwoSidedUnlitPipeline_ = std::move(built[7]);
 #ifndef SAIDA_RHI_WEBGPU
-    if (gpuDrivenAvailable_) gpuDrivenPipeline_ = std::move(built[4]);
+    if (gpuDrivenAvailable_) {
+        gpuDrivenPipeline_ = std::move(built[8]);
+        gpuDrivenDepthPipeline_ = std::move(built[9]);
+    }
 #endif
 }
 
@@ -603,6 +658,13 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment, Texture* blendE
     blendEnvironmentEntry.sampler = blendEnvironment->sampler();
 #endif
 
+    rhi::BindGroupEntry aoEntry;
+    aoEntry.binding = 17;
+    aoEntry.view = aoTexture_->view();
+#ifndef SAIDA_RHI_WEBGPU
+    aoEntry.sampler = aoSampler_->handle();
+#endif
+
     rhi::BindGroupEntry sunOcclusionEntry;
     sunOcclusionEntry.binding = 13;
 #ifdef SAIDA_RHI_WEBGPU
@@ -640,13 +702,16 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment, Texture* blendE
     rhi::BindGroupEntry blendEnvironmentSamplerEntry;
     blendEnvironmentSamplerEntry.binding = 16;
     blendEnvironmentSamplerEntry.sampler = blendEnvironment->sampler();
+    rhi::BindGroupEntry aoSamplerEntry;
+    aoSamplerEntry.binding = 18;
+    aoSamplerEntry.sampler = aoSampler_->handle();
 
     globalGroups_[frame] = std::make_unique<rhi::BindGroup>(*globalSetLayout_,
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
             giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry,
             shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
             giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry,
-            blendEnvironmentEntry, blendEnvironmentSamplerEntry});
+            blendEnvironmentEntry, blendEnvironmentSamplerEntry, aoEntry, aoSamplerEntry});
 
     // Variant for the DDGI compute pass. WebGPU merges every bound group's
     // resources into the dispatch usage scope, so having the current atlases
@@ -661,13 +726,14 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment, Texture* blendE
             giIrradianceDummy, giVisibilityDummy, giVoxelEntry, environmentEntry,
             shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
             giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry,
-            blendEnvironmentEntry, blendEnvironmentSamplerEntry});
+            blendEnvironmentEntry, blendEnvironmentSamplerEntry, aoEntry, aoSamplerEntry});
 #else
     globalGroups_[frame] = std::make_unique<rhi::BindGroup>(*globalSetLayout_,
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
             giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry, sunOcclusionEntry,
-            blendEnvironmentEntry});
+            blendEnvironmentEntry, aoEntry});
 #endif
+    cachedAoView_[frame] = aoTexture_->view();
 
     cachedGiIrradianceView_[frame] = gi_->irradianceView();
     cachedGiVisibilityView_[frame] = gi_->visibilityView();
@@ -804,10 +870,12 @@ void Renderer::updateEnvironmentDescriptor(Scene& scene) {
         blendEnvironment = resources_.getTexture(scene.settings().skyboxBlendTexture);
     if (!blendEnvironment) blendEnvironment = environment;
 
+    // The AO map is recreated with the targets on a resize, and rebound here too.
     if (cachedEnvironmentView_[currentFrame_] == environment->imageView() &&
         cachedEnvironmentSampler_[currentFrame_] == environment->sampler() &&
         cachedBlendEnvironmentView_[currentFrame_] == blendEnvironment->imageView() &&
-        cachedBlendEnvironmentSampler_[currentFrame_] == blendEnvironment->sampler()) {
+        cachedBlendEnvironmentSampler_[currentFrame_] == blendEnvironment->sampler() &&
+        cachedAoView_[currentFrame_] == aoTexture_->view()) {
         return;
     }
     rebuildGlobalSet(currentFrame_, environment, blendEnvironment);
@@ -944,6 +1012,7 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
                                       settings.rainUpDirection, Time::elapsed());
     ubo.rainParams = rain.params;
     ubo.rainUp = rain.up;
+    ubo.ambientOcclusion = glm::vec4(ambientOcclusionActive(settings) ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
     ubo.environmentParams = glm::vec4(
         iblActive ? 1.0f : 0.0f,
         std::max(settings.iblDiffuseIntensity, 0.0f) * environmentExposure,
@@ -1196,6 +1265,21 @@ void Renderer::createHdrResources() {
         depthResolveTexture_ = std::make_unique<rhi::RenderTexture>(device_, depthDesc);
     }
 
+    rhi::RenderTextureDesc aoDesc;
+    aoDesc.format = AmbientOcclusionPass::kFormat;
+    aoDesc.width = extent.width;
+    aoDesc.height = extent.height;
+    aoDesc.arrayView = true;  // read by view layer, as XR's (screen_ambient_occlusion.glsl)
+    aoDesc.usage = rhi::TextureUsage::ColorAttachment | rhi::TextureUsage::Sampled;
+    aoDesc.memoryCategory = "RenderTarget/DesktopHDR";
+    aoTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
+    aoState_ = rhi::ResourceState::Undefined;
+    aoRawTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
+    aoRawState_ = rhi::ResourceState::Undefined;
+    aoInputs_ = aoPass_->makeInputs(depthResolveTexture_ ? depthResolveTexture_->view()
+                                                         : swapchain_->depthView(),
+                                    aoRawTexture_->layerView(0));
+
     if (postProcessor_) postProcessor_->resize(extent, hdrTexture_->view());
     else postProcessor_ = std::make_unique<PostProcessor>(device_, extent,
         rhi::Format::RGBA16Float, hdrTexture_->view());
@@ -1209,6 +1293,9 @@ void Renderer::createHdrResources() {
 }
 
 void Renderer::cleanupHdrResources() {
+    aoInputs_ = {};
+    aoRawTexture_.reset();
+    aoTexture_.reset();
     depthResolveTexture_.reset();
     hdrMsaaTexture_.reset();
     hdrTexture_.reset();
@@ -1239,11 +1326,7 @@ void Renderer::recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageInd
 
     rhi::Rect2D renderRect = activeRenderRect();
     rhi::Extent2D fullExtent = swapchain_->extent();
-    glm::vec4 sourceRect(
-        static_cast<float>(renderRect.offset.x) / static_cast<float>(std::max(1u, fullExtent.width)),
-        static_cast<float>(renderRect.offset.y) / static_cast<float>(std::max(1u, fullExtent.height)),
-        static_cast<float>(renderRect.extent.width) / static_cast<float>(std::max(1u, fullExtent.width)),
-        static_cast<float>(renderRect.extent.height) / static_cast<float>(std::max(1u, fullExtent.height)));
+    glm::vec4 sourceRect = normalizedRect(renderRect, fullExtent);
 
     if (postProcessor_) {
         postProcessor_->recordBloom(encoder, scene.settings(), sourceRect, gpuProfiler);
@@ -1304,25 +1387,22 @@ void Renderer::recordFeatures(FrameContext& fc) {
     }
 }
 
-void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstPipeline, bool xrMultiview) {
+void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, MeshPass pass, bool xrMultiview) {
     SAIDA_PROFILE_FUNCTION();
-    if (!firstPipeline) return;
-
     Material* lastMaterial = nullptr;
-    rhi::Pipeline* activePipeline = firstPipeline;
+    rhi::Pipeline* activePipeline = nullptr;
     uint64_t drawCalls = 0;
     const rhi::BindGroup& globalSet = *globalGroups_[currentFrame_];
-    rp.setPipeline(*activePipeline);
-    rp.setBindGroup(0, globalSet);
 
     for (const auto& draw : frameDraws_.visibleDraws) {
-        rhi::Pipeline* want = scenePipelineFor(draw.materialType, draw.material->desc().doubleSided);
+        rhi::Pipeline* want = scenePipelineFor(draw.materialType, draw.material->desc().doubleSided, pass);
 #ifdef SAIDA_ENABLE_XR
         if (xrMultiview)
-            want = xrScenePipelineFor(draw.materialType, draw.material->desc().doubleSided);
+            want = xrScenePipelineFor(draw.materialType, draw.material->desc().doubleSided, pass);
 #else
         (void)xrMultiview;
 #endif
+        if (!want) continue;
 
         if (want != activePipeline) {
             rp.setPipeline(*want);
@@ -1348,7 +1428,129 @@ void Renderer::recordMeshDraws(rhi::RenderPassEncoder& rp, rhi::Pipeline* firstP
         draw.mesh->draw(rp);
         ++drawCalls;
     }
-    SAIDA_PROFILE_COUNTER("Renderer/DrawCalls", drawCalls);
+    if (pass == MeshPass::Scene) SAIDA_PROFILE_COUNTER("Renderer/DrawCalls", drawCalls);
+    else SAIDA_PROFILE_COUNTER("Renderer/DepthPrePassDrawCalls", drawCalls);
+}
+
+void Renderer::recordSceneMeshes(rhi::RenderPassEncoder& rp, MeshPass pass) {
+#ifndef SAIDA_RHI_WEBGPU
+    if (gpuFrameActive_) {
+        rp.setPipeline(pass == MeshPass::Depth ? *gpuDrivenDepthPipeline_ : *gpuDrivenPipeline_);
+        rp.setBindGroup(0, *globalGroups_[currentFrame_]);
+        rp.setBindGroup(1, resources_.globalMaterialSet());
+        rp.setBindGroup(2, *cullingGroups_[currentFrame_]);
+
+        PushConstants gfxPc{};
+        gfxPc.model = glm::mat4(1.0f); // Unused in bindless
+        gfxPc.params = glm::vec4(0.0f);
+        rp.setPushConstants(&gfxPc, sizeof(PushConstants));
+
+        auto& geometry = resources_.geometry();
+        rp.setVertexBuffer(*geometry.vertexBuffer());
+        rp.setIndexBuffer(*geometry.indexBuffer());
+
+        if (currentInstanceCount_ > 0) {
+            if (device_.capabilities().drawIndirectCount) {
+                rp.drawIndexedIndirectCount(*drawCommandBuffers_[currentFrame_], 0,
+                                            *countBuffers_[currentFrame_], 0,
+                                            currentInstanceCount_,
+                                            sizeof(gpu_driven::DrawIndexedIndirectCommand));
+            } else {
+                // The slots past the visible count were zeroed before culling.
+                rp.drawIndexedIndirect(*drawCommandBuffers_[currentFrame_], 0,
+                                       currentInstanceCount_,
+                                       sizeof(gpu_driven::DrawIndexedIndirectCommand));
+            }
+        }
+        return;
+    }
+#endif
+    recordMeshDraws(rp, pass, false);
+}
+
+void Renderer::createAmbientOcclusionPass() {
+    aoPass_ = std::make_unique<AmbientOcclusionPass>(device_);
+    rhi::SamplerDesc nearest;
+    nearest.magFilter = rhi::FilterMode::Nearest;
+    nearest.minFilter = rhi::FilterMode::Nearest;
+    aoSampler_ = std::make_unique<rhi::Sampler>(device_, nearest);
+}
+
+bool Renderer::ambientOcclusionActive(const SceneSettings& settings) const {
+    return aoPass_ && aoTexture_ && AmbientOcclusionPass::active(settings);
+}
+
+void Renderer::readyAmbientOcclusionMap(rhi::CommandEncoder& encoder) {
+    // Set 0 binds the map for every lit draw, read or not: it must rest in
+    // ShaderRead from its creation on.
+    if (aoState_ == rhi::ResourceState::ShaderRead) return;
+    encoder.transition(aoTexture_->image(), aoState_, rhi::ResourceState::ShaderRead,
+                       0, kAllTextureLayers);
+    aoState_ = rhi::ResourceState::ShaderRead;
+}
+
+void Renderer::recordDepthPrePass(rhi::CommandEncoder& encoder, Scene& scene, const Camera& camera,
+                                  const rhi::Rect2D& renderRect, bool msaa) {
+    rhi::RenderPassDesc pass;
+    pass.depth.view = swapchain_->depthView();
+    pass.depth.loadOp = rhi::LoadOp::Clear;
+    pass.depth.store = true;  // the scene pass goes on with it
+    pass.depth.resolveView = msaa ? depthResolveTexture_->view() : rhi::TextureView{};
+    pass.x = renderRect.offset.x;
+    pass.y = renderRect.offset.y;
+    pass.width = renderRect.extent.width;
+    pass.height = renderRect.extent.height;
+
+    rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
+    recordSceneMeshes(rp, MeshPass::Depth);
+    const auto& featureDrawList = featureDraws();
+    FrameContext fc{encoder, rp,
+                    currentFrame_, globalGroups_[currentFrame_].get(), scene,
+                    Time::elapsed(), false, &camera, nullptr, false, renderRect.extent,
+                    featureDrawList.data(), static_cast<uint32_t>(featureDrawList.size())};
+    for (auto& f : features_) f->recordDepth(fc);
+    rp.end();
+}
+
+void Renderer::recordAmbientOcclusion(rhi::CommandEncoder& encoder, Scene& scene, const Camera& camera,
+                                      const rhi::Rect2D& renderRect, bool msaa) {
+    // The pre-pass's single-sample depth is read, then written on by the scene
+    // pass (MSAA: its resolve target, which that pass resolves into again).
+    auto depthImage = msaa ? depthResolveTexture_->image() : swapchain_->depthImage();
+    encoder.transition(depthImage, rhi::ResourceState::DepthWrite, rhi::ResourceState::ShaderRead);
+    recordAmbientOcclusionStages(encoder, scene.settings(), {{&aoInputs_, camera.projection(), 0}},
+                                 renderRect, normalizedRect(renderRect, swapchain_->extent()));
+    encoder.transition(depthImage, rhi::ResourceState::ShaderRead, rhi::ResourceState::DepthWrite);
+}
+
+void Renderer::recordAmbientOcclusionStages(rhi::CommandEncoder& encoder, const SceneSettings& settings,
+                                            const std::vector<AmbientOcclusionView>& views,
+                                            const rhi::Rect2D& renderRect, const glm::vec4& sourceRect) {
+    // Every view's raw occlusion, then every view's AO map layer from it.
+    auto runStage = [&](AmbientOcclusionPass::Stage stage, rhi::RenderTexture& target,
+                        rhi::ResourceState& state) {
+        encoder.transition(target.image(), state, rhi::ResourceState::ColorAttachment,
+                           0, kAllTextureLayers, /*discardContents=*/true);
+        for (const AmbientOcclusionView& view : views) {
+            rhi::RenderPassDesc pass;
+            pass.colorCount = 1;
+            pass.colors[0].view = target.layerView(view.layer);
+            pass.colors[0].loadOp = rhi::LoadOp::Clear;
+            pass.colors[0].clearColor = {{1.0f, 1.0f, 1.0f, 1.0f}};
+            pass.x = renderRect.offset.x;
+            pass.y = renderRect.offset.y;
+            pass.width = renderRect.extent.width;
+            pass.height = renderRect.extent.height;
+            rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
+            aoPass_->record(rp, stage, *view.inputs, settings, view.projection, renderRect, sourceRect);
+            rp.end();
+        }
+        encoder.transition(target.image(), rhi::ResourceState::ColorAttachment,
+                           rhi::ResourceState::ShaderRead, 0, kAllTextureLayers);
+        state = rhi::ResourceState::ShaderRead;
+    };
+    runStage(AmbientOcclusionPass::Stage::Kernel, *aoRawTexture_, aoRawState_);
+    runStage(AmbientOcclusionPass::Stage::Denoise, *aoTexture_, aoState_);
 }
 
 void Renderer::recordWorldWebCanvases(rhi::RenderPassEncoder& rp, Scene& scene, const Camera& camera) {
@@ -1525,6 +1727,19 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
                        rhi::ResourceState::DepthWrite, 0, kAllTextureLayers,
                        /*discardContents=*/true);
 
+    // Ambient occlusion needs the depth before the lit shaders run: a
+    // depth-only pass over the opaque surfaces, then the AO map from it.
+    readyAmbientOcclusionMap(encoder);
+    const bool ambientOcclusion = ambientOcclusionActive(settings);
+    if (ambientOcclusion) {
+        {
+            SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Scene/DepthPrePass");
+            recordDepthPrePass(encoder, scene, camera, renderRect, msaa);
+        }
+        SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Scene/AmbientOcclusion");
+        recordAmbientOcclusion(encoder, scene, camera, renderRect, msaa);
+    }
+
     rhi::RenderPassDesc scenePass;
     scenePass.colorCount = 1;
     scenePass.colors[0].view = colorView;
@@ -1533,7 +1748,7 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
     scenePass.colors[0].store = !msaa;                          // MSAA source is resolved, not kept
     scenePass.colors[0].resolveView = msaa ? hdrTexture_->view() : rhi::TextureView{};
     scenePass.depth.view = swapchain_->depthView();
-    scenePass.depth.loadOp = rhi::LoadOp::Clear;
+    scenePass.depth.loadOp = ambientOcclusion ? rhi::LoadOp::Load : rhi::LoadOp::Clear;
     scenePass.depth.store = !msaa;
     scenePass.depth.resolveView = msaa ? depthResolveTexture_->view() : rhi::TextureView{};
     scenePass.x = renderRect.offset.x;
@@ -1544,41 +1759,9 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
     {
     SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "GPU/SceneHDR");
     rhi::RenderPassEncoder rp = encoder.beginRenderPass(scenePass);
-
-#ifndef SAIDA_RHI_WEBGPU
-    if (gpuFrameActive_) {
-        rp.setPipeline(*gpuDrivenPipeline_);
-        rp.setBindGroup(0, *globalGroups_[currentFrame_]);
-        rp.setBindGroup(1, resources_.globalMaterialSet());
-        rp.setBindGroup(2, *cullingGroups_[currentFrame_]);
-
-        PushConstants gfxPc{};
-        gfxPc.model = glm::mat4(1.0f); // Unused in bindless
-        gfxPc.params = glm::vec4(0.0f);
-        rp.setPushConstants(&gfxPc, sizeof(PushConstants));
-
-        auto& geometry = resources_.geometry();
-        rp.setVertexBuffer(*geometry.vertexBuffer());
-        rp.setIndexBuffer(*geometry.indexBuffer());
-
-        if (currentInstanceCount_ > 0) {
-            if (device_.capabilities().drawIndirectCount) {
-                rp.drawIndexedIndirectCount(*drawCommandBuffers_[currentFrame_], 0,
-                                            *countBuffers_[currentFrame_], 0,
-                                            currentInstanceCount_,
-                                            sizeof(gpu_driven::DrawIndexedIndirectCommand));
-            } else {
-                // The slots past the visible count were zeroed before culling.
-                rp.drawIndexedIndirect(*drawCommandBuffers_[currentFrame_], 0,
-                                       currentInstanceCount_,
-                                       sizeof(gpu_driven::DrawIndexedIndirectCommand));
-            }
-        }
-    } else
-#endif
     {
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Scene/Opaque");
-        recordMeshDraws(rp, pipeline_.get(), false);
+        recordSceneMeshes(rp, MeshPass::Scene);
     }
 
     const auto& featureDrawList = featureDraws();
@@ -1772,13 +1955,30 @@ void Renderer::createXrTargets() {
     depthDesc.memoryCategory = "RenderTarget/XR";
     xrDepthTexture_ = std::make_unique<rhi::RenderTexture>(device_, depthDesc);
 
+    rhi::RenderTextureDesc aoDesc;
+    aoDesc.format = AmbientOcclusionPass::kFormat;
+    aoDesc.width = xrExtent_.width;
+    aoDesc.height = xrExtent_.height;
+    aoDesc.layers = xrViewCount_;
+    aoDesc.arrayView = true;
+    aoDesc.usage = rhi::TextureUsage::ColorAttachment | rhi::TextureUsage::Sampled;
+    aoDesc.memoryCategory = "RenderTarget/XR";
+    aoTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
+    aoState_ = rhi::ResourceState::Undefined;
+    aoRawTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
+    aoRawState_ = rhi::ResourceState::Undefined;
+
     for (uint32_t i = 0; i < std::min<uint32_t>(xrViewCount_, 2); ++i) {
         xrPostProcessors_[i] = std::make_unique<PostProcessor>(device_, xrExtent_,
             rhi::Format::RGBA16Float, xrHdrTexture_->layerView(i));
+        xrAoInputs_[i] = aoPass_->makeInputs(xrDepthTexture_->layerView(i), aoRawTexture_->layerView(i));
     }
 }
 
 void Renderer::cleanupXrTargets() {
+    for (auto& inputs : xrAoInputs_) inputs = {};
+    aoRawTexture_.reset();
+    aoTexture_.reset();
     for (auto& post : xrPostProcessors_) post.reset();
     xrDepthTexture_.reset();
     xrHdrTexture_.reset();
@@ -1798,6 +1998,15 @@ void Renderer::createXrPipelines() {
 
     sceneDesc.vertPath = shaderPath("multiview.shader.vert.spv");
     sceneDesc.fragPath = shaderPath("shader.frag.spv");
+    {
+        auto depth = buildGraphicsPipelines(device_, depthPrePassVariants(sceneDesc));
+        xrDepthPipeline_ = std::move(depth[0]);
+        xrDepthUnlitPipeline_ = std::move(depth[1]);
+        xrDepthTwoSidedPipeline_ = std::move(depth[2]);
+        xrDepthTwoSidedUnlitPipeline_ = std::move(depth[3]);
+    }
+    // The depth pre-pass has already written these surfaces' depth.
+    sceneDesc.depthCompare = rhi::kDepthCloserOrEqual;
     xrScenePipeline_ = std::make_unique<rhi::Pipeline>(device_, sceneDesc);
 
     sceneDesc.fragPath = shaderPath("unlit.frag.spv");
@@ -1945,13 +2154,21 @@ void Renderer::recordXrScenePass(rhi::CommandEncoder& encoder, Scene& scene,
                        rhi::ResourceState::DepthWrite, 0, xrViewCount_,
                        /*discardContents=*/true);
 
+    // As on the desktop: the eyes' depth first, then each eye's AO map layer.
+    readyAmbientOcclusionMap(encoder);
+    const bool ambientOcclusion = ambientOcclusionActive(settings);
+    if (ambientOcclusion) {
+        recordXrDepthPrePass(encoder, scene, eyes);
+        recordXrAmbientOcclusion(encoder, scene, eyes);
+    }
+
     rhi::RenderPassDesc pass;
     pass.colorCount = 1;
     pass.colors[0].view = xrHdrTexture_->view();
     pass.colors[0].loadOp = rhi::LoadOp::Clear;
     pass.colors[0].clearColor = {{clearColor.r, clearColor.g, clearColor.b, clearColor.a}};
     pass.depth.view = xrDepthTexture_->view();
-    pass.depth.loadOp = rhi::LoadOp::Clear;
+    pass.depth.loadOp = ambientOcclusion ? rhi::LoadOp::Load : rhi::LoadOp::Clear;
     pass.width = xrExtent_.width;
     pass.height = xrExtent_.height;
     pass.layerCount = 1;                        // ignored when viewMask != 0
@@ -1959,7 +2176,7 @@ void Renderer::recordXrScenePass(rhi::CommandEncoder& encoder, Scene& scene,
 
     rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
 
-    recordMeshDraws(rp, xrScenePipeline_.get(), true);
+    recordMeshDraws(rp, MeshPass::Scene, true);
 
     // passthrough is forwarded so the skybox skips itself.
     const auto& featureDrawList = featureDraws();
@@ -1971,6 +2188,43 @@ void Renderer::recordXrScenePass(rhi::CommandEncoder& encoder, Scene& scene,
     recordXrWorldWebCanvases(rp, scene, eyes);
 
     rp.end();
+}
+
+void Renderer::recordXrDepthPrePass(rhi::CommandEncoder& encoder, Scene& scene,
+                                    const std::vector<EyeRenderInfo>& eyes) {
+    rhi::RenderPassDesc pass;
+    pass.depth.view = xrDepthTexture_->view();
+    pass.depth.loadOp = rhi::LoadOp::Clear;
+    pass.depth.store = true;  // the scene pass goes on with it
+    pass.width = xrExtent_.width;
+    pass.height = xrExtent_.height;
+    pass.layerCount = 1;                        // ignored when viewMask != 0
+    pass.viewMask = xrViewMask(xrViewCount_);
+
+    rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
+    recordMeshDraws(rp, MeshPass::Depth, true);
+    const auto& featureDrawList = featureDraws();
+    FrameContext fc{encoder, rp,
+                    currentFrame_, globalGroups_[currentFrame_].get(), scene,
+                    Time::elapsed(), true, nullptr, &eyes, XRPassthrough::enabled(), xrExtent_,
+                    featureDrawList.data(), static_cast<uint32_t>(featureDrawList.size())};
+    for (auto& f : features_) f->recordDepth(fc);
+    rp.end();
+}
+
+void Renderer::recordXrAmbientOcclusion(rhi::CommandEncoder& encoder, Scene& scene,
+                                        const std::vector<EyeRenderInfo>& eyes) {
+    encoder.transition(xrDepthTexture_->image(), rhi::ResourceState::DepthWrite,
+                       rhi::ResourceState::ShaderRead, 0, xrViewCount_);
+    // Layer i is what gl_ViewIndex i reads back in the multiview scene pass.
+    std::vector<AmbientOcclusionView> views;
+    const uint32_t n = std::min<uint32_t>(static_cast<uint32_t>(eyes.size()), xrViewCount_);
+    for (uint32_t i = 0; i < n && i < xrAoInputs_.size() && xrAoInputs_[i].kernel; ++i)
+        views.push_back({&xrAoInputs_[i], eyes[i].projection, i});
+    recordAmbientOcclusionStages(encoder, scene.settings(), views, rhi::Rect2D{{0, 0}, xrExtent_},
+                                 glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
+    encoder.transition(xrDepthTexture_->image(), rhi::ResourceState::ShaderRead,
+                       rhi::ResourceState::DepthWrite, 0, xrViewCount_);
 }
 
 void Renderer::recordXrWorldWebCanvases(rhi::RenderPassEncoder& rp, Scene& scene,
