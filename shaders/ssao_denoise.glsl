@@ -1,50 +1,46 @@
 #ifndef SSAO_DENOISE_GLSL
 #define SSAO_DENOISE_GLSL
 
-// The visibility the scene pass reads (ambient_occlusion_denoise.frag): the
-// raw kernel's (ssao.glsl), averaged over one AO_PATTERN x AO_PATTERN block
-// around the texel -- every kernel of the pattern once, whatever the block's
-// phase -- among the texels of the same surface, then shaped by the power.
-// The includer first defines sampleDepth (as for ssao.glsl) and
-//     float sampleRawVisibility(vec2 viewportUV)
-// returning the raw kernel's result at the texel at that coordinate. Like
-// ssao.glsl, this is also compiled as C++ over GLM by the CPU tests.
+// The second stage on the AO grid (ambient_occlusion_denoise.frag): the raw
+// kernel's visibility (ssao.glsl), averaged over the 3 x 3 grid texels around
+// the texel with the tent [1 2 1] each way -- centred, so the occlusion does
+// not shift, and giving each cell of the 2 x 2 pattern the same total weight,
+// 4 of 16 -- among the texels of the same surface. Still linear:
+// ssao_upsample.glsl applies the power. The includer first defines
+// sampleDepth (as for ssao.glsl) and
+//     float sampleRawVisibility(ivec2 aoTexel)
+// returning the kernel stage's result at an AO-grid texel of the viewport.
+// Like ssao.glsl, this is also compiled as C++ over GLM by the CPU tests.
 
 #include "ssao.glsl"
 
-// Relative difference of view depth at which a neighbour stops counting: the
-// average must not carry the occlusion of one surface onto another across a
-// silhouette, where it would draw a halo.
-const float AO_DENOISE_DEPTH_TOLERANCE = 0.05f;
-
-float ssaoDenoise(SsaoInputs inputs, vec2 uv) {
+float ssaoDenoise(SsaoInputs inputs, ivec2 aoTexel) {
     if (inputs.settings.x < 0.5f) return 1.0f;
-    vec2 texelUV = ssaoTexelCentre(uv, inputs.pixels);
-    float depth = sampleDepth(texelUV);
+    vec2 uv = ssaoRepresentativeUV(aoTexel, inputs.pixels);
+    float depth = sampleDepth(uv);
     if (nothingDrawn(depth)) return 1.0f;
-    float centreZ = ssaoViewPosition(inputs, texelUV, depth).z;
-    vec2 texel = 1.0f / inputs.pixels;
+    float centreZ = ssaoViewPosition(inputs, uv, depth).z;
+    ivec2 gridSize = ivec2(inputs.aoPixels);
 
     float sum = 0.0f;
     float weights = 0.0f;
-    // The block [-AO_PATTERN/2, AO_PATTERN/2 - 1]: half a texel off centre, the
-    // price of covering each pattern cell exactly once.
-    for (int dy = -AO_PATTERN / 2; dy < AO_PATTERN / 2; ++dy) {
-        for (int dx = -AO_PATTERN / 2; dx < AO_PATTERN / 2; ++dx) {
-            vec2 neighbourUV = texelUV + vec2(float(dx), float(dy)) * texel;
-            if (any(lessThan(neighbourUV, vec2(0.0f))) || any(greaterThan(neighbourUV, vec2(1.0f))))
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 neighbour = aoTexel + ivec2(dx, dy);
+            if (any(lessThan(neighbour, ivec2(0))) || any(greaterThanEqual(neighbour, gridSize)))
                 continue;
+            vec2 neighbourUV = ssaoRepresentativeUV(neighbour, inputs.pixels);
             float neighbourDepth = sampleDepth(neighbourUV);
             if (nothingDrawn(neighbourDepth)) continue;
-            float neighbourZ = ssaoViewPosition(inputs, neighbourUV, neighbourDepth).z;
-            float weight = max(1.0f - abs(neighbourZ - centreZ)
-                                   / (AO_DENOISE_DEPTH_TOLERANCE * abs(centreZ)), 0.0f);
-            sum += weight * sampleRawVisibility(neighbourUV);
+            float tent = float((2 - abs(dx)) * (2 - abs(dy)));
+            float weight = tent * ssaoDepthWeight(centreZ,
+                                                  ssaoViewPosition(inputs, neighbourUV, neighbourDepth).z);
+            sum += weight * sampleRawVisibility(neighbour);
             weights += weight;
         }
     }
     // The texel itself always counts fully.
-    return pow(clamp(sum / weights, 0.0f, 1.0f), inputs.settings.w);
+    return clamp(sum / weights, 0.0f, 1.0f);
 }
 
 #endif  // SSAO_DENOISE_GLSL

@@ -22,10 +22,21 @@ the corresponding contracts of `SPEC.md`.
   depth-resolve hazard it showed fixed), the Web player built and its new WGSL
   compiled and pipelined by Chrome WebGPU, and R1World's rue de Rivoli captured
   with AO on and off.
-- [ ] Bring the AO map's cost down: 4.3 ms of a 24.4 ms GPU frame in that view
-  on the MX450 at 1600 x 900 (the pre-pass, 3.0 ms, already pays for itself).
-  Computing the kernel at half resolution with a depth-aware upsample is the
-  usual way; it must keep `saida_ssao_tests`' bounds.
+- [x] Bring the AO map's cost down: 2.3 ms instead of 4.3 in that view on the
+  MX450 at 1600 x 900, the kernel and its denoise at half resolution with a
+  depth-aware upsample (SPEC 4.1). Proof: `saida_ssao_tests` over all three
+  stages, its bounds tightened (0.0005 mean, 0.02 worst, from 0.001 and 0.03)
+  and still failed by every earlier defect reinjected, by a kernel the same for
+  every texel, by the raw kernel undenoised and by an average off centre;
+  `tools/verify_ambient_occlusion.py` and the five other pixel verifiers; Vulkan
+  validation with synchronization checks, nothing new with AO on; the Web
+  player built and the upsample's WGSL compiled and pipelined by Chrome
+  WebGPU; R1World's rue de Rivoli profiled with AO on and off, the same draws
+  as before.
+- [ ] AO on still adds 3.5 ms to that view's GPU frame (19.1 to 22.5 ms), and
+  the depth pre-pass is most of it: it costs 3.0 to 3.6 ms and saves 2.5 to
+  3.8 ms of the opaque pass from one run to the next, so it does not always
+  pay for itself. Measure where its time goes before changing it.
 - [ ] XR: the AO path (multiview pre-pass, one AO layer per eye) is built and
   shares the desktop code, but no headset has run it yet.
 - [ ] Fix what `SAIDA_VULKAN_VALIDATION=1` reports outside AO, present before

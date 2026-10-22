@@ -2,9 +2,9 @@
 #define SSAO_GLSL
 
 // Screen-space ambient occlusion from the depth buffer alone: the raw kernel
-// (ambient_occlusion.frag) whose result ssao_denoise.glsl turns into the
-// visibility the scene pass's lit shaders put on their indirect light. The
-// includer first defines
+// (ambient_occlusion.frag) whose result ssao_denoise.glsl and
+// ssao_upsample.glsl turn into the visibility the scene pass's lit shaders put
+// on their indirect light. The includer first defines
 //     float sampleDepth(vec2 viewportUV)
 // returning the reversed depth of the texel at that viewport coordinate.
 //
@@ -16,15 +16,23 @@
 
 #include "depth_reconstruction.glsl"
 
+// The kernel runs on the AO grid, one texel per AO_RESOLUTION_DIVISOR texels
+// of the view on each axis, each at the full-resolution texel it stands for
+// (ssaoRepresentativeUV); every depth it reads is the full resolution's.
+// ssao_upsample.glsl brings the result back to every texel of the view.
+//
 // AO_DIR_COUNT directions, AO_STEP_COUNT samples along each. One kernel for
-// every pixel would print a copy of each occluder per sample, in hard-edged
-// bands; instead each pixel of an AO_PATTERN x AO_PATTERN block turns the
-// directions and slides the steps by its own share (ssaoPatternIndex), and
-// ssao_denoise.glsl averages exactly such a block, so that every pixel sees
-// all AO_PATTERN^2 kernels and the bands become noise, then smoothness.
+// every texel would print a copy of each occluder per sample, in hard-edged
+// bands; instead each texel of a 2 x 2 block of the grid turns the directions
+// and slides the steps by its own share (ssaoPatternIndex), and
+// ssao_denoise.glsl weighs the four alike around every texel, so the bands
+// become noise, then smoothness. Kept to 2 x 2 -- four texels of the view
+// each way -- the average does not carry a contact's occlusion away from it;
+// the grid's quarter of the texels pays for the denser kernel.
+const int AO_RESOLUTION_DIVISOR = 2;
 const int AO_DIR_COUNT = 8;
-const int AO_STEP_COUNT = 2;
-const int AO_PATTERN = 4;
+const int AO_STEP_COUNT = 4;
+const int AO_PATTERN_CELLS = 4;
 const float AO_TWO_PI = 6.28318530718f;
 // Elevation cosine every sample gives up, so that a flat surface does not
 // occlude itself through depth quantization.
@@ -41,23 +49,16 @@ struct SsaoInputs {
     vec4 invProjection2;   // InverseProjection::depth
     vec4 invOffsets;       // InverseProjection::offsets
     vec2 pixels;           // the viewport's size in depth texels
+    vec2 aoPixels;         // and on the AO grid: ceil(pixels / AO_RESOLUTION_DIVISOR)
 };
 
-// The texel's place in its AO_PATTERN x AO_PATTERN block, 0 to AO_PATTERN^2 - 1,
-// as a 4 x 4 ordered-dither (Bayer) matrix lays it out: neighbours far apart
-// in the sequence. `transposed` reads the matrix the other way, a second
-// sequence little correlated with the first.
-int ssaoPatternIndex(vec2 texelUV, vec2 pixels, bool transposed) {
-    int x = int(floor(texelUV.x * pixels.x));
-    int y = int(floor(texelUV.y * pixels.y));
-    if (transposed) {
-        int swap = x;
-        x = y;
-        y = swap;
-    }
-    int fine = 2 * ((x ^ y) & 1) + (y & 1);
-    int coarse = 2 * (((x >> 1) ^ (y >> 1)) & 1) + ((y >> 1) & 1);
-    return 4 * fine + coarse;
+// An AO-grid texel's place in its 2 x 2 block, 0 to AO_PATTERN_CELLS - 1, as
+// the 2 x 2 ordered-dither (Bayer) matrix lays it out. `transposed` reads the
+// matrix the other way, a second order that gives each texel its own slide too.
+int ssaoPatternIndex(ivec2 aoTexel, bool transposed) {
+    int x = transposed ? aoTexel.y : aoTexel.x;
+    int y = transposed ? aoTexel.x : aoTexel.y;
+    return 2 * ((x ^ y) & 1) + (y & 1);
 }
 
 vec3 ssaoViewPosition(SsaoInputs inputs, vec2 uv, float depth) {
@@ -73,6 +74,22 @@ vec3 ssaoViewPosition(SsaoInputs inputs, vec2 uv, float depth) {
 vec2 ssaoTexelCentre(vec2 uv, vec2 pixels) {
     vec2 texel = clamp(floor(uv * pixels), vec2(0.0f), pixels - 1.0f);
     return (texel + 0.5f) / pixels;
+}
+
+// The viewport coordinate of the full-resolution texel an AO-grid texel stands
+// for: the first of its AO_RESOLUTION_DIVISOR x AO_RESOLUTION_DIVISOR block,
+// which a viewport of any size has.
+vec2 ssaoRepresentativeUV(ivec2 aoTexel, vec2 pixels) {
+    return (vec2(aoTexel * AO_RESOLUTION_DIVISOR) + 0.5f) / pixels;
+}
+
+// Relative difference of view depth at which a neighbour stops counting in an
+// average of visibility: it must not carry one surface's occlusion onto
+// another across a silhouette, where it would draw a halo.
+const float AO_DEPTH_TOLERANCE = 0.05f;
+
+float ssaoDepthWeight(float centreZ, float neighbourZ) {
+    return max(1.0f - abs(neighbourZ - centreZ) / (AO_DEPTH_TOLERANCE * abs(centreZ)), 0.0f);
 }
 
 // The reversed depth of the texel at `uv`; 0 (nothing drawn) outside the viewport.
@@ -216,14 +233,15 @@ float ssaoKernelVisibility(SsaoInputs inputs, vec2 uv, int directions, int steps
     return clamp(1.0f - inputs.settings.z * occlusion / attempted, 0.0f, 1.0f);
 }
 
-// The kernel stage's output at viewport `uv`, before denoising and before the
-// power: this texel's own turn and slide of the AO_DIR_COUNT x AO_STEP_COUNT kernel.
-float ssaoRawVisibility(SsaoInputs inputs, vec2 uv) {
-    vec2 texelUV = ssaoTexelCentre(uv, inputs.pixels);
-    float patternCells = float(AO_PATTERN * AO_PATTERN);
-    float turn = (float(ssaoPatternIndex(texelUV, inputs.pixels, false)) + 0.5f) / patternCells;
-    float slide = (float(ssaoPatternIndex(texelUV, inputs.pixels, true)) + 0.5f) / patternCells;
-    return ssaoKernelVisibility(inputs, uv, AO_DIR_COUNT, AO_STEP_COUNT, turn, slide);
+// The kernel stage's output at an AO-grid texel, before denoising and before
+// the power: its own turn and slide of the AO_DIR_COUNT x AO_STEP_COUNT kernel,
+// at the full-resolution texel it stands for.
+float ssaoRawVisibility(SsaoInputs inputs, ivec2 aoTexel) {
+    float patternCells = float(AO_PATTERN_CELLS);
+    float turn = (float(ssaoPatternIndex(aoTexel, false)) + 0.5f) / patternCells;
+    float slide = (float(ssaoPatternIndex(aoTexel, true)) + 0.5f) / patternCells;
+    return ssaoKernelVisibility(inputs, ssaoRepresentativeUV(aoTexel, inputs.pixels),
+                                AO_DIR_COUNT, AO_STEP_COUNT, turn, slide);
 }
 
 #endif  // SSAO_GLSL

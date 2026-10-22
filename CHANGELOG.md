@@ -10,6 +10,24 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### Ambient occlusion at half resolution
+
+- `AmbientOcclusionPass` runs the kernel and its denoise on a grid of half the
+  view's resolution each way, still reading full-resolution depth, and a third
+  stage (`shaders/ssao_upsample.glsl`) brings the grid back to every pixel:
+  each takes its four nearest grid texels by bilinear weight times how close
+  their depth is to its own, so a silhouette keeps each side's occlusion, and a
+  sliver thinner than the grid stays unoccluded instead of taking a dark rim
+  from what stands behind it.
+- The quarter of the texels pays for a denser kernel, 8 directions x 4 steps
+  instead of 8 x 2, turned over a 2 x 2 pattern and averaged with a centred
+  3 x 3 tent. `saida_ssao_tests` runs all three stages and holds them to
+  tighter bounds than before: within 0.0005 on average (was 0.001) and 0.02 at
+  worst (was 0.03) of a kernel 32 times denser.
+- In R1World's rue de Rivoli view on a GeForce MX450 at 1600 x 900, with the
+  same draws, the AO map costs 2.3 ms instead of 4.3; turning AO on now takes
+  the GPU frame from 19.1 to 22.5 ms, where it took it from 20.4 to 24.4.
+
 ### Ambient occlusion on indirect light only
 
 - Ambient occlusion no longer darkens direct light, as in other engines: it

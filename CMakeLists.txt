@@ -154,6 +154,7 @@ set(SHADERS
     ${SHADER_DIR}/fullscreen.vert
     ${SHADER_DIR}/ambient_occlusion.frag
     ${SHADER_DIR}/ambient_occlusion_denoise.frag
+    ${SHADER_DIR}/ambient_occlusion_upsample.frag
     ${SHADER_DIR}/bloom_downsample.frag
     ${SHADER_DIR}/bloom_upsample.frag
     ${SHADER_DIR}/skybox.vert
@@ -211,7 +212,7 @@ set(WEB_READY_SHADERS
     shader.vert shader.frag unlit.frag
     shadow.vert
     tonemap.vert tonemap.frag
-    fullscreen.vert ambient_occlusion.frag ambient_occlusion_denoise.frag
+    fullscreen.vert ambient_occlusion.frag ambient_occlusion_denoise.frag ambient_occlusion_upsample.frag
     bloom_downsample.frag bloom_upsample.frag
     skybox.vert skybox.frag
     outline.vert outline.frag

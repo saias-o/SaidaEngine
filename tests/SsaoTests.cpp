@@ -22,8 +22,10 @@
 namespace ssao_shader {
 using namespace glm;
 float sampleDepth(vec2 viewportUV);
-float sampleRawVisibility(vec2 viewportUV);
+float sampleRawVisibility(ivec2 aoTexel);
+float sampleDenoisedVisibility(ivec2 aoTexel);
 #include "ssao_denoise.glsl"
+#include "ssao_upsample.glsl"
 }  // namespace ssao_shader
 
 using namespace saida;
@@ -62,7 +64,8 @@ struct Eye {
 
 // What the depth pre-pass would leave: reversed depth (0 where nothing was
 // drawn), and as the oracle, which box each pixel sees and that box's world
-// normal. `raw` is what the kernel stage then leaves (runKernel).
+// normal. `raw` and `denoised` are what the AO grid's two stages then leave
+// (runGridStages), one value per grid texel.
 struct DepthImage {
     int width = kWidth;
     int height = kHeight;
@@ -70,8 +73,11 @@ struct DepthImage {
     std::vector<int> object;
     std::vector<glm::vec3> worldPoint;
     std::vector<glm::vec3> worldNormal;
+    glm::ivec2 grid{0};
     std::vector<float> raw;
+    std::vector<float> denoised;
     size_t index(int x, int y) const { return size_t(y) * size_t(width) + size_t(x); }
+    size_t gridIndex(glm::ivec2 t) const { return size_t(t.y) * size_t(grid.x) + size_t(t.x); }
 };
 
 // Slab test: the ray's entry into `box` in front of `origin`, and the entry face's normal.
@@ -138,8 +144,7 @@ DepthImage render(const std::vector<Box>& scene, const Eye& eye) {
     return image;
 }
 
-// The image ssao_shader::sampleDepth and sampleRawVisibility read, for the
-// duration of one shader call.
+// The image the ssao_shader hooks read, for the duration of one shader call.
 const DepthImage* sampled = nullptr;
 
 class Sampling {
@@ -155,39 +160,49 @@ glm::vec2 pixelUV(const DepthImage& image, int x, int y) {
 }
 
 SsaoInputs inputsFor(const Eye& eye, const DepthImage& image, const SceneSettings& settings = {}) {
+    const rhi::Rect2D viewport{{0, 0}, {uint32_t(image.width), uint32_t(image.height)}};
     const AmbientOcclusionPass::PushConstants push =
-        AmbientOcclusionPass::pushConstants(settings, eye.projection);
+        AmbientOcclusionPass::pushConstants(settings, eye.projection, viewport);
     SsaoInputs inputs;
     inputs.settings = push.settings;
     inputs.invProjection = push.invProjection;
     inputs.invProjection2 = push.invProjection2;
     inputs.invOffsets = push.invOffsets;
     inputs.pixels = glm::vec2(image.width, image.height);
+    inputs.aoPixels = glm::vec2(push.aoGrid.z, push.aoGrid.w);
     return inputs;
 }
 
-// The kernel stage's output at one texel.
-float rawVisibilityAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
+// The kernel stage's output at one AO-grid texel.
+float rawVisibilityAt(const DepthImage& image, const SsaoInputs& inputs, glm::ivec2 aoTexel) {
     const Sampling sampling(image);
-    return ssao_shader::ssaoRawVisibility(inputs, pixelUV(image, x, y));
+    return ssao_shader::ssaoRawVisibility(inputs, aoTexel);
 }
 
-// The kernel stage over the whole image, as the first AO pass leaves it.
-void runKernel(DepthImage& image, const SsaoInputs& inputs) {
-    image.raw.assign(image.depth.size(), 1.0f);
-    for (int y = 0; y < image.height; ++y)
-        for (int x = 0; x < image.width; ++x)
-            image.raw[image.index(x, y)] = rawVisibilityAt(image, inputs, x, y);
+// The AO grid's kernel and denoise stages over the whole image, as the first
+// two passes leave them.
+void runGridStages(DepthImage& image, const SsaoInputs& inputs) {
+    image.grid = glm::ivec2(inputs.aoPixels);
+    const size_t count = size_t(image.grid.x) * size_t(image.grid.y);
+    image.raw.assign(count, 1.0f);
+    for (int y = 0; y < image.grid.y; ++y)
+        for (int x = 0; x < image.grid.x; ++x)
+            image.raw[image.gridIndex({x, y})] = rawVisibilityAt(image, inputs, {x, y});
+    image.denoised.assign(count, 1.0f);
+    const Sampling sampling(image);
+    for (int y = 0; y < image.grid.y; ++y)
+        for (int x = 0; x < image.grid.x; ++x)
+            image.denoised[image.gridIndex({x, y})] = ssao_shader::ssaoDenoise(inputs, {x, y});
 }
 
-// What the scene pass reads at a texel: the denoise stage over runKernel's output.
+// What the scene pass reads at a texel: the upsample stage over runGridStages'.
 float visibilityAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
-    if (image.raw.size() != image.depth.size()) {
-        std::cerr << "[ssao] FAIL: the denoise stage read an image the kernel stage never ran on\n";
+    if (image.denoised.empty()) {
+        std::cerr << "[ssao] FAIL: the upsample stage read an image the grid stages never ran on\n";
         std::abort();
     }
     const Sampling sampling(image);
-    return ssao_shader::ssaoDenoise(inputs, pixelUV(image, x, y));
+    return ssao_shader::ssaoUpsample(inputs, pixelUV(image, x, y));
 }
 
 glm::vec3 shaderNormalAt(const DepthImage& image, const SsaoInputs& inputs, int x, int y) {
@@ -252,7 +267,7 @@ void testFlatFloorNeverOccludesItself() {
                 const Eye eye{lookFrom(position, position + forward), projection};
                 DepthImage image = render({kFloor}, eye);
                 const SsaoInputs inputs = inputsFor(eye, image);
-                runKernel(image, inputs);
+                runGridStages(image, inputs);
                 for (int y = 0; y < image.height; ++y) {
                     for (int x = 0; x < image.width; ++x) {
                         if (image.object[image.index(x, y)] == kNoObject) continue;
@@ -327,16 +342,21 @@ bool faceSpansThreeTexels(const DepthImage& image, int x, int y) {
            ((same(0, -1) && same(0, -2)) || (same(0, 1) && same(0, 2)));
 }
 
-// Whether every texel of the same face in the denoise stage's block around
-// (x, y) -- whose raw values it averages -- spans three texels too.
-bool blockSpansThreeTexels(const DepthImage& image, int x, int y) {
-    const int half = ssao_shader::AO_PATTERN / 2;
-    for (int dy = -half; dy < half; ++dy)
-        for (int dx = -half; dx < half; ++dx)
-            if (inside(image, x + dx, y + dy) &&
-                sameFace(image, image.index(x, y), image.index(x + dx, y + dy)) &&
-                !faceSpansThreeTexels(image, x + dx, y + dy))
+// Whether every raw value the visibility at (x, y) is made of -- the grid
+// texels the upsample takes and the blocks the denoise averages for them --
+// that stands on the same face is at a texel spanning three texels too.
+bool footprintSpansThreeTexels(const DepthImage& image, int x, int y) {
+    // The upsample's 2 x 2 grid texels from `corner`, each the denoise's
+    // 3 x 3 around it.
+    const int divisor = ssao_shader::AO_RESOLUTION_DIVISOR;
+    const glm::ivec2 corner(x / divisor, y / divisor);
+    for (int ty = corner.y - 1; ty <= corner.y + 2; ++ty)
+        for (int tx = corner.x - 1; tx <= corner.x + 2; ++tx) {
+            const int rx = tx * divisor, ry = ty * divisor;
+            if (inside(image, rx, ry) && sameFace(image, image.index(x, y), image.index(rx, ry)) &&
+                !faceSpansThreeTexels(image, rx, ry))
                 return false;
+        }
     return true;
 }
 
@@ -404,14 +424,14 @@ void testSilhouettesNeitherDarkenNorHalo() {
                 const Eye eye{lookFrom(position, glm::vec3(0.0f, 1.2f, 0.0f)), projection};
                 DepthImage image = render(scene.boxes, eye);
                 const SsaoInputs inputs = inputsFor(eye, image);
-                runKernel(image, inputs);
+                runGridStages(image, inputs);
                 for (int y = 0; y < image.height; ++y) {
                     for (int x = 0; x < image.width; ++x) {
                         const float visibility = visibilityAt(image, inputs, x, y);
                         finite = finite && std::isfinite(visibility) && visibility >= 0.0f && visibility <= 1.0f;
                         const int object = image.object[image.index(x, y)];
                         if (object == PlateScene::kPlate) {
-                            if (blockSpansThreeTexels(image, x, y)) worstPlate = std::min(worstPlate, visibility);
+                            if (footprintSpansThreeTexels(image, x, y)) worstPlate = std::min(worstPlate, visibility);
                             else worstThin = std::min(worstThin, visibility);
                         } else if (object != kNoObject && wallGap > 1.0f) {
                             worstFarWall = std::min(worstFarWall, visibility);
@@ -502,7 +522,7 @@ float denseVisibilityAt(const DepthImage& image, const SsaoInputs& inputs, int x
 }
 
 // A kernel the same for every texel samples the occlusion integral at the
-// same sixteen places everywhere, and prints one hard-edged copy of each
+// same thirty-two places everywhere, and prints one hard-edged copy of each
 // occluder per sample: bands on every floor and wall near a contact. What the
 // scene pass reads must follow the integral instead -- within each face, away
 // from its edges, close to what the dense kernel measures.
@@ -516,7 +536,7 @@ void testOcclusionFollowsTheIntegral() {
             const Eye eye{lookFrom(position, kTableTarget), projection};
             DepthImage image = render(tableScene(), eye);
             const SsaoInputs inputs = inputsFor(eye, image);
-            runKernel(image, inputs);
+            runGridStages(image, inputs);
             for (int y = 0; y < image.height; ++y) {
                 for (int x = 0; x < image.width; ++x) {
                     if (image.object[image.index(x, y)] == kNoObject || !faceAround(image, x, y, 3)) continue;
@@ -535,9 +555,10 @@ void testOcclusionFollowsTheIntegral() {
               << ", lowest " << lowest << '\n';
     require(texels > 20000, "the views cover the table's faces");
     require(lowest < 0.9f, describe("the faces include real occlusion; lowest visibility", lowest));
-    // A kernel the same for every texel, denoised alike, stays twice as far.
-    constexpr double kMeanError = 0.001;
-    constexpr float kLargestError = 0.03f;
+    // A kernel the same for every texel, denoised alike, strays half again as
+    // far -- its bands -- and so does an average left out or off centre.
+    constexpr double kMeanError = 0.0005;
+    constexpr float kLargestError = 0.02f;
     require(mean < kMeanError, describe("the visibility follows the occlusion integral; mean error", mean));
     require(largest < kLargestError,
             describe("the visibility follows the occlusion integral; largest error", largest));
@@ -555,8 +576,11 @@ void testRejectedSamplesCountAsUnoccluded() {
         const DepthImage edged = render(tableScene(), eye);
         const DepthImage extended = render(tableScene(3.0f), eye);
         const SsaoInputs inputs = inputsFor(eye, edged);
-        for (int y = 0; y < edged.height; ++y) {
-            for (int x = 0; x < edged.width; ++x) {
+        const glm::ivec2 grid(inputs.aoPixels);
+        const int divisor = ssao_shader::AO_RESOLUTION_DIVISOR;
+        for (int ty = 0; ty < grid.y; ++ty) {
+            for (int tx = 0; tx < grid.x; ++tx) {
+                const int x = tx * divisor, y = ty * divisor;
                 const size_t i = edged.index(x, y);
                 if (edged.object[i] != kTable || edged.worldNormal[i].y < 0.5f ||
                     edged.worldPoint[i].x > kTableEdge - 0.02f)
@@ -564,13 +588,13 @@ void testRejectedSamplesCountAsUnoccluded() {
                 // A texel too thin to confirm its face has its normal, and
                 // so its visibility, decided by its neighbours.
                 if (!faceSpansThreeTexels(edged, x, y)) continue;
-                largest = std::max(largest, std::abs(rawVisibilityAt(edged, inputs, x, y) -
-                                                     rawVisibilityAt(extended, inputs, x, y)));
+                largest = std::max(largest, std::abs(rawVisibilityAt(edged, inputs, {tx, ty}) -
+                                                     rawVisibilityAt(extended, inputs, {tx, ty})));
                 ++compared;
             }
         }
     }
-    require(compared > 2000, "the views cover the table top");
+    require(compared > 500, "the views cover the table top with grid texels");
     require(largest < 1e-4f, describe("samples rejected past the table's edge count as unoccluded; "
                                       "largest change", largest));
 }
@@ -618,7 +642,7 @@ void testCameraMotionChangesVisibilityGradually() {
             const Eye eye{lookFrom(position, target), desktopProjection()};
             DepthImage image = render(scene, eye);
             const SsaoInputs inputs = inputsFor(eye, image);
-            runKernel(image, inputs);
+            runGridStages(image, inputs);
             for (size_t i = 0; i < tracked.size(); ++i) {
                 const float visibility = visibilitySeenAt(eye, image, inputs, tracked[i]);
                 lowest = std::min(lowest, visibility);
@@ -651,8 +675,8 @@ void testBothEyesAgree() {
         DepthImage rightImage = render(scene, rightEye);
         const SsaoInputs leftInputs = inputsFor(left, leftImage);
         const SsaoInputs rightInputs = inputsFor(rightEye, rightImage);
-        runKernel(leftImage, leftInputs);
-        runKernel(rightImage, rightInputs);
+        runGridStages(leftImage, leftInputs);
+        runGridStages(rightImage, rightInputs);
         for (int y = 0; y < leftImage.height; ++y) {
             for (int x = 0; x < leftImage.width; ++x) {
                 const size_t i = leftImage.index(x, y);
@@ -684,11 +708,20 @@ void testBothEyesAgree() {
 }  // namespace
 
 namespace {
-// The AO pass's reads: the nearest texel, clamped to the edge.
+// The AO pass's depth read: the nearest texel, clamped to the edge.
 size_t sampledTexel(glm::vec2 viewportUV) {
     const int x = std::clamp(int(std::floor(viewportUV.x * float(sampled->width))), 0, sampled->width - 1);
     const int y = std::clamp(int(std::floor(viewportUV.y * float(sampled->height))), 0, sampled->height - 1);
     return sampled->index(x, y);
+}
+
+// Its texelFetch of a grid target: within the grid, as the stages ask.
+size_t sampledGridTexel(glm::ivec2 aoTexel) {
+    if (aoTexel.x < 0 || aoTexel.y < 0 || aoTexel.x >= sampled->grid.x || aoTexel.y >= sampled->grid.y) {
+        std::cerr << "[ssao] FAIL: a stage fetched outside the AO grid\n";
+        std::abort();
+    }
+    return sampled->gridIndex(aoTexel);
 }
 }  // namespace
 
@@ -696,8 +729,12 @@ float ssao_shader::sampleDepth(glm::vec2 viewportUV) {
     return sampled->depth[sampledTexel(viewportUV)];
 }
 
-float ssao_shader::sampleRawVisibility(glm::vec2 viewportUV) {
-    return sampled->raw[sampledTexel(viewportUV)];
+float ssao_shader::sampleRawVisibility(glm::ivec2 aoTexel) {
+    return sampled->raw[sampledGridTexel(aoTexel)];
+}
+
+float ssao_shader::sampleDenoisedVisibility(glm::ivec2 aoTexel) {
+    return sampled->denoised[sampledGridTexel(aoTexel)];
 }
 
 int main() {

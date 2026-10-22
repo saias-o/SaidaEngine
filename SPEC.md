@@ -449,58 +449,70 @@ Indirect probe lighting fades to the ambient fallback across the volume's last
 probe cell and uses that fallback outside its bounds. Distant surfaces never
 sample clamped edge probes; the directional environment lighting still applies.
 
-Ambient occlusion (`aoEnabled`, `aoRadius` in metres, `aoIntensity`,
-`aoPower`) occludes indirect light only -- GI, the flat ambient and the
-environment's diffuse and specular -- never a light's direct contribution,
-which its shadow governs; the material's `ao` follows the same rule, as glTF
-defines occlusion. When a scene asks for it (`AmbientOcclusionPass::active`),
-the frame gains two passes before the scene pass. A depth-only pre-pass draws
-the opaque meshes (classic, GPU-driven and multiview XR) and terrain rings with
-their own vertex shaders (`invariant gl_Position`) and, through `-DDEPTH_ONLY`
-variants of their fragment shaders, every discard they make -- LOD cross-fade,
-sidedness, alpha test, terrain holes -- so the scene pass then shades at that
-very depth (`rhi::kDepthCloserOrEqual`) and skips what is hidden. Grass stays
-out: blades a texel wide would only add noise, and `ROOT_SHADE` is their own
-occlusion. A feature joins through `ScenePassFeature::recordDepth`.
-`AmbientOcclusionPass` then writes, per view, an `R8Unorm` map in two stages:
-the raw occlusion (`shaders/ssao.glsl`) and its edge-aware average
-(`ssao_denoise.glsl`). Lit shaders read it at their own pixel and view layer
-(`screen_ambient_occlusion.glsl`, set 0 binding 17); a scene without AO runs
-neither pass and reads nothing. `depth_reconstruction.glsl` holds the
+Ambient occlusion (`aoEnabled`, `aoRadius` in metres, `aoIntensity`, `aoPower`)
+occludes indirect light only -- GI, the flat ambient and the environment's
+diffuse and specular -- never a light's direct contribution, which its shadow
+governs; the material's `ao` follows the same rule, as glTF defines occlusion.
+When a scene asks for it (`AmbientOcclusionPass::active`), the frame gains two
+passes before the scene pass. A depth-only pre-pass draws the opaque meshes
+(classic, GPU-driven and multiview XR) and terrain rings with their own vertex
+shaders (`invariant gl_Position`) and, through `-DDEPTH_ONLY` variants of their
+fragment shaders, every discard they make -- LOD cross-fade, sidedness, alpha
+test, terrain holes -- so the scene pass then shades at that very depth
+(`rhi::kDepthCloserOrEqual`) and skips what is hidden. Grass stays out: blades a
+texel wide would only add noise, and `ROOT_SHADE` is their own occlusion. A
+feature joins through `ScenePassFeature::recordDepth`. `AmbientOcclusionPass`
+then writes, per view, an `R8Unorm` map in three stages. The first two run on
+the AO grid, half the view's resolution each way, each grid texel standing at
+the first full-resolution texel of its 2 x 2 block and reading full-resolution
+depth: the raw occlusion (`shaders/ssao.glsl`) and its edge-aware average
+(`ssao_denoise.glsl`). The third brings the grid back to every texel of the view
+(`ssao_upsample.glsl`). Lit shaders read the map at their own pixel and view
+layer (`screen_ambient_occlusion.glsl`, set 0 binding 17); a scene without AO
+runs neither pass and reads nothing. `depth_reconstruction.glsl` holds the
 reversed-depth reconstruction AO and fog share.
 
-The kernel's 8 directions x 2 steps span `aoRadius` at each pixel's depth under
-perspective, off-centre OpenXR and orthographic projections alike. Each pixel
-of a 4 x 4 block turns the directions and slides the steps by its own share
-(an ordered-dither pattern), and the denoise stage averages exactly one such
-block among texels within 5 % of the centre's view depth, so every pixel sees
-all sixteen kernels: one kernel for every pixel printed a hard-edged copy of
-each occluder per sample. Every sample is rebuilt at the centre of the texel
-its depth comes from. The normal comes from one neighbour per screen axis: of
-the two sides, the one whose two texels continue the centre's plane (reversed
-depth is affine across a plane in screen space) or, failing that, the one with
-the smaller depth step. Silhouettes, creases and floors at grazing angles
-therefore keep their own normal; a face under three texels thick on an axis
-can still take a neighbour's, and the denoise spreads that over its block.
-Tangents that span no plane fall back to the view direction rather than NaN.
-Every sample weighs 1/16 and a rejected one (outside the viewport, sky, beyond
-the radius) counts as unoccluded, so visibility does not jump when a sample's
-validity changes. Measured in R1World's rue de Rivoli view (GeForce MX450,
-1600 x 900): the pre-pass costs 3.0 ms and saves 3.8 ms of the scene pass; the
-AO map costs 4.3 ms.
+The kernel's 8 directions x 4 steps span `aoRadius` at each grid texel's depth
+under perspective, off-centre OpenXR and orthographic projections alike. Each
+texel of a 2 x 2 block of the grid turns the directions and slides the steps by
+its own share (the 2 x 2 ordered-dither pattern), and the denoise stage averages
+the 3 x 3 grid texels around each one with the tent [1 2 1] each way -- centred,
+and weighing the four kernels alike -- among texels within 5 % of the centre's
+view depth: one kernel for every pixel printed a hard-edged copy of each
+occluder per sample. The upsample gives each texel of the view its four nearest
+grid texels, by bilinear weight times the same depth test against its own, so a
+silhouette keeps each side's occlusion; a texel that none of the four shares a
+surface with -- a sliver thinner than the grid -- stays unoccluded rather than
+borrow the occlusion of what stands behind it, a dark rim. Every sample is
+rebuilt at the centre of the texel its depth comes from. The normal comes from
+one neighbour per screen axis: of the two sides, the one whose two texels
+continue the centre's plane (reversed depth is affine across a plane in screen
+space) or, failing that, the one with the smaller depth step; those neighbours
+are full-resolution texels. Silhouettes, creases and floors at grazing angles
+therefore keep their own normal; a face under three texels thick on an axis can
+still take a neighbour's, and the denoise spreads that over its 3 x 3. Tangents
+that span no plane fall back to the view direction rather than NaN. Every sample
+weighs 1/32 and a rejected one (outside the viewport, sky, beyond the radius)
+counts as unoccluded, so visibility does not jump when a sample's validity
+changes. Measured in R1World's rue de Rivoli view (GeForce MX450, 1600 x 900):
+the AO map costs 2.3 ms, where it cost 4.3 at full resolution; the pre-pass
+costs 3.0 to 3.6 ms and saves 2.5 to 3.8 ms of the opaque pass, from one run to
+the next.
 
-`saida_ssao_tests` compiles `ssao.glsl` and `ssao_denoise.glsl` as C++ over GLM
-and runs both stages on depth buffers ray-cast through the engine's
-projections and push constants, without a window: flat floors stay exactly
-unoccluded at any pitch, sub-pixel offset or projection; normals at
-silhouettes and creases match their faces; there is no rim or halo; rejected
-samples weigh as unoccluded; the result stays within 0.001 on average of the
-same estimator run with a kernel 32 times denser, where a fixed kernel strays
-three times as far; a 1 mm camera move changes visibility gradually; and both
-eyes agree. `tools/verify_ambient_occlusion.py` renders a corner with boxes and
-an alpha-cut card: under direct light alone, AO on and off give bit-identical
-images (no pre-pass hole, z-fighting or cut-out, no occlusion of direct light,
-the material's `ao` included); under ambient light alone AO only darkens.
+`saida_ssao_tests` compiles `ssao.glsl`, `ssao_denoise.glsl` and
+`ssao_upsample.glsl` as C++ over GLM and runs the three stages on depth buffers
+ray-cast through the engine's projections and push constants, without a window:
+flat floors stay exactly unoccluded at any pitch, sub-pixel offset or
+projection; normals at silhouettes and creases match their faces; there is no
+rim or halo; rejected samples weigh as unoccluded; within each face, every texel
+of the view stays within 0.0005 on average and 0.02 at worst of the same
+estimator run with a kernel 32 times denser, bounds that a kernel the same for
+every texel, the raw kernel without its average and an average off centre each
+cross; a 1 mm camera move changes visibility gradually; and both eyes agree.
+`tools/verify_ambient_occlusion.py` renders a corner with boxes and an alpha-cut
+card: under direct light alone, AO on and off give bit-identical images (no
+pre-pass hole, z-fighting or cut-out, no occlusion of direct light, the
+material's `ao` included); under ambient light alone AO only darkens.
 
 Fog is a uniform grey haze by default (`fogDensity`, per metre past
 `fogStart`, toward `fogColor`). It becomes layered air when `fogScaleHeight`

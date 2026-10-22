@@ -64,13 +64,14 @@ std::unique_ptr<rhi::Pipeline> makePipeline(rhi::Device& device, const std::stri
 
 AmbientOcclusionPass::AmbientOcclusionPass(rhi::Device& device) : device_(device) {
     kernelLayout_ = makeLayout(device_, 1);
-    denoiseLayout_ = makeLayout(device_, 2);
+    pairLayout_ = makeLayout(device_, 2);
     rhi::SamplerDesc nearest;
     nearest.magFilter = rhi::FilterMode::Nearest;
     nearest.minFilter = rhi::FilterMode::Nearest;
     sampler_ = std::make_unique<rhi::Sampler>(device_, nearest);
     kernelPipeline_ = makePipeline(device_, "ambient_occlusion.frag.spv", *kernelLayout_);
-    denoisePipeline_ = makePipeline(device_, "ambient_occlusion_denoise.frag.spv", *denoiseLayout_);
+    denoisePipeline_ = makePipeline(device_, "ambient_occlusion_denoise.frag.spv", *pairLayout_);
+    upsamplePipeline_ = makePipeline(device_, "ambient_occlusion_upsample.frag.spv", *pairLayout_);
 }
 
 AmbientOcclusionPass::~AmbientOcclusionPass() = default;
@@ -80,39 +81,55 @@ bool AmbientOcclusionPass::active(const SceneSettings& settings) {
 }
 
 AmbientOcclusionPass::Inputs AmbientOcclusionPass::makeInputs(rhi::TextureView depth,
-                                                              rhi::TextureView raw) const {
-    std::vector<rhi::BindGroupEntry> entries;
-    for (rhi::TextureView view : {depth, raw}) {
-        const uint32_t texture = static_cast<uint32_t>(entries.size());
-        rhi::BindGroupEntry entry;
-        entry.view = view;
+                                                              rhi::TextureView raw,
+                                                              rhi::TextureView denoised) const {
+    // Texture i of `views` at binding 2 i (its sampler at 2 i + 1 on the Web,
+    // combined otherwise), as ambient_occlusion_pass.glsl declares them.
+    auto group = [this](rhi::BindGroupLayout& layout, const std::vector<rhi::TextureView>& views) {
+        std::vector<rhi::BindGroupEntry> entries;
+        for (uint32_t i = 0; i < views.size(); ++i) {
+            rhi::BindGroupEntry entry;
+            entry.binding = 2 * i;
+            entry.view = views[i];
 #ifdef SAIDA_RHI_WEBGPU
-        entry.binding = 2 * texture;
-        entries.push_back(entry);
-        rhi::BindGroupEntry samplerEntry;
-        samplerEntry.binding = 2 * texture + 1;
-        samplerEntry.sampler = sampler_->handle();
-        entries.push_back(samplerEntry);
+            entries.push_back(entry);
+            rhi::BindGroupEntry samplerEntry;
+            samplerEntry.binding = 2 * i + 1;
+            samplerEntry.sampler = sampler_->handle();
+            entries.push_back(samplerEntry);
 #else
-        entry.binding = 2 * texture;
-        entry.sampler = sampler_->handle();
-        entries.push_back(entry);
+            entry.sampler = sampler_->handle();
+            entries.push_back(entry);
 #endif
-    }
-#ifdef SAIDA_RHI_WEBGPU
-    const size_t perTexture = 2;
-#else
-    const size_t perTexture = 1;
-#endif
+        }
+        return std::make_unique<rhi::BindGroup>(layout, entries);
+    };
     Inputs inputs;
-    inputs.kernel = std::make_unique<rhi::BindGroup>(*kernelLayout_,
-        std::vector<rhi::BindGroupEntry>(entries.begin(), entries.begin() + perTexture));
-    inputs.denoise = std::make_unique<rhi::BindGroup>(*denoiseLayout_, entries);
+    inputs.kernel = group(*kernelLayout_, {depth});
+    inputs.denoise = group(*pairLayout_, {depth, raw});
+    inputs.upsample = group(*pairLayout_, {depth, denoised});
     return inputs;
 }
 
+rhi::Extent2D AmbientOcclusionPass::gridExtent(rhi::Extent2D full) {
+    return {(full.width + kGridDivisor - 1) / kGridDivisor, (full.height + kGridDivisor - 1) / kGridDivisor};
+}
+
+rhi::Rect2D AmbientOcclusionPass::gridRect(const rhi::Rect2D& viewport) {
+    rhi::Rect2D rect = viewport;
+    rect.offset.x = viewport.offset.x / static_cast<int32_t>(kGridDivisor);
+    rect.offset.y = viewport.offset.y / static_cast<int32_t>(kGridDivisor);
+    rect.extent = gridExtent(viewport.extent);
+    return rect;
+}
+
+rhi::Rect2D AmbientOcclusionPass::stageRect(Stage stage, const rhi::Rect2D& viewport) {
+    return stage == Stage::Upsample ? viewport : gridRect(viewport);
+}
+
 AmbientOcclusionPass::PushConstants AmbientOcclusionPass::pushConstants(
-        const SceneSettings& settings, const glm::mat4& projection, const glm::vec4& sourceRect) {
+        const SceneSettings& settings, const glm::mat4& projection, const rhi::Rect2D& viewport,
+        const glm::vec4& sourceRect) {
     PushConstants push;
     push.settings = glm::vec4(active(settings) ? 1.0f : 0.0f, std::max(settings.aoRadius, 0.0f),
                               std::max(settings.aoIntensity, 0.0f),
@@ -122,21 +139,34 @@ AmbientOcclusionPass::PushConstants AmbientOcclusionPass::pushConstants(
     push.invProjection2 = inverse.depth;
     push.invOffsets = inverse.offsets;
     push.sourceRect = sourceRect;
+    const rhi::Rect2D grid = gridRect(viewport);
+    push.aoGrid = glm::vec4(float(grid.offset.x), float(grid.offset.y),
+                            float(grid.extent.width), float(grid.extent.height));
     return push;
 }
 
 void AmbientOcclusionPass::record(rhi::RenderPassEncoder& rp, Stage stage, const Inputs& inputs,
                                   const SceneSettings& settings, const glm::mat4& projection,
-                                  const rhi::Rect2D& renderRect, const glm::vec4& sourceRect) const {
-    const bool kernel = stage == Stage::Kernel;
-    rp.setPipeline(kernel ? *kernelPipeline_ : *denoisePipeline_);
-    rp.setViewport(static_cast<float>(renderRect.offset.x), static_cast<float>(renderRect.offset.y),
-                   static_cast<float>(renderRect.extent.width),
-                   static_cast<float>(renderRect.extent.height));
-    rp.setScissor(renderRect.offset.x, renderRect.offset.y,
-                  renderRect.extent.width, renderRect.extent.height);
-    rp.setBindGroup(0, kernel ? *inputs.kernel : *inputs.denoise);
-    const PushConstants push = pushConstants(settings, projection, sourceRect);
+                                  const rhi::Rect2D& viewport, const glm::vec4& sourceRect) const {
+    switch (stage) {
+        case Stage::Kernel:
+            rp.setPipeline(*kernelPipeline_);
+            rp.setBindGroup(0, *inputs.kernel);
+            break;
+        case Stage::Denoise:
+            rp.setPipeline(*denoisePipeline_);
+            rp.setBindGroup(0, *inputs.denoise);
+            break;
+        case Stage::Upsample:
+            rp.setPipeline(*upsamplePipeline_);
+            rp.setBindGroup(0, *inputs.upsample);
+            break;
+    }
+    const rhi::Rect2D rect = stageRect(stage, viewport);
+    rp.setViewport(static_cast<float>(rect.offset.x), static_cast<float>(rect.offset.y),
+                   static_cast<float>(rect.extent.width), static_cast<float>(rect.extent.height));
+    rp.setScissor(rect.offset.x, rect.offset.y, rect.extent.width, rect.extent.height);
+    const PushConstants push = pushConstants(settings, projection, viewport, sourceRect);
     rp.setPushConstants(&push, sizeof(PushConstants));
     rp.draw(3);
 }

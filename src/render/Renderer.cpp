@@ -1265,20 +1265,10 @@ void Renderer::createHdrResources() {
         depthResolveTexture_ = std::make_unique<rhi::RenderTexture>(device_, depthDesc);
     }
 
-    rhi::RenderTextureDesc aoDesc;
-    aoDesc.format = AmbientOcclusionPass::kFormat;
-    aoDesc.width = extent.width;
-    aoDesc.height = extent.height;
-    aoDesc.arrayView = true;  // read by view layer, as XR's (screen_ambient_occlusion.glsl)
-    aoDesc.usage = rhi::TextureUsage::ColorAttachment | rhi::TextureUsage::Sampled;
-    aoDesc.memoryCategory = "RenderTarget/DesktopHDR";
-    aoTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
-    aoState_ = rhi::ResourceState::Undefined;
-    aoRawTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
-    aoRawState_ = rhi::ResourceState::Undefined;
+    createAmbientOcclusionTargets(extent, 1, "RenderTarget/DesktopHDR");
     aoInputs_ = aoPass_->makeInputs(depthResolveTexture_ ? depthResolveTexture_->view()
                                                          : swapchain_->depthView(),
-                                    aoRawTexture_->layerView(0));
+                                    aoRawTexture_->layerView(0), aoDenoisedTexture_->layerView(0));
 
     if (postProcessor_) postProcessor_->resize(extent, hdrTexture_->view());
     else postProcessor_ = std::make_unique<PostProcessor>(device_, extent,
@@ -1292,8 +1282,30 @@ void Renderer::createHdrResources() {
     }
 }
 
+void Renderer::createAmbientOcclusionTargets(rhi::Extent2D extent, uint32_t layers,
+                                             const char* memoryCategory) {
+    rhi::RenderTextureDesc desc;
+    desc.format = AmbientOcclusionPass::kFormat;
+    desc.width = extent.width;
+    desc.height = extent.height;
+    desc.layers = layers;
+    desc.arrayView = true;  // the map is read by view layer (screen_ambient_occlusion.glsl)
+    desc.usage = rhi::TextureUsage::ColorAttachment | rhi::TextureUsage::Sampled;
+    desc.memoryCategory = memoryCategory;
+    aoTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
+    aoState_ = rhi::ResourceState::Undefined;
+    const rhi::Extent2D grid = AmbientOcclusionPass::gridExtent(extent);
+    desc.width = grid.width;
+    desc.height = grid.height;
+    aoRawTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
+    aoRawState_ = rhi::ResourceState::Undefined;
+    aoDenoisedTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
+    aoDenoisedState_ = rhi::ResourceState::Undefined;
+}
+
 void Renderer::cleanupHdrResources() {
     aoInputs_ = {};
+    aoDenoisedTexture_.reset();
     aoRawTexture_.reset();
     aoTexture_.reset();
     depthResolveTexture_.reset();
@@ -1526,21 +1538,22 @@ void Renderer::recordAmbientOcclusion(rhi::CommandEncoder& encoder, Scene& scene
 void Renderer::recordAmbientOcclusionStages(rhi::CommandEncoder& encoder, const SceneSettings& settings,
                                             const std::vector<AmbientOcclusionView>& views,
                                             const rhi::Rect2D& renderRect, const glm::vec4& sourceRect) {
-    // Every view's raw occlusion, then every view's AO map layer from it.
+    // Each stage for every view, then the next stage from its results.
     auto runStage = [&](AmbientOcclusionPass::Stage stage, rhi::RenderTexture& target,
                         rhi::ResourceState& state) {
         encoder.transition(target.image(), state, rhi::ResourceState::ColorAttachment,
                            0, kAllTextureLayers, /*discardContents=*/true);
+        const rhi::Rect2D area = AmbientOcclusionPass::stageRect(stage, renderRect);
         for (const AmbientOcclusionView& view : views) {
             rhi::RenderPassDesc pass;
             pass.colorCount = 1;
             pass.colors[0].view = target.layerView(view.layer);
             pass.colors[0].loadOp = rhi::LoadOp::Clear;
             pass.colors[0].clearColor = {{1.0f, 1.0f, 1.0f, 1.0f}};
-            pass.x = renderRect.offset.x;
-            pass.y = renderRect.offset.y;
-            pass.width = renderRect.extent.width;
-            pass.height = renderRect.extent.height;
+            pass.x = area.offset.x;
+            pass.y = area.offset.y;
+            pass.width = area.extent.width;
+            pass.height = area.extent.height;
             rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
             aoPass_->record(rp, stage, *view.inputs, settings, view.projection, renderRect, sourceRect);
             rp.end();
@@ -1550,7 +1563,8 @@ void Renderer::recordAmbientOcclusionStages(rhi::CommandEncoder& encoder, const 
         state = rhi::ResourceState::ShaderRead;
     };
     runStage(AmbientOcclusionPass::Stage::Kernel, *aoRawTexture_, aoRawState_);
-    runStage(AmbientOcclusionPass::Stage::Denoise, *aoTexture_, aoState_);
+    runStage(AmbientOcclusionPass::Stage::Denoise, *aoDenoisedTexture_, aoDenoisedState_);
+    runStage(AmbientOcclusionPass::Stage::Upsample, *aoTexture_, aoState_);
 }
 
 void Renderer::recordWorldWebCanvases(rhi::RenderPassEncoder& rp, Scene& scene, const Camera& camera) {
@@ -1955,28 +1969,19 @@ void Renderer::createXrTargets() {
     depthDesc.memoryCategory = "RenderTarget/XR";
     xrDepthTexture_ = std::make_unique<rhi::RenderTexture>(device_, depthDesc);
 
-    rhi::RenderTextureDesc aoDesc;
-    aoDesc.format = AmbientOcclusionPass::kFormat;
-    aoDesc.width = xrExtent_.width;
-    aoDesc.height = xrExtent_.height;
-    aoDesc.layers = xrViewCount_;
-    aoDesc.arrayView = true;
-    aoDesc.usage = rhi::TextureUsage::ColorAttachment | rhi::TextureUsage::Sampled;
-    aoDesc.memoryCategory = "RenderTarget/XR";
-    aoTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
-    aoState_ = rhi::ResourceState::Undefined;
-    aoRawTexture_ = std::make_unique<rhi::RenderTexture>(device_, aoDesc);
-    aoRawState_ = rhi::ResourceState::Undefined;
+    createAmbientOcclusionTargets(xrExtent_, xrViewCount_, "RenderTarget/XR");
 
     for (uint32_t i = 0; i < std::min<uint32_t>(xrViewCount_, 2); ++i) {
         xrPostProcessors_[i] = std::make_unique<PostProcessor>(device_, xrExtent_,
             rhi::Format::RGBA16Float, xrHdrTexture_->layerView(i));
-        xrAoInputs_[i] = aoPass_->makeInputs(xrDepthTexture_->layerView(i), aoRawTexture_->layerView(i));
+        xrAoInputs_[i] = aoPass_->makeInputs(xrDepthTexture_->layerView(i), aoRawTexture_->layerView(i),
+                                             aoDenoisedTexture_->layerView(i));
     }
 }
 
 void Renderer::cleanupXrTargets() {
     for (auto& inputs : xrAoInputs_) inputs = {};
+    aoDenoisedTexture_.reset();
     aoRawTexture_.reset();
     aoTexture_.reset();
     for (auto& post : xrPostProcessors_) post.reset();

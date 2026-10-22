@@ -256,8 +256,12 @@ private:
     // it rests in ShaderRead between passes.
     std::unique_ptr<rhi::RenderTexture> aoTexture_;
     rhi::ResourceState aoState_ = rhi::ResourceState::Undefined;
-    std::unique_ptr<rhi::RenderTexture> aoRawTexture_;  // the kernel's, laid out as aoTexture_
+    // The AO grid's (AmbientOcclusionPass::gridExtent), with aoTexture_'s layers.
+    std::unique_ptr<rhi::RenderTexture> aoRawTexture_;       // the kernel stage's
     rhi::ResourceState aoRawState_ = rhi::ResourceState::Undefined;
+    std::unique_ptr<rhi::RenderTexture> aoDenoisedTexture_;  // the denoise stage's
+    rhi::ResourceState aoDenoisedState_ = rhi::ResourceState::Undefined;
+    void createAmbientOcclusionTargets(rhi::Extent2D extent, uint32_t layers, const char* memoryCategory);
     AmbientOcclusionPass::Inputs aoInputs_;  // the desktop view's
     // One view's AmbientOcclusionPass run: its inputs, projection and layer.
     struct AmbientOcclusionView {
