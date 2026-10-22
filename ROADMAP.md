@@ -648,24 +648,46 @@ supervised, not autonomous.
 
 Post-V1 unless the scope changes explicitly.
 
-- [ ] Rendering: optimized dynamic global illumination that works outdoors,
-  for a next-generation look. Optional and off by default, but important
-  (user decision, 2026-10-21). Today's DDGI is a single fine grid
-  (20x10x20 probes at 1.2 m on High, about 24 m across): room scale, useless
-  for a streamed city, so outdoor scenes run with GI off and light their
-  shadowed side with a flat ambient. The target:
-  - covers a whole outdoor view: nested probe volumes (clipmaps) that
-    follow the camera, coarser with distance, scrolling instead of
-    rebuilding as it moves;
-  - dynamic: follows the sun, time of day and weather, and indirect light
-    from the sky and the ground, with no bake;
-  - budgeted per quality tier, with updates amortized over frames
-    (a few cascades/probes per frame), measured with `--profile`, so the
-    low tier stays usable and the high tier looks next-gen;
-  - optional per scene, and per material: content can opt out, and a
-    material that opts out renders exactly as with GI off;
-  - proven by before/after captures of an outdoor street, and by a capture
-    with GI off that is identical to today's.
+- [ ] Rendering: dynamic outdoor GI, using camera-following DDGI probe and
+  voxel clipmaps; no bake or hardware ray tracing required. Follow mode is
+  opt-in; the existing anchored volume and GI-off image remain supported.
+  Execute these phases in order, attaching evidence before checking each:
+  - [ ] Phase 0: fix voxelization validation; capture the unmodified GI-off
+    reference, add the eight GPU contracts (off identity, open-sky energy,
+    coloured canyon bounce, closed room, metal, material opt-out, scrolling,
+    origin rebase), and profile Witness GI-on and the outdoor client GI-off.
+    Record existing failures; all eight contracts must pass by phase 7.
+  - [ ] Phase 1: extract GIRenderer state/descriptors/cadence without changing
+    behaviour; prove native, Web and authoring WASM builds and image parity.
+    This precedes the leaf-first order in section 3 because GI work opens
+    Renderer directly; drawFrame remains the only pass orchestrator.
+  - [ ] Phase 2: one indirect-diffuse entry for every surface, one sky owner,
+    metallic/Fresnel weighting and material receiveGlobalIllumination;
+    preserve each surface's exact legacy GI-off/opt-out formula.
+  - [ ] Phase 3a: tested CPU clipmap/scheduler (hysteresis, toroidal indices,
+    entering slabs, translation/rotation rebase, teleport, fairness); anchored
+    single-cascade array atlases with staging/scatter instead of ping-pong.
+  - [ ] Phase 3b: incremental voxel clipmaps and spatial invalidations;
+    cascaded tracing and albedo/cascade debug views.
+  - [ ] Phase 3c: Follow probe clipmaps, continuous cascade/fallback blending,
+    warmupProgress, scrolling and rebase GPU proofs.
+  - [ ] Phase 4: voxel radiance injection, voxel-traced solar visibility and
+    terrain occlusion, local lights/emission and multiple bounces; remove
+    all shadow-map reads from GI. Prove canyon bounce and closed interiors.
+  - [ ] Phase 5: feature voxel hooks/revisions, heightfield and water input,
+    MeshNode::giContribution and translucent foliage; vertex GI for cheap
+    surfaces; prove Near/Mid/Far continuity in a forest.
+  - [ ] Phase 6: back-face classification, adaptive hysteresis/firefly clamp,
+    specular occlusion and distributed sky/sun/weather response; prove
+    temporal stability and occluded reflections.
+  - [ ] Phase 7: measure quality-tier CPU/GPU/memory budgets (High GI at most
+    2.5 ms on MX450/1080p), editing/JS/MCP settings and debug views; native,
+    Chrome WGSL, authoring WASM, multiview and validation proofs; publish
+    the implemented contract and limitations in SPEC 4.1.
+  - [ ] Phase 8: outdoor-client Follow integration, warmup and offline smoke;
+    show ambient-sky/IBL-sky alternatives before choosing, fixed-camera
+    GI-on/off captures and sustained streaming frame distributions at 1080p.
+    A missed budget is reported for a decision, never a silent tier reduction.
   Not Radiance Cascades: tried before this repository's first commit and it
   did not work (user, 2026-10-21); the reason was not recorded, so record it
   if they are ever reopened.
