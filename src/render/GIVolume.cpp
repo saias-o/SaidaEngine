@@ -14,7 +14,6 @@
 #include "core/Log.hpp"
 #include "core/Time.hpp"
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/quaternion.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -26,7 +25,7 @@ constexpr auto kAtlasFormat=rhi::Format::RGBA16Float;
 constexpr auto kUsage=rhi::TextureUsage::Storage|rhi::TextureUsage::Sampled|rhi::TextureUsage::CopyDst;
 struct VoxelData { glm::vec4 origin,extent; glm::ivec4 res,wrap; glm::mat4 worldToGrid,axisVP[3]; };
 struct VoxelPush { glm::mat4 model; glm::vec4 params; };
-struct TracePush { glm::mat4 randomRot; int raysPerProbe,probeCount; };
+struct TracePush { int raysPerProbe,probeCount; };
 struct BlendPush { int mode,raysPerProbe,probeCount; float hysteresis,distExponent; };
 struct ScatterPush { int mode,probeCount,offset; };
 GIConfig configOf(const GIVolumeDesc& d) {
@@ -328,9 +327,8 @@ void GIVolume::update(rhi::CommandEncoder& e,const rhi::BindGroup& global,GpuPro
     if(probeCount_) {
         {
             SAIDA_GPU_PROFILE_SCOPE(profiler,e.handle(),"DDGI/Trace");
-            std::uniform_real_distribution<float> random(-1,1);const auto q=glm::normalize(glm::quat(random(rng_),random(rng_),random(rng_),random(rng_)));
             auto cp=e.beginComputePass();cp.setPipeline(*tracePipeline_);cp.setBindGroup(0,global);cp.setBindGroup(1,*giComputeSets_[frame_][0]);
-            TracePush p{glm::mat4_cast(q),desc_.raysPerProbe,probeCount_};cp.setPushConstants(&p,sizeof(p));cp.dispatch((probeCount_*desc_.raysPerProbe+63)/64);cp.end();
+            TracePush p{desc_.raysPerProbe,probeCount_};cp.setPushConstants(&p,sizeof(p));cp.dispatch((probeCount_*desc_.raysPerProbe+63)/64);cp.end();
         }
         e.storageBarrier();
         {

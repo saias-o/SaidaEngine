@@ -6,7 +6,20 @@
 DECL_TEX3D(1,6,8,voxelNormals);
 DECL_TEX3D(1,7,9,voxelEmissions);
 layout(local_size_x=64) in;
-PUSH_QUALIFIER Push { mat4 randomRot;int raysPerProbe;int probeCount; } pc;
+PUSH_QUALIFIER Push { int raysPerProbe;int probeCount; } pc;
+vec3 probeRayDirection(uint probe,int ray) {
+    // Retained toroidal slots keep the same quadrature, independently of frame
+    // and scheduling order. Temporal rotations made unchanged walls flicker:
+    // back-face classification and adaptive blending amplified sampling noise.
+    uvec3 bits=probe*1664525u+uvec3(1013904223u,2246822519u,3266489917u);
+    bits^=bits>>16u;bits*=2246822519u;bits^=bits>>13u;
+    vec3 u=vec3(bits&uvec3(0x00ffffffu))/16777216.0;
+    vec2 angle=2.0*PI*u.yz;
+    vec4 q=vec4(sqrt(1.0-u.x)*vec2(sin(angle.x),cos(angle.x)),
+                sqrt(u.x)*vec2(sin(angle.y),cos(angle.y)));
+    vec3 d=sphericalFibonacci(float(ray),float(pc.raysPerProbe));
+    return d+2.0*cross(q.xyz,cross(q.xyz,d)+q.w*d);
+}
 ivec3 voxelResolution() { return ivec3(lights.giAtlas.w,lights.giClipmap.y,lights.giAtlas.w); }
 ivec3 voxelAddress(ivec3 cell,int k) {
     ivec3 res=voxelResolution();
@@ -67,7 +80,7 @@ void main() {
             if(dot(n,n)>.1) position+=normalize(n)*spacing*.3;
         }
     }
-    vec3 direction=normalize(transpose(mat3(lights.giWorldToGrid))*mat3(pc.randomRot)*sphericalFibonacci(float(ray),float(pc.raysPerProbe)));
+    vec3 direction=normalize(transpose(mat3(lights.giWorldToGrid))*probeRayDirection(uint(schedule[batch].x),ray));
     float far=length(vec3(lights.giCounts.xyz))*lights.giCascadeOrigins[lights.giClipmap.x-1].w,distance;ivec3 address;vec3 face;
     vec3 radiance;float back=0.0;
     if(marchCascades(position,direction,k,far,distance,address,face)) {

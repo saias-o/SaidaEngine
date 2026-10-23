@@ -23,7 +23,7 @@ from PIL import Image, ImageChops, ImageStat
 
 WIDTH, HEIGHT = 640, 360
 EYE, TARGET = (0., 2., 7.), (0., 1., 0.)
-CASES = ('off', 'open', 'canyon', 'room', 'metal', 'optout', 'scroll', 'rebase', 'motion')
+CASES = ('off', 'open', 'canyon', 'room', 'metal', 'optout', 'scroll', 'rebase', 'motion', 'stability')
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -228,11 +228,13 @@ class Run:
         end = max(self.args.frames, 240)
         metrics = {}
         for speed in (6, 24):
-            values = {}
-            for frame in (end-1, end, end+240):
-                image = self.capture(f'motion-{speed}-{frame}', follow=True, frames=frame,
-                                     motionFrame=end-119, motionFrames=120, cameraTravel=speed*2)
-                values[frame] = [luma(rgb(image, (-2., 1., z))) for z in (0., -2., -4.)]
+            name = f'motion-{speed}'
+            first = self.capture(name, follow=True, frames=end-1, sampleFrames=[end, end+240],
+                                 motionFrame=end-119, motionFrames=120, cameraTravel=speed*2)
+            images = {end-1: first, **{frame: Image.open(self.root / f'{name}-{frame}.png').convert('RGB')
+                                      for frame in (end, end+240)}}
+            values = {frame: [luma(rgb(image, (-2., 1., z))) for z in (0., -2., -4.)]
+                      for frame, image in images.items()}
             settled = values[end+240]
             assert min(settled) > .001, f'motion fixture has no indirect light: {settled}'
             drift = [abs(a-b)/b for a, b in zip(values[end], settled)]
@@ -241,6 +243,32 @@ class Run:
                                   settling_change=drift, adjacent_change=jump)
             assert max(drift) < .20, f'GI is still loading at {speed} m/s: {metrics[speed]}'
             assert max(jump) < .08, f'GI jumps during approach at {speed} m/s: {metrics[speed]}'
+        return metrics
+
+    def stability(self):
+        # Maintenance updates with fixed geometry, light and eye.
+        # Measure whole visible surfaces, including probe-classification boundaries.
+        metrics = {}
+        failures = []
+        for follow in (False, True):
+            name = f'still-{follow}'
+            reference = self.capture(name, follow=follow, frames=720,
+                                     sampleFrames=[744, 768, 792, 1032], motionFrame=793, lightScale=0.)
+            images = [Image.open(self.root / f'{name}-{frame}.png').convert('RGB')
+                      for frame in (744, 768, 792)]
+            differences = [ImageChops.difference(reference, image) for image in images]
+            peak = max(max(channel[1] for channel in diff.getextrema()) for diff in differences)
+            mean = max(max(ImageStat.Stat(diff).mean) for diff in differences)
+            metrics[str(follow)] = dict(peak_display_delta=peak, mean_display_delta=mean)
+            if peak > 3 or mean > .1:
+                failures.append(f'stationary GI flickers (follow={follow})')
+            dark = Image.open(self.root / f'{name}-1032.png').convert('RGB')
+            before = luma(rgb(reference, (-2., 1., 0.)))
+            after = luma(rgb(dark, (-2., 1., 0.)))
+            metrics[str(follow)].update(lit_receiver=before, unlit_receiver=after)
+            if before <= .001 or after >= before*.5:
+                failures.append(f'stationary probes stopped responding to light changes (follow={follow})')
+        assert not failures, f'{failures}: {metrics}'
         return metrics
 
     def run(self, cases):

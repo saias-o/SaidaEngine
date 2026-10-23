@@ -163,7 +163,11 @@ node tools/verify_postprocess_web.mjs build/shaders/wgsl # Playwright; bloom lay
 ```
 
 The GI verifier builds on `saida_gi_capture`, a native fixed-clock fixture
-driver. Its default GI-off reference was captured on the MX450 before the GI
+driver. `--cases stability` captures a stationary scene repeatedly in the same
+engine instance, then switches its Sun off without moving the eye. The motion
+case likewise samples one running world. Separate launches can disagree where
+voxel material writes overlap, so they cannot isolate temporal instability.
+Its default GI-off reference was captured on the MX450 before the GI
 refactor. For another device/driver, record a separate reference directory on
 the unmodified renderer with `--cases off --record-off <new-directory>`, inspect
 those images, then supply `--reference <directory>` (and optionally `--icd`).

@@ -1,4 +1,5 @@
 #include "Engine.hpp"
+#include "core/Window.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "nodes/LightNode.hpp"
 #include "nodes/MeshNode.hpp"
@@ -14,6 +15,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // GPU fixture driver. Assertions live in verify_global_illumination.py so one
 // failure never prevents the remaining contracts from producing their evidence.
@@ -32,9 +34,11 @@ struct Fixture {
     unsigned motionFrames = 120;
     bool rebase = false;
     float rotation = 0.f;
+    float lightScale = 1.f;
     std::string sky;
     unsigned frames = 240;
     unsigned motionFrame = 120;
+    std::vector<unsigned> sampleFrames;
     std::filesystem::path image, profile;
 };
 
@@ -118,14 +122,21 @@ Fixture parse(int argc, char** argv) {
     f.motionFrames = j.value("motionFrames", 120u);
     f.rebase = j.value("rebase", false);
     f.rotation = j.value("rotation", 0.f);
+    f.lightScale = j.value("lightScale", 1.f);
     f.sky = j.value("sky", std::string{});
     f.frames = j.value("frames", 240u);
     f.motionFrame = j.value("motionFrame", 120u);
+    f.sampleFrames = j.value("sampleFrames", std::vector<unsigned>{});
     f.image = j.at("image").get<std::string>();
     f.profile = j.value("profile", std::string{});
     if (f.frames == 0 || !std::isfinite(f.travel) || !std::isfinite(f.rotation) ||
-        !std::isfinite(f.cameraTravel) || f.motionFrames == 0)
+        !std::isfinite(f.cameraTravel) || !std::isfinite(f.lightScale) || f.lightScale < 0 || f.motionFrames == 0)
         throw std::invalid_argument("invalid GI capture parameters");
+    unsigned previous = f.frames;
+    for (unsigned frame : f.sampleFrames) {
+        if (frame <= previous) throw std::invalid_argument("sample frames must increase after the first capture");
+        previous = frame;
+    }
     return f;
 }
 }
@@ -149,6 +160,7 @@ int main(int argc, char** argv) {
                 engine.setCameraOverride(eye+shift,target+shift);
             }
             if (frame != f.motionFrame) return;
+            for (auto* light : engine.scene().lights()) light->intensity *= f.lightScale;
             const glm::vec3 shift(f.travel, 0, 0);
             if (f.rebase) {
                 const auto q = glm::angleAxis(glm::radians(f.rotation), glm::vec3(0, 1, 0));
@@ -172,6 +184,19 @@ int main(int argc, char** argv) {
         shot.waitForAssets = !f.sky.empty();
         engine.captureFrameThenExit(shot);
         engine.run();
+        // Resume the same world and atlases: separate processes can rasterize
+        // overlapping voxel materials differently and are not a temporal test.
+        unsigned previous = f.frames;
+        for (unsigned frame : f.sampleFrames) {
+            if (engine.captureFailed()) break;
+            glfwSetWindowShouldClose(engine.window().handle(), GLFW_FALSE);
+            shot.frame = frame - previous;
+            shot.pngPath = (f.image.parent_path() /
+                (f.image.stem().string() + "-" + std::to_string(frame) + ".png")).generic_string();
+            engine.captureFrameThenExit(shot);
+            engine.run();
+            previous = frame;
+        }
         return engine.captureFailed() ? EXIT_FAILURE : EXIT_SUCCESS;
     } catch (const std::exception& e) {
         std::cerr << "GI fixture: " << e.what() << '\n';

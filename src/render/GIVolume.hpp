@@ -5,7 +5,6 @@
 #include "render/gi/GIClipmap.hpp"
 #include <array>
 #include <memory>
-#include <random>
 #include <unordered_map>
 #include <vector>
 
@@ -71,6 +70,5 @@ private:
 #ifdef SAIDA_RHI_WEBGPU
     std::unique_ptr<rhi::RenderTexture> voxelDummyTarget_;
 #endif
-    std::mt19937 rng_{1234};
 };
 }

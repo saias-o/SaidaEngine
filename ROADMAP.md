@@ -737,6 +737,16 @@ Post-V1 unless the scope changes explicitly.
     reference machine) nor in Chrome WebGPU.
   - [ ] Reduce subvoxel leaks and temporal noise; improve probe placement and
     classification, transparency, adaptive hysteresis and firefly rejection.
+  - [x] Stabilize stationary probe sampling with a fixed spatial scramble per
+    persistent atlas slot, retaining realtime light/geometry updates and the
+    existing budgets. On 2026-10-23 the MX450 same-session stationary corpus
+    changes from peak display deltas of 10 (Anchored) / 6 (Follow) to 0 / 1;
+    switching the Sun off still darkens the indirect receiver. The new
+    `stability` case fails on the original renderer in both volume modes.
+    The motion diagnostic now also captures one running world: the original
+    fails at 6 m/s (33% adjacent jump), the fixed quadrature passes walking
+    but still fails at 24 m/s (17% jump). The pre-existing open-sky energy
+    diagnostic also remains outside its 2% bound; no thresholds were relaxed.
   - [x] Anticipate Follow coverage along the camera's smoothed velocity,
     prioritize entering voxel slabs and untraced probes ahead of maintenance,
     and blend cascades across two cells without increasing grid resolution or

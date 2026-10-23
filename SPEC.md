@@ -489,6 +489,13 @@ voxel bricks; unchanged geometry retains its voxels. Albedo uses sqrt-encoded
 RGBA8, normals RGBA8, and emission RGBA16F. Only a scheduled probe's octahedral
 tiles are blended into staging and scattered to the persistent atlas; unscheduled
 probes require no atlas copy. Visibility moments use probe-spacing units.
+Each probe uses a fixed, spatially scrambled spherical-Fibonacci ray set keyed
+by its persistent atlas slot. Retained cells keep that set through scrolling
+and origin rebases. Maintenance updates still trace current lighting and
+geometry, but no longer rotate all rays randomly each frame: those rotations
+made static back-face classifications switch and triggered adaptive blending
+as though the light had changed. Fixed quadrature trades temporal sampling
+noise for a fixed spatial sampling error at the existing ray budgets.
 
 A ray leaving its cascade continues through each coarser one. Rays march voxels for diffuse hit lighting, local-light attenuation, solar
 visibility and previous-probe bounce, and read material emission. GI ray lighting
