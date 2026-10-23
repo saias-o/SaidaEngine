@@ -1,18 +1,19 @@
 #include "Engine.hpp"
-#include "core/Log.hpp"
-#include "graphics/Material.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "nodes/LightNode.hpp"
 #include "nodes/MeshNode.hpp"
 #include "scene/Scene.hpp"
-#include "scene/SceneSettingsSerialization.hpp"
 
 #include <glm/gtc/quaternion.hpp>
+#include <nlohmann/json.hpp>
+#include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 // GPU fixture driver. Assertions live in verify_global_illumination.py so one
 // failure never prevents the remaining contracts from producing their evidence.
@@ -25,7 +26,10 @@ struct Fixture {
     std::string name;
     bool gi = false;
     bool optOut = false;
+    bool follow = false;
     float travel = 0.f;
+    float cameraTravel = 0.f;
+    unsigned motionFrames = 120;
     bool rebase = false;
     float rotation = 0.f;
     std::string sky;
@@ -37,8 +41,7 @@ struct Fixture {
 MeshNode* box(Scene& scene, ResourceManager& resources, const char* name,
               glm::vec3 position, glm::vec3 scale, glm::vec3 albedo,
               bool metal = false, bool optOut = false) {
-    // Exercise the real material reader; a missing future opt-out must fail
-    // its pixels rather than making this phase-0 harness require that API.
+    // Exercise the material reader as well as the shading opt-out.
     nlohmann::json node{{"type", "MeshNode"}, {"name", name}, {"mesh", "cube"},
         {"baseColor", {albedo.r, albedo.g, albedo.b, 1.f}},
         {"metallic", metal ? 1.f : 0.f}, {"roughness", 1.f},
@@ -54,6 +57,7 @@ void setup(Scene& scene, ResourceManager& resources, const Fixture& f) {
     auto& settings = scene.settings();
     settings.giEnabled = f.gi;
     settings.giMode = GIMode::FullRealtime;
+    settings.giVolume = f.follow ? GIVolumeMode::Follow : GIVolumeMode::Anchored;
     settings.giIntensity = 1.f;
     settings.aoEnabled = false;
     settings.iblEnabled = false;
@@ -68,12 +72,8 @@ void setup(Scene& scene, ResourceManager& resources, const Fixture& f) {
         settings.ambientLight = glm::vec4(0, 0, 0, 1);
         settings.skyboxTexture = resources.getOrRegister(f.sky, AssetType::Texture);
     }
-    // The serializer will consume this once Follow exists. Ignoring it today
-    // is observable in the scrolling contract, not disguised as a skip.
-    if (f.travel != 0.f || f.rebase)
-        applySceneSettings(nlohmann::json{{"giVolume", "Follow"}}, settings, resources);
-
-    box(scene, resources, "Floor", {0, -.4f, 0}, {18, .8f, 18}, {.2f, .2f, .2f},
+    const float corridorLength=2.f*std::abs(f.cameraTravel);
+    box(scene, resources, "Floor", {0, -.4f, 0}, {18, .8f, 18+corridorLength}, {.2f, .2f, .2f},
         f.name == "metal", f.optOut);
     if (f.name == "open" || f.name == "metal") return;
 
@@ -90,10 +90,10 @@ void setup(Scene& scene, ResourceManager& resources, const Fixture& f) {
         box(scene, resources, "Lintel", {-3.2f, 3.4f, 3}, {1, 1.2f, 1}, glm::vec3(.2f));
     } else {
         settings.ambientLight = glm::vec4(.025f, .025f, .025f, 1.f);
-        box(scene, resources, "Receiver", {-2.5f, 2, 0}, {1, 4, 12}, glm::vec3(.2f), false, f.optOut);
+        box(scene, resources, "Receiver", {-2.5f, 2, 0}, {1, 4, 12+corridorLength}, glm::vec3(.2f), false, f.optOut);
         const glm::vec3 colour = f.name == "canyon-blue" ? glm::vec3(.04f, .04f, .3f)
                                                                       : glm::vec3(.3f, .04f, .04f);
-        box(scene, resources, "Reflector", {2.5f, 2, 0}, {1, 4, 12}, colour);
+        box(scene, resources, "Reflector", {2.5f, 2, 0}, {1, 4, 12+corridorLength}, colour);
     }
     auto* sun = scene.createChild<LightNode>();
     sun->direction = glm::normalize(glm::vec3(1.f, -.5f, .05f));
@@ -112,7 +112,10 @@ Fixture parse(int argc, char** argv) {
         throw std::invalid_argument("unknown GI fixture scene");
     f.gi = j.at("gi").get<bool>();
     f.optOut = j.value("optOut", false);
+    f.follow = j.value("follow", false);
     f.travel = j.value("travel", 0.f);
+    f.cameraTravel = j.value("cameraTravel", 0.f);
+    f.motionFrames = j.value("motionFrames", 120u);
     f.rebase = j.value("rebase", false);
     f.rotation = j.value("rotation", 0.f);
     f.sky = j.value("sky", std::string{});
@@ -120,7 +123,8 @@ Fixture parse(int argc, char** argv) {
     f.motionFrame = j.value("motionFrame", 120u);
     f.image = j.at("image").get<std::string>();
     f.profile = j.value("profile", std::string{});
-    if (f.frames == 0 || !std::isfinite(f.travel) || !std::isfinite(f.rotation))
+    if (f.frames == 0 || !std::isfinite(f.travel) || !std::isfinite(f.rotation) ||
+        !std::isfinite(f.cameraTravel) || f.motionFrames == 0)
         throw std::invalid_argument("invalid GI capture parameters");
     return f;
 }
@@ -138,7 +142,13 @@ int main(int argc, char** argv) {
         engine.setCameraOverride(eye, target);
         engine.setCameraFovOverride(60.f);
         engine.setOnFrame([&, frame = 0u](float) mutable {
-            if (++frame != f.motionFrame) return;
+            ++frame;
+            if(f.cameraTravel!=0.f && frame>=f.motionFrame) {
+                const float fraction=std::min(float(frame-f.motionFrame+1)/float(f.motionFrames),1.f);
+                const glm::vec3 shift(0,0,-f.cameraTravel*fraction);
+                engine.setCameraOverride(eye+shift,target+shift);
+            }
+            if (frame != f.motionFrame) return;
             const glm::vec3 shift(f.travel, 0, 0);
             if (f.rebase) {
                 const auto q = glm::angleAxis(glm::radians(f.rotation), glm::vec3(0, 1, 0));

@@ -156,7 +156,8 @@ python tools/verify_ibl_environment.py --build build    # Pillow; HDR transfer a
 python tools/verify_specular_materials.py --build build # Pillow; glTF IOR/specular RGB and alpha pixel checks
 python tools/verify_billboard_materials.py --build build # Pillow; atlas facing/blend and directional lighting
 python tools/verify_ambient_occlusion.py --build build   # Pillow; AO on indirect light only, pre-pass leaves the image
-python tools/verify_global_illumination.py --build build-rel # Pillow; eight GI GPU contracts, all failures reported
+python tools/verify_global_illumination.py --build build-rel # Pillow; nine GI GPU contracts, all failures reported
+python tools/verify_shadows.py --build build-rel      # Pillow; grazing contact, camera travel, spot, PCF and self-shadowing
 node tools/verify_billboard_web.mjs build/shaders/wgsl # Playwright; translated scene pipeline validation
 node tools/verify_postprocess_web.mjs build/shaders/wgsl # Playwright; bloom layouts, former vertex mismatch rejected
 ```

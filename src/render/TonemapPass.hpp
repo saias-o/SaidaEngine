@@ -1,5 +1,6 @@
 #pragma once
 
+#include "graphics/Buffer.hpp"
 #include "render/LensFlare.hpp"
 #include "rhi/Rhi.hpp"
 
@@ -44,7 +45,8 @@ public:
                                          // z planet radius (0 flat), w 1 when the air is layered
         glm::vec4 fogUp{0.0f};           // xyz the camera's up (away from the planet), view space,
                                          // w the distance the sky is fogged at (0 clear)
-        glm::vec4 outputParams{0.0f};    // x: shader encodes sRGB (UNORM target only)
+        glm::vec4 outputParams{0.0f};    // x: shader encodes sRGB (UNORM target only),
+                                         // y: 1 to apply the adapted exposure (AutoExposurePass)
         glm::vec4 flareSource{0.0f};     // xy the source in viewport UV, z lens flare, w sun star
         glm::vec4 flareRadiance{0.0f};   // rgb the source's linear radiance
     };
@@ -62,8 +64,9 @@ public:
     // Point the pass at the current render targets. Called again whenever they
     // are recreated; until it has been called once there is no set to bind and
     // ready() is false.
+    // `exposure` is AutoExposurePass::state(): bound whether or not the scene adapts.
     void setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::TextureView bloom,
-                   rhi::SamplerHandle bloomSampler, rhi::TextureView skyProbe);
+                   rhi::SamplerHandle bloomSampler, rhi::TextureView skyProbe, const Buffer& exposure);
     bool ready() const { return pipeline_ && set_; }
 
     // Draws the fullscreen triangle into an already-open pass, confined to

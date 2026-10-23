@@ -34,7 +34,6 @@
 #include "rhi/vulkan/Format.hpp"
 #endif
 
-#include "nodes/LightNode.hpp"
 #include "nodes/MeshNode.hpp"
 #include "scene/MeshLod.hpp"
 #ifndef SAIDA_RHI_WEBGPU
@@ -50,7 +49,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cstring>
 #include <unordered_map>
 #include "graphics/ComputePipeline.hpp"
 #include "graphics/Texture.hpp"
@@ -63,9 +61,6 @@ constexpr int kMaxFramesInFlight = 2;
 
 constexpr float kDefaultShadowDistance = 25.0f;
 constexpr float kSafeUpCollinearityThreshold = 0.99f;
-constexpr float kHighGiProbeSpacing = 1.2f;
-constexpr float kMediumGiProbeSpacing = 1.5f;
-constexpr float kLowGiProbeSpacing = 2.4f;
 constexpr float kMinBoundsRadius = 0.001f;
 constexpr uint32_t kAllTextureLayers = ~0u;
 
@@ -76,15 +71,23 @@ glm::vec3 safeUp(const glm::vec3& dir) {
                : glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
-glm::mat4 directionalMatrix(const glm::vec3& dir, float distance) {
+glm::mat4 directionalMatrix(const glm::vec3& dir, float distance,
+                            const glm::vec3& center, uint32_t resolution) {
     float halfSize = distance;
     float depth = distance * 4.0f;
-    glm::vec3 eye = -dir * (depth * 0.5f);
-    glm::mat4 view = glm::lookAt(eye, glm::vec3(0.0f), safeUp(dir));
+    glm::vec3 eye = center - dir * (depth * 0.5f);
+    glm::mat4 view = glm::lookAt(eye, center, safeUp(dir));
     glm::mat4 proj = glm::ortho(-halfSize, halfSize,
                                 -halfSize, halfSize,
                                 0.1f, depth);
     proj[1][1] *= -1.0f;
+    // Keep the light's texel grid fixed as the view follows a moving camera.
+    const glm::vec2 origin = glm::vec2(proj * view * glm::vec4(0, 0, 0, 1)) *
+                             (static_cast<float>(resolution) * 0.5f);
+    const glm::vec2 offset = (glm::round(origin) - origin) *
+                             (2.0f / static_cast<float>(resolution));
+    proj[3][0] += offset.x;
+    proj[3][1] += offset.y;
     return proj * view;
 }
 
@@ -112,29 +115,15 @@ std::vector<WebCanvasWorldDraw> collectWorldWebCanvasDraws(Scene& scene, glm::ve
 }
 #endif
 
-// Quality tiers trade GI fidelity for a fixed world coverage.
+// Budgets limit GI work independently of the number of cascades.
 GIVolumeDesc giDescForTier(QualityTier tier) {
     GIVolumeDesc d;
-    switch (tier) {
-        case QualityTier::Ultra:
-        case QualityTier::High:
-            d.counts = {20, 10, 20};
-            d.spacing = glm::vec3(kHighGiProbeSpacing);
-            d.raysPerProbe = 96; d.voxelResolution = 96;
-            break;
-        case QualityTier::Medium:
-            d.counts = {16, 8, 16};
-            d.spacing = glm::vec3(kMediumGiProbeSpacing);
-            d.raysPerProbe = 64; d.voxelResolution = 80;
-            break;
-        case QualityTier::Low:
-        default:
-            d.counts = {10, 5, 10};
-            d.spacing = glm::vec3(kLowGiProbeSpacing);
-            d.raysPerProbe = 48; d.voxelResolution = 64;
-            break;
+    switch(tier) {
+        case QualityTier::Ultra: d.raysPerProbe=64;d.probeBudget=256;d.brickBudget=64;break;
+        case QualityTier::High: d.raysPerProbe=48;d.probeBudget=192;d.brickBudget=48;break;
+        case QualityTier::Medium: d.raysPerProbe=40;d.probeBudget=128;d.brickBudget=32;break;
+        default: d.raysPerProbe=32;d.probeBudget=64;d.brickBudget=16;d.voxelResolution=32;break;
     }
-    d.origin = -0.5f * glm::vec3(d.counts - 1) * d.spacing;
     return d;
 }
 
@@ -152,34 +141,6 @@ uint32_t sampleCountValue(VkSampleCountFlagBits samples) {
     }
 }
 #endif
-
-void hashCombine(uint64_t& h, uint64_t v) {
-    h ^= v + 0x9e3779b97f4a7c15ull + (h << 6) + (h >> 2);
-}
-
-void hashFloat(uint64_t& h, float v) {
-    uint32_t bits = 0;
-    static_assert(sizeof(bits) == sizeof(v), "float hash expects 32-bit floats");
-    std::memcpy(&bits, &v, sizeof(bits));
-    hashCombine(h, bits);
-}
-
-void hashVec3(uint64_t& h, const glm::vec3& v) {
-    hashFloat(h, v.x);
-    hashFloat(h, v.y);
-    hashFloat(h, v.z);
-}
-
-void hashVec4(uint64_t& h, const glm::vec4& v) {
-    hashFloat(h, v.x);
-    hashFloat(h, v.y);
-    hashFloat(h, v.z);
-    hashFloat(h, v.w);
-}
-
-void hashMat4(uint64_t& h, const glm::mat4& m) {
-    for (int c = 0; c < 4; ++c) hashVec4(h, m[c]);
-}
 
 // `rect` in normalized coordinates of a target of `full` pixels: how a pass
 // confined to the editor's viewport finds that region in a full-size input.
@@ -248,6 +209,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, Window& window,
 #endif
     createSkyProbe();
     createAmbientOcclusionPass();
+    autoExposure_ = std::make_unique<AutoExposurePass>(device_);
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
@@ -282,6 +244,7 @@ Renderer::Renderer(rhi::Device& device, rhi::Surface& swapchain, ResourceManager
 #endif
     createSkyProbe();
     createAmbientOcclusionPass();
+    autoExposure_ = std::make_unique<AutoExposurePass>(device_);
     createHdrResources();
     createPipeline(resources_.materialSetLayout());
     createWebCanvasWorldPipeline();
@@ -310,6 +273,7 @@ Renderer::Renderer(VulkanDevice& device, Window& window, ResourceManager& resour
     createSunOcclusion();
     createSkyProbe();
     createAmbientOcclusionPass();
+    autoExposure_ = std::make_unique<AutoExposurePass>(device_);
     // The targets first: set 0 binds the eyes' AO map.
     createXrTargets();
     createGlobalDescriptorSets();
@@ -379,9 +343,9 @@ void Renderer::createGlobalSetLayout() {
     e = {}; e.binding = 3; e.type = rhi::BindingType::StorageBuffer; e.visibility = V;
     e.readOnlyStorage = true;
     entries.push_back(e);
-    e = {}; e.binding = 4; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
+    e = {}; e.binding = 4; e.type = rhi::BindingType::SampledTexture; e.visibility = FC | V;
     entries.push_back(e);
-    e = {}; e.binding = 5; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
+    e = {}; e.binding = 5; e.type = rhi::BindingType::SampledTexture; e.visibility = FC | V;
     entries.push_back(e);
     e = {}; e.binding = 6; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
     e.dim = Dim::Dim3D;
@@ -392,7 +356,7 @@ void Renderer::createGlobalSetLayout() {
     e.comparisonSampler = true;
     entries.push_back(e);
     for (uint32_t b : {9u, 10u, 11u, 12u}) {
-        e = {}; e.binding = b; e.type = rhi::BindingType::Sampler; e.visibility = FC;
+        e = {}; e.binding = b; e.type = rhi::BindingType::Sampler; e.visibility = (b==9 || b==10) ? FC | V : FC;
         entries.push_back(e);
     }
     e = {}; e.binding = 13; e.type = rhi::BindingType::SampledTexture; e.visibility = FC;
@@ -418,8 +382,8 @@ void Renderer::createGlobalSetLayout() {
             {1, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute | rhi::ShaderStages::Vertex},  // lighting
             {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // shadow array
             {3, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},                        // bone matrices
-            {4, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI irradiance
-            {5, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI visibility
+            {4, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI irradiance
+            {5, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI visibility
             {6, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // GI voxel
             {7, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},  // environment
             {13, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute}, // sun occlusion
@@ -881,65 +845,36 @@ void Renderer::updateEnvironmentDescriptor(Scene& scene) {
     rebuildGlobalSet(currentFrame_, environment, blendEnvironment);
 }
 
-bool Renderer::shouldUpdateRealtimeGI(bool dirty) const {
-    int cadence = 16;
-    switch (device_.capabilities().tier) {
-        case QualityTier::Ultra:
-        case QualityTier::High:
-            cadence = 8;
-            break;
-        case QualityTier::Medium:
-            cadence = 12;
-            break;
-        case QualityTier::Low:
-        default:
-            cadence = 16;
-            break;
+void Renderer::prepareGI(Scene& scene,glm::vec3 camera) {
+    if(!scene.settings().giEnabled) return;
+    auto tier=device_.capabilities().tier;
+    switch(scene.settings().giQuality) {
+        case GIQuality::Low:tier=QualityTier::Low;break;
+        case GIQuality::Medium:tier=QualityTier::Medium;break;
+        case GIQuality::High:tier=QualityTier::High;break;
+        case GIQuality::Ultra:tier=QualityTier::Ultra;break;
+        default:break;
     }
-
-    if (giRealtimeWarmupRemaining_ > 0) return true;
-    if (!dirty) return false;
-    if (giLastMode_ == static_cast<int>(GIMode::FullRealtime)) return true;
-    return (giFrameCounter_ % static_cast<uint64_t>(cadence)) == 0;
+    auto desired=giDescForTier(tier);
+    desired.follow=scene.settings().giVolume==GIVolumeMode::Follow;
+    if(desired.follow) {
+        desired.spacing=glm::vec3(2.f);
+        desired.cascades=tier==QualityTier::Low?4:tier==QualityTier::Medium?5:6;
+    }
+    const auto& current=gi_->desc();
+    if(current.follow!=desired.follow || current.cascades!=desired.cascades || current.probeBudget!=desired.probeBudget) {
+        device_.waitIdle();
+        gi_=std::make_unique<GIVolume>(device_,desired,resources_.materialSetLayout(),*globalSetLayout_);
+        // Both frame slots must lose descriptors referring to the destroyed grids.
+        cachedGiIrradianceView_={};cachedGiVisibilityView_={};cachedGiSampler_={};
+        giRealtimeWarmupRemaining_=kGIRealtimeWarmupFrames;
+    }
+    if(giUpdateThisFrame_) gi_->prepare(scene,camera,currentFrame_);
 }
-
-uint64_t Renderer::giDirtySignature(const Scene& scene) const {
-    const SceneSettings& settings = scene.settings();
-    uint64_t h = 1469598103934665603ull;
-    hashCombine(h, static_cast<uint64_t>(settings.lightingMode));
-    hashCombine(h, settings.giEnabled ? 1ull : 0ull);
-    hashCombine(h, static_cast<uint64_t>(settings.giMode));
-    hashFloat(h, settings.giIntensity);
-    hashCombine(h, static_cast<uint64_t>(settings.skyboxTexture));
-    hashFloat(h, settings.skyboxExposure);
-    hashFloat(h, settings.skyboxRotation);
-    hashCombine(h, static_cast<uint64_t>(settings.skyboxBlendTexture));
-    hashFloat(h, settings.skyboxBlend);
-    hashFloat(h, settings.skyboxBlendRotation);
-    hashCombine(h, settings.iblEnabled ? 1ull : 0ull);
-    hashFloat(h, settings.iblDiffuseIntensity);
-    hashFloat(h, settings.iblSpecularIntensity);
-
-    hashCombine(h, static_cast<uint64_t>(scene.meshes().size()));
-    hashCombine(h, static_cast<uint64_t>(scene.lights().size()));
-    for (const LightNode* light : scene.lights()) {
-        if (!light) continue;
-        hashCombine(h, static_cast<uint64_t>(light->type));
-        hashVec4(h, glm::vec4(light->color, light->intensity));
-        hashFloat(h, light->range);
-        hashFloat(h, light->spotInnerAngle);
-        hashFloat(h, light->spotOuterAngle);
-        hashCombine(h, light->castShadows ? 1ull : 0ull);
-        // Both halves of where a directional light points: the node's transform,
-        // and the local direction the transform rotates. Hashing only the
-        // transform was correct while `direction` could only be authored, but a
-        // script can write it every frame now — a Sun steered through its
-        // direction rather than its rotation would leave the irradiance volume
-        // convinced nothing had moved.
-        hashVec3(h, light->direction);
-        hashMat4(h, light->worldTransform());
-    }
-    return h;
+bool Renderer::shouldUpdateRealtimeGI() const {
+    if(giLastMode_==static_cast<int>(GIMode::FullRealtime)) return true;
+    if(giRealtimeWarmupRemaining_>0 || gi_->warmupProgress()<1.f) return true;
+    return (giFrameCounter_%4)==0;
 }
 
 void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& cameraPos,
@@ -955,7 +890,8 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
     auto& settings = scene.settings();
     ubo.ambient = settings.ambientLight;
     ubo.cameraPos = glm::vec4(cameraPos, 1.0f);
-    ubo.shadowParams = glm::vec4(project ? project->shadowSoftness() : 1.0f, 0.0f, 0.0f, 0.0f);
+    ubo.shadowParams = glm::vec4(project ? project->shadowSoftness() : 1.0f,
+                               shadowMap_->depthReferenceBias(), 0.0f, 0.0f);
 
     int lightCount = 0;
     shadowCount_ = 0;
@@ -986,7 +922,8 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
             glm::mat4 lightVP = light->type == LightType::Directional
                 ? directionalMatrix(
                       worldDir, project ? project->shadowDistance()
-                                        : kDefaultShadowDistance)
+                                        : kDefaultShadowDistance,
+                      cameraPos, shadowMap_->resolution())
                 : spotMatrix(worldPos, worldDir, light->spotOuterAngle, light->range);
             shadowMatrices_[shadowCount_] = lightVP;
             ubo.shadowMatrices[shadowCount_] = lightVP;
@@ -1000,19 +937,15 @@ void Renderer::gatherScene(LightingUBO& ubo, Scene& scene, const glm::vec3& came
     int mode = settings.lightingMode == LightingMode::Baked ? 1 : 0;
     ubo.counts = glm::ivec4(lightCount, mode, 0, 0);
 
-    const GIVolumeDesc& gd = gi_->desc();
-    ubo.giOrigin  = glm::vec4(gd.origin, settings.giEnabled && gi_->available() ? 1.0f : 0.0f);
-    ubo.giSpacing = glm::vec4(gd.spacing, settings.giIntensity);  // w = indirect multiplier
-    ubo.giCounts  = glm::ivec4(gd.counts, gi_->probesPerRow());
-    ubo.giAtlas   = glm::ivec4(gd.irradianceTexels, gd.visibilityTexels,
-                               settings.giDebugVoxels ? 1 : 0, gd.voxelResolution);
+    gi_->fillUniforms(ubo,scene);
     const bool iblActive = settings.iblEnabled && settings.skyboxTexture != kAssetInvalid;
     const float environmentExposure = std::max(settings.skyboxExposure, 0.0f);
     const auto rain = packRainWeather(settings.rainIntensity, settings.wetness,
                                       settings.rainUpDirection, Time::elapsed());
     ubo.rainParams = rain.params;
     ubo.rainUp = rain.up;
-    ubo.ambientOcclusion = glm::vec4(ambientOcclusionActive(settings) ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f);
+    ubo.ambientOcclusion = glm::vec4(ambientOcclusionActive(settings) ? 1.0f : 0.0f,
+                                     screenGIActive(settings) ? 1.0f : 0.0f, 0.0f, 0.0f);
     ubo.environmentParams = glm::vec4(
         iblActive ? 1.0f : 0.0f,
         std::max(settings.iblDiffuseIntensity, 0.0f) * environmentExposure,
@@ -1268,7 +1201,8 @@ void Renderer::createHdrResources() {
     createAmbientOcclusionTargets(extent, 1, "RenderTarget/DesktopHDR");
     aoInputs_ = aoPass_->makeInputs(depthResolveTexture_ ? depthResolveTexture_->view()
                                                          : swapchain_->depthView(),
-                                    aoRawTexture_->layerView(0), aoDenoisedTexture_->layerView(0));
+                                    aoRawTexture_->layerView(0), aoDenoisedTexture_->layerView(0),
+                                    aoIrradianceTexture_->layerView(0));
 
     if (postProcessor_) postProcessor_->resize(extent, hdrTexture_->view());
     else postProcessor_ = std::make_unique<PostProcessor>(device_, extent,
@@ -1278,14 +1212,15 @@ void Renderer::createHdrResources() {
             hdrTexture_->view(),
             depthResolveTexture_ ? depthResolveTexture_->view() : swapchain_->depthView(),
             postProcessor_->bloomView(), postProcessor_->bloomSampler(),
-            skyProbeTexture_->view());
+            skyProbeTexture_->view(), autoExposure_->state());
+        autoExposure_->setInput(hdrTexture_->view());
     }
 }
 
 void Renderer::createAmbientOcclusionTargets(rhi::Extent2D extent, uint32_t layers,
                                              const char* memoryCategory) {
     rhi::RenderTextureDesc desc;
-    desc.format = AmbientOcclusionPass::kFormat;
+    desc.format = AmbientOcclusionPass::kMapFormat;
     desc.width = extent.width;
     desc.height = extent.height;
     desc.layers = layers;
@@ -1297,6 +1232,9 @@ void Renderer::createAmbientOcclusionTargets(rhi::Extent2D extent, uint32_t laye
     const rhi::Extent2D grid = AmbientOcclusionPass::gridExtent(extent);
     desc.width = grid.width;
     desc.height = grid.height;
+    aoIrradianceTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
+    aoIrradianceState_ = rhi::ResourceState::Undefined;
+    desc.format = AmbientOcclusionPass::kFormat;
     aoRawTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
     aoRawState_ = rhi::ResourceState::Undefined;
     aoDenoisedTexture_ = std::make_unique<rhi::RenderTexture>(device_, desc);
@@ -1305,6 +1243,7 @@ void Renderer::createAmbientOcclusionTargets(rhi::Extent2D extent, uint32_t laye
 
 void Renderer::cleanupHdrResources() {
     aoInputs_ = {};
+    aoIrradianceTexture_.reset();
     aoDenoisedTexture_.reset();
     aoRawTexture_.reset();
     aoTexture_.reset();
@@ -1342,6 +1281,10 @@ void Renderer::recordTonemapPass(rhi::CommandEncoder& encoder, uint32_t imageInd
 
     if (postProcessor_) {
         postProcessor_->recordBloom(encoder, scene.settings(), sourceRect, gpuProfiler);
+    }
+    if (autoExposure_ && scene.settings().autoExposure) {
+        SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/AutoExposure");
+        autoExposure_->record(encoder, scene.settings(), sourceRect, Time::unscaledDelta());
     }
 
     rhi::RenderPassDesc pass;
@@ -1481,7 +1424,7 @@ void Renderer::recordSceneMeshes(rhi::RenderPassEncoder& rp, MeshPass pass) {
 }
 
 void Renderer::createAmbientOcclusionPass() {
-    aoPass_ = std::make_unique<AmbientOcclusionPass>(device_);
+    aoPass_ = std::make_unique<AmbientOcclusionPass>(device_, *globalSetLayout_);
     rhi::SamplerDesc nearest;
     nearest.magFilter = rhi::FilterMode::Nearest;
     nearest.minFilter = rhi::FilterMode::Nearest;
@@ -1490,6 +1433,10 @@ void Renderer::createAmbientOcclusionPass() {
 
 bool Renderer::ambientOcclusionActive(const SceneSettings& settings) const {
     return aoPass_ && aoTexture_ && AmbientOcclusionPass::active(settings);
+}
+
+bool Renderer::screenGIActive(const SceneSettings& settings) const {
+    return aoPass_ && aoTexture_ && aoIrradianceTexture_ && gi_ && gi_->available() && settings.giEnabled;
 }
 
 void Renderer::readyAmbientOcclusionMap(rhi::CommandEncoder& encoder) {
@@ -1530,7 +1477,7 @@ void Renderer::recordAmbientOcclusion(rhi::CommandEncoder& encoder, Scene& scene
     // pass (MSAA: its resolve target, which that pass resolves into again).
     auto depthImage = msaa ? depthResolveTexture_->image() : swapchain_->depthImage();
     encoder.transition(depthImage, rhi::ResourceState::DepthWrite, rhi::ResourceState::ShaderRead);
-    recordAmbientOcclusionStages(encoder, scene.settings(), {{&aoInputs_, camera.projection(), 0}},
+    recordAmbientOcclusionStages(encoder, scene.settings(), {{&aoInputs_, camera.projection(), 0, camera.view()}},
                                  renderRect, normalizedRect(renderRect, swapchain_->extent()));
     encoder.transition(depthImage, rhi::ResourceState::ShaderRead, rhi::ResourceState::DepthWrite);
 }
@@ -1539,6 +1486,8 @@ void Renderer::recordAmbientOcclusionStages(rhi::CommandEncoder& encoder, const 
                                             const std::vector<AmbientOcclusionView>& views,
                                             const rhi::Rect2D& renderRect, const glm::vec4& sourceRect) {
     // Each stage for every view, then the next stage from its results.
+    const bool occlusion = ambientOcclusionActive(settings);
+    const bool irradiance = screenGIActive(settings);
     auto runStage = [&](AmbientOcclusionPass::Stage stage, rhi::RenderTexture& target,
                         rhi::ResourceState& state) {
         encoder.transition(target.image(), state, rhi::ResourceState::ColorAttachment,
@@ -1555,15 +1504,35 @@ void Renderer::recordAmbientOcclusionStages(rhi::CommandEncoder& encoder, const 
             pass.width = area.extent.width;
             pass.height = area.extent.height;
             rhi::RenderPassEncoder rp = encoder.beginRenderPass(pass);
-            aoPass_->record(rp, stage, *view.inputs, settings, view.projection, renderRect, sourceRect);
+            if (stage == AmbientOcclusionPass::Stage::Irradiance)
+                aoPass_->recordIrradiance(rp, *view.inputs, *globalGroups_[currentFrame_], view.projection,
+                                          view.view, renderRect, sourceRect);
+            else
+                aoPass_->record(rp, stage, *view.inputs, settings, view.projection, renderRect, sourceRect,
+                                irradiance);
             rp.end();
         }
         encoder.transition(target.image(), rhi::ResourceState::ColorAttachment,
                            rhi::ResourceState::ShaderRead, 0, kAllTextureLayers);
         state = rhi::ResourceState::ShaderRead;
     };
-    runStage(AmbientOcclusionPass::Stage::Kernel, *aoRawTexture_, aoRawState_);
-    runStage(AmbientOcclusionPass::Stage::Denoise, *aoDenoisedTexture_, aoDenoisedState_);
+    // Each grid the upsample reads must rest in ShaderRead, run or not.
+    auto readyGrid = [&](rhi::RenderTexture& target, rhi::ResourceState& state) {
+        if (state == rhi::ResourceState::ShaderRead) return;
+        encoder.transition(target.image(), state, rhi::ResourceState::ShaderRead, 0, kAllTextureLayers);
+        state = rhi::ResourceState::ShaderRead;
+    };
+    if (occlusion) {
+        runStage(AmbientOcclusionPass::Stage::Kernel, *aoRawTexture_, aoRawState_);
+        runStage(AmbientOcclusionPass::Stage::Denoise, *aoDenoisedTexture_, aoDenoisedState_);
+    }
+    readyGrid(*aoDenoisedTexture_, aoDenoisedState_);
+    if (irradiance) {
+        SAIDA_GPU_PROFILE_SCOPE(Profiler::instance().enabled() ? gpuProfiler_.get() : nullptr,
+                                encoder.handle(), "Scene/ScreenGI");
+        runStage(AmbientOcclusionPass::Stage::Irradiance, *aoIrradianceTexture_, aoIrradianceState_);
+    }
+    readyGrid(*aoIrradianceTexture_, aoIrradianceState_);
     runStage(AmbientOcclusionPass::Stage::Upsample, *aoTexture_, aoState_);
 }
 
@@ -1662,9 +1631,9 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
         // The trace pipeline declares the terrain map before feature pre-passes
         // have run on the first frame. Its descriptor must already be valid.
         readySunOcclusion(encoder);
-        gi_->voxelize(encoder, scene, gpuProfiler);
+        gi_->voxelize(encoder, scene, gpuProfiler, &features_);
 #ifdef SAIDA_RHI_WEBGPU
-        gi_->update(encoder, *giComputeGlobalGroups_[currentFrame_], gpuProfiler);
+        gi_->update(encoder, *globalGroups_[currentFrame_], gpuProfiler, giComputeGlobalGroups_[currentFrame_].get());
 #else
         gi_->update(encoder, *globalGroups_[currentFrame_], gpuProfiler);
 #endif
@@ -1747,7 +1716,8 @@ void Renderer::recordCommandBuffer(rhi::CommandEncoder& encoder, uint32_t imageI
     // Ambient occlusion needs the depth before the lit shaders run: a
     // depth-only pass over the opaque surfaces, then the AO map from it.
     readyAmbientOcclusionMap(encoder);
-    const bool ambientOcclusion = ambientOcclusionActive(settings);
+    // The GI stage reads the same depth: either one runs the pre-pass.
+    const bool ambientOcclusion = ambientOcclusionActive(settings) || screenGIActive(settings);
     if (ambientOcclusion) {
         {
             SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Scene/DepthPrePass");
@@ -1847,10 +1817,6 @@ void Renderer::drawFrame(Scene& scene, Camera& camera, Project* project) {
     const bool lightingModeChanged = lightingMode != giLastLightingMode_;
     const bool giEnabledChanged = settings.giEnabled != giWasEnabled_;
     const bool giHierarchyChanged = scene.subtreeRevision() != giLastHierarchyVersion_;
-    const bool giTransformChanged = scene.subtreeTransformRevision() != giLastTransformVersion_;
-    const uint64_t giSignature = giDirtySignature(scene);
-    const bool giContentChanged = giSignature != giLastDirtySignature_;
-    const bool giDirty = giHierarchyChanged || giTransformChanged || giContentChanged;
     if (giModeChanged || lightingModeChanged || giEnabledChanged || giHierarchyChanged) {
         giRealtimeWarmupRemaining_ = kGIRealtimeWarmupFrames;
         giLastMode_ = giMode;
@@ -1865,7 +1831,7 @@ void Renderer::drawFrame(Scene& scene, Camera& camera, Project* project) {
     // modes; only the indirect volume is frozen).
     if (settings.lightingMode == LightingMode::Realtime) {
         settings.bakeRequested = false;  // bake only applies in baked mode
-        giUpdateThisFrame_ = settings.giEnabled && shouldUpdateRealtimeGI(giDirty);
+        giUpdateThisFrame_ = settings.giEnabled && shouldUpdateRealtimeGI();
         if (giUpdateThisFrame_ && giRealtimeWarmupRemaining_ > 0) {
             --giRealtimeWarmupRemaining_;
         }
@@ -1882,13 +1848,10 @@ void Renderer::drawFrame(Scene& scene, Camera& camera, Project* project) {
     }
     if (giUpdateThisFrame_ || !settings.giEnabled) {
         giLastHierarchyVersion_ = scene.subtreeRevision();
-        giLastTransformVersion_ = scene.subtreeTransformRevision();
-        giLastDirtySignature_ = giSignature;
     }
     ++giFrameCounter_;
 
-    // Frozen GI retains its sampled atlas; updating GI swaps the ping-pong pair.
-    if (giUpdateThisFrame_) gi_->beginFrame();
+    prepareGI(scene,camera.position);
     {
         SAIDA_PROFILE_SCOPE("Renderer/UpdateDescriptors");
         updateGIDescriptors();
@@ -1978,12 +1941,14 @@ void Renderer::createXrTargets() {
         xrPostProcessors_[i] = std::make_unique<PostProcessor>(device_, xrExtent_,
             rhi::Format::RGBA16Float, xrHdrTexture_->layerView(i));
         xrAoInputs_[i] = aoPass_->makeInputs(xrDepthTexture_->layerView(i), aoRawTexture_->layerView(i),
-                                             aoDenoisedTexture_->layerView(i));
+                                             aoDenoisedTexture_->layerView(i),
+                                             aoIrradianceTexture_->layerView(i));
     }
 }
 
 void Renderer::cleanupXrTargets() {
     for (auto& inputs : xrAoInputs_) inputs = {};
+    aoIrradianceTexture_.reset();
     aoDenoisedTexture_.reset();
     aoRawTexture_.reset();
     aoTexture_.reset();
@@ -2054,6 +2019,9 @@ void Renderer::createXrPipelines() {
                 // The sky probe the shader declares; XR renders none, so the
                 // fog keeps its own colour (TonemapPass::pushConstants).
                 {6, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},
+                // The exposure state the shader declares; the eyes keep the
+                // fixed exposure (TonemapPass: no metering in XR yet).
+                {8, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Fragment},
             });
 
         rhi::SamplerDesc linearDesc;
@@ -2105,8 +2073,12 @@ void Renderer::updateXrTonemapDescriptorSets() {
         probeEntry.view = skyProbeTexture_->view();
         probeEntry.sampler = xrTonemapSampler_->handle();
 
+        rhi::BindGroupEntry exposureEntry;
+        exposureEntry.binding = 8;
+        exposureEntry.buffer = &autoExposure_->state();
+
         xrTonemapSets_[i] = std::make_unique<rhi::BindGroup>(*xrTonemapSetLayout_,
-            std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry, probeEntry});
+            std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry, probeEntry, exposureEntry});
     }
 }
 
@@ -2164,7 +2136,7 @@ void Renderer::recordXrScenePass(rhi::CommandEncoder& encoder, Scene& scene,
 
     // As on the desktop: the eyes' depth first, then each eye's AO map layer.
     readyAmbientOcclusionMap(encoder);
-    const bool ambientOcclusion = ambientOcclusionActive(settings);
+    const bool ambientOcclusion = ambientOcclusionActive(settings) || screenGIActive(settings);
     if (ambientOcclusion) {
         recordXrDepthPrePass(encoder, scene, eyes);
         recordXrAmbientOcclusion(encoder, scene, eyes);
@@ -2228,7 +2200,7 @@ void Renderer::recordXrAmbientOcclusion(rhi::CommandEncoder& encoder, Scene& sce
     std::vector<AmbientOcclusionView> views;
     const uint32_t n = std::min<uint32_t>(static_cast<uint32_t>(eyes.size()), xrViewCount_);
     for (uint32_t i = 0; i < n && i < xrAoInputs_.size() && xrAoInputs_[i].kernel; ++i)
-        views.push_back({&xrAoInputs_[i], eyes[i].projection, i});
+        views.push_back({&xrAoInputs_[i], eyes[i].projection, i, eyes[i].view});
     recordAmbientOcclusionStages(encoder, scene.settings(), views, rhi::Rect2D{{0, 0}, xrExtent_},
                                  glm::vec4(0.0f, 0.0f, 1.0f, 1.0f));
     encoder.transition(xrDepthTexture_->image(), rhi::ResourceState::ShaderRead,
@@ -2305,6 +2277,7 @@ void Renderer::recordXrTonemap(rhi::CommandEncoder& encoder, Scene& scene,
         TonemapPass::PushConstants push =
             TonemapPass::pushConstants(scene.settings(), eye.view, eye.projection, exposure_,
                                        rhi::vulkan::fromVk(xrColorFormat_), flare);
+        push.outputParams.y = 0.0f;
         {
             SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "Post/Tonemap");
             rp.setPushConstants(&push, sizeof(TonemapPass::PushConstants));
@@ -2326,10 +2299,6 @@ void Renderer::drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eye
     const bool lightingModeChanged = lightingMode != giLastLightingMode_;
     const bool giEnabledChanged = settings.giEnabled != giWasEnabled_;
     const bool giHierarchyChanged = scene.subtreeRevision() != giLastHierarchyVersion_;
-    const bool giTransformChanged = scene.subtreeTransformRevision() != giLastTransformVersion_;
-    const uint64_t giSignature = giDirtySignature(scene);
-    const bool giContentChanged = giSignature != giLastDirtySignature_;
-    const bool giDirty = giHierarchyChanged || giTransformChanged || giContentChanged;
     if (giModeChanged || lightingModeChanged || giEnabledChanged || giHierarchyChanged) {
         giRealtimeWarmupRemaining_ = kGIRealtimeWarmupFrames;
         giLastMode_ = giMode;
@@ -2339,7 +2308,7 @@ void Renderer::drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eye
 
     if (settings.lightingMode == LightingMode::Realtime) {
         giUpdateThisFrame_ = settings.giEnabled &&
-            shouldUpdateRealtimeGI(giDirty);
+            shouldUpdateRealtimeGI();
         if (giUpdateThisFrame_ && giRealtimeWarmupRemaining_ > 0) {
             --giRealtimeWarmupRemaining_;
         }
@@ -2355,12 +2324,12 @@ void Renderer::drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eye
     }
     if (giUpdateThisFrame_ || !settings.giEnabled) {
         giLastHierarchyVersion_ = scene.subtreeRevision();
-        giLastTransformVersion_ = scene.subtreeTransformRevision();
-        giLastDirtySignature_ = giSignature;
     }
     ++giFrameCounter_;
 
-    if (giUpdateThisFrame_) gi_->beginFrame();
+    glm::vec3 giHead(0);
+    for(const auto& eye:eyes) giHead+=eye.eyePosition;
+    prepareGI(scene,giHead/float(eyes.size()));
     updateGIDescriptors();
     updateEnvironmentDescriptor(scene);
 
@@ -2371,7 +2340,7 @@ void Renderer::drawXr(VkCommandBuffer cmd, const std::vector<EyeRenderInfo>& eye
         GpuProfiler* gpuProfiler = Profiler::instance().enabled() ? gpuProfiler_.get() : nullptr;
         SAIDA_GPU_PROFILE_SCOPE(gpuProfiler, cmd, "GPU/DDGI");
         readySunOcclusion(encoder);
-        gi_->voxelize(encoder, scene, gpuProfiler);
+        gi_->voxelize(encoder, scene, gpuProfiler, &features_);
         gi_->update(encoder, *globalGroups_[currentFrame_], gpuProfiler);
     }
     recordShadowPasses(encoder);

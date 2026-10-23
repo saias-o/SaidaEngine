@@ -65,7 +65,7 @@ int MeshNode::selectLodIndex(float screenCoverage) const {
 void MeshNode::captureDurableResourceRefs(const nlohmann::json& j) {
     static const char* kRefKeys[] = {"mesh",      "texture", "baseColor",
                                      "metallic",  "roughness", "ao",
-                                     "emissive",  "shader",  "lods"};
+                                     "emissive",  "shader",  "lods", "receiveGlobalIllumination"};
     nlohmann::json refs = nlohmann::json::object();
     for (const char* key : kRefKeys)
         if (auto it = j.find(key); it != j.end()) refs[key] = *it;
@@ -82,6 +82,7 @@ void MeshNode::serialize(nlohmann::json& j, ResourceManager& resources) const {
         j["metallic"] = d.metallic;
         j["roughness"] = d.roughness;
         j["ao"] = d.ao;
+        j["receiveGlobalIllumination"] = d.receiveGlobalIllumination;
         j["emissive"] = {d.emissiveColor.r, d.emissiveColor.g, d.emissiveColor.b, d.emissiveColor.a};
         j["shader"] = (d.type == MaterialType::Unlit) ? "unlit" : "lit";
     }
@@ -126,6 +127,7 @@ void MeshNode::deserialize(const nlohmann::json& j, ResourceManager& resources) 
     }
     if (j.contains("texture") || j.contains("baseColor")) {
         MaterialDesc desc{};
+        desc.receiveGlobalIllumination = j.value("receiveGlobalIllumination", true);
         if (j.contains("texture")) {
             if (j["texture"].is_number_integer()) {
                 desc.albedoId = j["texture"].get<AssetID>();
@@ -172,6 +174,7 @@ void MeshNode::deserialize(const nlohmann::json& j, ResourceManager& resources) 
             }
             if (entry.contains("materialAlbedo")) {
                 MaterialDesc desc{};
+                desc.receiveGlobalIllumination = j.value("receiveGlobalIllumination", true);
                 if (entry["materialAlbedo"].is_number_integer())
                     desc.albedoId = entry["materialAlbedo"].get<AssetID>();
                 else if (entry["materialAlbedo"].is_string())

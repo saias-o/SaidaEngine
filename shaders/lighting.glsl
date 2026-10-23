@@ -11,8 +11,7 @@ DECL_SHADOW2DARRAY(0, 2, 8, shadowMap);
 // DDGI atlases: one octahedral tile per probe, laid out in a 2D atlas. Irradiance
 // holds incident radiance (rgb), visibility holds (mean dist, mean dist^2) for the
 // Chebyshev occlusion test. Both are LINEAR + CLAMP sampled.
-DECL_TEX2D(0, 4, 9,  giIrradiance);
-DECL_TEX2D(0, 5, 10, giVisibility);
+#include "gi_sampling.glsl"
 
 // Voxelized scene albedo (the GI ray-march source). Sampled here only for the
 // debug visualization; the DDGI update compute pass reads it directly.
@@ -42,125 +41,93 @@ const float INV_TWO_PI = 0.15915494309;
 const float INV_PI = 0.31830988618;
 const float IBL_SPECULAR_MIP_CURVE = 1.5;
 
-// World position -> [0,1] coordinate inside the voxel/probe volume box.
-vec3 giVolumeUVW(vec3 wp) {
-    vec3 extent = lights.giSpacing.xyz * vec3(lights.giCounts.xyz - 1);
-    return (wp - lights.giOrigin.xyz) / extent;
-}
-
 struct LightTerms { vec3 diffuse; vec3 specular; };
 
-// Indirect diffuse from the DDGI irradiance volume.
+#ifndef SAIDA_LIGHTING_COMPUTE
+vec3 shadowWorldDx;
+vec3 shadowWorldDy;
 
-int giProbeIndex(ivec3 c) {
-    return c.x + c.y * lights.giCounts.x + c.z * lights.giCounts.x * lights.giCounts.y;
+// Call before any discard or material branch, including the billboard path.
+// WebGPU requires derivatives in uniform control flow.
+void prepareShadowReceiver(vec3 worldPos) {
+    shadowWorldDx = dFdx(worldPos);
+    shadowWorldDy = dFdy(worldPos);
 }
+#endif
 
-// UV of a probe's octahedral tile for direction `dir`, in an atlas of `atlasSize`
-// pixels with `texels` interior texels/probe and a 1px border (gutter) per side.
-vec2 giProbeUV(int probeIndex, vec3 dir, int texels, vec2 atlasSize) {
-    int ppr = lights.giCounts.w;
-    ivec2 tile = ivec2(probeIndex % ppr, probeIndex / ppr);
-    vec2 oct = octEncode(dir) * 0.5 + 0.5;                       // [0,1]
-    vec2 px = vec2(tile * (texels + 2)) + 1.0 + oct * float(texels);
-    return px / atlasSize;
-}
-
-// Trilinearly interpolate the 8 probes around `wp`, with DDGI's directional
-// (back-face) and Chebyshev visibility weights to kill light leaking.
-vec3 sampleIrradianceVolume(vec3 wp, vec3 N, vec3 V) {
-    ivec3 counts  = lights.giCounts.xyz;
-    vec3  spacing = lights.giSpacing.xyz;
-
-    // Bias the sample off the surface before the Chebyshev visibility test.
-    float maxSpacing = max(spacing.x, max(spacing.y, spacing.z));
-    wp += (N * 0.35 + V * 0.35) * maxSpacing;
-
-    vec3  gridF   = (wp - lights.giOrigin.xyz) / spacing;
-    ivec3 base    = ivec3(floor(gridF));
-    vec3  frac    = gridF - vec3(base);
-
-    vec2 irrAtlas = vec2(textureSize(TEX2D(giIrradiance), 0));
-    vec2 visAtlas = vec2(textureSize(TEX2D(giVisibility), 0));
-    int  irrT     = lights.giAtlas.x;
-    int  visT     = lights.giAtlas.y;
-
-    vec3  sumIrr = vec3(0.0);
-    float sumW   = 0.0;
-
-    for (int i = 0; i < 8; ++i) {
-        ivec3 off = ivec3(i & 1, (i >> 1) & 1, (i >> 2) & 1);
-        ivec3 c   = clamp(base + off, ivec3(0), counts - 1);
-        int   idx = giProbeIndex(c);
-
-        vec3  probePos = lights.giOrigin.xyz + vec3(c) * spacing;
-        vec3  toProbe  = probePos - wp;
-        float dist     = length(toProbe);
-        vec3  dir      = dist > 1e-5 ? toProbe / dist : N;
-
-        // 1. Trilinear weight.
-        vec3  tw   = mix(1.0 - frac, frac, vec3(off));
-        float wTri = tw.x * tw.y * tw.z;
-
-        // 2. Directional weight: prefer probes in front of the surface.
-        float wDir = max(0.0001, dot(dir, N) * 0.5 + 0.5);
-        wDir *= wDir;
-
-        // 3. Chebyshev visibility from the probe.
-        // These atlases have one mip. Explicit LOD also permits the per-pixel
-        // volume coverage branch in WGSL without implicit derivatives.
-        vec2  vis  = textureLod(TEX2D(giVisibility), giProbeUV(idx, -dir, visT, visAtlas), 0.0).rg;
-        float mean = vis.x;
-        float wVis = 1.0;
-        if (dist > mean) {
-            float variance = max(0.0, vis.y - mean * mean);
-            wVis = variance / (variance + (dist - mean) * (dist - mean));
-            wVis = max(0.0, wVis);
-            wVis = wVis * wVis;   // soften vs the paper's cube to limit dark over-occlusion on a noisy 16x16 visibility map
-        }
-
-        float w   = wTri * wDir * wVis + 1e-4;   // epsilon avoids all-zero weights
-        vec3  irr = textureLod(TEX2D(giIrradiance), giProbeUV(idx, N, irrT, irrAtlas), 0.0).rgb;
-        sumIrr += irr * w;
-        sumW   += w;
-    }
-    return sumIrr / max(sumW, 1e-4);
-}
-
-// Indirect diffuse contribution for a surface. Falls back to the flat ambient
-// constant when the volume is disabled (giOrigin.w == 0), so the engine still
-// renders without GI.
-vec3 giIndirectDiffuse(vec3 wp, vec3 N, vec3 V, vec3 albedo) {
-    vec3 fallback = lights.ambient.rgb * albedo;
-    if (lights.giOrigin.w < 0.5)
-        return fallback;
-    // A probe volume measures its own bounds. Clamping a distant mountain to
-    // its edge would apply the lighting of a nearby room to the whole horizon.
-    // Fade across one probe cell; IBL still supplies the directional sky term.
-    vec3 grid = (wp - lights.giOrigin.xyz) / lights.giSpacing.xyz;
-    vec3 edge = min(grid, vec3(lights.giCounts.xyz - 1) - grid);
-    float coverage = clamp(min(edge.x, min(edge.y, edge.z)), 0.0, 1.0);
-    if (coverage == 0.0) return fallback;
-    // Probes store cosine-weighted mean incident radiance; pi cancels for Lambert.
-    return mix(fallback, sampleIrradianceVolume(wp, N, V) * albedo * lights.giSpacing.w, coverage);
-}
-
-// Hardware-PCF shadow lookup. Returns the lit fraction in [0,1] (1 = fully lit).
-float shadowFactor(int idx, vec3 worldPos, float ndotl) {
+// Receiver-plane PCF. Returns the lit fraction in [0,1] (1 = fully lit).
+float shadowFactor(int idx, vec3 worldPos) {
+#ifdef SAIDA_LIGHTING_COMPUTE
+    // GI traces voxel visibility; camera shadow maps do not cover its rays.
+    return 1.0;
+#else
     vec4 clip = lights.shadowMatrices[idx] * vec4(worldPos, 1.0);
     vec3 proj = clip.xyz / clip.w;
     vec2 uv = proj.xy * 0.5 + 0.5;
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 || proj.z > 1.0)
+    // Derive the geometric receiver plane, independently of normal maps. Each
+    // PCF tap compares at that plane's depth, rather than subtracting a fixed
+    // fraction of the light's entire range (metres at grazing incidence).
+    vec4 clipDx = lights.shadowMatrices[idx] * vec4(shadowWorldDx, 0.0);
+    vec4 clipDy = lights.shadowMatrices[idx] * vec4(shadowWorldDy, 0.0);
+    vec3 dx = (clipDx.xyz - proj * clipDx.w) / clip.w;
+    vec3 dy = (clipDy.xyz - proj * clipDy.w) / clip.w;
+    dx.xy *= 0.5;
+    dy.xy *= 0.5;
+    float determinant = dx.x * dy.y - dx.y * dy.x;
+    vec2 depthGradient = vec2(0.0);
+    if (abs(determinant) > 1e-12)
+        depthGradient = vec2(dy.y * dx.z - dx.y * dy.z,
+                             dx.x * dy.z - dy.x * dx.z) / determinant;
+    if (clip.w <= 0.0 || uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0 ||
+        proj.z < 0.0 || proj.z > 1.0)
         return 1.0;
-    float bias = clamp(0.0015 * tan(acos(clamp(ndotl, 0.0, 1.0))), 0.0, 0.004);
-    float depthRef = proj.z - bias;
     vec2 texel = 1.0 / vec2(textureSize(SHADOW2DARRAY(shadowMap), 0).xy);
+    // Adjacent triangles need not have exactly the same plane. Reserve a small
+    // fraction of a shadow texel for that discontinuity, rather than exposing
+    // every triangulation edge or displacing depth by a fraction of the range.
+    const float receiverTexelAllowance = 0.1;
+    float bias = lights.shadowParams.y + receiverTexelAllowance * dot(abs(depthGradient), texel);
     float sum = 0.0;
     float softness = lights.shadowParams.x;
+    if (softness <= 1.0) {
+        // The nine bilinear footprints overlap here: combine their weights and
+        // read the sixteen distinct texels once, keeping exactly the same filter.
+        vec2 tap = uv / texel - 0.5;
+        vec2 base = floor(tap);
+        vec2 blend = fract(tap);
+        for (int a = -1; a <= 2; ++a)
+            for (int b = -1; b <= 2; ++b) {
+                vec2 relative = vec2(a, b) - blend;
+                vec2 weight = max(1.0 - abs(relative + softness), vec2(0.0)) +
+                              max(1.0 - abs(relative), vec2(0.0)) +
+                              max(1.0 - abs(relative - softness), vec2(0.0));
+                vec2 sampleUV = (base + vec2(a, b) + 0.5) * texel;
+                float depthRef = proj.z + dot(depthGradient, sampleUV - uv) - bias;
+                sum += weight.x * weight.y * SAMPLE_SHADOW2DARRAY(shadowMap,
+                    vec4(sampleUV, float(idx), depthRef));
+            }
+        return sum / 9.0;
+    }
     for (int x = -1; x <= 1; ++x)
         for (int y = -1; y <= 1; ++y)
-            sum += SAMPLE_SHADOW2DARRAY(shadowMap, vec4(uv + vec2(x, y) * texel * softness, float(idx), depthRef));
+        {
+            vec2 tap = (uv + vec2(x, y) * texel * softness) / texel - 0.5;
+            vec2 base = floor(tap);
+            vec2 blend = fract(tap);
+            // Hardware PCF shares one reference across four texels, which still
+            // self-shadows a grazing plane. Compare at each texel's centre and
+            // interpolate the results with the same bilinear weights instead.
+            for (int a = 0; a <= 1; ++a)
+                for (int b = 0; b <= 1; ++b) {
+                    vec2 sampleUV = (base + vec2(a, b) + 0.5) * texel;
+                    float depthRef = proj.z + dot(depthGradient, sampleUV - uv) - bias;
+                    vec2 weight = mix(1.0 - blend, blend, vec2(a, b));
+                    sum += weight.x * weight.y * SAMPLE_SHADOW2DARRAY(shadowMap,
+                        vec4(sampleUV, float(idx), depthRef));
+                }
+        }
     return sum / 9.0;
+#endif
 }
 
 // GGX / Trowbridge-Reitz Normal Distribution Function.
@@ -235,10 +202,15 @@ vec3 sampleEnvironmentLod(vec3 dir, float lod) {
     return color;
 }
 
+// What a GI ray that escapes every voxel sees: the sky as shown, softened four
+// mips (a probe's few rays would turn clouds into noise), plus the flat
+// ambient -- the very light the legacy fallback applies, so open ground reads
+// the same with GI on or off.
 vec3 environmentMissRadiance(vec3 dir) {
-    if (lights.environmentParams.x < 0.5)
+    if (lights.environmentParams.x < 0.5 || lights.environmentParams.y <= 0.0)
         return lights.ambient.rgb;
-    return sampleEnvironmentLod(dir, 0.0) * lights.environmentParams.y;
+    return lights.ambient.rgb
+         + sampleEnvironmentLod(dir, max(environmentMaxLod() - 4.0, 0.0)) * lights.environmentParams.y;
 }
 
 // Lambertian irradiance from the environment, reconstructed from its order-2 SH.
@@ -387,7 +359,7 @@ LightTerms lightContributionOccluded(int i, vec3 N, vec3 V, vec3 wp,
     float ndotl = dot(N, L);
     float shadow = 1.0;
     if (lt.spotShadow.z >= 0.0)
-        shadow = shadowFactor(int(lt.spotShadow.z + 0.5), wp, ndotl);
+        shadow = shadowFactor(int(lt.spotShadow.z + 0.5), wp);
     shadow *= visibility;
     if (readSunOcclusion && i == int(lights.sunOcclusion.x)) shadow *= sunOcclusionAt(wp);
     float vis = atten * shadow;
@@ -437,13 +409,61 @@ LightTerms lightContribution(int i, vec3 N, vec3 V, vec3 wp,
 }
 
 // ---------------------------------------------------------------------------
+// Preserve the legacy disabled path, and replace sky diffuse only inside ready GI.
+// `irradiance` is what GI says the surface receives, over `coverage` of it.
+void composeGIIrradiance(inout LightTerms env,vec3 irradiance,float coverage,vec3 N,vec3 V,vec3 albedo,float metallic,float roughness,vec3 dielectricF0,float dielectricF90) {
+    vec3 F0=mix(dielectricF0,albedo,metallic);
+    float F90=mix(dielectricF90,1.0,metallic);
+    vec3 grazing=max(vec3(F90*(1.0-clamp(roughness,.04,1.0))),F0);
+    vec3 F=F0+(grazing-F0)*pow(clamp(1.0-max(dot(N,V),.001),0.0,1.0),5.0);
+    float kd=(1.0-max(F.r,max(F.g,F.b)))*(1.0-metallic);
+    vec3 reference=lights.ambient.rgb;
+    if(lights.environmentParams.x>.5 && lights.environmentParams.y>0.0) reference=environmentIrradiance(N)*lights.environmentParams.y;
+    float openness=clamp(dot(irradiance,vec3(.2126,.7152,.0722))/max(dot(reference,vec3(.2126,.7152,.0722)),.001),0.0,1.0);
+    env.diffuse=mix(env.diffuse,irradiance*albedo*kd,coverage);
+    env.specular*=mix(1.0,openness,coverage);
+}
+void composeGISample(inout LightTerms env,vec4 gi,vec3 N,vec3 V,vec3 albedo,float metallic,float roughness,vec3 dielectricF0,float dielectricF90) {
+    env.diffuse+=lights.ambient.rgb*albedo;
+    if(lights.giOrigin.w<.5) return;
+    composeGIIrradiance(env,gi.rgb*lights.giSpacing.w,gi.a,N,V,albedo,metallic,roughness,dielectricF0,dielectricF90);
+}
+
+// What the surface receives as diffuse indirect light: the probes' irradiance
+// where they cover it, the legacy ambient and diffuse sky past them. The AO
+// pass's GI stage evaluates it at half resolution (ambient_occlusion_gi.frag).
+vec3 giIrradianceOrSky(vec3 wp,vec3 N,vec3 V) {
+    vec3 sky=lights.ambient.rgb;
+    if(lights.environmentParams.x>.5 && lights.environmentParams.y>0.0) sky+=environmentIrradiance(N)*lights.environmentParams.y;
+    vec4 gi=sampleGI(wp,N,V);
+    return mix(sky,gi.rgb*lights.giSpacing.w,gi.a);
+}
+
+#ifdef SAIDA_SCREEN_GI
+// Shaders whose surfaces the depth pre-pass draws read the AO pass's GI stage
+// back instead of sampling the probes per fragment (screen_ambient_occlusion.glsl).
+vec3 screenIndirectIrradiance();
+#endif
+
+void composeGI(inout LightTerms env,vec3 wp,vec3 N,vec3 V,vec3 albedo,float metallic,float roughness,vec3 dielectricF0,float dielectricF90) {
+#ifdef SAIDA_SCREEN_GI
+    if(lights.ambientOcclusion.y>.5) {
+        env.diffuse+=lights.ambient.rgb*albedo;
+        composeGIIrradiance(env,screenIndirectIrradiance(),1.0,N,V,albedo,metallic,roughness,dielectricF0,dielectricF90);
+        return;
+    }
+#endif
+    composeGISample(env,sampleGI(wp,N,V),N,V,albedo,metallic,roughness,dielectricF0,dielectricF90);
+}
+
 // Convenience aggregators
 // ---------------------------------------------------------------------------
 
 // Diffuse + ambient + shadows, view-independent.
 vec3 diffuseIrradiance(vec3 N, vec3 wp, vec3 albedo, float metallic, float roughness) {
-    vec3 sum = giIndirectDiffuse(wp, N, N, albedo);
-    sum += environmentLighting(N, N, albedo, metallic, roughness).diffuse;
+    LightTerms indirect = environmentLighting(N, N, albedo, metallic, roughness);
+    composeGI(indirect,wp,N,N,albedo,metallic,roughness,vec3(.04),1.0);
+    vec3 sum = indirect.diffuse;
     // Use the surface normal as a stand-in view dir for the diffuse-only path.
     for (int i = 0; i < lights.counts.x; ++i)
         sum += lightContribution(i, N, N, wp, albedo, metallic, roughness).diffuse;
@@ -483,7 +503,8 @@ LightTerms accumulateOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, float metall
                               float indirectOcclusion) {
     LightTerms total;
     LightTerms env = environmentLighting(N, V, albedo, metallic, roughness);
-    total.diffuse = (giIndirectDiffuse(wp, N, V, albedo) + env.diffuse) * indirectOcclusion;
+    composeGI(env,wp,N,V,albedo,metallic,roughness,vec3(.04),1.0);
+    total.diffuse = env.diffuse * indirectOcclusion;
     total.specular = env.specular * indirectOcclusion;
     for (int i = 0; i < lights.counts.x; ++i) {
         LightTerms t = lightContributionOccluded(i, N, V, wp, albedo, metallic, roughness,
@@ -505,7 +526,7 @@ LightTerms accumulateReflectanceOccluded(vec3 N, vec3 V, vec3 wp, vec3 albedo, f
                                           float indirectOcclusion) {
     LightTerms total = environmentLighting(N, V, albedo, metallic, roughness,
                                            dielectricF0, dielectricF90);
-    total.diffuse += giIndirectDiffuse(wp, N, V, albedo);
+    composeGI(total,wp,N,V,albedo,metallic,roughness,dielectricF0,dielectricF90);
     total.diffuse *= indirectOcclusion;
     total.specular *= indirectOcclusion;
     for (int i = 0; i < lights.counts.x; ++i) {
@@ -523,4 +544,17 @@ LightTerms accumulateReflectance(vec3 N, vec3 V, vec3 wp, vec3 albedo, float met
                                  float indirectOcclusion) {
     return accumulateReflectanceOccluded(N, V, wp, albedo, metallic, roughness,
                                           -1, 1.0, dielectricF0, dielectricF90, indirectOcclusion);
+}
+
+// Material opt-out retains exactly the legacy ambient and diffuse sky path.
+LightTerms accumulateReflectanceMaterial(vec3 N,vec3 V,vec3 wp,vec3 albedo,float metallic,float roughness,
+                                        vec3 dielectricF0,float dielectricF90,float ao,bool receiveGI) {
+    if(receiveGI) return accumulateReflectance(N,V,wp,albedo,metallic,roughness,dielectricF0,dielectricF90,ao);
+    LightTerms total=environmentLighting(N,V,albedo,metallic,roughness,dielectricF0,dielectricF90);
+    total.diffuse=(total.diffuse+lights.ambient.rgb*albedo)*ao;total.specular*=ao;
+    for(int i=0;i<lights.counts.x;++i) {
+        LightTerms term=lightContributionOccluded(i,N,V,wp,albedo,metallic,roughness,1.0,true,dielectricF0,dielectricF90);
+        total.diffuse+=term.diffuse;total.specular+=term.specular;
+    }
+    return total;
 }

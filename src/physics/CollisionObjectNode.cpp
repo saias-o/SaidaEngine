@@ -19,6 +19,16 @@ CollisionObjectNode::~CollisionObjectNode() {
     detachFromPhysics();
 }
 
+CollisionObjectNode::PhysicsSuspension CollisionObjectNode::suspendPhysics() {
+    auto token = physicsSuspension_.lock();
+    if (!token) {
+        token = std::make_shared<int>(0);
+        physicsSuspension_ = token;
+        detachFromPhysics();
+    }
+    return token;
+}
+
 void CollisionObjectNode::detachFromPhysics() {
     if (world_ && !bodyId_.IsInvalid()) {
         world_->removeBody(bodyId_);
@@ -118,6 +128,7 @@ void CollisionObjectNode::createBody(PhysicsWorld& world) {
 }
 
 void CollisionObjectNode::syncToPhysics(PhysicsWorld& world) {
+    if (physicsSuspended()) return;
     glm::vec3 velocity(0.f), angularVelocity(0.f);
     const bool preserveMomentum = dirty_ && !bodyId_.IsInvalid() && motion() == BodyMotion::Dynamic;
     if (preserveMomentum) {

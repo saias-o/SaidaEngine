@@ -71,7 +71,7 @@ void TerrainRingsFeature::createPipelines(const RenderContext& ctx) {
             {0, rhi::BindingType::UniformBuffer,
              rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},
             {1, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
-            {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment},
+            {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment | rhi::ShaderStages::Compute},
             {3, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
             {4, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Compute},
         });
@@ -199,6 +199,23 @@ void TerrainRingsFeature::prepare(Scene& scene, uint32_t frameIndex) {
         }
     }
     f.ubo->write(packed_.data(), sizeof(GpuTerrain) * count_);
+}
+
+void TerrainRingsFeature::recordGIVoxels(const GIVoxelContext& pc) {
+    prepare(pc.scene,pc.frameIndex);
+    if(!count_) return;
+    if(giLayout_!=&pc.layout) {
+        giLayout_=&pc.layout;
+        giPipeline_=std::make_unique<ComputePipeline>(*device_,shaderPath("terrain_rings_gi.comp.spv"),
+            std::vector<rhi::vulkan::BindGroupLayoutRef>{pc.layout,*setLayout_},sizeof(Push));
+    }
+    auto cp=pc.encoder.beginComputePass();cp.setPipeline(*giPipeline_);
+    cp.setBindGroup(0,pc.set);cp.setBindGroup(1,*frames_[pc.frameIndex].set);
+    for(uint32_t slot=0;slot<count_;++slot) {
+        Push push;push.slot=slot;push.level=pc.maskSize;push.views=uint32_t(pc.cascade);
+        cp.setPushConstants(&push,sizeof(push));cp.dispatch(pc.jobCount);
+    }
+    cp.end();pc.encoder.storageBarrier();
 }
 
 void TerrainRingsFeature::recordPrePass(const PrePassContext& pc) {

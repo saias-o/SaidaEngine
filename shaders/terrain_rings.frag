@@ -8,6 +8,8 @@
 // tonemap pass's, from depth, like everything else drawn. Compiled
 // -DDEPTH_ONLY for the depth pre-pass, it keeps the discards and nothing else.
 
+// Drawn by the depth pre-pass: indirect diffuse comes from the AO pass's GI stage.
+#define SAIDA_SCREEN_GI
 #include "lighting.glsl"
 #include "screen_ambient_occlusion.glsl"
 #include "rain_ripples.glsl"
@@ -32,6 +34,7 @@ layout(location = 0) out vec4 outColor;
 #endif
 
 void main() {
+    prepareShadowReceiver(fragWorldPos);
     GpuTerrain t = terrains.items[push.slot];
     float footprint = waterFootprint(fragWorldPos, normalize(fragNormal));
     vec3 rainDx = vec3(0.0), rainDy = vec3(0.0);

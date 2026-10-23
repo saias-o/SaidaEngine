@@ -8,7 +8,7 @@ Before changing rendering, record the GI-off reference ONCE:
 Later runs use --reference <that-directory>. References are device/driver
 specific and never regenerated implicitly. --icd selects a Vulkan ICD.
 Every case writes its captures, logs, profile and metrics even if another fails.
-The initial DDGI is expected to fail several contracts; failures stay failures.
+Failures remain visible and never replace the frozen references implicitly.
 """
 import argparse
 import hashlib
@@ -23,7 +23,7 @@ from PIL import Image, ImageChops, ImageStat
 
 WIDTH, HEIGHT = 640, 360
 EYE, TARGET = (0., 2., 7.), (0., 1., 0.)
-CASES = ('off', 'open', 'canyon', 'room', 'metal', 'optout', 'scroll', 'rebase')
+CASES = ('off', 'open', 'canyon', 'room', 'metal', 'optout', 'scroll', 'rebase', 'motion')
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -194,16 +194,16 @@ class Run:
         return dict(receiver=list(area), sha256=image_digest(on.crop(area)))
 
     def scroll(self):
-        initial = rgb(self.capture('canyon-red'), (-2., 1., 0.))
+        initial = rgb(self.capture('scroll-initial', follow=True), (-2., 1., 0.))
         # A camera-relative replica keeps expected lighting constant. Real camera
         # and node motion happen in the same running engine, after initial warmup.
         values = []
         for distance in (100., 250., 500.):
-            value = rgb(self.capture(f'scroll-{distance:g}', travel=distance), (-2., 1., 0.))
+            value = rgb(self.capture(f'scroll-{distance:g}', follow=True, travel=distance), (-2., 1., 0.))
             values.append(value)
         # Capture adjacent frames straddling a one-cell move, after convergence.
-        before = rgb(self.capture('scroll-before', frames=self.args.frames, motionFrame=self.args.frames+1), (-2., 1., 0.))
-        after = rgb(self.capture('scroll-after', frames=self.args.frames, motionFrame=self.args.frames,
+        before = rgb(self.capture('scroll-before', follow=True, frames=self.args.frames, motionFrame=self.args.frames+1), (-2., 1., 0.))
+        after = rgb(self.capture('scroll-after', follow=True, frames=self.args.frames, motionFrame=self.args.frames,
                                  travel=2.), (-2., 1., 0.))
         delta = abs(luma(after)-luma(before))/max(luma(before), 1e-8)
         assert initial[0] > 1.15*initial[2], f'initial fixture has no bounce to preserve: {initial}'
@@ -214,13 +214,34 @@ class Run:
         return dict(initial=initial, translated=values, adjacent_frame_delta=delta)
 
     def rebase(self):
-        initial = rgb(self.capture('canyon-red'), (-2., 1., 0.))
-        values = [rgb(self.capture(f'rebase-{angle:g}', rebase=True, travel=-350., rotation=angle),
+        initial = rgb(self.capture('rebase-initial', follow=True), (-2., 1., 0.))
+        values = [rgb(self.capture(f'rebase-{angle:g}', follow=True, rebase=True, travel=-350., rotation=angle),
                       (-2., 1., 0.)) for angle in (0., .003)]
         for value in values:
             assert max(abs(a-b) for a, b in zip(initial, value)) <= .02*max(initial), \
                 f'origin translation/rotation changed irradiance: {initial} -> {values}'
         return dict(initial=initial, rebased=values)
+
+    def motion(self):
+        # Move ONLY the camera along static walls. Moving the scene with the
+        # eye tests teleport recovery, not whether light is ready on approach.
+        end = max(self.args.frames, 240)
+        metrics = {}
+        for speed in (6, 24):
+            values = {}
+            for frame in (end-1, end, end+240):
+                image = self.capture(f'motion-{speed}-{frame}', follow=True, frames=frame,
+                                     motionFrame=end-119, motionFrames=120, cameraTravel=speed*2)
+                values[frame] = [luma(rgb(image, (-2., 1., z))) for z in (0., -2., -4.)]
+            settled = values[end+240]
+            assert min(settled) > .001, f'motion fixture has no indirect light: {settled}'
+            drift = [abs(a-b)/b for a, b in zip(values[end], settled)]
+            jump = [abs(a-b)/max(b, 1e-8) for a, b in zip(values[end], values[end-1])]
+            metrics[speed] = dict(moving=values[end], settled=settled,
+                                  settling_change=drift, adjacent_change=jump)
+            assert max(drift) < .20, f'GI is still loading at {speed} m/s: {metrics[speed]}'
+            assert max(jump) < .08, f'GI jumps during approach at {speed} m/s: {metrics[speed]}'
+        return metrics
 
     def run(self, cases):
         for case in cases:

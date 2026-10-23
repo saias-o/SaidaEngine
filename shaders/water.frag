@@ -11,6 +11,7 @@ layout(location = 3) in float fragDepth;
 layout(location = 0) out vec4 outColor;
 
 void main() {
+    prepareShadowReceiver(fragWorldPos);
     // Evaluate derivatives before shore discard / any non-uniform branch (WGSL).
     float footprint = waterFootprint(fragWorldPos, vec3(0,1,0));
     GpuWater w = waters.items[push.index];

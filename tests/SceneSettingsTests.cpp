@@ -14,6 +14,7 @@
 // setting must survive a save/load, and every saved key must stay reachable.
 
 #include "core/Reflection.hpp"
+#include "authoring/SceneSnapshot.hpp"
 #include "scene/Scene.hpp"
 #include "scene/SceneSettingsSerialization.hpp"
 #include "render/TonemapPass.hpp"
@@ -62,6 +63,8 @@ saida::SceneSettings distinctive() {
     s.giEnabled = false;
     s.giMode = saida::GIMode::AmortizedRealtime;
     s.giIntensity = 2.5f;
+    s.giVolume=saida::GIVolumeMode::Follow;
+    s.giQuality=saida::GIQuality::Low;
     s.skyboxTexture = 4242;
     s.skyboxExposure = 1.75f;
     s.skyboxRotation = 42.0f;
@@ -93,6 +96,11 @@ saida::SceneSettings distinctive() {
     s.bloomThreshold = 1.9f;
     s.bloomIntensity = 0.66f;
     s.bloomRadius = 5.5f;
+    s.autoExposure = true;
+    s.exposureKey = 0.3f;
+    s.autoExposureMin = -2.5f;
+    s.autoExposureMax = 3.5f;
+    s.autoExposureSpeed = 4.0f;
     s.changeRenderingAtLoad = false;
     return s;
 }
@@ -108,6 +116,8 @@ void expectEqual(const saida::SceneSettings& a, const saida::SceneSettings& b) {
     assert(a.lightingMode == b.lightingMode);
     assert(a.giEnabled == b.giEnabled);
     assert(a.giMode == b.giMode);
+    assert(a.giVolume==b.giVolume);
+    assert(a.giQuality==b.giQuality);
     assert(near(a.giIntensity, b.giIntensity));
     assert(a.skyboxTexture == b.skyboxTexture);
     assert(near(a.skyboxExposure, b.skyboxExposure));
@@ -146,6 +156,11 @@ void expectEqual(const saida::SceneSettings& a, const saida::SceneSettings& b) {
     assert(near(a.bloomThreshold, b.bloomThreshold));
     assert(near(a.bloomIntensity, b.bloomIntensity));
     assert(near(a.bloomRadius, b.bloomRadius));
+    assert(a.autoExposure == b.autoExposure);
+    assert(near(a.exposureKey, b.exposureKey));
+    assert(near(a.autoExposureMin, b.autoExposureMin));
+    assert(near(a.autoExposureMax, b.autoExposureMax));
+    assert(near(a.autoExposureSpeed, b.autoExposureSpeed));
     assert(a.changeRenderingAtLoad == b.changeRenderingAtLoad);
 }
 
@@ -163,6 +178,20 @@ void testRoundTripKeepsEveryField() {
     expectEqual(source, restored);
     // A numeric id is already resolved; the project must not be consulted.
     assert(resolver.calls == 0);
+}
+
+void testHeadlessSnapshotKeepsEverySetting() {
+    saida::Scene scene;
+    scene.settings() = distinctive();
+    const std::string snapshot = saida::authoring::serializeSceneSnapshot(scene, nullptr);
+    json expected;
+    saida::writeSceneSettings(scene.settings(), expected);
+    assert(json::parse(snapshot)["scene"]["settings"] == expected);
+
+    saida::Scene restored;
+    std::string error;
+    assert(saida::authoring::deserializeSceneSnapshot(snapshot, restored, &error));
+    expectEqual(scene.settings(), restored.settings());
 }
 
 // The regression that motivated the merge: a scene naming its skybox by path
@@ -448,9 +477,24 @@ void testDisplayTransferMatchesAttachment() {
     static_assert(sizeof(saida::TonemapPass::PushConstants) <= 256);
 }
 
+void testGIEnumNamesAndInvalidValues() {
+    saida::SceneSettings s;
+    saida::applySceneSettings(json{{"giVolume","Follow"},{"giQuality","High"}},s,saida::AssetPathResolver{});
+    if(s.giVolume!=saida::GIVolumeMode::Follow || s.giQuality!=saida::GIQuality::High) std::abort();
+    for(const auto& key:{"giVolume","giQuality"}) {
+        for(const auto& value:{json("unknown"),json(-1),json(99)}) {
+            bool rejected=false;
+            try {saida::applySceneSettings(json{{key,value}},s,saida::AssetPathResolver{});} catch(const std::invalid_argument&) {rejected=true;}
+            if(!rejected) std::abort();
+        }
+    }
+}
+
 int main() {
+    testGIEnumNamesAndInvalidValues();
     testDisplayTransferMatchesAttachment();
     testRoundTripKeepsEveryField();
+    testHeadlessSnapshotKeepsEverySetting();
     testLayeredFogKnowsTheCameraAltitude();
     testSkyboxByPathResolvesThroughTheProject();
     testBlendSkyboxByPathResolvesThroughTheProject();

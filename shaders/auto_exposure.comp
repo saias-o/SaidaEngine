@@ -1,0 +1,71 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// Centre-weighted histogram metering; tonemap.frag reads the adapted GPU state.
+
+#include "web_compat.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+DECL_TEX2D(0, 0, 1, hdrInput);
+// x the EV applied, y 1 once metered, z the metered log2 luminance, w the target EV.
+layout(std430, set = 0, binding = 2) buffer ExposureState { vec4 exposureState; };
+
+PUSH_QUALIFIER PushConstants {
+    vec4 sourceRect;  // the viewport in UV of the HDR target
+    vec4 range;       // x lowest EV, y highest EV, z log2 of the key, w this frame's share of the way
+} push;
+
+// Reject dark backgrounds and bright outliers so neither drives the exposure.
+const int BINS = 64;
+const float LOG_LOWEST = -7.0;   // below: near black, not metered
+const float LOG_HIGHEST = 6.0;
+const float DARK_SHARE = 0.6;    // ignored below this share of the weight
+const float BRIGHT_SHARE = 0.95; // and above this one
+
+shared uint histogram[BINS];
+
+void main() {
+    uint index = gl_LocalInvocationIndex;
+    if (index < uint(BINS)) histogram[index] = 0u;
+    barrier();
+    vec2 cell = (vec2(gl_LocalInvocationID.xy) + 0.5) / 16.0;
+    for (int y = 0; y < 2; ++y) {
+        for (int x = 0; x < 2; ++x) {
+            vec2 uv = cell + (vec2(x, y) - 0.5) / 32.0;
+            vec3 colour = textureLod(TEX2D(hdrInput), push.sourceRect.xy + uv * push.sourceRect.zw, 0.0).rgb;
+            float luminance = dot(colour, vec3(0.2126, 0.7152, 0.0722));
+            // Near black is no part of what the eye adapts to: space behind a
+            // globe, a night sky. A view of nothing else keeps the fixed exposure.
+            float logLuminance = log2(max(luminance, 1e-6));
+            if (logLuminance < LOG_LOWEST) continue;
+            float level = (logLuminance - LOG_LOWEST) / (LOG_HIGHEST - LOG_LOWEST);
+            int bin = clamp(int(level * float(BINS)), 0, BINS - 1);
+            // The middle of the view counts four times its corners.
+            vec2 d = uv - 0.5;
+            atomicAdd(histogram[bin], uint(64.0 * (1.0 - 1.5 * dot(d, d)) + 0.5));
+        }
+    }
+    barrier();
+    if (index == 0u) {
+        float total = 0.0;
+        for (int i = 0; i < BINS; ++i) total += float(histogram[i]);
+        float low = total * DARK_SHARE, high = total * BRIGHT_SHARE;
+        float below = 0.0, sum = 0.0, weights = 0.0;
+        for (int i = 0; i < BINS; ++i) {
+            float count = float(histogram[i]);
+            // The part of this bin inside [low, high].
+            float inside = max(min(below + count, high) - max(below, low), 0.0);
+            float logLevel = LOG_LOWEST + (float(i) + 0.5) / float(BINS) * (LOG_HIGHEST - LOG_LOWEST);
+            sum += inside * logLevel;
+            weights += inside;
+            below += count;
+        }
+        float average = weights > 0.0 ? sum / weights : push.range.z;
+        float target = weights > 0.0 ? clamp(push.range.z - average, push.range.x, push.range.y) : 0.0;
+        vec4 state = exposureState;
+        // The first metering takes the target at once: no fade in from black.
+        float ev = state.y > 0.5 ? mix(state.x, target, push.range.w) : target;
+        exposureState = vec4(ev, 1.0, average, target);
+    }
+}

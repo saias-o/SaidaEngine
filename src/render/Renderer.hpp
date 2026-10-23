@@ -15,6 +15,7 @@
 #include "render/GpuDrivenLayout.hpp"
 #include "render/RenderFeature.hpp"  // EyeRenderInfo, RenderContext, FrameContext, ScenePassFeature
 #include "render/AmbientOcclusionPass.hpp"
+#include "render/AutoExposurePass.hpp"
 #include "render/TonemapPass.hpp"
 #include "rhi/Rhi.hpp"
 
@@ -68,7 +69,7 @@ struct GpuLight {
 struct LightingUBO {
     glm::vec4 ambient{0.0f};
     glm::vec4 cameraPos{0.0f};
-    glm::vec4 shadowParams; // x = softness, yzw = unused
+    glm::vec4 shadowParams; // x = softness, y = numerical depth allowance, zw unused
     glm::ivec4 counts{0};  // x = light count, y = mode (0 realtime, 1 baked)
     GpuLight lights[kMaxLights]{};
     glm::mat4 shadowMatrices[kMaxShadowCasters]{};  // light-space view-proj per shadow caster
@@ -90,6 +91,10 @@ struct LightingUBO {
     glm::vec4 rainParams{0.0f}; // intensity, wetness, world seconds, unused
     glm::vec4 rainUp{0.0f, 1.0f, 0.0f, 0.0f};
     glm::vec4 ambientOcclusion{0.0f}; // x 1 when this frame's screen-space AO map holds values
+    glm::vec4 giCascadeOrigins[6]{}; // world min corner, probe spacing
+    glm::ivec4 giCascadeWrap[6]{};   // toroidal probe offsets
+    glm::mat4 giWorldToGrid{1.f};    // rotation only; all GPU positions stay local
+    glm::ivec4 giClipmap{0};         // cascade count, voxel Y resolution, probe budget, visibility radius
 };
 
 class Renderer {
@@ -139,13 +144,13 @@ private:
     void updateGlobalShadowDescriptor();
     void updateGIDescriptors();  // re-point set 0 bindings 4/5 at the current GI atlas
     void updateEnvironmentDescriptor(Scene& scene);
-    bool shouldUpdateRealtimeGI(bool dirty) const;
-    uint64_t giDirtySignature(const Scene& scene) const;
+    void prepareGI(Scene& scene,glm::vec3 camera);
+    bool shouldUpdateRealtimeGI() const;
     void createGlobalSetLayout();
     void createPipeline(rhi::BindGroupLayout& materialSetLayout);
     void createWebCanvasWorldPipeline();
     // Which of the two passes over the opaque meshes a draw is recorded for:
-    // the depth pre-pass (only when ambient occlusion is on) or the scene pass.
+    // the depth pre-pass (AO or screen GI) or the scene pass.
     enum class MeshPass { Depth, Scene };
     // Layout-compatible variants keep existing binds valid across a switch.
     rhi::Pipeline* scenePipelineFor(MaterialType type, bool doubleSided = false,
@@ -184,6 +189,9 @@ private:
     // AO map, then the scene pass reading it (shaders/screen_ambient_occlusion.glsl).
     void createAmbientOcclusionPass();
     bool ambientOcclusionActive(const SceneSettings& settings) const;
+    // Whether the AO pass's GI stage gives the lit shaders their diffuse
+    // irradiance this frame (AmbientOcclusionPass, Stage::Irradiance).
+    bool screenGIActive(const SceneSettings& settings) const;
     void readyAmbientOcclusionMap(rhi::CommandEncoder& encoder);
     void recordDepthPrePass(rhi::CommandEncoder& encoder, Scene& scene, const Camera& camera,
                             const rhi::Rect2D& renderRect, bool msaa);
@@ -250,6 +258,7 @@ private:
     std::unique_ptr<rhi::RenderTexture> depthResolveTexture_;  // single-sample depth for AO when MSAA on
     std::unique_ptr<PostProcessor> postProcessor_;
 
+    std::unique_ptr<AutoExposurePass> autoExposure_;  // the eye's adaptation, before the tonemap
     std::unique_ptr<AmbientOcclusionPass> aoPass_;
     // The AO map (AmbientOcclusionPass::kFormat): the desktop view's, one
     // layer, or in XR mode one per eye. Sampled through set 0 binding 17, so
@@ -261,13 +270,16 @@ private:
     rhi::ResourceState aoRawState_ = rhi::ResourceState::Undefined;
     std::unique_ptr<rhi::RenderTexture> aoDenoisedTexture_;  // the denoise stage's
     rhi::ResourceState aoDenoisedState_ = rhi::ResourceState::Undefined;
+    std::unique_ptr<rhi::RenderTexture> aoIrradianceTexture_;  // the GI stage's (kMapFormat)
+    rhi::ResourceState aoIrradianceState_ = rhi::ResourceState::Undefined;
     void createAmbientOcclusionTargets(rhi::Extent2D extent, uint32_t layers, const char* memoryCategory);
     AmbientOcclusionPass::Inputs aoInputs_;  // the desktop view's
-    // One view's AmbientOcclusionPass run: its inputs, projection and layer.
+    // One view's AmbientOcclusionPass run: its inputs, projection, layer and view.
     struct AmbientOcclusionView {
         const AmbientOcclusionPass::Inputs* inputs = nullptr;
         glm::mat4 projection{1.0f};
         uint32_t layer = 0;
+        glm::mat4 view{1.0f};
     };
     void recordAmbientOcclusionStages(rhi::CommandEncoder& encoder, const SceneSettings& settings,
                                       const std::vector<AmbientOcclusionView>& views,
@@ -344,8 +356,6 @@ private:
     int giRealtimeWarmupRemaining_ = kGIRealtimeWarmupFrames;
     uint64_t giFrameCounter_ = 0;
     uint64_t giLastHierarchyVersion_ = 0;
-    uint64_t giLastTransformVersion_ = 0;
-    uint64_t giLastDirtySignature_ = 0;
     bool giWasEnabled_ = true;
     int giLastLightingMode_ = 0;
     int giLastMode_ = 0;

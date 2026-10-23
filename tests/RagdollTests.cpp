@@ -17,6 +17,8 @@
 #include "graphics/Mesh.hpp"
 #include "physics/JoltGlue.hpp"
 #include "physics/PhysicsWorld.hpp"
+#include "physics/CharacterBodyNode.hpp"
+#include "physics/CollisionShapeNode.hpp"
 #include "physics/Ragdoll.hpp"
 #include "scene/Scene.hpp"
 #include "scene/animation/Animator.hpp"
@@ -276,13 +278,17 @@ void behaviourCycle(const Rig& rig) {
     PhysicsWorld& world = scene.ensurePhysics();
     addFloor(world);
     Animator* animator = nullptr;
-    Node* character = makeCharacter(scene, rig, animator);
+    Node* character = makeCharacter(*scene.createChild<Scene>(), rig, animator);
     auto* ragdoll = character->addBehaviour<RagdollBehaviour>(humanoidRagdoll(names()));
+    auto* collider = character->createChild<CharacterBodyNode>();
+    auto* shape = collider->createChild<CollisionShapeNode>();
+    shape->shapeType=CollisionShapeType::Capsule;shape->radius=.2f;shape->height=1.7f;shape->offset.y=.9f;
     scene.update(kDt);
     const int32_t head = rig.findBoneIndex("Head");
     const float standingHead = animator->globalPose().globalMatrices[size_t(head)][3].y;
     // Thrown sideways and tipping over, as a blow at the shoulders throws it.
-    require(ragdoll->activate({2.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -2.5f}), "activates");
+    require(ragdoll->activateReplacing(*collider,{2.0f, 0.0f, 0.0f}, {0.0f, 0.0f, -2.5f}), "activates");
+    require(collider->physicsSuspended() && world.bodyCount()==12, "capsule immediately gives way to eleven ragdoll parts");
     require(ragdoll->state() == RagdollBehaviour::State::Simulated, "simulated");
     for (int i = 0; i < 360 && ragdoll->state() == RagdollBehaviour::State::Simulated; ++i) scene.update(kDt);
     require(ragdoll->state() == RagdollBehaviour::State::Frozen, "freezes once settled");
@@ -297,10 +303,11 @@ void behaviourCycle(const Rig& rig) {
     requireNear(character->transform().position.y, 0.0f, 1e-4f, "stands on the given ground");
     for (int i = 0; i < 40; ++i) scene.update(kDt);
     require(ragdoll->state() == RagdollBehaviour::State::Animated, "back to the animation");
+    require(!collider->physicsSuspended() && world.bodyCount()==2, "recovery restores one capsule");
     requireNear(animator->globalPose().globalMatrices[size_t(head)][3].y, standingHead, 1e-3f, "standing again");
 
     // Disabled, its bodies leave the world; rebased, they move with the node.
-    require(ragdoll->activate(), "activates again");
+    require(ragdoll->activateReplacing(*collider), "activates again");
     require(world.bodyCount() == 12, "eleven bodies back");
     scene.update(kDt);
     const glm::vec3 before = ragdoll->ragdoll()->rootPosition();

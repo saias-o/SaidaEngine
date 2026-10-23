@@ -611,10 +611,6 @@ bool Engine::tick() {
         }
 
         {
-            SAIDA_PROFILE_SCOPE("Audio/Update");
-            AudioManager::get().update();      // update audio spatialization
-        }
-        {
             SAIDA_PROFILE_SCOPE("ImGui/EndFrame");
             imgui_->endFrame();  // finalize draw data even if the frame is skipped (resize)
         }
@@ -629,6 +625,10 @@ bool Engine::tick() {
             camera_.lookAt(cameraOverrideTarget_);
         }
         if (cameraOverrideFov_ > 0.0f) camera_.fovDegrees = cameraOverrideFov_;
+        {
+            SAIDA_PROFILE_SCOPE("Audio/Update");
+            AudioManager::get().update(camera_);
+        }
         armFrameCapture();
         {
             SAIDA_PROFILE_SCOPE("Renderer/DrawFrame");
@@ -698,7 +698,6 @@ void Engine::runXr() {
             sceneTree_->tickTimers(Time::delta());
             if (sceneTree_->quitRequested()) break;
         }
-        AudioManager::get().update();
 
         {
             // A mounted tree indexes the rig by group; a large world is not
@@ -719,6 +718,7 @@ void Engine::runXr() {
         camera_.position = xrSession_->headPosition();
         camera_.lookAt(camera_.position +
                        xrSession_->headOrientation() * glm::vec3(0.0f, 0.0f, -1.0f));
+        AudioManager::get().update(camera_);
         if (now - lastPoseLog > 1.0) {
             lastPoseLog = now;
             glm::vec3 p = xrSession_->headPosition();

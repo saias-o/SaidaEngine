@@ -233,6 +233,15 @@ void Scene::rebaseSubtree(Node& root, const glm::vec3& translation, const glm::q
 
 void Scene::rebaseOrigin(const glm::vec3& translation, const glm::quat& rotation) {
     for (const auto& child : children()) rebaseSubtree(*child, translation, rotation);
+    notifyOriginRebase(glm::dvec3(translation), glm::dquat(rotation));
+}
+
+void Scene::notifyOriginRebase(const glm::dvec3& translation, const glm::dquat& rotation) {
+    if (!std::isfinite(translation.x) || !std::isfinite(translation.y) || !std::isfinite(translation.z) ||
+        !std::isfinite(glm::dot(rotation,rotation)) || std::abs(glm::dot(rotation,rotation)-1.0)>1e-5)
+        throw std::invalid_argument("origin frame requires finite translation and unit rotation");
+    auto frame=glm::mat4_cast(rotation); frame[3]=glm::dvec4(translation,1.0);
+    worldFromStable_=frame*worldFromStable_;
 }
 
 void Scene::rebaseSubtreeTo(Node& root, const glm::vec3& position, const glm::quat& orientation) {

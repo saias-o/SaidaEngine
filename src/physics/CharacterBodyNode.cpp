@@ -34,6 +34,7 @@ void CharacterBodyNode::detachFromPhysics() {
 }
 
 void CharacterBodyNode::syncToPhysics(PhysicsWorld& world) {
+    if (physicsSuspended()) return;
     if (dirty_) {
         character_ = nullptr;  // shape/params changed → rebuild
         dirty_ = false;

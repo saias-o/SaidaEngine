@@ -1,3 +1,5 @@
+#ifndef SAIDA_LIGHTING_DATA_GLSL
+#define SAIDA_LIGHTING_DATA_GLSL
 // Shared lighting ABI, accessible to vertex wind and fragment lighting.
 const int MAX_LIGHTS = 16;
 const int MAX_SHADOWS = 4;
@@ -13,7 +15,7 @@ struct Light {
 layout(set = 0, binding = 1) uniform LightingUBO {
     vec4 ambient;       // rgb = ambient color (fallback when GI disabled)
     vec4 cameraPos;     // xyz = camera world position
-    vec4 shadowParams;  // x = softness
+    vec4 shadowParams;  // x = softness, y = numerical depth allowance
     ivec4 counts;       // x = light count, y = mode (0 realtime, 1 baked)
     Light lights[MAX_LIGHTS];
     mat4 shadowMatrices[MAX_SHADOWS];
@@ -35,4 +37,10 @@ layout(set = 0, binding = 1) uniform LightingUBO {
     vec4 rainParams; // intensity, wetness, world seconds, unused
     vec4 rainUp;     // normalized world-space up shared by both eyes
     vec4 ambientOcclusion; // x 1 when this frame's screen-space AO map holds values
+    vec4 giCascadeOrigins[6];
+    ivec4 giCascadeWrap[6];
+    mat4 giWorldToGrid;
+    ivec4 giClipmap;
 } lights;
+
+#endif

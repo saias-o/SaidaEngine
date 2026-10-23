@@ -143,6 +143,13 @@ vec4 shadeWaterDepth(vec3 p, vec3 up, GpuWater w, float time, float footprint, f
     // that turns diffuse IBL off still lights its water with its ambient.
     vec3 ambient = lights.ambient.rgb;
     if (hasEnv) ambient += environmentIrradiance(up) * lights.environmentParams.y;
+    vec4 gi=vec4(0);
+    float giOpenness=1.0;
+    if(lights.giOrigin.w>.5) {
+        gi=sampleGI(p,up,V);
+        giOpenness=clamp(dot(gi.rgb,vec3(.2126,.7152,.0722))/max(dot(ambient,vec3(.2126,.7152,.0722)),.001),0.0,1.0);
+        ambient=mix(ambient,gi.rgb*lights.giSpacing.w,gi.a);
+    }
     vec3 L = up;
     vec3 sun = vec3(0);
     float visibility = 1.0;
@@ -152,7 +159,7 @@ vec4 shadeWaterDepth(vec3 p, vec3 up, GpuWater w, float time, float footprint, f
             L = normalize(-light.dirType.xyz);
             sun = light.colorInt.rgb * light.colorInt.w;
             if (light.spotShadow.z >= 0.0)
-                visibility = shadowFactor(int(light.spotShadow.z+.5), p, max(dot(N,L),0.0));
+                visibility = shadowFactor(int(light.spotShadow.z+.5), p);
             if (i == int(lights.sunOcclusion.x)) visibility *= sunOcclusionAt(p);
             break;
         }
@@ -173,6 +180,7 @@ vec4 shadeWaterDepth(vec3 p, vec3 up, GpuWater w, float time, float footprint, f
     vec3 reflected = hasEnv ? sampleEnvironmentLod(R,rough * environmentMaxLod()) * lights.environmentParams.z
                             : mix(lights.ambient.rgb, vec3(.17,.35,.60) * max(dot(ambient,vec3(.333)),0.0),
                                   sqrt(max(dot(R,up),0.0)));
+    reflected*=mix(1.0,giOpenness,gi.a);
     float fresnel = .02037 + .97963 * pow(1.0-NoV,max(w.look.x,1.0));
     float reflectionWeight = clamp(fresnel * w.foam.w,0.0,1.0);
     // What Fresnel does not reflect enters the water. Of it, `transparency`

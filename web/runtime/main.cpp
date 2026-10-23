@@ -28,6 +28,7 @@
 #include "nodes/ParticleSystemNode.hpp"
 #include "nodes/WaterNode.hpp"
 #include "scene/Scene.hpp"
+#include "scene/SceneSettingsSerialization.hpp"
 
 #include <nlohmann/json.hpp>
 #include <stb_image.h>
@@ -351,35 +352,6 @@ void loadNode(const json& node, Node& parent, const std::string& path) {
         loadNode(children[i], ref, path + ".children[" + std::to_string(i) + "]");
 }
 
-void applySettings(const json& s) {
-    SceneSettings& out = gApp.scene->settings();
-    out.ambientLight = glm::vec4(readVec3(s.value("ambient", json::array()), glm::vec3(0.1f)), 1.0f);
-    out.clearColor = glm::vec4(readVec3(s.value("clearColor", json::array()), glm::vec3(0.0f)), 1.0f);
-    out.enablePostProcessing = s.value("postProcessing", true);
-    out.aoEnabled = s.value("aoEnabled", true);
-    out.aoRadius = readF(s, "aoRadius", out.aoRadius);
-    out.aoIntensity = readF(s, "aoIntensity", out.aoIntensity);
-    out.aoPower = readF(s, "aoPower", out.aoPower);
-    out.bloomEnabled = s.value("bloomEnabled", true);
-    out.bloomThreshold = readF(s, "bloomThreshold", out.bloomThreshold);
-    out.bloomIntensity = readF(s, "bloomIntensity", out.bloomIntensity);
-    out.bloomRadius = readF(s, "bloomRadius", out.bloomRadius);
-    out.changeRenderingAtLoad = s.value("changeRenderingAtLoad", out.changeRenderingAtLoad);
-    out.fogEnabled = s.value("fogEnabled", false);
-    out.fogColor = glm::vec4(readVec3(s.value("fogColor", json::array()), glm::vec3(0.5f)), 1.0f);
-    out.fogStart = readF(s, "fogStart", out.fogStart);
-    out.fogDensity = readF(s, "fogDensity", out.fogDensity);
-    out.lightingMode = static_cast<LightingMode>(s.value("lightingMode", 0));
-    out.giMode = static_cast<GIMode>(s.value("giMode", 0));
-    out.giEnabled = s.value("giEnabled", true);
-    out.giIntensity = readF(s, "giIntensity", out.giIntensity);
-    out.iblEnabled = s.value("iblEnabled", true);
-    out.iblDiffuseIntensity = readF(s, "iblDiffuseIntensity", out.iblDiffuseIntensity);
-    out.iblSpecularIntensity = readF(s, "iblSpecularIntensity", out.iblSpecularIntensity);
-    out.skyboxExposure = readF(s, "skyboxExposure", 1.0f);
-    out.skyboxRotation = readF(s, "skyboxRotation", 0.0f);
-}
-
 // Loads /project/sunset.png (preloaded into MEMFS) as the skybox + IBL source.
 AssetID loadSkyTexture() {
     int w = 0, h = 0, ch = 0;
@@ -695,7 +667,7 @@ bool loadSceneDoc(const json& doc, std::string& error) {
         const json& root = doc["scene"];
         applyCommonNodeFields(*gApp.scene, root);
         if (root.contains("settings")) {
-            applySettings(root["settings"]);
+            applySceneSettings(root["settings"], gApp.scene->settings(), *gApp.resources);
             gApp.durableSkyboxTexture =
                 root["settings"].value("skyboxTexture", kAssetInvalid);
             if (gApp.durableSkyboxTexture != kAssetInvalid && gApp.whiteTex != kAssetInvalid)

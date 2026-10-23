@@ -88,6 +88,7 @@ struct MaterialDesc {
     // roughness and Fresnel, and only where it is smooth enough to mirror
     // (lighting.glsl), so a rough wall beside the glass does not show it.
     float environmentReflection = 0.0f;
+    bool receiveGlobalIllumination = true;
     SurfaceVariation variation;
     RainSurface rain;
     // Opt-in cutout foliage: diffuse wrap, leaf transmission, normalized sway,
@@ -103,7 +104,7 @@ struct MaterialDesc {
                specularColorId == o.specularColorId && specularStrengthId == o.specularStrengthId &&
                dielectricF0 == o.dielectricF0 && specularStrength == o.specularStrength &&
                billboardColumns == o.billboardColumns && billboardRows == o.billboardRows &&
-               environmentReflection == o.environmentReflection &&
+               environmentReflection == o.environmentReflection && receiveGlobalIllumination == o.receiveGlobalIllumination &&
                baseColor == o.baseColor && emissiveColor == o.emissiveColor &&
                metallic == o.metallic && roughness == o.roughness && ao == o.ao &&
                alphaCutoff == o.alphaCutoff && normalStrength == o.normalStrength &&
@@ -137,6 +138,7 @@ struct hash<saida::MaterialDesc> {
         combine(std::hash<float>()(d.dielectricF0.r)); combine(std::hash<float>()(d.dielectricF0.g));
         combine(std::hash<float>()(d.dielectricF0.b)); combine(std::hash<float>()(d.specularStrength));
         combine(std::hash<float>()(d.environmentReflection));
+        combine(d.receiveGlobalIllumination);
         combine(std::hash<float>()(d.baseColor.r)); combine(std::hash<float>()(d.baseColor.g));
         combine(std::hash<float>()(d.baseColor.b)); combine(std::hash<float>()(d.baseColor.a));
         combine(std::hash<float>()(d.metallic)); combine(std::hash<float>()(d.roughness));

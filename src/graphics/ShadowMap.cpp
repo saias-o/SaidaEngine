@@ -55,7 +55,9 @@ void ShadowMap::createSampler() {
     rhi::SamplerDesc desc;
     desc.addressMode = rhi::AddressMode::ClampToBorder;
     desc.whiteBorder = true;        // outside frustum = lit
-    desc.compareEnabled = true;     // hardware PCF
+    desc.compareEnabled = true;
+    // The lookup interpolates comparisons after correcting each texel's depth.
+    desc.magFilter = desc.minFilter = rhi::FilterMode::Nearest;
     sampler_ = std::make_unique<rhi::Sampler>(device_, desc);
 }
 
@@ -77,17 +79,11 @@ void ShadowMap::createPipeline() {
     // same convention as the scene pass.
     desc.pushConstantSize = sizeof(glm::mat4) + sizeof(glm::vec4);
     desc.pushConstantStages = rhi::ShaderStages::Vertex;
-    // A shadow map keeps conventional depth (1 far, nearer passes): its range
-    // is a light's, a few hundred metres, and its bias is tuned for it.
+    // Shadow maps retain conventional depth (1 far, nearer passes).
     desc.depthCompare = rhi::CompareOp::Less;
-    desc.depthBias = true;  // combat shadow acne
-    // The constant term is what detaches a shadow from the feet that cast it
-    // (peter-panning), and it buys little: it offsets every caster by the same
-    // amount whatever its angle. The slope-scaled term is the one that actually
-    // pays for itself, since acne appears at grazing angles. So: small constant,
-    // slope unchanged.
-    desc.depthBiasConstant = 0.45f;
-    desc.depthBiasSlope = 1.75f;
+    // Receiver-plane depth correction handles the PCF footprint in the lookup.
+    // Moving caster depth by its slope detaches contact shadows at low Sun angles.
+    desc.depthBias = false;
     pipeline_ = std::make_unique<rhi::Pipeline>(device_, desc);
 }
 

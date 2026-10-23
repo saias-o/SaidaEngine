@@ -1,4 +1,6 @@
 #include "audio/AudioManager.hpp"
+#include "core/Camera.hpp"
+#include "scene/Node.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -56,6 +58,24 @@ int main() {
     audio.resume(id);
     require(!audio.isPlaying(id), "resuming a stopped sound does nothing");
     require(!audio.isPlaying(saida::kInvalidAudioID), "an unknown id is not playing");
+    saida::Camera listener;
+    saida::AudioID spatial;
+    {
+        saida::Node vehicle;
+        vehicle.transform().position={40.f,0.f,0.f};
+        vehicle.updateTransforms(glm::mat4(1.f),true);
+        settings.spatialized=true;settings.minDistance=10;settings.maxDistance=200;
+        spatial=audio.play(tone.string(),settings,"Master",&vehicle);
+        require(audio.isPlaying(spatial), "a spatial sound belongs to its source");
+        listener.position={38.f,0.f,0.f};listener.lookAt({40.f,0.f,0.f});
+        audio.update(listener);
+        vehicle.transform().position.x=400.f;
+        vehicle.updateTransforms(glm::mat4(1.f),true);
+        listener.position.x=398.f;
+        audio.update(listener);
+        require(audio.isPlaying(spatial), "moving the listener and source preserves playback");
+    }
+    require(!audio.isPlaying(spatial), "destroying the vehicle stops its attached sound");
     audio.shutdown();
     fs::remove(tone);
     std::printf("[audio-manager] PASS: pause, resume, per-sound volume, stop\n");

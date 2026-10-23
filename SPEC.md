@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-10-18. This document is the engine's technical truth. It describes
+Updated: 2026-10-23. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -343,7 +343,15 @@ issuing their draw; the local AABB plane test remains conservative under shear
 and nonuniform/negative scale. This uses the light's volume rather than the
 eye's frustum, retaining offscreen casters whose shadows may be visible.
 Skinned meshes are retained because their authored bounds need not contain
-every animated pose. Point lights
+every animated pose. Directional shadow volumes follow the camera and snap to
+the light's texel grid; their extent remains the project's `shadowDistance`.
+PCF compares each texel against the geometric receiver plane, with a numerical
+allowance and a tenth of a texel for adjacent-plane discontinuities, instead of
+a range-scaled angular bias or
+raster slope bias that detaches contact shadows. The shader interpolates
+per-texel comparisons explicitly; overlapping footprints at softness <= 1
+share sixteen reads. World-position derivatives are evaluated before any
+material branch or discard, including on WebGPU. Point lights
 do not yet have a shadow cubemap. Lightmaps are regenerated
 and are not yet part of the durable package.
 
@@ -352,8 +360,8 @@ The global scene descriptor binds the resolved `skyboxTexture` and
 follow the background's linear crossfade, independent rotations and exposure;
 without a resident secondary sky the primary is used alone. Diffuse IBL uses
 each image's order-2 Lambert SH, projected only when the image pair changes and
-reused when the previous secondary becomes primary. GI invalidation includes
-the secondary sky, blend and rotation. Each in-flight frame retains both texture
+reused when the previous secondary becomes primary. Realtime GI reads the current
+sky pair, blend and rotations on its update cadence. Each in-flight frame retains both texture
 views and samplers; white is only the missing-primary fallback.
 
 The SH projection is an `EnvironmentSH` AssetLoader payload: native image decode
@@ -445,9 +453,85 @@ a pre-pass retains fragment-only clipping. `saida_terrain_rings_render_tests`
 compares every pixel against a fragment-only shader at air, eye-height and
 subpixel distances, with both hole windings, morphing, water and rain.
 
-Indirect probe lighting fades to the ambient fallback across the volume's last
-probe cell and uses that fallback outside its bounds. Distant surfaces never
-sample clamped edge probes; the directional environment lighting still applies.
+**Dynamic global illumination.** `GIVolume` owns persistent irradiance and
+visibility atlases, a bounded ray buffer, and toroidal voxel/probe grids.
+`giVolume` selects Anchored (0, the default) or Follow (1); `giQuality` selects
+Auto/Low/Medium/High/Ultra (0..4). The serializer also accepts their enum names.
+The Inspector, reflected properties/scripts and MCP scene settings expose both.
+`giWarmupProgress` is runtime state and is never serialized. `SAIDA_GI_DEBUG`
+set to `voxels` or `irradiance` shows the finest cascade's voxel albedo, or the
+probe irradiance each lit surface receives (magenta where uncovered).
+
+Anchored uses one 16 x 8 x 16 probe grid at 1.2 m spacing. Follow uses 4/5/6
+nested grids for Low/Medium/High or Ultra, starting at 2 m and doubling spacing
+per cascade (High covers a 1024 m horizontal square). A one-cell movement
+threshold limits scrolling. Follow predicts 0.75 s along the camera's smoothed
+stable-frame velocity (0.15 s response), capped at a quarter of each grid's
+extent with two cells reserved around the eye. Stops and reversals retain rear
+coverage; teleports reset prediction. Retained absolute cells keep their physical atlas
+addresses. Entering probes lose history immediately. CPU grid coordinates use
+doubles and 64-bit cells; shaders receive only local origins and a rotation.
+`Scene::notifyOriginRebase(translation,rotation)` records a caller-managed frame
+change; `Scene::rebaseOrigin` records it automatically. Independently placing a
+subtree does not change the scene's stable frame.
+
+Each update schedules at most 64/128/192/256 probes and 16/32/48/64 voxel bricks
+for Low/Medium/High/Ultra. Rays per probe are 32/40/48/64. Bricks are 8 cubed;
+voxel grids are 32 x 16 x 32 (Low) or 64 x 32 x 64. Cascades receive fair shares,
+with extra work near the camera. One frame's bricks all belong to one cascade, so
+its voxel pass draws each overlapping mesh once; a mesh is drawn only when it
+overlaps one of those bricks. Entering voxel bricks and untraced probes precede
+maintenance edits in each cascade's queues. A cascade's probes wait for its
+initial fill and entering voxel slabs, whose recycled storage would otherwise
+produce incorrect light; ordinary invalidations never block tracing, since
+streaming keeps them queued. Changed mesh bounds and entering slabs dirty
+voxel bricks; unchanged geometry retains its voxels. Albedo uses sqrt-encoded
+RGBA8, normals RGBA8, and emission RGBA16F. Only a scheduled probe's octahedral
+tiles are blended into staging and scattered to the persistent atlas; unscheduled
+probes require no atlas copy. Visibility moments use probe-spacing units.
+
+A ray leaving its cascade continues through each coarser one. Rays march voxels for diffuse hit lighting, local-light attenuation, solar
+visibility and previous-probe bounce, and read material emission. GI ray lighting
+never reads camera shadow maps. A diffuse environment with positive intensity
+owns sky misses; otherwise flat ambient supplies them. Inside ready coverage,
+GI replaces ambient plus diffuse IBL, with metallic/Fresnel weighting; specular
+IBL is attenuated by indirect visibility. Tetrahedral interpolation uses four
+probes and their directional visibility moments at every distance: a nearest
+probe without visibility reads probes buried in buildings, which leaked sun onto
+shaded facades or painted them black. A probe whose rays meet back faces more
+than a quarter of the time sits inside geometry and weighs nothing (Majercik
+2021 classification, without relocation); back-face hits also shorten its
+visibility distance. A point reads the finest cascade holding it, and the next
+one only across two cells at its edge in Follow (half a cell in Anchored), so
+incoming probes refine before receiving full weight; the visibility test applies within
+32/64/128/256 m (Low/Medium/High/Ultra). Cascade edges and uninitialized
+cells fade to a coarser cascade and then to legacy sky/ambient. FullRealtime
+updates continuously, even for a stationary scene. AmortizedRealtime warms up
+continuously, then updates every fourth frame. Baking runs a bounded 256 updates.
+
+Ordinary meshes and terrain read diffuse GI from a half-resolution irradiance
+stage reconstructed from pre-pass depth, upsampled by depth into the RGB channels
+of the RGBA16F AO map (alpha retains AO visibility). This stage also runs with AO
+disabled; without screen GI, surfaces sample the probes directly. Grass, foliage and impostors
+interpolate one directional GI sample per vertex (without visibility moments);
+direct lighting remains per
+fragment. Water applies GI to its scattered body light and sky-reflection
+occlusion. `MaterialDesc::receiveGlobalIllumination` (default true), also carried
+by serialized mesh materials, retains legacy shading when false. Its GPU flag
+shares the reflection scalar's sign, preserving the classic and bindless layouts.
+Unlit materials retain their existing path. Dynamic physics descendants, skinned
+meshes and impostors do not contribute voxels. Static foliage contributes reduced
+opacity. `ScenePassFeature::recordGIVoxels` lets procedural surfaces contribute:
+desktop terrain injects its heightfield and layer colours, respecting holes,
+through its existing uploaded buffers. Height/layer/hole changes invalidate GI.
+
+The representation remains approximate: subvoxel walls can leak, sparse probes
+need time to converge after large moves, voxel material overlaps are unordered,
+terrain injection uses palette colours, and water geometry has no voxel injector.
+There is no separate radiance-volume pass, probe-relocation buffer, or adaptive
+GPU budget controller. CPU tests exercise scheduling/scrolling; the native GPU
+corpus and frame profiles remain available as diagnostics, without a mandatory
+phase or software-backend gate.
 
 Native raster voxelization requires fragment storage-image writes. The Vulkan
 device enables `fragmentStoresAndAtomics` when supported, and advertises the
@@ -464,12 +548,20 @@ layout. It has no vertex-stage depth lookup or lens-flare parameters; those
 belong to the separate tonemapping pipeline. The Web layout verifier rejects
 substituting the tonemap vertex stage into either bloom pipeline.
 
+`AutoExposurePass` optionally meters the HDR view with a centre-weighted
+log-luminance histogram, excluding near-black samples and retaining the weighted
+60th–95th percentile range. It adapts a GPU exposure value exponentially toward
+`exposureKey`, within `autoExposureMin`/`autoExposureMax` EV relative to fixed
+exposure, at `autoExposureSpeed` per second. The first metering takes its target
+immediately; a wholly dark view targets zero EV. Tonemapping applies that state
+only when `autoExposure` is enabled. XR currently retains fixed exposure.
+
 Ambient occlusion (`aoEnabled`, `aoRadius` in metres, `aoIntensity`, `aoPower`)
 occludes indirect light only -- GI, the flat ambient and the environment's
 diffuse and specular -- never a light's direct contribution, which its shadow
 governs; the material's `ao` follows the same rule, as glTF defines occlusion.
-When a scene asks for it (`AmbientOcclusionPass::active`), the frame gains two
-passes before the scene pass. A depth-only pre-pass draws the opaque meshes
+When a scene asks for it (`AmbientOcclusionPass::active`), or GI is on (below),
+the frame gains two passes before the scene pass. A depth-only pre-pass draws the opaque meshes
 (classic, GPU-driven and multiview XR) and terrain rings with their own vertex
 shaders (`invariant gl_Position`) and, through `-DDEPTH_ONLY` variants of their
 fragment shaders, every discard they make -- LOD cross-fade, sidedness, alpha
@@ -477,14 +569,31 @@ test, terrain holes -- so the scene pass then shades at that very depth
 (`rhi::kDepthCloserOrEqual`) and skips what is hidden. Grass stays out: blades a
 texel wide would only add noise, and `ROOT_SHADE` is their own occlusion. A
 feature joins through `ScenePassFeature::recordDepth`. `AmbientOcclusionPass`
-then writes, per view, an `R8Unorm` map in three stages. The first two run on
+then writes, per view, an `RGBA16Float` map whose alpha is the occlusion, in
+three stages (their grids `R8Unorm`). The first two run on
 the AO grid, half the view's resolution each way, each grid texel standing at
 the first full-resolution texel of its 2 x 2 block and reading full-resolution
 depth: the raw occlusion (`shaders/ssao.glsl`) and its edge-aware average
 (`ssao_denoise.glsl`). The third brings the grid back to every texel of the view
 (`ssao_upsample.glsl`). Lit shaders read the map at their own pixel and view
 layer (`screen_ambient_occlusion.glsl`, set 0 binding 17); a scene without AO
-runs neither pass and reads nothing. `depth_reconstruction.glsl` holds the
+or GI runs neither pass and reads nothing.
+
+With GI on, a fourth stage on the same grid (`ambient_occlusion_gi.frag`, the
+scene's set 0 and the depth in set 1) rebuilds each grid texel's point and
+geometric normal like the kernel and evaluates `giIrradianceOrSky` there: the
+probes' irradiance over their coverage, the legacy ambient and diffuse sky past
+it. The upsample brings it into the map's colour with the occlusion's four
+texels and weights (a sliver none of them shares takes their bilinear average),
+and `LightingUBO::ambientOcclusion.y` tells the lit shaders compiled with
+`SAIDA_SCREEN_GI` -- `shader.frag` and `terrain_rings.frag`, whose surfaces the
+pre-pass draws -- to take their diffuse indirect light there instead of
+sampling the probes per fragment. The irradiance therefore follows the
+geometric normal, not normal maps. Other shaders, and shading outside the
+pre-pass, keep per-fragment or per-vertex sampling. Measured at a fixed rue de
+Rivoli view (MX450, 1920 x 1080, 2026-10-22): the opaque pass falls from 13.5 ms
+with per-fragment GI to 9.6 ms (9.1 without GI), the stage costs 0.5 ms, and the
+whole GI adds 2.0 ms of GPU frame time against GI off. `depth_reconstruction.glsl` holds the
 reversed-depth reconstruction AO and fog share.
 
 The kernel's 8 directions x 4 steps span `aoRadius` at each grid texel's depth
@@ -741,7 +850,8 @@ Lambert directional diffuse: hemisphere occlusion cannot represent the sun's
 direction. Sky SH uses the same rotations, crossfade and diffuse intensity as
 mesh PBR, without additional texture reads. Normal scale blends the directional
 response against the coarse volume response. Both paths skip MR, emissive
-textures, GGX, specular IBL, GI and runtime shadow sampling. Point/spot lights do
+textures, GGX, specular IBL and runtime shadow sampling. Their GI comes from
+interpolated vertex samples when enabled. Point/spot lights do
 not illuminate this distant representation. Visibility is a static occlusion
 approximation, not directional self-shadowing or a replacement for close PBR.
 Imported billboard meshes disable shadow casting, and shadow gathering also
@@ -767,7 +877,8 @@ transforms those normals. Classic/Web MaterialUBO is 128 bytes; both material
 layouts append the same vec4, with zero defaults and cache equality/hash.
 
 Foliage evaluates wrapped diffuse, sky SH/static visibility and backlighting
-with two texture fetches, without GGX, specular environment sampling or DDGI.
+with two material texture fetches, without GGX or specular environment sampling.
+GI is sampled in the vertex stage and interpolated across the plant.
 It receives the existing directional/point/spot lights, shadow maps and terrain
 sun occlusion. Foliage does not cast depth-only shadows: alpha-cutout casting
 remains separate work. Object-mode depth slices fade at grazing view angles;
@@ -1563,7 +1674,9 @@ such as wheels and glazing intact. Automatic mechanical-part segmentation,
 tearing, topology change, self-collision and skinned meshes are unsupported.
 
 Private geometry is created only on first damage. The original asset remains
-the serialization identity and other instances remain intact. Positions,
+the serialization identity and other instances remain intact. New private
+copies wait for pending asset uploads and sufficient arena space; while deferred,
+the original visible mesh and accumulated cage state remain. Positions,
 normal/tangent directions, collision CPU geometry and bounds are updated.
 The collider approximation samples authored box volumes into convex hulls;
 rebuilds have a displacement threshold and preserve body velocities.
@@ -1701,7 +1814,11 @@ knees, inter-ragdoll contact, rebase, refusal by capacity and by bone name).
 `RagdollBehaviour` drives it beside a node's `Animator` through a pose modifier:
 `activate` (Simulated; the node follows the root part), automatic `freeze` once
 settled (bodies removed, pose kept), `blendOut(seconds, ground)` standing the
-node under the root facing along the body, `release`. It is runtime-only (not
+node under the root facing along the body, `release`. `activateReplacing` holds a scoped
+physics suspension on the animated collider through simulation, rest and recovery;
+refusal releases it. Mounted scenes use the outermost scene's physics world.
+`blendOutToParent` transfers recovery to a locomotion parent while preserving the
+drawn pose and restoring the visual node's local offset. It is runtime-only (not
 serialized, absent from the editor and JS). `BodyDesc` gained
 `groupFilter`/`collisionGroup`/`collisionSubGroup`; `PhysicsWorld::isBodyActive`
 reports sleep. `Scene::ensurePhysics` builds the world on demand and a scene
@@ -1787,6 +1904,11 @@ of reading and decoding the file on the calling thread. A playing sound is contr
 `AudioID` that `play` returns: `pause`, `resume` (continues where it stopped),
 `setVolume` (0..1, before the master volume) and `isPlaying`
 (`saida_audio_manager_tests`).
+Desktop spatial sounds follow their attached node. The engine updates the
+listener from the final rendered camera position and facing every frame
+(`AudioManager::update(camera)`), including the XR head pose. Sources and
+listener use the same world coordinates, so moving/rebasing the world preserves
+direction and distance attenuation. Destroying a node stops its attached sounds.
 
 `AudioStream` is an independent C++ HTTP(S) player for remote, non-spatial
 media. `cmake/MediaRuntime.cmake` adds its platform implementation and transport

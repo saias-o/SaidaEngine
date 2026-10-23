@@ -87,12 +87,16 @@ json toolSetSceneSettings(const ToolContext& ctx, const json& args) {
     if (args.contains("ambient")) newS.ambientLight = glm::vec4(vec3From(args["ambient"], glm::vec3(oldS.ambientLight)), 0.0f);
     if (args.contains("clearColor")) newS.clearColor = glm::vec4(vec3From(args["clearColor"], glm::vec3(oldS.clearColor)), 1.0f);
     if (args.contains("giEnabled")) newS.giEnabled = args["giEnabled"].get<bool>();
+    if(args.contains("giVolume")) {int v=args["giVolume"].get<int>();if(v<0 || v>1) fail("giVolume must be 0 (Anchored) or 1 (Follow)");newS.giVolume=GIVolumeMode(v);}
+    if(args.contains("giQuality")) {int v=args["giQuality"].get<int>();if(v<0 || v>4) fail("giQuality must be 0 through 4 (Auto, Low, Medium, High, Ultra)");newS.giQuality=GIQuality(v);}
     if (args.contains("giIntensity")) newS.giIntensity = args["giIntensity"].get<float>();
     if (args.contains("fogEnabled")) newS.fogEnabled = args["fogEnabled"].get<bool>();
     if (args.contains("fogColor")) newS.fogColor = glm::vec4(vec3From(args["fogColor"], glm::vec3(oldS.fogColor)), 1.0f);
     if (args.contains("fogDensity")) newS.fogDensity = args["fogDensity"].get<float>();
     if (args.contains("bloomEnabled")) newS.bloomEnabled = args["bloomEnabled"].get<bool>();
     if (args.contains("bloomIntensity")) newS.bloomIntensity = args["bloomIntensity"].get<float>();
+    if (args.contains("autoExposure")) newS.autoExposure = args["autoExposure"].get<bool>();
+    if (args.contains("exposureKey")) newS.exposureKey = args["exposureKey"].get<float>();
     if (args.contains("aoEnabled")) newS.aoEnabled = args["aoEnabled"].get<bool>();
     if (args.contains("skyboxExposure")) newS.skyboxExposure = args["skyboxExposure"].get<float>();
 

@@ -20,7 +20,7 @@ PUSH_QUALIFIER PushConstants {
     vec4 fogRayleigh;     // rgb extinction at altitude 0 (1/m), w its scale height
     vec4 fogHeight;       // x grey scale height (0 uniform), y camera altitude, z planet radius, w layered
     vec4 fogUp;           // xyz the camera's up, view space
-    vec4 outputParams;    // x: shader encodes sRGB (UNORM target only)
+    vec4 outputParams;    // x: shader encodes sRGB (UNORM target only), y: adapted exposure
     vec4 flareSource;     // xy the source in viewport UV, z lens flare, w sun star
     vec4 flareRadiance;   // rgb the source's linear radiance
 } push;

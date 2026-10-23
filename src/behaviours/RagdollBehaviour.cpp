@@ -1,6 +1,7 @@
 #include "behaviours/RagdollBehaviour.hpp"
 
 #include "core/Log.hpp"
+#include "physics/CollisionObjectNode.hpp"
 #include "scene/Node.hpp"
 #include "scene/Scene.hpp"
 #include "scene/animation/Animator.hpp"
@@ -49,9 +50,10 @@ glm::mat4 parentWorld(const Node& node) {
 }
 
 Scene* sceneOf(Node* node) {
+    Scene* scene = nullptr;
     for (Node* n = node; n; n = n->parent())
-        if (auto* scene = dynamic_cast<Scene*>(n)) return scene;
-    return nullptr;
+        if (auto* candidate = dynamic_cast<Scene*>(n)) scene = candidate;
+    return scene;
 }
 
 float smootherStep(float x) {
@@ -76,6 +78,7 @@ struct RagdollBehaviour::Shared {
     float rootLift = 0.0f;  // the root part's height above the node origin at activation
     float elapsed = 0.0f, blendSeconds = 0.0f, weight = 0.0f;
     bool settled = false;
+    CollisionObjectNode::PhysicsSuspension animatedBodySuspension;
 
     Node* node() const { return owner ? owner->node() : nullptr; }
 
@@ -105,7 +108,9 @@ struct RagdollBehaviour::Shared {
         if (!owner) return;
         switch (state) {
             case State::Simulated:
-                if (!ragdoll || !ragdoll->spawned()) { state = State::Animated; break; }
+                if (!ragdoll || !ragdoll->spawned()) {
+                    state = State::Animated; animatedBodySuspension.reset(); break;
+                }
                 elapsed += dt;
                 settled = ragdoll->updateSettled(dt);
                 if (owner->followRoot) follow();
@@ -115,7 +120,7 @@ struct RagdollBehaviour::Shared {
             case State::Blending:
                 elapsed += dt;
                 weight = blendSeconds > 0.0f ? 1.0f - smootherStep(elapsed / blendSeconds) : 0.0f;
-                if (weight <= 0.0f) state = State::Animated;
+                if (weight <= 0.0f) { state = State::Animated; animatedBodySuspension.reset(); }
                 break;
             case State::Frozen:
             case State::Animated:
@@ -187,23 +192,31 @@ RagdollBehaviour::RagdollBehaviour(RagdollProfile profile) : shared_(std::make_s
 }
 
 RagdollBehaviour::~RagdollBehaviour() {
-    if (shared_->ragdoll) shared_->ragdoll->despawn();
+    release();
     shared_->owner = nullptr;
-    shared_->state = State::Animated;
 }
 
 void RagdollBehaviour::onDisable() { release(); }
 
 void RagdollBehaviour::onHierarchyInactive() { release(); }
 
-void RagdollBehaviour::onDestroy() {
-    if (shared_->ragdoll) shared_->ragdoll->despawn();
-    shared_->state = State::Animated;
-}
+void RagdollBehaviour::onDestroy() { release(); }
 
 void RagdollBehaviour::onRebase(const glm::vec3& translation, const glm::quat& rotation) {
     if (shared_->ragdoll) shared_->ragdoll->rebase(translation, rotation);
     shared_->objectToWorld = shared_->nodeWorld();
+}
+
+bool RagdollBehaviour::activateReplacing(CollisionObjectNode& animatedBody,
+                                        const glm::vec3& velocity, const glm::vec3& angularVelocity) {
+    if (!node() || sceneOf(node()) != sceneOf(&animatedBody)) {
+        shared_->refuse("the animated collider must belong to the same scene");
+        return false;
+    }
+    auto suspension = animatedBody.suspendPhysics();
+    if (!activate(velocity, angularVelocity)) return false;
+    shared_->animatedBodySuspension = std::move(suspension);
+    return true;
 }
 
 bool RagdollBehaviour::activate(const glm::vec3& velocity, const glm::vec3& angularVelocity) {
@@ -297,10 +310,26 @@ void RagdollBehaviour::blendOut(float seconds, std::optional<float> groundHeight
 
 void RagdollBehaviour::freeze() { shared_->freeze(); }
 
+bool RagdollBehaviour::blendOutToParent(float seconds, const Transform& localRest,
+                                       std::optional<float> groundHeight) {
+    Node* self = node();
+    if (!self || !self->parent() || dynamic_cast<Scene*>(self->parent()) ||
+        state() == State::Animated || state() == State::Blending) return false;
+    blendOut(seconds, groundHeight);
+    if (state() != State::Blending) return false;
+    Node& root = *self->parent();
+    const glm::mat4 standing = shared_->nodeWorld() * glm::inverse(localRest.matrix());
+    root.transform() = transformOf(glm::inverse(parentWorld(root)) * standing);
+    self->transform() = localRest;
+    shared_->objectToWorld = shared_->nodeWorld();
+    return true;
+}
+
 void RagdollBehaviour::release() {
     if (shared_->ragdoll) shared_->ragdoll->despawn();
     shared_->state = State::Animated;
     shared_->weight = 0.0f;
+    shared_->animatedBodySuspension.reset();
 }
 
 RagdollBehaviour::State RagdollBehaviour::state() const { return shared_->state; }

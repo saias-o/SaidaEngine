@@ -20,11 +20,13 @@ layout(set = 0, binding = 0) uniform CameraUBO {
     mat4 proj[2];
 } cam;
 
+#include "gi_sampling.glsl"
 #include "grass.glsl"
 #include "grass_blade.glsl"
 #include "noise.glsl"
 #include "surface_variation.glsl"
 
+layout(location = 6) out vec4 fragGI;
 layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragColor;
@@ -130,7 +132,7 @@ vec4 coverAt(GpuGrass g, vec2 uv) {
 void drop() {
     gl_Position = vec4(0.0, 0.0, 0.0, 1.0);  // every corner the same: no area, nothing drawn
     fragWorldPos = vec3(0.0); fragNormal = vec3(0.0, 1.0, 0.0); fragColor = vec3(0.0);
-    fragHeight = 0.0; fragGust = 0.0; fragDetail = 0.0;
+    fragHeight = 0.0; fragGust = 0.0; fragDetail = 0.0;fragGI=vec4(0);
 }
 
 void main() {
@@ -247,6 +249,8 @@ void main() {
 #endif
     gl_Position = cam.proj[viewIndex] * cam.view[viewIndex] * world;
     fragWorldPos = world.xyz;
+    vec3 up=normalize(mat3(g.localToWorld)*groundUp);
+    fragGI=samplePlantGI(world.xyz,up);
     fragNormal = normalize(mat3(g.localToWorld) * normal);
     // The ground's colour and brightness where the blade roots, each blade a
     // little lighter or darker than the next -- near; away, the ground's own.

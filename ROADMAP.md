@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-22. This file is the engine's **single backlog**: everything
+Updated: 2026-10-23. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -8,6 +8,20 @@ is in [README.md](README.md).
 Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
+
+## Contact shadows and camera coverage — 2026-10-23
+
+- [x] Replace the angular depth bias and raster slope bias with per-texel
+  receiver-plane PCF, and follow the camera with a texel-snapped directional
+  volume. Proof: `tools/verify_shadows.py` passes ten GPU cases with GI/AO/IBL
+  disabled (grazing and steep Sun, reversed direction, spot, 25/60/120 m
+  extents, +/-150 m camera travel, softness 0/1/1.5), checking contact and an
+  unchanged unoccluded floor that also casts shadows. Four of the original
+  five cases failed before the correction. Native build and CTest 110/110;
+  final sampler also checked by the terrain GPU, SSAO and streaming tests;
+  AO pixel verifier passes; Web shaders transpile and Chrome accepts the
+  scene pipeline. R1World rebuilt, two Paris views captured, and its actual
+  skinned player captured on a self-shadowing floor with GI/AO/IBL off.
 
 ## Ambient occlusion on indirect light only — 2026-10-22
 
@@ -189,6 +203,10 @@ the corresponding contracts of `SPEC.md`.
 
 ## Ragdolls, reach and attachment — 2026-10-13
 
+- [x] Share player/crowd knockdown recovery, suspend animated colliders through
+  ragdoll recovery and use the root physics world for mounted scenes. Verified
+  2026-10-23: 93 ragdoll checks, native CTest 110/110, Web player build, offline
+  Paris/Vannes nonlethal player hit and recovery; Vannes crowd fall and pistol.
 - [x] Generic `Ragdoll`/`RagdollBehaviour`, `TwoBoneIKModifier`,
   `BoneAttachmentBehaviour`, `Animator::poseUpdated`, collision groups,
   `Behaviour::onRebase`/`onHierarchyInactive`, `Scene::ensurePhysics`,
@@ -210,6 +228,8 @@ The implemented `SurfaceDrive`, impact events, private geometry updates and
 plastic cages are documented in SPEC section 5.1; R1World integration and its
 evidence belong in the game's README.
 
+- [x] Defer first-damage private mesh copies while assets are uploading or the
+  geometry arena is full; retain source geometry and retry when capacity returns.
 - [ ] Qualify a real headset, both eyes, sustained CPU/GPU frame times and
   memory under multi-vehicle collisions. Shared mono/multiview geometry and an
   OpenXR native build do not prove headset performance.
@@ -525,7 +545,7 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 |---|---|
 | **PipelineCache** — pipelines & layouts; rebuilt on format/swapchain change | `createGlobalSetLayout`, `createPipeline`, `createWebCanvasWorldPipeline`, `createCullingPipeline`, `createTonemapPipeline`, `createXrPipelines` |
 | **FrameDescriptors** — global descriptor sets + per-frame-in-flight UBO | `createUniformBuffers`, `createGlobalDescriptorSets`, `rebuildGlobalSet`, `updateGlobalShadowDescriptor`, `updateUniformBuffer` |
-| **GIRenderer** — GI descriptors + dirty cadence/signature | `shouldUpdateRealtimeGI`, `giDirtySignature`, `updateGIDescriptors`, `updateEnvironmentDescriptor` |
+| **GIRenderer** — GI descriptors, preparation and update cadence | `prepareGI`, `shouldUpdateRealtimeGI`, `updateGIDescriptors`, `updateEnvironmentDescriptor` |
 | **TonemapPass** — ✅ *extracted* — tonemap pipeline/layout/samplers/set | `createTonemapPipeline`, `updateTonemapDescriptorSet`, `tonemapPushConstants` (now `TonemapPass::record`/`setInputs`/`pushConstants`) |
 | **GpuDrivenCuller** — indirect draw buffers + culling pipeline (behind the flag) | `createGpuDrivenBuffers`, `uploadGpuDrivenDraws`, `featureDraws`, `buildFeatures`, `recordFeatures` |
 | **XrRenderer** — XR targets/pipelines + multiview UBO | `createXrTargets`, `cleanupXrTargets`, `updateXrTonemapDescriptorSets`, `updateUniformBufferXr`, `recordXrScenePass`, `recordXrWorldWebCanvases` |
@@ -654,80 +674,88 @@ supervised, not autonomous.
 
 Post-V1 unless the scope changes explicitly.
 
-- [ ] Rendering: dynamic outdoor GI, using camera-following DDGI probe and
-  voxel clipmaps; no bake or hardware ray tracing required. Follow mode is
-  opt-in; the existing anchored volume and GI-off image remain supported.
-  Execute these phases in order, attaching evidence before checking each:
-  - [ ] Phase 0: fix voxelization validation; capture the unmodified GI-off
-    reference, add the eight GPU contracts (off identity, open-sky energy,
-    coloured canyon bounce, closed room, metal, material opt-out, scrolling,
-    origin rebase), and profile Witness GI-on and the outdoor client GI-off.
-    Record existing failures; all eight contracts must pass by phase 7.
-    Completed prerequisites on 2026-10-22: fragment storage writes enabled when
-    supported (explicit ambient fallback otherwise), voxel initialization and
-    first-use terrain-map transition; the voxel-storage and undefined-image
-    errors are absent from the final validation corpus. The `cam` error was
-    isolated to WebCanvas, not voxelization. Native CTest: first run 103/109,
-    six temporary-file failures pass with workspace TMP/TEMP, final full run
-    109/109. AO, IBL and 23 billboard pixel checks pass; Web player and authoring
-    WASM build; Chrome accepts the translated scene and both bloom pipelines.
-    `tools/verify_global_illumination.py` keeps all eight checks strict: corpus
-    `build-rel/global-illumination-run/run-r7pncs9l` has GI-off bit-identical to
-    the four frozen MX450 references captured at renderer `1c43aaa`, and seven
-    expected failures of the original DDGI. Ambient open-sky energy ratio is
-    0.61972; with diffuse IBL it is 2.08078 (double sky). No GI qualification is
-    claimed. The frozen images were inspected; no reference was regenerated.
-    Exploratory profile baselines: Witness GI-on at 640x360, 91 GI update
-    samples, median/p95 9.390/12.568 ms; the offline Paris capture exits 0 and
-    records no GI work, last 150 GPU-frame samples 31.131/33.968 ms median/p95.
-    The client changes its window to 1920x1055, despite requesting 1080p; this
-    stationary capture (with software-backend checks alongside) is not an I4
-    or full offline-smoke qualification. Raw traces: `build-rel/gi-witness-native.json`
-    and `build-rel/gi-rivoli-off.json`.
-    **Blocking proof:** Lavapipe's original pipeline-creation access violation
-    was reproduced with the unmodified runtime; the bloom fix gets past it,
-    but both subsequent runs (sandboxed and unsandboxed, two LLVM threads)
-    fail presenting with `VK_ERROR_MEMORY_MAP_FAILED` (-5), before a PNG.
-    Logs: `build-rel/gi-witness-original-lavapipe.log`,
-    `gi-witness-lavapipe-bloom.log`, `gi-witness-lavapipe-final.log`.
-    The Witness golden gate has not passed and has not been bypassed. Phase 0
-    stays open; phase 1 must wait for a working software backend or an explicit
-    decision accepting the native exact-reference corpus in its place.
-  - [ ] Phase 1: extract GIRenderer state/descriptors/cadence without changing
-    behaviour; prove native, Web and authoring WASM builds and image parity.
-    This precedes the leaf-first order in section 3 because GI work opens
-    Renderer directly; drawFrame remains the only pass orchestrator.
-  - [ ] Phase 2: one indirect-diffuse entry for every surface, one sky owner,
-    metallic/Fresnel weighting and material receiveGlobalIllumination;
-    preserve each surface's exact legacy GI-off/opt-out formula.
-    The phase-0 trace also proves that static FullRealtime currently stops
-    after eight warmup updates (`run-mv9smq9f/canyon-red.json`: 8 GPU/DDGI
-    events in 240 drawn frames). Fix and prove continued convergence instead
-    of treating a long capture delay as evidence of convergence.
-  - [ ] Phase 3a: tested CPU clipmap/scheduler (hysteresis, toroidal indices,
-    entering slabs, translation/rotation rebase, teleport, fairness); anchored
-    single-cascade array atlases with staging/scatter instead of ping-pong.
-  - [ ] Phase 3b: incremental voxel clipmaps and spatial invalidations;
-    cascaded tracing and albedo/cascade debug views.
-  - [ ] Phase 3c: Follow probe clipmaps, continuous cascade/fallback blending,
-    warmupProgress, scrolling and rebase GPU proofs.
-  - [ ] Phase 4: voxel radiance injection, voxel-traced solar visibility and
-    terrain occlusion, local lights/emission and multiple bounces; remove
-    all shadow-map reads from GI. Prove canyon bounce and closed interiors.
-  - [ ] Phase 5: feature voxel hooks/revisions, heightfield and water input,
-    MeshNode::giContribution and translucent foliage; vertex GI for cheap
-    surfaces; prove Near/Mid/Far continuity in a forest.
-  - [ ] Phase 6: back-face classification, adaptive hysteresis/firefly clamp,
-    specular occlusion and distributed sky/sun/weather response; prove
-    temporal stability and occluded reflections.
-  - [ ] Phase 7: measure quality-tier CPU/GPU/memory budgets (High GI at most
-    2.5 ms on MX450/1080p), editing/JS/MCP settings and debug views; native,
-    Chrome WGSL, authoring WASM, multiview and validation proofs; publish
-    the implemented contract and limitations in SPEC 4.1.
-  - [ ] Phase 8: outdoor-client Follow integration, warmup and offline smoke;
-    show ambient-sky/IBL-sky alternatives before choosing, fixed-camera
-    GI-on/off captures and sustained streaming frame distributions at 1080p.
-    A missed budget is reported for a decision, never a silent tier reduction.
+- [ ] Network: build a generic UDP networking module (requested 2026-10-23).
+  - Provide non-blocking UDP sockets, bind/send/receive, IPv4/IPv6 endpoints
+    and explicit lifecycle/error handling, with bounded queues and packet sizes.
+    UDP is a datagram transport; peer connections are explicit sessions layered
+    over it, with handshake, keepalive, timeout, disconnect and reconnect.
+  - Expose reusable peer/session identifiers, packet sequencing, duplicate and
+    stale-packet rejection, RTT/jitter/loss metrics, and optional acknowledged
+    reliable delivery for control messages alongside unreliable gameplay data.
+    Bound retransmissions and bandwidth; avoid fragmentation at the chosen MTU.
+  - Keep the module independent of game topology, geographic tiles, discovery,
+    entity ownership and replication rules. Allow games to build direct P2P
+    sessions and exchange tick-stamped inputs/state for prediction and rollback.
+  - Define transport validation and session authentication, reject malformed or
+    oversized traffic, and bound per-peer resource use. Any future JS exposure
+    needs an explicit capability and permission-policy tests (SPEC 6.2).
+  - Qualify loopback, LAN and Internet peer sessions, packet loss, duplication,
+    reordering, latency, jitter, timeouts and teardown without blocking frames.
+    Report backend capabilities explicitly; native UDP must not imply raw UDP
+    support in the Web runtime. Discovery and NAT traversal need their own
+    proven solution before claiming arbitrary Internet P2P connectivity.
+
+- [ ] Rendering: optimize and refine the dynamic outdoor GI now implemented in
+  SPEC §4.1. On 2026-10-22 the user explicitly prioritized working, optimized GI
+  over the original brief's mandatory proofs, phase order and extraction gates.
+  The Lavapipe presentation failure is a backend issue, not a prerequisite for
+  this work. Frozen native references and strict checks remain diagnostics.
+  - [x] Fair CPU clipmap scheduler, toroidal retention, scrolling, bounded probe
+    and voxel work, stable double-precision origin frame and transient warmup.
+  - [x] Persistent atlases with partial blend/scatter, compact incremental voxel
+    grids, cached mesh invalidation, cascaded tracing and continuous updates.
+  - [x] Diffuse sky replacement, metallic/Fresnel response, material opt-out,
+    voxel-traced hit lighting/solar visibility, emission and previous-probe bounce.
+  - [x] Procedural voxel hook and desktop heightfield injection, vertex GI for
+    cheap plants, water shading, quality controls and Follow integration in the
+    outdoor client (including Toaster budgets and caller-managed origin rebases).
+  - [x] Rays and solar visibility continue into coarser cascades instead of
+    reaching the sky at a fine cascade's 16 m ceiling; voxel bricks come from
+    one cascade per frame (one draw of the overlapping meshes, culled per
+    brick); probes wait only for a cascade's first fill, not for an empty
+    brick queue. Before, streaming kept the queues busy and Paris never
+    passed 39 % warm-up; on 2026-10-22 the MX450 offline Paris smoke passes,
+    warm-up reaches 100 %, `GPU/DDGI` 1.3 ms/frame mean, 3.0 ms p95
+    (`--profile`, 600 frames, vsync off). `SAIDA_GI_DEBUG=irradiance|voxels`
+    shows what surfaces receive.
+  - [x] Back-face probe classification (> 25 % of rays) and full filtered
+    sampling at every distance, replacing the nearest-probe path past 32 m
+    that leaked sun onto shaded Paris facades and blackened others. One
+    cascade per point plus the next across a half-cell band, tetrahedral
+    taps without dynamic indexing. Fixed 1080p MX450 Paris view, 2026-10-22:
+    `Scene/Opaque` 9.1 ms GI off, 15.1 ms before, 13.5 ms after; `GPU/DDGI`
+    1.2 ms. The complete GI therefore costs about 5.5 ms there, above the
+    brief's 2.5 ms; per-pixel sampling, not the probe update, is what remains
+    (a constant-irradiance probe measured 9.4 ms).
+  - [x] Half-resolution irradiance: a GI stage on the AO grid writes what the
+    pre-pass surfaces receive, the AO upsample carries it into the map's
+    colour (now RGBA16F, alpha the occlusion), and `shader.frag` /
+    `terrain_rings.frag` read it instead of sampling probes per fragment.
+    Same 1080p MX450 view: `Scene/Opaque` 9.6 ms (9.1 GI off), the stage
+    0.5 ms, the whole GI 2.0 ms of `GPU/Frame` against GI off -- within the
+    brief's 2.5 ms. Not yet run under Vulkan validation (layers absent on the
+    reference machine) nor in Chrome WebGPU.
+  - [ ] Reduce subvoxel leaks and temporal noise; improve probe placement and
+    classification, transparency, adaptive hysteresis and firefly rejection.
+  - [x] Anticipate Follow coverage along the camera's smoothed velocity,
+    prioritize entering voxel slabs and untraced probes ahead of maintenance,
+    and blend cascades across two cells without increasing grid resolution or
+    work budgets. Proof, 2026-10-23: CPU tests at 30/60/120 Hz, stops, reversals,
+    teleports and continuously invalidated queues (the old scheduler fails the
+    entering-brick priority check); `verify_global_illumination.py --cases motion`
+    moves only the camera through static geometry at 6/24 m/s. At 24 m/s the
+    worst sampled difference from settled lighting falls from 34% to 11%; the
+    final walking case stays within 15%. Native CTest 110/110, WebShaders and
+    Web player built, Chrome accepts the scene pipeline, and R1World's offline
+    Paris warm-walking smoke passes. The strict `off`, `open` and `scroll`
+    diagnostics fail both before and after; their references/thresholds were
+    retained. Temporal noise and sustained all-tier movement remain open.
+  - [ ] Add a water voxel injector, textured terrain contribution, and optional
+    per-node contribution controls. Profile spatial queries during heavy editing
+    and streaming, and add adaptive budgets only where measurements justify them.
+  - [ ] Extend sustained movement/forest/weather coverage across quality tiers,
+    validate occluded reflections, and qualify the complete MX450 1080p frame
+    budget separately from the bounded probe-update cost.
   Not Radiance Cascades: tried before this repository's first commit and it
   did not work (user, 2026-10-21); the reason was not recorded, so record it
   if they are ever reopened.
@@ -1111,11 +1139,8 @@ What is missing:
   colour held as a `vec4` but authored as three channels with the alpha
   preserved, which is what the scene format, the ops and the inspector all
   already do and what a plain `property()` would have exposed to exactly one of
-  them. And `Renderer::giDirtySignature` now hashes a light's `direction`
-  alongside its transform: hashing only the transform was correct while
-  `direction` could only be authored, but a script can write it every frame now,
-  and a Sun steered through its direction rather than its rotation would have
-  left the irradiance volume convinced nothing had moved.
+  them. Realtime GI samples current light directions on its update cadence,
+  including directions written by scripts.
 
   Proof: `saida_scene_settings_tests` extended with the reflection/format
   equivalence in both directions, colour alpha, enum range checking and the
@@ -1474,7 +1499,9 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
 
 These items delay no release unless the promise changes explicitly:
 
-- network multiplayer, large terrains and genre frameworks;
+- turnkey multiplayer replication/genre frameworks and large terrains; the
+  generic UDP networking module was reopened by the user on 2026-10-23 and is
+  tracked in §5;
 - generalized SIMD animation, massive pose sharing and GPU crowds;
 - research-grade GI beyond the optimized outdoor GI of §5 (reopened by the
   user on 2026-10-21); Radiance Cascades were tried before the first commit

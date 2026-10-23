@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(SAIDA_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+set(SAIDA_WGSL_DIR "${SAIDA_ROOT}/build/shaders/wgsl" CACHE PATH "Generated WebGPU shaders")
 
 # glm is vendored (third_party/glm) so the web build never leaks the desktop
 # toolchain's system include directory into the Emscripten sysroot.
@@ -85,6 +86,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/project/AssetRegistry.cpp
     ${SAIDA_ROOT}/src/project/AssetLoader.cpp
     ${SAIDA_ROOT}/src/render/GIVolume.cpp
+    ${SAIDA_ROOT}/src/render/gi/GIClipmap.cpp
     ${SAIDA_ROOT}/src/render/RenderFeatureRegistry.cpp
     ${SAIDA_ROOT}/src/render/features/ParticleFeature.cpp
     ${SAIDA_ROOT}/src/render/features/SkyboxFeature.cpp
@@ -93,6 +95,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/render/LensFlare.cpp
     ${SAIDA_ROOT}/src/render/TonemapPass.cpp
     ${SAIDA_ROOT}/src/render/AmbientOcclusionPass.cpp
+    ${SAIDA_ROOT}/src/render/AutoExposurePass.cpp
     ${SAIDA_ROOT}/src/render/Renderer.cpp
     ${SAIDA_ROOT}/src/render/EnvironmentSH.cpp
     ${SAIDA_ROOT}/src/runtime/RuntimeRoundTripContract.cpp
@@ -193,7 +196,7 @@ target_link_options(saida_web PRIVATE
     $<$<CONFIG:Release>:-Oz>
     # WGSL shaders packaged into MEMFS at /shaders (16.1 web FS: preload).
     # Paths are quoted so a checkout under a directory with spaces still links.
-    "SHELL:--preload-file \"${SAIDA_ROOT}/build/shaders/wgsl@/shaders\""
+    "SHELL:--preload-file \"${SAIDA_WGSL_DIR}@/shaders\""
     # Engine default fonts, at the canonical path assets/fonts/ (same list as
     # RmlUiRuntime::kEngineFonts; NotoEmoji intentionally left out of the web bundle).
     "SHELL:--preload-file \"${SAIDA_ROOT}/third_party/rmlui/Samples/assets/LatoLatin-Regular.ttf@/assets/assets/fonts/LatoLatin-Regular.ttf\""
@@ -208,7 +211,7 @@ target_compile_options(saida_web PRIVATE --use-port=emdawnwebgpu)
 
 # The link step embeds the WGSL shaders + BeachDemo assets (index.data) and the
 # shell page: relink when any of them change, not just when a .cpp does.
-file(GLOB WEB_WGSL_SHADERS ${SAIDA_ROOT}/build/shaders/wgsl/*.wgsl)
+file(GLOB WEB_WGSL_SHADERS CONFIGURE_DEPENDS ${SAIDA_WGSL_DIR}/*.wgsl)
 set_property(TARGET saida_web APPEND PROPERTY LINK_DEPENDS
     ${WEB_WGSL_SHADERS} ${CMAKE_CURRENT_SOURCE_DIR}/shell.html
     ${SAIDA_ROOT}/BeachDemo/scenes/beach.scene

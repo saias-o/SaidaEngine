@@ -8,6 +8,8 @@
 // every discard -- LOD cross-fade, sidedness, alpha test -- so that the
 // pre-pass leaves exactly the depth the scene pass then shades at.
 
+// Drawn by the depth pre-pass: indirect diffuse comes from the AO pass's GI stage.
+#define SAIDA_SCREEN_GI
 #include "lighting.glsl"
 #include "surface_variation.glsl"
 #include "rain_ripples.glsl"
@@ -35,6 +37,7 @@ PUSH_QUALIFIER PushConstants {
     vec4 params;
 } push;
 
+layout(location = 15) in vec4 fragGI;
 layout(location = 0) in vec3 fragWorldPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragColor;
@@ -70,6 +73,7 @@ bool lodFadeHides(float fade) {
 }
 
 void main() {
+    prepareShadowReceiver(fragWorldPos);
     // Gradients first, while every invocation of the quad is still running.
     vec2 uvDx = dFdx(fragTexCoord);
     vec2 uvDy = dFdy(fragTexCoord);
@@ -96,6 +100,7 @@ void main() {
     vec4 matEmissive = mat.emissive;
     vec4 variation = mat.variation;
     float normalStrength = mat.normalStrength;
+    float reflectionEncoding=mat.reflection.x;
     SurfaceCoords st = warpedCoords(fragTexCoord, uvDx, uvDy, variation.x);
     if (mat.parallaxDepth > 0.0) {
         vec3 n = normalize(fragNormal), t = normalize(fragTangent), b = normalize(fragBitangent);
@@ -113,6 +118,7 @@ void main() {
     vec4 matEmissive = material.emissive;
     vec4 variation = material.variation;
     float normalStrength = material.detail.x;
+    float reflectionEncoding=material.detail.y;
     SurfaceCoords st = warpedCoords(fragTexCoord, uvDx, uvDy, variation.x);
     vec4 albedoSample = textureGrad(TEX2D(texAlbedo), st.uv, st.dx, st.dy);
     float matAlphaCutoff = material.alphaCutoff;
@@ -159,6 +165,7 @@ void main() {
 
     // The material's occlusion and the screen-space map's, on indirect light
     // only: a crease receives less sky and bounce, not less sunlight.
+    bool receiveGI=reflectionEncoding>=0.0;
     float indirectOcclusion = matAO * screenAmbientOcclusion();
     vec3 albedo = albedoSample.rgb * fragColor * baseColor.rgb;
     if (foliage.w > 0.0) {
@@ -178,6 +185,10 @@ void main() {
         vec3 irradiance = lights.ambient.rgb * mix(0.45, 1.0, visibility);
         if (lights.environmentParams.x >= 0.5 && lights.environmentParams.y > 0.0)
             irradiance += environmentIrradiance(N) * lights.environmentParams.y * visibility;
+        if(receiveGI && lights.giOrigin.w>.5) {
+            vec4 gi=fragGI;
+            irradiance=mix(irradiance,gi.rgb*lights.giSpacing.w,gi.a);
+        }
         irradiance *= indirectOcclusion;
         vec3 V = normalize(fragEyePosition - fragWorldPos);
         for (int i = 0; i < lights.counts.x; ++i) {
@@ -193,7 +204,7 @@ void main() {
             float transmission = foliage.y * pow(max(dot(-L, V), 0.0), 3.0) * (1.0 - abs(dot(N, L)));
             float occlusion = directional && int(lights.sunOcclusion.x) == i ? sunOcclusionAt(fragWorldPos) : 1.0;
             if (light.spotShadow.z >= 0.0)
-                occlusion *= shadowFactor(int(light.spotShadow.z + 0.5), fragWorldPos, dot(N,L));
+                occlusion *= shadowFactor(int(light.spotShadow.z + 0.5), fragWorldPos);
             irradiance += light.colorInt.rgb * light.colorInt.w * attenuation * occlusion
                           * (diffuse * 0.31830988618 + transmission) * mix(0.65, 1.0, visibility);
         }
@@ -231,6 +242,10 @@ void main() {
         vec3 irradiance = lights.ambient.rgb;
         if (lights.environmentParams.x >= 0.5 && lights.environmentParams.y > 0.0)
             irradiance += environmentIrradiance(surfaceNormal) * lights.environmentParams.y * visibility;
+        if(receiveGI && lights.giOrigin.w>.5) {
+            vec4 gi=fragGI;
+            irradiance=mix(irradiance,gi.rgb*lights.giSpacing.w,gi.a);
+        }
         irradiance *= indirectOcclusion;
         for (int i = 0; i < lights.counts.x; ++i) {
             Light light = lights.lights[i];
@@ -265,10 +280,11 @@ void main() {
 
     // GI debug: snap to voxel centers so the grid is visible as blocks.
     if (lights.giAtlas.z == 1) {
-        float res = float(lights.giAtlas.w);
-        vec3 uvw = giVolumeUVW(fragWorldPos);
-        vec3 snapped = (floor(uvw * res) + 0.5) / res;
-        outColor = vec4(textureLod(TEX3D(giVoxels), snapped, 0.0).rgb, 1.0);
+        ivec3 res=ivec3(lights.giAtlas.w,lights.giClipmap.y,lights.giAtlas.w);
+        vec3 uvw=giVolumeUVW(fragWorldPos);
+        ivec3 cell=giWrap(ivec3(floor(uvw*vec3(res)))+lights.giCascadeWrap[0].xyz*(res/lights.giCounts.xyz),res);
+        vec4 voxel=texelFetch(TEX3D(giVoxels),cell,0);
+        outColor=vec4(voxel.rgb*voxel.rgb,1.0);
         return;
     }
 
@@ -332,14 +348,17 @@ void main() {
 
     vec3 V = normalize(fragEyePosition - fragWorldPos);
 
-    LightTerms t = accumulateReflectance(N, V, fragWorldPos, albedo, metallic, roughness,
-                                         dielectricF0, dielectricF90, indirectOcclusion);
+    // GI debug: the probe irradiance this surface receives; magenta where uncovered.
+    if (lights.giAtlas.z == 2) {
+        vec4 gi = sampleGI(fragWorldPos, N, V);
+        outColor = vec4(mix(vec3(.25, 0, .25), gi.rgb, gi.a), 1.0);
+        return;
+    }
+
+    LightTerms t = accumulateReflectanceMaterial(N, V, fragWorldPos, albedo, metallic, roughness,
+                                         dielectricF0, dielectricF90, indirectOcclusion, receiveGI);
     vec3 lit = t.diffuse + t.specular;
-#ifdef BINDLESS
-    float reflection = mat.reflection.x;
-#else
-    float reflection = material.detail.y;
-#endif
+    float reflection=receiveGI?reflectionEncoding:-1.0-reflectionEncoding;
     // Where the scene's IBL is on, `accumulate` already reflected it.
     if (reflection > 0.0 && lights.environmentParams.x < 0.5)
         lit += environmentReflection(N, V, albedo, metallic, roughness,

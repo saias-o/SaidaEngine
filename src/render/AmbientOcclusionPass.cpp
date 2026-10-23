@@ -45,33 +45,41 @@ std::unique_ptr<rhi::BindGroupLayout> makeLayout(rhi::Device& device, uint32_t t
 }
 
 std::unique_ptr<rhi::Pipeline> makePipeline(rhi::Device& device, const std::string& fragment,
-                                            const rhi::BindGroupLayout& layout) {
+                                            std::vector<const rhi::BindGroupLayout*> layouts,
+                                            rhi::Format format = AmbientOcclusionPass::kFormat,
+                                            uint32_t pushSize = sizeof(AmbientOcclusionPass::PushConstants)) {
     rhi::Pipeline::Desc desc;
     desc.vertPath = shaderPath("fullscreen.vert.spv");
     desc.fragPath = shaderPath(fragment);
-    desc.colorFormats = {AmbientOcclusionPass::kFormat};
-    desc.bindGroupLayouts = {&layout};
+    desc.colorFormats = {format};
+    for (const rhi::BindGroupLayout* layout : layouts) desc.bindGroupLayouts.push_back(layout);
     desc.vertexInput = false;
     desc.depthTest = false;
     desc.depthWrite = false;
     // A fullscreen triangle is never culled: on the Web, naga's clip-space
     // flip reverses its winding (TonemapPass).
     desc.cullMode = rhi::CullMode::None;
-    desc.pushConstantSize = sizeof(AmbientOcclusionPass::PushConstants);
+    desc.pushConstantSize = pushSize;
     return std::make_unique<rhi::Pipeline>(device, desc);
 }
 } // namespace
 
-AmbientOcclusionPass::AmbientOcclusionPass(rhi::Device& device) : device_(device) {
-    kernelLayout_ = makeLayout(device_, 1);
-    pairLayout_ = makeLayout(device_, 2);
+AmbientOcclusionPass::AmbientOcclusionPass(rhi::Device& device, rhi::BindGroupLayout& globalLayout) {
+    kernelLayout_ = makeLayout(device, 1);
+    pairLayout_ = makeLayout(device, 2);
+    upsampleLayout_ = makeLayout(device, 3);
     rhi::SamplerDesc nearest;
     nearest.magFilter = rhi::FilterMode::Nearest;
     nearest.minFilter = rhi::FilterMode::Nearest;
-    sampler_ = std::make_unique<rhi::Sampler>(device_, nearest);
-    kernelPipeline_ = makePipeline(device_, "ambient_occlusion.frag.spv", *kernelLayout_);
-    denoisePipeline_ = makePipeline(device_, "ambient_occlusion_denoise.frag.spv", *pairLayout_);
-    upsamplePipeline_ = makePipeline(device_, "ambient_occlusion_upsample.frag.spv", *pairLayout_);
+    sampler_ = std::make_unique<rhi::Sampler>(device, nearest);
+    kernelPipeline_ = makePipeline(device, "ambient_occlusion.frag.spv", {kernelLayout_.get()});
+    denoisePipeline_ = makePipeline(device, "ambient_occlusion_denoise.frag.spv", {pairLayout_.get()});
+    upsamplePipeline_ = makePipeline(device, "ambient_occlusion_upsample.frag.spv", {upsampleLayout_.get()},
+                                     kMapFormat);
+    // Set 1's single texture is the depth, as the kernel's set 0 is.
+    irradiancePipeline_ = makePipeline(device, "ambient_occlusion_gi.frag.spv",
+                                       {&globalLayout, kernelLayout_.get()}, kMapFormat,
+                                       sizeof(IrradiancePushConstants));
 }
 
 AmbientOcclusionPass::~AmbientOcclusionPass() = default;
@@ -82,7 +90,8 @@ bool AmbientOcclusionPass::active(const SceneSettings& settings) {
 
 AmbientOcclusionPass::Inputs AmbientOcclusionPass::makeInputs(rhi::TextureView depth,
                                                               rhi::TextureView raw,
-                                                              rhi::TextureView denoised) const {
+                                                              rhi::TextureView denoised,
+                                                              rhi::TextureView irradiance) const {
     // Texture i of `views` at binding 2 i (its sampler at 2 i + 1 on the Web,
     // combined otherwise), as ambient_occlusion_pass.glsl declares them.
     auto group = [this](rhi::BindGroupLayout& layout, const std::vector<rhi::TextureView>& views) {
@@ -107,7 +116,7 @@ AmbientOcclusionPass::Inputs AmbientOcclusionPass::makeInputs(rhi::TextureView d
     Inputs inputs;
     inputs.kernel = group(*kernelLayout_, {depth});
     inputs.denoise = group(*pairLayout_, {depth, raw});
-    inputs.upsample = group(*pairLayout_, {depth, denoised});
+    inputs.upsample = group(*upsampleLayout_, {depth, denoised, irradiance});
     return inputs;
 }
 
@@ -124,7 +133,7 @@ rhi::Rect2D AmbientOcclusionPass::gridRect(const rhi::Rect2D& viewport) {
 }
 
 rhi::Rect2D AmbientOcclusionPass::stageRect(Stage stage, const rhi::Rect2D& viewport) {
-    return stage == Stage::Upsample ? viewport : gridRect(viewport);
+    return stage == Stage::Upsample ? viewport : gridRect(viewport);  // Irradiance: the grid
 }
 
 AmbientOcclusionPass::PushConstants AmbientOcclusionPass::pushConstants(
@@ -147,7 +156,8 @@ AmbientOcclusionPass::PushConstants AmbientOcclusionPass::pushConstants(
 
 void AmbientOcclusionPass::record(rhi::RenderPassEncoder& rp, Stage stage, const Inputs& inputs,
                                   const SceneSettings& settings, const glm::mat4& projection,
-                                  const rhi::Rect2D& viewport, const glm::vec4& sourceRect) const {
+                                  const rhi::Rect2D& viewport, const glm::vec4& sourceRect,
+                                  bool withIrradiance) const {
     switch (stage) {
         case Stage::Kernel:
             rp.setPipeline(*kernelPipeline_);
@@ -161,13 +171,43 @@ void AmbientOcclusionPass::record(rhi::RenderPassEncoder& rp, Stage stage, const
             rp.setPipeline(*upsamplePipeline_);
             rp.setBindGroup(0, *inputs.upsample);
             break;
+        case Stage::Irradiance:
+            return;  // recordIrradiance: it needs the scene's set 0
     }
     const rhi::Rect2D rect = stageRect(stage, viewport);
     rp.setViewport(static_cast<float>(rect.offset.x), static_cast<float>(rect.offset.y),
                    static_cast<float>(rect.extent.width), static_cast<float>(rect.extent.height));
     rp.setScissor(rect.offset.x, rect.offset.y, rect.extent.width, rect.extent.height);
-    const PushConstants push = pushConstants(settings, projection, viewport, sourceRect);
+    PushConstants push = pushConstants(settings, projection, viewport, sourceRect);
+    push.stages.x = withIrradiance ? 1.0f : 0.0f;
     rp.setPushConstants(&push, sizeof(PushConstants));
+    rp.draw(3);
+}
+
+void AmbientOcclusionPass::recordIrradiance(rhi::RenderPassEncoder& rp, const Inputs& inputs,
+                                            const rhi::BindGroup& global, const glm::mat4& projection,
+                                            const glm::mat4& view, const rhi::Rect2D& viewport,
+                                            const glm::vec4& sourceRect) const {
+    rp.setPipeline(*irradiancePipeline_);
+    rp.setBindGroup(0, global);
+    rp.setBindGroup(1, *inputs.kernel);
+    const rhi::Rect2D rect = gridRect(viewport);
+    rp.setViewport(static_cast<float>(rect.offset.x), static_cast<float>(rect.offset.y),
+                   static_cast<float>(rect.extent.width), static_cast<float>(rect.extent.height));
+    rp.setScissor(rect.offset.x, rect.offset.y, rect.extent.width, rect.extent.height);
+    IrradiancePushConstants push;
+    const InverseProjection inverse = inverseProjection(projection);
+    push.invProjection = inverse.scale;
+    push.invProjection2 = inverse.depth;
+    push.invOffsets = inverse.offsets;
+    push.sourceRect = sourceRect;
+    push.aoGrid = glm::vec4(float(rect.offset.x), float(rect.offset.y),
+                            float(rect.extent.width), float(rect.extent.height));
+    const glm::mat4 worldFromView = glm::inverse(view);
+    for (int row = 0; row < 3; ++row)
+        push.worldFromView[row] = glm::vec4(worldFromView[0][row], worldFromView[1][row],
+                                            worldFromView[2][row], worldFromView[3][row]);
+    rp.setPushConstants(&push, sizeof(IrradiancePushConstants));
     rp.draw(3);
 }
 

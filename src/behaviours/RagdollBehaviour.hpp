@@ -10,6 +10,8 @@
 #include <optional>
 
 namespace saida {
+class CollisionObjectNode;
+struct Transform;
 
 // Turns the animated character on its node into a ragdoll and back. Add it
 // beside the node's Animator (same node); it installs a pose modifier there,
@@ -47,10 +49,19 @@ public:
 
     bool activate(const glm::vec3& velocity = glm::vec3(0.0f),
                   const glm::vec3& angularVelocity = glm::vec3(0.0f));
+    // Replace a character controller or animated collider transactionally.
+    // Its physics resumes after recovery/release, including a refused activation.
+    bool activateReplacing(CollisionObjectNode& animatedBody,
+                           const glm::vec3& velocity = glm::vec3(0.0f),
+                           const glm::vec3& angularVelocity = glm::vec3(0.0f));
     // Back to the animation over `seconds`. The node is placed under the root
     // part at `groundHeight` (world y) -- or on the lowest part when none is
     // given -- and turned to face along the body.
     void blendOut(float seconds, std::optional<float> groundHeight = std::nullopt);
+    // Transfer the recovered pose to the direct parent (locomotion root),
+    // restoring this visual node's local offset without moving its drawn pose.
+    bool blendOutToParent(float seconds, const Transform& localRest,
+                          std::optional<float> groundHeight = std::nullopt);
     void freeze();
     // Straight back to the animation, no blend.
     void release();

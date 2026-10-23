@@ -1,102 +1,107 @@
 #version 450
 #extension GL_GOOGLE_include_directive : require
-
-// DDGI ray trace: one thread per (probe, ray), DDA through the voxel grid.
-
+#define SAIDA_LIGHTING_COMPUTE
 #include "lighting.glsl"
-
-layout(local_size_x = 64) in;
-
-struct Ray {
-    vec4 dirDist;   // xyz = ray direction, w = hit distance (or far on miss)
-    vec4 radiance;  // rgb = incoming radiance toward the probe
-};
-layout(std430, set = 1, binding = 0) buffer RaysBuffer { Ray rays[]; };
-
-PUSH_QUALIFIER Push {
-    mat4 randomRot;     // per-frame rotation of the Fibonacci ray set (temporal coverage)
-    int raysPerProbe;
-    int probeCount;
-} pc;
-
+#include "gi_schedule.glsl"
+DECL_TEX3D(1,6,8,voxelNormals);
+DECL_TEX3D(1,7,9,voxelEmissions);
+layout(local_size_x=64) in;
+PUSH_QUALIFIER Push { mat4 randomRot;int raysPerProbe;int probeCount; } pc;
+ivec3 voxelResolution() { return ivec3(lights.giAtlas.w,lights.giClipmap.y,lights.giAtlas.w); }
+ivec3 voxelAddress(ivec3 cell,int k) {
+    ivec3 res=voxelResolution();
+    ivec3 c=giWrap(cell+lights.giCascadeWrap[k].xyz*(res/lights.giCounts.xyz),res);
+    c.z+=k*res.z;return c;
+}
+// A DDA in the stable grid basis; distances remain in world units.
+bool march(vec3 wp,vec3 direction,int k,float maximum,out float distance,out ivec3 address,out vec3 face) {
+    ivec3 res=voxelResolution();float spacing=lights.giCascadeOrigins[k].w;
+    vec3 size=vec3(lights.giCounts.xyz)*spacing/vec3(res);
+    vec3 p=mat3(lights.giWorldToGrid)*(wp-lights.giCascadeOrigins[k].xyz)/size;
+    vec3 d=mat3(lights.giWorldToGrid)*direction/size;
+    ivec3 cell=ivec3(floor(p)),stp=ivec3(sign(d));
+    vec3 delta=abs(1.0/max(abs(d),vec3(1e-8)));
+    vec3 next=(vec3(cell)+step(vec3(0),d)-p)/mix(vec3(1e-8),d,greaterThan(abs(d),vec3(1e-8)));
+    for(int a=0;a<3;++a) if(abs(d[a])<1e-8) next[a]=1e30;
+    distance=maximum;address=ivec3(0);face=-direction;
+    for(int i=0;i<lights.giAtlas.w*3;++i) {
+        int a=next.x<next.y?(next.x<next.z?0:2):(next.y<next.z?1:2);
+        float enter=next[a];cell[a]+=stp[a];next[a]+=delta[a];
+        if(enter>=maximum) break;
+        // Leaving the box: `distance` says where, so the coarser cascade resumes there.
+        if(any(lessThan(cell,ivec3(0))) || any(greaterThanEqual(cell,res))) {distance=enter;break;}
+        ivec3 c=voxelAddress(cell,k);vec4 v=texelFetch(TEX3D(giVoxels),c,0);
+        if(v.a>.25) {
+            distance=enter;address=c;vec3 n=vec3(0);n[a]=float(-stp[a]);face=transpose(mat3(lights.giWorldToGrid))*n;return true;
+        }
+    }
+    return false;
+}
+// A ray leaving a cascade continues through the next, coarser one: a fine
+// cascade is only 16 m tall, and what lies past it (the rest of a street's
+// facades, the hill behind) must still occlude the sky and the sun.
+bool marchCascades(vec3 wp,vec3 direction,int k,float maximum,out float distance,out ivec3 address,out vec3 face) {
+    float travelled=0.0;
+    for(int c=k;c<lights.giClipmap.x;++c) {
+        float span;
+        if(march(wp+direction*travelled,direction,c,maximum-travelled,span,address,face)) {distance=travelled+span;return true;}
+        travelled+=span;
+        if(travelled>=maximum*.999) break;
+    }
+    distance=maximum;address=ivec3(0);face=-direction;return false;
+}
 void main() {
-    uint gid = gl_GlobalInvocationID.x;
-    if (int(gid) >= pc.probeCount * pc.raysPerProbe) return;
-
-    int probe = int(gid) / pc.raysPerProbe;
-    int ray   = int(gid) % pc.raysPerProbe;
-
-    ivec3 counts = lights.giCounts.xyz;
-    ivec3 pcoord = ivec3(probe % counts.x,
-                         (probe / counts.x) % counts.y,
-                         probe / (counts.x * counts.y));
-    vec3 origin  = lights.giOrigin.xyz;
-    vec3 spacing = lights.giSpacing.xyz;
-    vec3 probePos = origin + vec3(pcoord) * spacing;
-
-    vec3 dir = normalize(mat3(pc.randomRot) *
-                         sphericalFibonacci(float(ray), float(pc.raysPerProbe)));
-
-    // DDA march in voxel/cell space (Amanatides & Woo).
-    int   res       = lights.giAtlas.w;
-    vec3  extent    = spacing * vec3(counts - 1);
-    vec3  voxelSize = extent / float(res);
-    vec3  vp = (probePos - origin) / voxelSize;   // cell-space position
-    vec3  vd = dir / voxelSize;                    // cell-space direction (not normalized)
-
-    ivec3 cell = ivec3(floor(vp));
-    ivec3 stp  = ivec3(sign(vd));
-    vec3  tDelta = abs(1.0 / vd);
-    vec3  tMax;
-    for (int a = 0; a < 3; ++a) {
-        if (abs(vd[a]) < 1e-8) {
-            tMax[a] = 1e30;
+    int gid=int(gl_GlobalInvocationID.x);if(gid>=pc.probeCount*pc.raysPerProbe) return;
+    int batch=gid/pc.raysPerProbe,ray=gid%pc.raysPerProbe,k=schedule[batch].y;
+    int per=lights.giCounts.x*lights.giCounts.y*lights.giCounts.z;
+    int probe=schedule[batch].x-k*per;
+    ivec3 stored=ivec3(probe%lights.giCounts.x,(probe/lights.giCounts.x)%lights.giCounts.y,probe/(lights.giCounts.x*lights.giCounts.y));
+    ivec3 c=giWrap(stored-lights.giCascadeWrap[k].xyz,lights.giCounts.xyz);
+    float spacing=lights.giCascadeOrigins[k].w;
+    vec3 position=lights.giCascadeOrigins[k].xyz+transpose(mat3(lights.giWorldToGrid))*vec3(c)*spacing;
+    ivec3 startCell=ivec3(floor(mat3(lights.giWorldToGrid)*(position-lights.giCascadeOrigins[k].xyz)/(vec3(lights.giCounts.xyz)*spacing/vec3(voxelResolution()))+vec3(.0001)));
+    if(all(greaterThanEqual(startCell,ivec3(0))) && all(lessThan(startCell,voxelResolution()))) {
+        ivec3 startAddress=voxelAddress(startCell,k);
+        if(texelFetch(TEX3D(giVoxels),startAddress,0).a>.9) {
+            vec3 n=texelFetch(TEX3D(voxelNormals),startAddress,0).xyz*2.0-1.0;
+            if(dot(n,n)>.1) position+=normalize(n)*spacing*.3;
+        }
+    }
+    vec3 direction=normalize(transpose(mat3(lights.giWorldToGrid))*mat3(pc.randomRot)*sphericalFibonacci(float(ray),float(pc.raysPerProbe)));
+    float far=length(vec3(lights.giCounts.xyz))*lights.giCascadeOrigins[lights.giClipmap.x-1].w,distance;ivec3 address;vec3 face;
+    vec3 radiance;float back=0.0;
+    if(marchCascades(position,direction,k,far,distance,address,face)) {
+        vec4 voxel=texelFetch(TEX3D(giVoxels),address,0);
+        vec4 packedNormal=texelFetch(TEX3D(voxelNormals),address,0);
+        vec3 normal=normalize(packedNormal.xyz*2.0-1.0);
+        if(packedNormal.w>.5 && dot(normal,direction)>0.0) normal=-normal;
+        vec3 albedo=voxel.rgb*voxel.rgb;
+        vec3 hit=position+direction*distance;
+        radiance=texelFetch(TEX3D(voxelEmissions),address,0).rgb;
+        if(dot(normal,-direction)>0.0) {
+            for(int i=0;i<lights.counts.x;++i) {
+                Light light=lights.lights[i];int type=int(light.dirType.w+.5);
+                vec3 toLight=light.posRange.xyz-hit;float lengthToLight=length(toLight);
+                vec3 L=type==0?normalize(-light.dirType.xyz):toLight/max(lengthToLight,1e-5);
+                float attenuation=1.0;
+                if(type!=0) {attenuation=clamp(1.0-lengthToLight*lengthToLight/max(light.posRange.w*light.posRange.w,1e-5),0.0,1.0);attenuation*=attenuation;}
+                if(type==2) attenuation*=smoothstep(light.spotShadow.y,light.spotShadow.x,dot(-L,normalize(light.dirType.xyz)));
+                float cosine=max(0.0,dot(normal,L));
+                if(cosine>0.0 && attenuation>0.0) {
+                    float blockedDistance;ivec3 blockedAddress;vec3 blockedNormal;
+                    float visibility=marchCascades(hit+face*spacing*.3,L,k,type==0?far:lengthToLight,blockedDistance,blockedAddress,blockedNormal)?0.0:1.0;
+                    if(i==int(lights.sunOcclusion.x)) visibility*=sunOcclusionAt(hit);
+                    radiance+=albedo*(.96/PI)*light.colorInt.rgb*light.colorInt.w*cosine*attenuation*visibility;
+                }
+            }
+            vec4 bounce=sampleGI(hit+normal*spacing*.1,normal,normal);
+            radiance+=albedo*.8*bounce.rgb*bounce.a;
         } else {
-            float nextBoundary = float(cell[a]) + (stp[a] > 0 ? 1.0 : 0.0);
-            tMax[a] = (nextBoundary - vp[a]) / vd[a];
+            // A back face: the probe sees the inside of a solid. Shortened, so the
+            // visibility test keeps surfaces outside from reading this probe.
+            back=1.0;distance*=.2;
         }
-    }
-
-    float far = length(extent);
-    bool  hit = false;
-    float hitDist = far;
-    vec3  hitAlbedo = vec3(0.0);
-    vec3  hitNormal = vec3(0.0);
-
-    for (int i = 0; i < res * 3; ++i) {
-        int axis = (tMax.x < tMax.y)
-                 ? ((tMax.x < tMax.z) ? 0 : 2)
-                 : ((tMax.y < tMax.z) ? 1 : 2);
-        float tEnter = tMax[axis];
-        cell[axis] += stp[axis];
-        tMax[axis] += tDelta[axis];
-        if (cell[axis] < 0 || cell[axis] >= res) break;
-
-        vec4 v = texelFetch(TEX3D(giVoxels), cell, 0);
-        if (v.a > 0.5) {
-            hit = true;
-            hitDist = tEnter;
-            hitAlbedo = v.rgb;
-            hitNormal = vec3(0.0);
-            hitNormal[axis] = float(-stp[axis]);
-            break;
-        }
-    }
-
-    vec3 radiance;
-    if (hit) {
-        vec3 hitPos = probePos + dir * hitDist;
-        // Single-bounce direct diffuse; V is irrelevant for the diffuse term.
-        vec3 outRadiance = vec3(0.0);
-        for (int l = 0; l < lights.counts.x; ++l)
-            outRadiance += lightContribution(l, hitNormal, hitNormal, hitPos,
-                                             hitAlbedo, 0.0, 1.0).diffuse;
-        radiance = outRadiance;
-    } else {
-        radiance = environmentMissRadiance(dir);   // sky / ambient on miss
-        hitDist  = far;
-    }
-
-    rays[gid].dirDist  = vec4(dir, hitDist);
-    rays[gid].radiance = vec4(radiance, 0.0);
+    } else radiance=environmentMissRadiance(direction);
+    rays[gid].dirDist=vec4(direction,min(distance/spacing,200.0));
+    rays[gid].radiance=vec4(clamp(radiance,vec3(0),vec3(1000)),back);
 }

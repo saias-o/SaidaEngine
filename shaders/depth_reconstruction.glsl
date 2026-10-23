@@ -2,7 +2,7 @@
 #define DEPTH_RECONSTRUCTION_GLSL
 
 // What a reversed depth sample means: nothing drawn, or a view-space point.
-// Read by the tonemap pass (AO, fog, lens-flare visibility) and compiled as
+// Shared by ambient occlusion, fog and lens-flare visibility, and compiled as
 // C++ over GLM by the CPU tests, so it keeps to what both languages accept:
 // float literals carry `f`, no swizzles, no out parameters.
 
@@ -15,7 +15,7 @@ bool nothingDrawn(float depth) {
 }
 
 // The view-space point at viewport `uv` and reversed `depth`, through the
-// inverse projection TonemapPass packs: invProjection = (invP00, invP11,
+// inverse projection InverseProjection.hpp packs: invProjection = (invP00, invP11,
 // invP23, invP33), invProjection2.xy = (invP22, invP32) and invOffsets =
 // (invP30, invP31, invP20, invP21), the terms of an off-centre (OpenXR) eye.
 vec3 viewPositionFromDepth(vec2 uv, float depth, vec4 invProjection, vec4 invProjection2,

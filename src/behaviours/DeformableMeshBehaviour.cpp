@@ -166,6 +166,17 @@ void DeformableMeshBehaviour::updateSurface(Surface& surface,size_t& vertexBudge
     if(surface.mutableMesh&&(!surface.mutableMesh->loaded()||resources.meshUpdatePending(surface.mutableMesh)))return;
     if(surface.revision==cage_->revision()&&!surface.work)return;
     const size_t count=surface.source->vertices.size();
+    if(!surface.mutableMesh) {
+        // A private copy is optional geometry. Drain earlier uploads before
+        // measuring free space, and keep the source visible until it fits.
+        if(!resources.assetLoadsSettled())return;
+        const auto used=resources.geometryUsage();const auto capacity=resources.geometryCapacity();
+        if(count>capacity.vertices-used.vertices||surface.source->indices.size()>capacity.indices-used.indices) {
+            if(!capacityReported_)Log::warn("DeformableMesh: geometry arena full; retaining source geometry until space is available");
+            capacityReported_=true;return;
+        }
+        capacityReported_=false;
+    }
     const size_t vertices=resources.takeDeformationVertices(std::min(count-surface.cursor,vertexBudget));
     if(surface.cursor<count&&!vertices)return;
     vertexBudget-=vertices;

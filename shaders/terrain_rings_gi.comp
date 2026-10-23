@@ -1,0 +1,31 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#include "gi_voxel_storage.glsl"
+#include "terrain_rings.glsl"
+layout(local_size_x=8,local_size_y=8,local_size_z=8) in;
+void main() {
+    ivec3 bricks=vox.res.xyz/8;int per=bricks.x*bricks.y*bricks.z;
+    int job=int(jobs[push.level+gl_WorkGroupID.x]);
+    if(job/per!=int(push.views)) return;
+    int index=job%per;
+    ivec3 physical=ivec3(index%bricks.x,(index/bricks.x)%bricks.y,index/(bricks.x*bricks.y))*8+ivec3(gl_LocalInvocationID);
+    ivec3 logical=((physical-vox.wrap.xyz)%vox.res.xyz+vox.res.xyz)%vox.res.xyz;
+    vec3 voxelSize=vox.extent.xyz/vec3(vox.res.xyz);
+    vec3 world=vox.origin.xyz+transpose(mat3(vox.worldToGrid))*((vec3(logical)+.5)*voxelSize);
+    GpuTerrain terrain=terrains.items[push.slot];
+    mat4 worldToLocal=inverse(terrain.localToWorld);vec3 local=(worldToLocal*vec4(world,1)).xyz;
+    int level=finestLevelHolding(terrain,local.xz);if(level<0) return;
+    // Explicit holes keep building interiors open; the mesh ground fills them.
+    for(int h=0;h<terrain.holeCount.x;++h) if(insideHole(terrain.holes[h*2],terrain.holes[h*2+1],local.xz)) return;
+    float height=ringHeight(terrain,push.slot,level,local.xz);
+    if(local.y>height) return;
+    vec4 map=terrain.levels[level];ivec2 cell=ivec2((local.xz-map.xy)/map.z);
+    uint layer=layerOf(levelBase(push.slot,uint(level)),cell.x,cell.y);
+    float dx=ringHeight(terrain,push.slot,level,local.xz+vec2(map.z,0))-ringHeight(terrain,push.slot,level,local.xz-vec2(map.z,0));
+    float dz=ringHeight(terrain,push.slot,level,local.xz+vec2(0,map.z))-ringHeight(terrain,push.slot,level,local.xz-vec2(0,map.z));
+    vec3 normal=normalize(transpose(mat3(worldToLocal))*normalize(vec3(-dx,2.0*map.z,-dz)));
+    physical.z+=int(push.views)*vox.res.z;
+    imageStore(voxelAlbedo,physical,vec4(sqrt(clamp(terrain.layers[layer].rgb,vec3(0),vec3(1))),1));
+    imageStore(voxelNormal,physical,vec4(normal*.5+.5,0));
+    imageStore(voxelEmission,physical,vec4(0));
+}

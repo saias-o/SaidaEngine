@@ -1,7 +1,7 @@
 #ifndef AMBIENT_OCCLUSION_PASS_GLSL
 #define AMBIENT_OCCLUSION_PASS_GLSL
 
-// What AmbientOcclusionPass's three fullscreen shaders share: the push block
+// What AmbientOcclusionPass's kernel, denoise and upsample shaders share: the push block
 // (AmbientOcclusionPass::PushConstants), the view's depth, how a viewport
 // coordinate reaches it, and the AO grid the first two stages draw on.
 
@@ -16,6 +16,7 @@ PUSH_QUALIFIER PushConstants {
     vec4 invOffsets;      // xy invP30/31, zw invP20/21 (off-centre eye frusta)
     vec4 sourceRect;      // xy the viewport's origin, zw its size, in UV of the depth target
     vec4 aoGrid;          // xy the viewport's origin in AO-grid texels of the targets, zw its size
+    vec4 stages;          // x 1 when the GI stage ran: the upsample brings its irradiance too
 } push;
 
 vec2 sourceUV(vec2 viewportUV) {

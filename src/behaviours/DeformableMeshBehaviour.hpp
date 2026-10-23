@@ -82,6 +82,7 @@ private:
     std::vector<glm::vec3> restoredOffsets_;
     float elapsed_ = 0.f, absorbedEnergy_ = 0.f;
     bool missingSourceReported_ = false;
+    bool capacityReported_ = false;
     ContactFilter contactFilter_;
 };
 

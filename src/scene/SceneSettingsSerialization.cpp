@@ -55,6 +55,8 @@ void writeSceneSettings(const SceneSettings& s, json& out) {
         {"giEnabled", s.giEnabled},
         {"giMode", static_cast<int>(s.giMode)},
         {"giIntensity", s.giIntensity},
+        {"giVolume", static_cast<int>(s.giVolume)},
+        {"giQuality", static_cast<int>(s.giQuality)},
         {"skyboxTexture", s.skyboxTexture},
         {"skyboxExposure", s.skyboxExposure},
         {"skyboxRotation", s.skyboxRotation},
@@ -86,6 +88,11 @@ void writeSceneSettings(const SceneSettings& s, json& out) {
         {"bloomThreshold", s.bloomThreshold},
         {"bloomIntensity", s.bloomIntensity},
         {"bloomRadius", s.bloomRadius},
+        {"autoExposure", s.autoExposure},
+        {"exposureKey", s.exposureKey},
+        {"autoExposureMin", s.autoExposureMin},
+        {"autoExposureMax", s.autoExposureMax},
+        {"autoExposureSpeed", s.autoExposureSpeed},
         {"changeRenderingAtLoad", s.changeRenderingAtLoad},
     };
 }
@@ -110,6 +117,21 @@ void applySceneSettings(const json& j, SceneSettings& out, const AssetPathResolv
     readInto(j, "giEnabled", out.giEnabled);
     readEnumInto(j, "giMode", out.giMode);
     readInto(j, "giIntensity", out.giIntensity);
+    if (auto it=j.find("giVolume");it!=j.end()) {
+        const int value=it->is_string() ? (it->get<std::string>()=="Follow" ? 1 : it->get<std::string>()=="Anchored" ? 0 : -1) : it->get<int>();
+        if (value<0 || value>1) throw std::invalid_argument("giVolume must be Anchored or Follow");
+        out.giVolume=static_cast<GIVolumeMode>(value);
+    }
+    if (auto it=j.find("giQuality");it!=j.end()) {
+        int value=0;
+        if(it->is_string()) {
+            const std::string names[]={"Auto","Low","Medium","High","Ultra"};
+            const auto name=it->get<std::string>();
+            while(value<5 && names[value]!=name) ++value;
+        } else value=it->get<int>();
+        if(value<0 || value>4) throw std::invalid_argument("giQuality must be Auto, Low, Medium, High or Ultra");
+        out.giQuality=static_cast<GIQuality>(value);
+    }
 
     if (auto it = j.find("skyboxTexture"); it != j.end())
         out.skyboxTexture = readAssetRef(*it, AssetType::Texture, resolve, out.skyboxTexture);
@@ -151,6 +173,11 @@ void applySceneSettings(const json& j, SceneSettings& out, const AssetPathResolv
     readInto(j, "bloomThreshold", out.bloomThreshold);
     readInto(j, "bloomIntensity", out.bloomIntensity);
     readInto(j, "bloomRadius", out.bloomRadius);
+    readInto(j, "autoExposure", out.autoExposure);
+    readInto(j, "exposureKey", out.exposureKey);
+    readInto(j, "autoExposureMin", out.autoExposureMin);
+    readInto(j, "autoExposureMax", out.autoExposureMax);
+    readInto(j, "autoExposureSpeed", out.autoExposureSpeed);
 
     readInto(j, "changeRenderingAtLoad", out.changeRenderingAtLoad);
 }

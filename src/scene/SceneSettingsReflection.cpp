@@ -64,6 +64,10 @@ void SceneSettings::describe(reflect::TypeBuilder<SceneSettings>& t) {
         .enumValues({"FullRealtime", "AmortizedRealtime"});
     t.property("giIntensity", &SceneSettings::giIntensity)
         .group("Global illumination").range(0.0, 8.0);
+    t.property("giVolume", &SceneSettings::giVolume)
+        .group("Global illumination").enumValues({"Anchored", "Follow"});
+    t.property("giQuality", &SceneSettings::giQuality)
+        .group("Global illumination").enumValues({"Auto", "Low", "Medium", "High", "Ultra"});
 
     // `skyboxTexture` is deliberately absent, and it is the one field a scene
     // file carries that this list does not. It is an `AssetID`, and the scene
@@ -144,6 +148,18 @@ void SceneSettings::describe(reflect::TypeBuilder<SceneSettings>& t) {
         .group("Bloom").range(0.0, 4.0);
     t.property("bloomRadius", &SceneSettings::bloomRadius)
         .group("Bloom").range(0.0, 16.0);
+
+    t.property("autoExposure", &SceneSettings::autoExposure).group("Exposure")
+        .tooltip("adapt the exposure to the view's brightness, as an eye does");
+    t.property("exposureKey", &SceneSettings::exposureKey)
+        .group("Exposure").range(0.01, 1.0)
+        .tooltip("the mean scene luminance shown as middle grey");
+    t.property("autoExposureMin", &SceneSettings::autoExposureMin)
+        .group("Exposure").range(-8.0, 8.0).tooltip("lowest adaptation, EV");
+    t.property("autoExposureMax", &SceneSettings::autoExposureMax)
+        .group("Exposure").range(-8.0, 8.0).tooltip("highest adaptation, EV");
+    t.property("autoExposureSpeed", &SceneSettings::autoExposureSpeed)
+        .group("Exposure").range(0.0, 20.0).tooltip("adaptation rate, 1/s");
 }
 
 const reflect::TypeDesc& sceneSettingsDesc() {

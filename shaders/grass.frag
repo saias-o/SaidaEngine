@@ -11,6 +11,7 @@
 #include "lighting.glsl"
 #include "grass_blade.glsl"
 
+layout(location = 6) in vec4 fragGI;
 layout(location = 0) in vec3 fragWorldPos;
 layout(location = 1) in vec3 fragNormal;
 layout(location = 2) in vec3 fragColor;
@@ -54,6 +55,7 @@ float seenShade(float from) {
 }
 
 void main() {
+    prepareShadowReceiver(fragWorldPos);
     vec3 N = normalize(fragNormal);
     vec3 V = normalize(lights.cameraPos.xyz - fragWorldPos);
     // Seen from its back, a blade is lit on the side facing the eye.
@@ -65,8 +67,16 @@ void main() {
     vec3 albedo = fragColor * mix(1.0, occlusion * light / seenShade(1.0 - seen), fragDetail);
     // No screen-space AO: the depth pre-pass leaves blades out, a texel wide
     // as most are, and ROOT_SHADE above is their own occlusion.
-    LightTerms t = accumulate(N, V, fragWorldPos, albedo, 0.0, mix(GROUND_ROUGHNESS, ROUGHNESS, fragDetail),
-                              1.0);
+    float roughness=mix(GROUND_ROUGHNESS,ROUGHNESS,fragDetail);
+    LightTerms t;
+    if(lights.giOrigin.w<.5) {
+        t=accumulate(N,V,fragWorldPos,albedo,0.0,roughness,1.0);
+    } else {
+        t=environmentLighting(N,V,albedo,0.0,roughness);
+        composeGISample(t,fragGI,N,V,albedo,0.0,roughness,vec3(.04),1.0);
+        LightTerms direct=directLighting(N,V,fragWorldPos,albedo,0.0,roughness);
+        t.diffuse+=direct.diffuse;t.specular+=direct.specular;
+    }
     vec3 lit = t.diffuse + t.specular;
     // Through the blade: the directional lights from behind, as diffuse.
     for (int i = 0; i < lights.counts.x; ++i) {

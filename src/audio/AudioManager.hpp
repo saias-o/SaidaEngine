@@ -9,6 +9,7 @@
 namespace saida {
 
 class Node;
+class Camera;
 
 using AudioID = uint64_t;
 constexpr AudioID kInvalidAudioID = 0;
@@ -38,6 +39,7 @@ public:
     bool init();
     void shutdown();
     void update(); // Syncs node positions for spatialized sounds
+    void update(const Camera& listener); // Camera pose and attached sources share world coordinates.
 
     // Decodes the file now and keeps it resident until shutdown, so that later
     // play() calls of it neither read the disk nor decode on the calling

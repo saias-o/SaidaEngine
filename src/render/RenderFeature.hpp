@@ -118,17 +118,26 @@ struct PrePassContext {
     SkyProbe* skyProbe = nullptr;             // mono views; null in XR
 };
 
+// A feature can inject its procedural surfaces into the selected GI voxel bricks.
+struct GIVoxelContext {
+    rhi::CommandEncoder& encoder;
+    uint32_t frameIndex;
+    Scene& scene;
+    rhi::BindGroupLayout& layout;
+    const rhi::BindGroup& set;
+    uint32_t jobCount,maskSize;
+    int cascade;
+};
+
 class ScenePassFeature {
 public:
     virtual ~ScenePassFeature() = default;
     virtual void createPipelines(const RenderContext& ctx) = 0;
+    virtual void recordGIVoxels(const GIVoxelContext&) {}
     virtual void recordPrePass(const PrePassContext& pc) { (void)pc; }
-    // The depth pre-pass, when the scene asks for ambient occlusion: a pass
-    // with only the depth attachment, before `record`. A feature whose opaque
-    // surfaces read the screen-space AO map (screen_ambient_occlusion.glsl)
-    // draws them here with the same vertex shader, the same discards and no
-    // colour, and its scene-pass pipeline then accepts the equal depth
-    // (rhi::kDepthCloserOrEqual). A feature drawing nothing here reads no AO.
+    // Draw opaque surfaces before screen AO/GI, with the same vertex shader
+    // and discards as `record`, depth only. The scene pipeline accepts equal
+    // depth; surfaces omitted here must not read the screen map.
     virtual void recordDepth(FrameContext& fc) { (void)fc; }
     virtual void record(FrameContext& fc) = 0;
 };

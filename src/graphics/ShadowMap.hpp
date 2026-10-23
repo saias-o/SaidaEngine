@@ -29,6 +29,13 @@ public:
 
     rhi::TextureView arrayView() const { return texture_->view(); }
     rhi::SamplerHandle sampler() const { return sampler_->handle(); }
+    uint32_t resolution() const { return resolution_; }
+    float depthReferenceBias() const {
+        // Include interpolation and model/light matrix reassociation, not only
+        // stored-depth quantization: a large triangle can take a different
+        // floating-point path in the scene and depth-only vertex stages.
+        return format_ == rhi::Format::Depth16 ? 1.5f / 65535.0f : 2.0e-5f;
+    }
 
 private:
     void createTexture();

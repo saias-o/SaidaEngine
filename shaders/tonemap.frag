@@ -11,6 +11,8 @@ DECL_TEX2D(0, 0, 3, hdrInput);
 DECL_TEX2D(0, 2, 5, bloomInput);
 // The sky as rendered this frame, a small view-space panorama (SkyProbe).
 DECL_TEX2D(0, 6, 7, skyProbe);
+// The eye's adaptation (AutoExposurePass): x the EV it applies.
+layout(std430, set = 0, binding = 8) readonly buffer ExposureState { vec4 exposureState; };
 
 layout(location = 0) in vec2 fragUV;
 layout(location = 1) flat in float flareVisibility;  // tonemap.vert
@@ -229,6 +231,7 @@ void main() {
     hdr += lensEffects(fragUV);
 
     hdr *= push.fogParams.w;
+    if (push.outputParams.y > 0.5) hdr *= exp2(exposureState.x);
 
     vec3 mapped = acesFilmic(hdr);
 

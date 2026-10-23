@@ -194,10 +194,12 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/fx/ParticleRuntime.cpp
     ${SAIDA_ROOT}/src/render/CameraDirector.cpp
     ${SAIDA_ROOT}/src/render/GIVolume.cpp
+    ${SAIDA_ROOT}/src/render/gi/GIClipmap.cpp
     ${SAIDA_ROOT}/src/render/PostProcessor.cpp
     ${SAIDA_ROOT}/src/render/LensFlare.cpp
     ${SAIDA_ROOT}/src/render/TonemapPass.cpp
     ${SAIDA_ROOT}/src/render/AmbientOcclusionPass.cpp
+    ${SAIDA_ROOT}/src/render/AutoExposurePass.cpp
     ${SAIDA_ROOT}/src/render/RenderFeatureRegistry.cpp
     ${SAIDA_ROOT}/src/render/Renderer.cpp
     ${SAIDA_ROOT}/src/render/EnvironmentSH.cpp
@@ -259,7 +261,7 @@ target_link_options(saida_player PRIVATE
     "SHELL:--shell-file \"${CMAKE_CURRENT_SOURCE_DIR}/shell.html\""
 )
 
-file(GLOB WEB_WGSL_SHADERS ${SAIDA_WGSL_DIR}/*.wgsl)
+file(GLOB WEB_WGSL_SHADERS CONFIGURE_DEPENDS ${SAIDA_WGSL_DIR}/*.wgsl)
 set_property(TARGET saida_player APPEND PROPERTY LINK_DEPENDS
     ${WEB_WGSL_SHADERS} ${CMAKE_CURRENT_SOURCE_DIR}/shell.html)
 

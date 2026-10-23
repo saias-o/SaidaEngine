@@ -41,6 +41,7 @@ public:
 
     ~TerrainRingsFeature() override;
     void createPipelines(const RenderContext& ctx) override;
+    void recordGIVoxels(const GIVoxelContext& pc) override;
     void recordPrePass(const PrePassContext& pc) override;
     void recordDepth(FrameContext& fc) override;
     void record(FrameContext& fc) override;
@@ -121,6 +122,8 @@ private:
     bool materialFallbackReported_ = false;
     std::unique_ptr<Pipeline> pipeline_;
     std::unique_ptr<Pipeline> depthPipeline_;  // the depth pre-pass: no colour
+    std::unique_ptr<ComputePipeline> giPipeline_;
+    const rhi::BindGroupLayout* giLayout_=nullptr;
     std::unique_ptr<ComputePipeline> sunPipeline_;
     std::unique_ptr<ComputePipeline> cullPipeline_;
     std::unique_ptr<ComputePipeline> occlusionPipeline_;

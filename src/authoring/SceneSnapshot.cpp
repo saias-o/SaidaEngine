@@ -14,6 +14,7 @@
 #include "scene/ReflectedTypes.hpp"
 #include "scene/RuntimeTypeMatrix.hpp"
 #include "scene/Scene.hpp"
+#include "scene/SceneSettingsSerialization.hpp"
 #include "scene/SerializationHelpers.hpp"
 #include "nodes/UICanvasNode.hpp"
 #include "nodes/UINode.hpp"
@@ -269,54 +270,9 @@ json serializeNodeWithoutResources(const Node& node, const std::string& path,
     return out;
 }
 
-json sceneSettingsToJson(const Scene& scene) {
-    const SceneSettings& s = scene.settings();
-    return {
-        {"ambient", vec3ToJson(s.ambientLight)},
-        {"clearColor", vec3ToJson(s.clearColor)},
-        {"postProcessing", s.enablePostProcessing},
-        {"lightingMode", static_cast<int>(s.lightingMode)},
-        {"giEnabled", s.giEnabled},
-        {"giMode", static_cast<int>(s.giMode)},
-        {"giIntensity", s.giIntensity},
-        {"skyboxTexture", s.skyboxTexture},
-        {"skyboxExposure", s.skyboxExposure},
-        {"skyboxRotation", s.skyboxRotation},
-        {"skyboxBlendTexture", s.skyboxBlendTexture},
-        {"skyboxBlend", s.skyboxBlend},
-        {"skyboxBlendRotation", s.skyboxBlendRotation},
-        {"skySunDirection", vec3ToJson(s.skySunDirection)},
-        {"skySunColor", vec3ToJson(s.skySunColor)},
-        {"skySunSize", s.skySunSize},
-        {"iblEnabled", s.iblEnabled},
-        {"iblDiffuseIntensity", s.iblDiffuseIntensity},
-        {"iblSpecularIntensity", s.iblSpecularIntensity},
-        {"aoEnabled", s.aoEnabled},
-        {"aoRadius", s.aoRadius},
-        {"aoIntensity", s.aoIntensity},
-        {"aoPower", s.aoPower},
-        {"fogEnabled", s.fogEnabled},
-        {"fogColor", vec3ToJson(glm::vec3(s.fogColor))},
-        {"fogStart", s.fogStart},
-        {"fogDensity", s.fogDensity},
-        {"fogScaleHeight", s.fogScaleHeight},
-        {"fogRayleigh", vec3ToJson(s.fogRayleigh)},
-        {"fogRayleighScaleHeight", s.fogRayleighScaleHeight},
-        {"fogSkyColor", s.fogSkyColor},
-        {"fogSkyDistance", s.fogSkyDistance},
-        {"fogPlanetRadius", s.fogPlanetRadius},
-        {"fogPlanetCentre", vec3ToJson(s.fogPlanetCentre)},
-        {"bloomEnabled", s.bloomEnabled},
-        {"bloomThreshold", s.bloomThreshold},
-        {"bloomIntensity", s.bloomIntensity},
-        {"bloomRadius", s.bloomRadius},
-        {"changeRenderingAtLoad", s.changeRenderingAtLoad},
-    };
-}
-
 json serializeSceneWithoutResources(Scene& scene) {
     json root = serializeNodeWithoutResources(scene, "scene", true);
-    root["settings"] = sceneSettingsToJson(scene);
+    writeSceneSettings(scene.settings(), root["settings"]);
     if (!scene.connections().empty()) {
         json conns = json::array();
         for (const auto& c : scene.connections())
@@ -531,51 +487,6 @@ std::unique_ptr<Node> deserializeNodeHeadless(const json& j, const std::string& 
     return node;
 }
 
-// Mirror of sceneSettingsToJson — reads exactly the keys it writes, so a
-// snapshot round-trips (serialize -> deserialize -> serialize) unchanged.
-void loadSceneSettings(Scene& scene, const json& s) {
-    SceneSettings& out = scene.settings();
-    out.ambientLight = glm::vec4(jsonToVec3(s.value("ambient", json())), 0.0f);
-    out.clearColor = glm::vec4(jsonToVec3(s.value("clearColor", json())), 1.0f);
-    out.enablePostProcessing = s.value("postProcessing", true);
-    out.lightingMode = static_cast<LightingMode>(s.value("lightingMode", 0));
-    out.giEnabled = s.value("giEnabled", true);
-    out.giMode = static_cast<GIMode>(s.value("giMode", 0));
-    out.giIntensity = s.value("giIntensity", 1.0f);
-    out.skyboxTexture = s.value("skyboxTexture", kAssetInvalid);
-    out.skyboxExposure = s.value("skyboxExposure", 1.0f);
-    out.skyboxRotation = s.value("skyboxRotation", 0.0f);
-    out.skyboxBlendTexture = s.value("skyboxBlendTexture", kAssetInvalid);
-    out.skyboxBlend = s.value("skyboxBlend", 0.0f);
-    out.skyboxBlendRotation = s.value("skyboxBlendRotation", 0.0f);
-    out.skySunDirection = jsonToVec3(s.value("skySunDirection", json()), glm::vec3(0.0f, 1.0f, 0.0f));
-    out.skySunColor = jsonToVec3(s.value("skySunColor", json()), glm::vec3(0.0f));
-    out.skySunSize = s.value("skySunSize", 0.265f);
-    out.iblEnabled = s.value("iblEnabled", true);
-    out.iblDiffuseIntensity = s.value("iblDiffuseIntensity", 0.35f);
-    out.iblSpecularIntensity = s.value("iblSpecularIntensity", 1.0f);
-    out.aoEnabled = s.value("aoEnabled", true);
-    out.aoRadius = s.value("aoRadius", 0.75f);
-    out.aoIntensity = s.value("aoIntensity", 1.0f);
-    out.aoPower = s.value("aoPower", 1.35f);
-    out.fogEnabled = s.value("fogEnabled", false);
-    if (s.contains("fogColor"))
-        out.fogColor = glm::vec4(jsonToVec3(s.value("fogColor", json())), 1.0f);
-    out.fogStart = s.value("fogStart", 8.0f);
-    out.fogDensity = s.value("fogDensity", 0.035f);
-    out.fogScaleHeight = s.value("fogScaleHeight", 0.0f);
-    out.fogRayleigh = jsonToVec3(s.value("fogRayleigh", json()), glm::vec3(0.0f));
-    out.fogRayleighScaleHeight = s.value("fogRayleighScaleHeight", 8434.0f);
-    out.fogSkyColor = s.value("fogSkyColor", 0.0f);
-    out.fogSkyDistance = s.value("fogSkyDistance", 0.0f);
-    out.fogPlanetRadius = s.value("fogPlanetRadius", 0.0f);
-    out.fogPlanetCentre = jsonToVec3(s.value("fogPlanetCentre", json()), glm::vec3(0.0f));
-    out.bloomEnabled = s.value("bloomEnabled", true);
-    out.bloomThreshold = s.value("bloomThreshold", 1.0f);
-    out.bloomIntensity = s.value("bloomIntensity", 0.25f);
-    out.bloomRadius = s.value("bloomRadius", 3.0f);
-    out.changeRenderingAtLoad = s.value("changeRenderingAtLoad", true);
-}
 
 } // namespace
 
@@ -634,7 +545,7 @@ bool deserializeSceneSnapshot(const json& doc, Scene& out, std::string* error) {
 
         if (auto sit = root.find("settings"); sit != root.end()) {
             if (!sit->is_object()) return fail("scene.settings: expected an object");
-            loadSceneSettings(out, *sit);
+            applySceneSettings(*sit, out.settings(), AssetPathResolver{});
         }
 
         if (auto cit = root.find("children"); cit != root.end()) {

@@ -1,0 +1,23 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#define SAIDA_LIGHTING_COMPUTE
+#include "lighting.glsl"
+#include "gi_schedule.glsl"
+// Publish scheduled probe tiles, including the borders already built by blend.
+layout(local_size_x=8,local_size_y=8) in;
+layout(set=1,binding=1,rgba16f) uniform writeonly image2D writeIrr;
+layout(set=1,binding=2,rgba16f) uniform writeonly image2D writeVis;
+PUSH_QUALIFIER Push { int mode;int probeCount;int offset; } pc;
+void main() {
+    int batch=int(gl_GlobalInvocationID.z);if(batch>=pc.probeCount) return;
+    int probe=schedule[pc.offset+batch].x;
+    ivec2 local=ivec2(gl_GlobalInvocationID.xy),tile=ivec2(probe%lights.giCounts.w,probe/lights.giCounts.w);
+    if(all(lessThan(local,ivec2(lights.giAtlas.x+2)))) {
+        ivec2 px=tile*(lights.giAtlas.x+2)+local;
+        imageStore(writeIrr,px,pc.mode==1?vec4(0):texelFetch(TEX2D(previousIrradiance),px,0));
+    }
+    if(all(lessThan(local,ivec2(lights.giAtlas.y+2)))) {
+        ivec2 px=tile*(lights.giAtlas.y+2)+local;
+        imageStore(writeVis,px,pc.mode==1?vec4(0):texelFetch(TEX2D(previousVisibility),px,0));
+    }
+}

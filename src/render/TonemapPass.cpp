@@ -65,6 +65,9 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
     entries.push_back(e);
     e = {}; e.binding = 7; e.type = rhi::BindingType::Sampler; e.visibility = F;
     entries.push_back(e);
+    e = {}; e.binding = 8; e.type = rhi::BindingType::StorageBuffer; e.visibility = F;  // exposure
+    e.readOnlyStorage = true;
+    entries.push_back(e);
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(device_, entries);
 #else
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(device_,
@@ -74,6 +77,7 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
             {1, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::VertexFragment},
             {2, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // bloom
             {6, rhi::BindingType::CombinedImageSampler, rhi::ShaderStages::Fragment},  // sky probe
+            {8, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Fragment},  // exposure
         });
 #endif
 
@@ -105,7 +109,8 @@ TonemapPass::TonemapPass(rhi::Device& device, rhi::Format outputFormat)
 TonemapPass::~TonemapPass() = default;
 
 void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::TextureView bloom,
-                            rhi::SamplerHandle bloomSampler, rhi::TextureView skyProbe) {
+                            rhi::SamplerHandle bloomSampler, rhi::TextureView skyProbe,
+                            const Buffer& exposure) {
     if (!setLayout_ || !colorSampler_ || !depthSampler_) return;
 
     rhi::BindGroupEntry hdrEntry;
@@ -136,6 +141,10 @@ void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::T
     probeEntry.sampler = colorSampler_->handle();
 #endif
 
+    rhi::BindGroupEntry exposureEntry;
+    exposureEntry.binding = 8;
+    exposureEntry.buffer = &exposure;
+
 #ifdef SAIDA_RHI_WEBGPU
     rhi::BindGroupEntry probeSamplerEntry;
     probeSamplerEntry.binding = 7;
@@ -155,10 +164,11 @@ void TonemapPass::setInputs(rhi::TextureView hdr, rhi::TextureView depth, rhi::T
 
     set_ = std::make_unique<rhi::BindGroup>(*setLayout_,
         std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry,
-            hdrSamplerEntry, depthSamplerEntry, bloomSamplerEntry, probeEntry, probeSamplerEntry});
+            hdrSamplerEntry, depthSamplerEntry, bloomSamplerEntry, probeEntry, probeSamplerEntry,
+            exposureEntry});
 #else
     set_ = std::make_unique<rhi::BindGroup>(*setLayout_,
-        std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry, probeEntry});
+        std::vector<rhi::BindGroupEntry>{hdrEntry, depthEntry, bloomEntry, probeEntry, exposureEntry});
 #endif
 }
 
@@ -172,6 +182,7 @@ TonemapPass::PushConstants TonemapPass::pushConstants(const SceneSettings& setti
     // surface needs the shader transfer instead; neither path may do it twice.
     push.outputParams.x = outputFormat == rhi::Format::RGBA8Unorm ||
                           outputFormat == rhi::Format::BGRA8Unorm ? 1.0f : 0.0f;
+    push.outputParams.y = settings.autoExposure ? 1.0f : 0.0f;
     // The sky's share (fogSkyColor) is set by record() once the frame's sky
     // probe exists; a view without one keeps the fog its own colour.
     push.fogColor = glm::vec4(glm::vec3(settings.fogColor), 0.0f);

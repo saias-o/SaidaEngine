@@ -8,6 +8,7 @@
 #include "web_compat.glsl"
 #include "billboard.glsl"
 #include "lighting_data.glsl"
+#include "gi_sampling.glsl"
 
 // The depth pre-pass draws with this same shader; its depth must match the
 // scene pass's bit for bit, which only `invariant` guarantees across pipelines.
@@ -55,6 +56,7 @@ layout(location = 5) in vec4 inTangent;
 layout(location = 6) in ivec4 inBoneIndices;
 layout(location = 7) in vec4 inBoneWeights;
 
+layout(location = 15) out vec4 fragGI;
 layout(location = 0) out vec3 fragWorldPos;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec3 fragColor;
@@ -159,5 +161,10 @@ void main() {
     int viewIndex = 0;
     fragEyePosition = lights.cameraPos.xyz;
 #endif
+    fragGI=vec4(0);
+    if(lights.giOrigin.w>.5 && (foliage.w>0.0 || billboardAtlas.x>0.0)) {
+        vec3 up=normalize(modelMat[1].xyz);
+        fragGI=samplePlantGI(worldPos.xyz,up);
+    }
     gl_Position = cam.proj[viewIndex] * cam.view[viewIndex] * worldPos;
 }

@@ -3,6 +3,7 @@
 #include "scene/Node.hpp"
 #include "physics/PhysicsWorld.hpp"  // BodyMotion + JPH::BodyID
 #include "core/Signal.hpp"
+#include <memory>
 
 namespace saida {
 
@@ -45,6 +46,12 @@ public:
 
     // Drop the Jolt body (on disable / removal from a physics scene).
     virtual void detachFromPhysics();
+    // Runtime-only suspension: detach now and rebuild on the next sync after
+    // the last token is released. The node and its visual subtree stay active.
+    // Tokens can safely outlive the body; overlapping holders compose.
+    using PhysicsSuspension = std::shared_ptr<void>;
+    PhysicsSuspension suspendPhysics();
+    bool physicsSuspended() const { return !physicsSuspension_.expired(); }
     // Force a rebuild of the body next sync (after a shape/param change).
     void markDirty() { dirty_ = true; }
 
@@ -116,6 +123,7 @@ protected:
     glm::mat4 pushedWorld_{0.0f};
 
 private:
+    std::weak_ptr<void> physicsSuspension_;
     void createBody(PhysicsWorld& world);
 };
 

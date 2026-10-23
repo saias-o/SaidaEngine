@@ -283,7 +283,7 @@ void BindlessTables::writeMaterialSlot(uint32_t index, const MaterialDesc& desc,
     data.heightTexIdx = textures.height;
     // A texture still loading is the default white: flat, as if no height.
     data.parallaxDepth = desc.heightId == kAssetInvalid ? 0.0f : desc.parallaxDepth;
-    data.reflection = glm::vec4(desc.environmentReflection,
+    data.reflection = glm::vec4(desc.receiveGlobalIllumination ? desc.environmentReflection : -1.f-desc.environmentReflection,
         desc.specularColorId == kAssetInvalid ? -1.f : float(textures.specularColor),
         desc.specularStrengthId == kAssetInvalid ? -1.f : float(textures.specularStrength),
         float(desc.billboardColumns + 256u * desc.billboardRows));

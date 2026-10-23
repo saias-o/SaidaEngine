@@ -29,6 +29,9 @@ enum class GIMode {
     AmortizedRealtime,  // DDGI warms up, then updates on a cadence; better FPS.
 };
 
+enum class GIVolumeMode { Anchored, Follow };
+enum class GIQuality { Auto, Low, Medium, High, Ultra };
+
 struct SceneSettings {
     glm::vec4 ambientLight{0.1f, 0.1f, 0.1f, 1.0f};
     glm::vec4 clearColor{0.0f, 0.0f, 0.0f, 1.0f};
@@ -41,6 +44,9 @@ struct SceneSettings {
     // Global illumination (DDGI irradiance volume — the single GI primitive).
     bool giEnabled = true;       // sample the irradiance volume for indirect diffuse
     GIMode giMode = GIMode::FullRealtime;
+    GIVolumeMode giVolume = GIVolumeMode::Anchored;
+    GIQuality giQuality = GIQuality::Auto;
+    float giWarmupProgress = 0.f; // runtime, not serialized
     bool giDebugVoxels = false;  // debug: visualize the voxelized scene albedo
     float giIntensity = 1.0f;    // indirect diffuse multiplier (boost to make GI visible)
 
@@ -124,6 +130,12 @@ struct SceneSettings {
     float bloomThreshold = 1.0f;
     float bloomIntensity = 0.25f;
     float bloomRadius = 3.0f;
+    // Histogram-based adaptation relative to fixed exposure; speed is in 1/s.
+    bool autoExposure = false;
+    float exposureKey = 0.18f;
+    float autoExposureMin = -1.0f;
+    float autoExposureMax = 2.0f;
+    float autoExposureSpeed = 1.5f;
 
     // Debug: draw animated skeletons as bone lines (editor tool; desktop only).
     bool showSkeletons = false;
@@ -201,6 +213,10 @@ public:
     void rebaseSubtreeTo(Node& root, const glm::vec3& position, const glm::quat& rotation);
     void rebaseOrigin(const glm::vec3& translation,
                       const glm::quat& rotation = glm::quat(1.f, 0.f, 0.f, 0.f));
+    // Publish a frame change when the host places chunks itself in double
+    // precision. Persistent render fields retain their stable grid coordinates.
+    void notifyOriginRebase(const glm::dvec3& translation, const glm::dquat& rotation);
+    const glm::dmat4& worldFromStable() const { return worldFromStable_; }
     const ResourceManager::AssetUsage& resourceUsage() const { return index_.resources(); }
     uint64_t resourceVersion() const { return index_.resourceVersion(); }
     bool containsNode(const Node* node) const { return index_.contains(node); }
@@ -261,6 +277,7 @@ public:
 
 private:
     SceneIndex index_;
+    glm::dmat4 worldFromStable_{1.0};
     uint64_t lodFrame_ = 0;
     bool lodCut_ = false;
 

@@ -3,6 +3,7 @@
 #include "project/AssetRegistry.hpp"
 #include "scene/Node.hpp"
 #include "core/Log.hpp"
+#include "core/Camera.hpp"
 
 #include "miniaudio.h"
 
@@ -95,6 +96,18 @@ void AudioManager::update() {
         delete activeSounds_[id];
         activeSounds_.erase(id);
     }
+}
+
+void AudioManager::update(const Camera& listener) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!state_ || !state_->initialized) return;
+        const auto forward = listener.front();
+        ma_engine_listener_set_position(&state_->engine, 0, listener.position.x, listener.position.y, listener.position.z);
+        ma_engine_listener_set_direction(&state_->engine, 0, forward.x, forward.y, forward.z);
+        ma_engine_listener_set_world_up(&state_->engine, 0, 0.f, 1.f, 0.f);
+    }
+    update();
 }
 
 std::string AudioManager::resolveAlias(const std::string& name) const {

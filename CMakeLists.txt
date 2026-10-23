@@ -155,6 +155,7 @@ set(SHADERS
     ${SHADER_DIR}/ambient_occlusion.frag
     ${SHADER_DIR}/ambient_occlusion_denoise.frag
     ${SHADER_DIR}/ambient_occlusion_upsample.frag
+    ${SHADER_DIR}/ambient_occlusion_gi.frag
     ${SHADER_DIR}/bloom_downsample.frag
     ${SHADER_DIR}/bloom_upsample.frag
     ${SHADER_DIR}/skybox.vert
@@ -167,6 +168,7 @@ set(SHADERS
     ${SHADER_DIR}/cartoon_water.frag
     ${SHADER_DIR}/terrain_rings.vert
     ${SHADER_DIR}/terrain_rings.frag
+    ${SHADER_DIR}/terrain_rings_gi.comp
     ${SHADER_DIR}/terrain_rings_sun.comp
     ${SHADER_DIR}/terrain_rings_occlusion.comp
     ${SHADER_DIR}/terrain_rings_cull.comp
@@ -191,16 +193,18 @@ set(SHADERS
     ${SHADER_DIR}/web_canvas_world.frag
     ${SHADER_DIR}/voxelize.vert
     ${SHADER_DIR}/voxelize.frag
+    ${SHADER_DIR}/ddgi_clear.comp
+    ${SHADER_DIR}/auto_exposure.comp
     ${SHADER_DIR}/ddgi_trace.comp
     ${SHADER_DIR}/ddgi_blend.comp
-    ${SHADER_DIR}/ddgi_borders.comp
+    ${SHADER_DIR}/ddgi_scatter.comp
     ${SHADER_DIR}/debug_line.vert
     ${SHADER_DIR}/debug_line.frag
 )
 
 # GLSL headers #included by the shaders above. Listed as a dependency so editing
 # them re-triggers compilation of every shader that includes them.
-file(GLOB SHADER_INCLUDES ${SHADER_DIR}/*.glsl)
+file(GLOB SHADER_INCLUDES CONFIGURE_DEPENDS ${SHADER_DIR}/*.glsl)
 
 set(SHADER_SPIRV "")
 # Web (WGSL) set: shaders converted to the web shading model (separate textures +
@@ -213,6 +217,7 @@ set(WEB_READY_SHADERS
     shadow.vert
     tonemap.vert tonemap.frag
     fullscreen.vert ambient_occlusion.frag ambient_occlusion_denoise.frag ambient_occlusion_upsample.frag
+    ambient_occlusion_gi.frag
     bloom_downsample.frag bloom_upsample.frag
     skybox.vert skybox.frag
     outline.vert outline.frag
@@ -223,7 +228,7 @@ set(WEB_READY_SHADERS
     web_canvas_world.vert web_canvas_world.frag
     particle_render.vert particle_render.frag
     culling.comp
-    ddgi_trace.comp ddgi_blend.comp ddgi_borders.comp
+    ddgi_clear.comp ddgi_trace.comp ddgi_blend.comp ddgi_scatter.comp auto_exposure.comp
     particle_init.comp particle_prepare.comp particle_emit.comp
     particle_sim.comp particle_finalize.comp)
 set(SHADER_SPIRV_WEB "")
@@ -604,6 +609,7 @@ add_library(saida_engine STATIC
     src/render/LensFlare.cpp
     src/render/TonemapPass.cpp
     src/render/AmbientOcclusionPass.cpp
+    src/render/AutoExposurePass.cpp
     src/render/RenderFeatureRegistry.cpp
     src/fx/ParticleRuntime.cpp
     src/render/features/WaterFeature.cpp
@@ -614,6 +620,7 @@ add_library(saida_engine STATIC
     src/render/features/SkyboxFeature.cpp
     src/render/features/DebugLinesFeature.cpp
     src/render/GIVolume.cpp
+    src/render/gi/GIClipmap.cpp
     # XR sources are added conditionally below via target_sources (SAIDA_ENABLE_XR)
     src/project/Project.cpp
     src/project/ProjectRename.cpp
@@ -1071,14 +1078,20 @@ if (BUILD_TESTING)
     target_compile_options(saida_lens_flare_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_lens_flare_tests COMMAND $<TARGET_FILE:saida_lens_flare_tests>)
 
-    # shaders/ssao.glsl compiles as C++ over GLM, so the tonemap pass's own AO
-    # code is checked on ray-cast depth buffers without a window or GPU.
+    # Compile the AO shader functions as C++ over ray-cast depth buffers.
     add_executable(saida_ssao_tests tests/SsaoTests.cpp)
     saida_test_target(saida_ssao_tests)
     target_include_directories(saida_ssao_tests PRIVATE shaders)
     target_link_libraries(saida_ssao_tests PRIVATE saida_engine)
     target_compile_options(saida_ssao_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_ssao_tests COMMAND $<TARGET_FILE:saida_ssao_tests>)
+
+    add_executable(saida_gi_clipmap_tests tests/GIClipmapTests.cpp src/render/gi/GIClipmap.cpp)
+    saida_test_target(saida_gi_clipmap_tests)
+    target_include_directories(saida_gi_clipmap_tests PRIVATE src)
+    target_link_libraries(saida_gi_clipmap_tests PRIVATE glm::glm)
+    target_compile_options(saida_gi_clipmap_tests PRIVATE -Wall -Wextra)
+    add_test(NAME saida_gi_clipmap_tests COMMAND $<TARGET_FILE:saida_gi_clipmap_tests>)
 
     add_executable(saida_scene_timer_tests tests/SceneTimerQueueTests.cpp)
     saida_test_target(saida_scene_timer_tests)
