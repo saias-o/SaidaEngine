@@ -24,7 +24,13 @@ public:
     VkSurfaceKHR createSurface(VkInstance instance) const;
     void framebufferSize(int& width, int& height) const { glfwGetFramebufferSize(window_, &width, &height); }
     void size(int& width, int& height) const { glfwGetWindowSize(window_, &width, &height); }
-    void setSize(int width, int height) { glfwSetWindowSize(window_, width, height); }
+    void setSize(int width, int height) {
+        if (!isFullscreen()) {
+            savedWidth_ = width;
+            savedHeight_ = height;
+        }
+        glfwSetWindowSize(window_, width, height);
+    }
 
     bool wasResized() const { return resized_; }
     void resetResizedFlag() { resized_ = false; }
@@ -45,11 +51,18 @@ public:
 
     GLFWwindow* handle() const { return window_; }
 
+    // --- fullscreen ---
+    bool isFullscreen() const;
+    void setFullscreen(bool fullscreen);
+    void toggleFullscreen() { setFullscreen(!isFullscreen()); }
+
 private:
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
     static void cursorPosCallback(GLFWwindow* window, double x, double y);
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
     static void charCallback(GLFWwindow* window, unsigned int codepoint);
+
+    GLFWmonitor* currentMonitor() const;
 
     GLFWwindow* window_ = nullptr;
     bool resized_ = false;
@@ -63,6 +76,12 @@ private:
     double lastY_ = 0.0;
     bool firstMouse_ = true;
     bool cursorCaptured_ = false;
+
+    bool isFullscreen_ = false;
+    int savedX_ = 100;
+    int savedY_ = 100;
+    int savedWidth_ = 1600;
+    int savedHeight_ = 900;
 };
 
 } // namespace saida

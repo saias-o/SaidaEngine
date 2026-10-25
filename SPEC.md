@@ -2533,6 +2533,10 @@ different image size and compares as a size mismatch.
 `SAIDA_WINDOW_SIZE=WIDTHxHEIGHT` (each 64–8192) sets the window's size, hidden
 or visible, and therefore the capture's; a malformed value stops the engine at
 startup with the reason instead of falling back to the default size.
+`Window` provides fullscreen transitions (`setFullscreen`, `toggleFullscreen`, `isFullscreen`)
+which target the monitor covering the greatest window area and restore the windowed geometry
+and position on exit. In headless runs (`SAIDA_WINDOW_HIDDEN=1`), fullscreen state is
+tracked logically without altering monitor video modes or test captures.
 
 The comparison half is `saida_tool compare-png <actual.png> <expected.png>`:
 exit 0 when the images match within the stated bounds, 1 when they differ, 2 on

@@ -38,6 +38,16 @@ std::vector<uint8_t> gpuPixels(VulkanDevice& device, const RmlUiRenderInterface:
 
 int main(int argc, char** argv) {
     Window window(64, 64, "Saida UI GPU verification", false);
+    assert(!window.isFullscreen());
+    window.setFullscreen(true);
+    assert(window.isFullscreen());
+    window.setFullscreen(false);
+    assert(!window.isFullscreen());
+    window.toggleFullscreen();
+    assert(window.isFullscreen());
+    window.toggleFullscreen();
+    assert(!window.isFullscreen());
+
     VulkanDevice device(window);
     assert(RmlUiRuntime::ensureInitialized());
     auto* context = Rml::CreateContext("ui-gpu", {64, 64}, RmlUiRuntime::renderInterface());

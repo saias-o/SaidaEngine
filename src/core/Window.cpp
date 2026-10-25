@@ -1,5 +1,6 @@
 #include "core/Window.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 
@@ -31,6 +32,10 @@ Window::Window(int width, int height, std::string title, bool visible) {
     glfwSetCursorPosCallback(window_, cursorPosCallback);
     glfwSetScrollCallback(window_, scrollCallback);
     glfwSetCharCallback(window_, charCallback);
+
+    savedWidth_ = width;
+    savedHeight_ = height;
+    glfwGetWindowPos(window_, &savedX_, &savedY_);
 }
 
 Window::~Window() {
@@ -99,6 +104,87 @@ VkSurfaceKHR Window::createSurface(VkInstance instance) const {
     if (glfwCreateWindowSurface(instance, window_, nullptr, &surface) != VK_SUCCESS)
         throw std::runtime_error("failed to create window surface");
     return surface;
+}
+
+GLFWmonitor* Window::currentMonitor() const {
+    int monitorCount = 0;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitorCount);
+    if (!monitors || monitorCount == 0)
+        return glfwGetPrimaryMonitor();
+
+    int wx = 0, wy = 0, ww = 0, wh = 0;
+    glfwGetWindowPos(window_, &wx, &wy);
+    glfwGetWindowSize(window_, &ww, &wh);
+
+    GLFWmonitor* best = glfwGetPrimaryMonitor();
+    int maxOverlap = 0;
+
+    for (int i = 0; i < monitorCount; ++i) {
+        int mx = 0, my = 0;
+        glfwGetMonitorPos(monitors[i], &mx, &my);
+        const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+        if (!mode) continue;
+
+        const int overlapX = std::max(0, std::min(wx + ww, mx + mode->width) - std::max(wx, mx));
+        const int overlapY = std::max(0, std::min(wy + wh, my + mode->height) - std::max(wy, my));
+        const int overlap = overlapX * overlapY;
+
+        if (overlap > maxOverlap) {
+            maxOverlap = overlap;
+            best = monitors[i];
+        }
+    }
+    return best;
+}
+
+bool Window::isFullscreen() const {
+    if (!window_) return isFullscreen_;
+    if (glfwGetWindowAttrib(window_, GLFW_VISIBLE) == GLFW_FALSE) return isFullscreen_;
+    return glfwGetWindowMonitor(window_) != nullptr;
+}
+
+void Window::setFullscreen(bool enable) {
+    if (isFullscreen() == enable) return;
+
+    if (!window_) {
+        isFullscreen_ = enable;
+        return;
+    }
+
+    if (glfwGetWindowAttrib(window_, GLFW_VISIBLE) == GLFW_FALSE) {
+        isFullscreen_ = enable;
+        resized_ = true;
+        return;
+    }
+
+    if (enable) {
+        int x = 0, y = 0, w = 0, h = 0;
+        glfwGetWindowPos(window_, &x, &y);
+        glfwGetWindowSize(window_, &w, &h);
+        if (w > 0 && h > 0) {
+            savedX_ = x;
+            savedY_ = y;
+            savedWidth_ = w;
+            savedHeight_ = h;
+        }
+
+        GLFWmonitor* monitor = currentMonitor();
+        if (!monitor) monitor = glfwGetPrimaryMonitor();
+        if (monitor) {
+            const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+            if (mode) {
+                glfwSetWindowMonitor(window_, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+                isFullscreen_ = true;
+                resized_ = true;
+            }
+        }
+    } else {
+        const int targetW = savedWidth_ > 0 ? savedWidth_ : 1600;
+        const int targetH = savedHeight_ > 0 ? savedHeight_ : 900;
+        glfwSetWindowMonitor(window_, nullptr, savedX_, savedY_, targetW, targetH, 0);
+        isFullscreen_ = false;
+        resized_ = true;
+    }
 }
 
 } // namespace saida
