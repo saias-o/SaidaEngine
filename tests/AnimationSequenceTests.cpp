@@ -1,8 +1,8 @@
-// Tests des séquences .sseq : roundtrip et validation du schéma, lecture
-// déterministe (seek), crossfade entre deux clips qui se chevauchent,
-// événements émis en lecture seulement, piste de propriété réfléchie, et
-// SequenceDirectorBehaviour (résolution des cibles par nom dans la scène,
-// relais des signaux, fail-closed sur séquence invalide ou cible manquante).
+// Tests of .sseq sequences: schema roundtrip and validation, deterministic
+// playback (seek), crossfade between two overlapping clips, events emitted
+// during playback only, reflected property track, and SequenceDirectorBehaviour
+// (resolving targets by name in the scene, signal relay,
+// fail-closed on invalid sequence or missing target).
 
 #include "core/Paths.hpp"
 #include "nodes/LightNode.hpp"

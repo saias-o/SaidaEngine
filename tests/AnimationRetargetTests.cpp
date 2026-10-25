@@ -1,7 +1,7 @@
-// Tests du retargeting sémantique et du procédural : asset .srig (roundtrip,
-// validation, hash, suggestion), mapping par sémantiques partagées,
-// corrections de rest pose et d'échelle appliquées par l'Animator, two-bone
-// IK et look-at.
+// Tests of semantic and procedural retargeting: .srig asset (roundtrip,
+// validation, hash, suggestion), mapping by shared semantics,
+// rest pose and scale corrections applied by the Animator, two-bone
+// IK and look-at.
 
 #include "scene/animation/AnimationClip.hpp"
 #include "scene/animation/Animator.hpp"

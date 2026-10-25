@@ -1,12 +1,12 @@
-// Maintient une source GLSL commune malgré les bindings et push constants absents de WGSL.
+// Keeps a shared GLSL source despite bindings and push constants absent from WGSL.
 
 #ifndef WEB_COMPAT_GLSL
 #define WEB_COMPAT_GLSL
 
-// `_set` évite de remplacer le mot-clé `set` dans layout(set = ...).
+// `_set` avoids replacing the keyword `set` in layout(set = ...).
 
 #ifdef WEB
-// Le LOD explicite garde les lectures d'ombre valides hors flux de contrôle uniforme.
+// Explicit LOD keeps shadow reads valid outside uniform control flow.
 #extension GL_EXT_texture_shadow_lod : require
 
 #define DECL_TEX2D(_set, tb, sb, name) \
@@ -36,7 +36,7 @@
 #define SAMPLE_SHADOW2DARRAY(name, coord) \
     textureLod(SHADOW2DARRAY(name), coord, 0.0)
 
-// WGSL émule les push constants par un UBO au groupe 3.
+// WGSL emulates push constants with a UBO at group 3.
 #define PUSH_QUALIFIER layout(set = 3, binding = 0) uniform
 
 #else

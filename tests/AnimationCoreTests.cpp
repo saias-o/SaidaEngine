@@ -193,8 +193,8 @@ bool hasDiagnostic(const std::vector<saida::AssetDiagnostic>& diags, const char*
     return false;
 }
 
-// Sérialisation versionnée : toJson → parse reproduit la vue à l'identique et
-// un schéma plus récent que le support courant est refusé proprement.
+// Versioned serialisation: toJson → parse reproduces the view identically and
+// a schema newer than the current support is rejected cleanly.
 void testClipViewRoundtrip() {
     saida::ClipView view;
     view.source = "mocap.glb#Take1";
@@ -228,7 +228,7 @@ void testClipViewRoundtrip() {
     assert(hasDiagnostic(empty.diagnostics, "clipview.schema.missing"));
 }
 
-// Diagnostics structurés contre une source résolue.
+// Structured diagnostics against a resolved source.
 void testClipViewValidation() {
     saida::GltfAnimationData data;
     std::string error;
@@ -255,9 +255,9 @@ void testClipViewValidation() {
     assert(view.validate(source).empty());
 }
 
-// Deux vues non destructives partagent la même source : aucune copie de clés,
-// et la vue joue exactement le segment de la source (mêmes poses aux mêmes
-// temps absolus).
+// Two non-destructive views share the same source: no key copying,
+// and the view plays exactly the source segment (same poses at the same
+// absolute times).
 void testClipViewsShareSource() {
     saida::GltfAnimationData data;
     std::string error;
@@ -283,18 +283,18 @@ void testClipViewsShareSource() {
     assert(near(nodeA->time(), 0.0f));
     assert(near(nodeB->time(), 0.5f));
 
-    // La vue boucle dans sa plage : 0.4 + 0.2 s wrappe à 0.1 dans [0, 0.5].
+    // The view loops within its range: 0.4 + 0.2 s wraps to 0.1 in [0, 0.5].
     nodeA->setTime(0.4f);
     nodeA->update(0.2f);
     assert(near(nodeA->time(), 0.1f));
 
-    // Sans boucle, la lecture clampe à la fin de la plage.
+    // Without looping, playback clamps to the end of the range.
     nodeB->setLooping(false);
     nodeB->setTime(0.9f);
     nodeB->update(0.5f);
     assert(near(nodeB->time(), 1.0f));
 
-    // Même temps absolu → même pose que la source directe (clés partagées).
+    // Same absolute time → same pose as the direct source (shared keys).
     saida::LocalPose bind;
     bind.resize(rig.boneCount());
     for (size_t i = 0; i < rig.boneCount(); ++i)
@@ -315,8 +315,8 @@ void testClipViewsShareSource() {
     }
 }
 
-// L'asset .sgraph : roundtrip, diagnostics de cohérence, et compilation vers
-// une machine d'états jouable qui transitionne sur paramètre.
+// The .sgraph asset: roundtrip, consistency diagnostics, and compilation to
+// a playable state machine that transitions on parameter.
 void testAnimGraphAsset() {
     const std::string path = std::string(SAIDA_FIXTURE_DIR) + "/animation/locomotion.sgraph";
     auto parsed = saida::AnimGraphAsset::loadFile(path);
@@ -324,7 +324,7 @@ void testAnimGraphAsset() {
     assert(parsed.graph.states.size() == 2);
     assert(parsed.graph.validate().empty());
 
-    // Roundtrip : toJson → parse reproduit le graphe.
+    // Roundtrip: toJson → parse reproduces the graph.
     auto reparsed = saida::AnimGraphAsset::parse(parsed.graph.toJson());
     assert(reparsed.ok);
     assert(reparsed.graph.initial == "Idle");

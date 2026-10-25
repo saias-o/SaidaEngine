@@ -1,12 +1,12 @@
-// Palette de skinning commune Vulkan/WebGPU : 3 lignes vec4 par os (matrice
-// affine 3x4, 48 octets), remplie par le Renderer depuis les GlobalPose des
-// personnages visibles. L'indexation se fait en os, pas en lignes.
+// Shared Vulkan/WebGPU skinning palette: 3 vec4 rows per bone (3x4 affine
+// matrix, 48 bytes), filled by the Renderer from the GlobalPose of visible
+// characters. Indexing is by bone, not by row.
 
 layout(std140, set = 0, binding = 3) readonly buffer BoneBuffer {
     vec4 boneRows[];
 };
 
-// Lignes de la matrice affine blendée des 4 influences d'un vertex.
+// Rows of the blended affine matrix for a vertex's 4 influences.
 void blendBoneRows(int boneOffset, ivec4 indices, vec4 weights,
                    out vec4 row0, out vec4 row1, out vec4 row2) {
     int i0 = (boneOffset + indices.x) * 3;

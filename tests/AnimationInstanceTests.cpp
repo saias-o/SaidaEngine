@@ -1,7 +1,7 @@
-// Tests du noyau runtime data-oriented : compilation d'un .sgraph en
-// AnimationProgram, parité de poses avec le chemin d'authoring, transitions
-// par paramètres typés, et absence totale d'allocation dans
-// AnimationInstance::update (vérifiée par un hook global operator new).
+// Tests of the data-oriented runtime kernel: compilation of a .sgraph into
+// AnimationProgram, pose parity with the authoring path, typed-parameter
+// transitions, and zero allocation in AnimationInstance::update
+// (verified by a global operator new hook).
 
 #include "scene/GLTFLoader.hpp"
 #include "scene/animation/AnimGraphAsset.hpp"
@@ -55,7 +55,7 @@ struct Fixture {
     const saida::Rig& rig() const { return *data.rigs[0]; }
 };
 
-// Un programme à un clip reproduit l'échantillonnage cuit + le solve global.
+// A single-clip program reproduces the cooked sampling + global solve.
 void testSingleClipProgram() {
     Fixture fixture;
     auto program = saida::AnimationProgram::singleClip(fixture.cooked);
@@ -77,18 +77,18 @@ void testSingleClipProgram() {
         assert(near(instance.localPose().localTransforms[i].position.y,
                     expected.localTransforms[i].position.y));
     }
-    // Solve global : l'enfant hérite du parent (mêmes attentes que les golden
-    // tests du chemin d'authoring à t=0.5).
+    // Global solve: the child inherits from the parent (same expectations as the golden
+    // tests of the authoring path at t=0.5).
     assert(near(instance.globalPose().globalMatrices[1][3].x, 0.5f, 2e-3f));
     assert(near(instance.globalPose().globalMatrices[1][3].y, 1.5f, 2e-3f));
 
-    // La lecture boucle par défaut.
+    // Playback loops by default.
     instance.update(0.75f);
     assert(near(instance.stateTime(), 0.25f));
 }
 
-// Le programme compilé depuis un .sgraph transitionne comme la machine d'états
-// d'authoring : paramètre typé, crossfade non réévalué, retour d'état.
+// The program compiled from a .sgraph transitions like the authoring state machine:
+// typed parameter, crossfade not re-evaluated, state return.
 void testGraphProgramTransitions() {
     Fixture fixture;
     auto parsed = saida::AnimGraphAsset::loadFile(std::string(SAIDA_FIXTURE_DIR) +
@@ -109,7 +109,7 @@ void testGraphProgramTransitions() {
     saida::AnimationInstance instance(program, fixture.rig());
     const int speed = program->paramIndex("speed");
     assert(speed >= 0);
-    assert(near(instance.param(uint32_t(speed)), 0.0f));  // défaut appliqué
+    assert(near(instance.param(uint32_t(speed)), 0.0f));  // default applied
 
     instance.update(0.016f);
     assert(instance.currentStateName() == "Idle");
@@ -118,7 +118,7 @@ void testGraphProgramTransitions() {
     instance.update(0.016f);
     assert(instance.currentStateName() == "Run");
 
-    // Pas de réévaluation pendant le crossfade (0.2 s dans la fixture).
+    // No re-evaluation during the crossfade (0.2 s in the fixture).
     instance.setParam(uint32_t(speed), 0.0f);
     instance.update(0.016f);
     assert(instance.currentStateName() == "Run");

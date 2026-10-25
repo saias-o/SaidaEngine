@@ -1,8 +1,8 @@
-// Tests du playback production : blend space 1D, couches masquées
-// (override/additif), événements traversant une boucle, extraction de root
-// motion, triggers/exit time/sync de phase du schéma 2, LOD de pose
-// (control à chaque tick, pose interpolée à fréquence réduite) et modificateurs
-// de pose (regard, impact) appliqués après le graphe.
+// Production playback tests: 1D blend space, masked layers
+// (override/additive), events crossing a loop, root motion extraction,
+// schema 2 triggers/exit time/phase sync, pose LOD
+// (control every tick, pose interpolated at reduced rate), and pose modifiers
+// (gaze, impact) applied after the graph.
 
 #include "scene/animation/AnimGraphAsset.hpp"
 #include "scene/animation/AnimStateMachine.hpp"
@@ -31,7 +31,7 @@ bool near(float a, float b, float tolerance = 1e-4f) {
     return std::abs(a - b) < tolerance;
 }
 
-// Rig 3 os : root → spine → arm (chaînes haut du corps testables).
+// 3-bone rig: root → spine → arm (testable upper-body chains).
 saida::Rig makeRig() {
     saida::Rig rig;
     saida::Transform rest;
@@ -44,7 +44,7 @@ saida::Rig makeRig() {
     return rig;
 }
 
-// Clip 1 s : translation X du root de 0 à `reach`, linéaire.
+// 1 s clip: linear root X translation from 0 to `reach`.
 std::unique_ptr<saida::AnimationClip> makeRootTravelClip(const char* name, float reach) {
     auto clip = std::make_unique<saida::AnimationClip>(name, 1.0f);
     auto track = std::make_unique<saida::TypedAnimTrack<glm::vec3>>();
@@ -55,7 +55,7 @@ std::unique_ptr<saida::AnimationClip> makeRootTravelClip(const char* name, float
     return clip;
 }
 
-// Clip constant : rotation du bras de `angle` autour de Z.
+// Constant clip: arm rotation of `angle` around Z.
 std::unique_ptr<saida::AnimationClip> makeArmPoseClip(const char* name, float angle) {
     auto clip = std::make_unique<saida::AnimationClip>(name, 1.0f);
     auto track = std::make_unique<saida::TypedAnimTrack<glm::quat>>();
@@ -75,7 +75,7 @@ saida::LocalPose makeBindPose(const saida::Rig& rig) {
     return pose;
 }
 
-// Le blend space 1D choisit la paire encadrante et pondère linéairement.
+// The 1D blend space picks the bracketing pair and weights linearly.
 void testBlend1D() {
     saida::Rig rig = makeRig();
     auto idle = makeRootTravelClip("idle", 0.0f);
@@ -90,7 +90,7 @@ void testBlend1D() {
     const saida::LocalPose bind = makeBindPose(rig);
     saida::LocalPose pose;
 
-    // Sous le premier seuil et au-delà du dernier : entrée seule.
+    // Below the first threshold and beyond the last: single input.
     blend.setValue(-1.0f);
     blend.update(0.5f);  // toutes les entrées à t=0.5
     blend.evaluate(bind, pose);
@@ -100,12 +100,12 @@ void testBlend1D() {
     blend.evaluate(bind, pose);
     assert(near(pose.localTransforms[0].position.x, 3.0f));  // run à t=0.5
 
-    // Milieu de [walk=1.5, run=4] → moyenne des deux poses.
+    // Midpoint of [walk=1.5, run=4] → average of the two poses.
     blend.setValue(2.75f);
     blend.evaluate(bind, pose);
     assert(near(pose.localTransforms[0].position.x, 0.5f * (1.0f + 3.0f)));
 
-    // Piloté par blackboard.
+    // Driven by blackboard.
     saida::AnimBlackboard bb;
     blend.bindParameter(&bb, "speed");
     bb.setFloat("speed", 1.5f);
@@ -114,7 +114,7 @@ void testBlend1D() {
     assert(near(pose.localTransforms[0].position.x, 1.0f));  // walk exact à t=0.5
 }
 
-// Couches : override masqué au haut du corps, additif appliqué sur la base.
+// Layers: override masked to the upper body, additive applied on top of the base.
 void testLayerMaskAndAdditive() {
     saida::Rig rig = makeRig();
     auto travel = makeRootTravelClip("travel", 2.0f);
@@ -135,7 +135,7 @@ void testLayerMaskAndAdditive() {
     layer.update(0.5f);
     layer.evaluate(bind, pose);
 
-    // La base traverse (root hors masque), la couche pose le bras.
+    // The base passes through (root outside the mask), the layer sets the arm.
     assert(near(pose.localTransforms[0].position.x, 1.0f));
     const glm::vec3 armX = pose.localTransforms[2].rotation * glm::vec3(1, 0, 0);
     assert(near(armX.y, std::sin(1.0f), 1e-3f));
