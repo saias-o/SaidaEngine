@@ -30,8 +30,16 @@ public:
 
     int32_t findBoneIndex(const std::string& name) const;
 
+    // Where the root bones' parent stands in the file the rig came from: the
+    // nodes a glTF puts above its skeleton (an armature scaled to size, a
+    // container offset). Bone matrices are relative to that frame, so a mesh
+    // the rig deforms is drawn in it (GLTFLoader places skinned primitives so).
+    void setRootParent(const glm::mat4& frame) { rootParent_ = frame; }
+    const glm::mat4& rootParent() const { return rootParent_; }
+
 private:
     std::vector<Bone> bones_;
+    glm::mat4 rootParent_{1.0f};
     std::vector<uint32_t> evaluationOrder_;
     bool finalized_ = false;
 };

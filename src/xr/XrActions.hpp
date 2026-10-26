@@ -49,6 +49,7 @@ private:
     std::map<std::string, ProfileBindings> bindings_;
     InputExtensions* inputExtensions_ = nullptr; // owned by the instance
     bool ownsInputSession_ = false;
+    XrResult lastSyncResult_ = XR_SUCCESS;
 
     XrSpace gripSpace_[2]{};
     XrSpace aimSpace_[2]{};

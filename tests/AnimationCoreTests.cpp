@@ -157,6 +157,43 @@ void testGltfFixturePoses() {
     assert(near(global.globalMatrices[1][0].y, 1.0f));  // X axis rotated onto +Y
 }
 
+// A skeleton under a scaled, offset armature node, with its mesh node at the
+// scene root and a translation glTF says to ignore: at rest every vertex must
+// be drawn where the file puts it. Bone globals start at the root bones, so
+// the armature lives in Rig::rootParent and the loader stands the skinned
+// primitive in that frame (GLTFLoader::skinnedPrimitiveFrame). Without it the
+// mesh was drawn twice its size and a metre off.
+void testSkeletonUnderScaledArmature() {
+    saida::GltfAnimationData data;
+    std::string error;
+    const std::string path = std::string(SAIDA_FIXTURE_DIR) + "/animation/scaled_armature.gltf";
+    assert(saida::GLTFLoader::loadAnimationData(path, data, &error));
+    assert(data.rigs.size() == 1);
+    const saida::Rig& rig = *data.rigs[0];
+    const glm::mat4& armature = rig.rootParent();
+    assert(near(armature[0][0], 0.5f) && near(armature[1][1], 0.5f) && near(armature[2][2], 0.5f));
+    assert(near(armature[3].y, 1.0f));
+
+    saida::LocalPose rest;
+    rest.resize(rig.boneCount());
+    for (size_t i = 0; i < rig.boneCount(); ++i) rest.localTransforms[i] = rig.bones()[i].restLocal;
+    saida::GlobalPose global;
+    global.computeFrom(rest, rig);
+
+    glm::mat4 meshNode(1.0f);
+    meshNode[3] = glm::vec4(10.0f, 0.0f, 0.0f, 1.0f);
+    const glm::mat4 drawn = meshNode * saida::GLTFLoader::skinnedPrimitiveFrame(meshNode, rig.rootParent());
+    const glm::vec4 vertices[] = {{0, 1, 1, 1}, {1, 1, 1, 1}, {0, 3, 1, 1}};
+    for (size_t bone = 0; bone < rig.boneCount(); ++bone)
+        for (const glm::vec4& v : vertices) {
+            const glm::vec4 p = drawn * global.skinningMatrices[bone] * v;
+            assert(near(p.x, v.x) && near(p.y, v.y) && near(p.z, v.z));
+            // What drawing at the mesh node without the armature gave.
+            const glm::vec4 bare = global.skinningMatrices[bone] * v;
+            assert(!near(bare.y, v.y) || !near(bare.z, v.z));
+        }
+}
+
 // Golden values from the versioned BVH fixture (Hips 6 channels, Spine 3).
 void testBvhFixtureClip() {
     const std::string path = std::string(SAIDA_FIXTURE_DIR) + "/animation/two_joint.bvh";
@@ -510,6 +547,7 @@ int main() {
     testStepInterpolation();
     testLinearInterpolation();
     testGltfFixturePoses();
+    testSkeletonUnderScaledArmature();
     testBvhFixtureClip();
     testClipViewRoundtrip();
     testClipViewValidation();

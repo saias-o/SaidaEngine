@@ -60,18 +60,30 @@ static const char* cgltfResultName(cgltf_result result) {
 static glm::vec4 toVec4(const float* f) { return {f[0], f[1], f[2], f[3]}; }
 static glm::vec3 toVec3(const float* f) { return {f[0], f[1], f[2]}; }
 
+static Transform transformOf(const glm::mat4& matrix) {
+    // GLM tests the determinant against an absolute float epsilon. A valid
+    // millimetre-scale frame has a determinant around 1e-9 and was rejected,
+    // losing both its scale and its rotation. Test the unit-length basis
+    // instead, then restore each column's magnitude to the decomposed scale.
+    glm::mat4 normalized = matrix;
+    glm::vec3 magnitude(1.0f);
+    for (int c = 0; c < 3; ++c) {
+        magnitude[c] = glm::length(glm::vec3(matrix[c]));
+        if (magnitude[c] > 0.0f) normalized[c] /= magnitude[c];
+    }
+    Transform result;
+    glm::vec3 skew;
+    glm::vec4 perspective;
+    if (glm::decompose(normalized, result.scale, result.rotation, result.position, skew, perspective)) {
+        result.scale *= magnitude;
+        result.rotation = glm::normalize(result.rotation);
+    }
+    return result;
+}
+
 static Transform nodeTransform(const cgltf_node* node) {
     Transform result;
-    if (node->has_matrix) {
-        const glm::mat4 matrix = glm::make_mat4(node->matrix);
-        glm::vec3 skew;
-        glm::vec4 perspective;
-        if (glm::decompose(matrix, result.scale, result.rotation, result.position,
-                           skew, perspective)) {
-            result.rotation = glm::normalize(result.rotation);
-        }
-        return result;
-    }
+    if (node->has_matrix) return transformOf(glm::make_mat4(node->matrix));
 
     if (node->has_translation) result.position = toVec3(node->translation);
     if (node->has_rotation) {
@@ -225,6 +237,24 @@ static void buildLodChain(MeshNode* mNode, size_t nodeIndex, size_t primIndex,
     }
 }
 
+// glTF 2.0 (skins): joint matrices are the joints' world transforms, so every
+// node above the root joints moves the skin -- an armature scaled to size, a
+// container offset. Bone globals here start at the root bones; the world
+// transform of their parent is that frame.
+static glm::mat4 skinRootParent(const cgltf_skin& skin) {
+    for (size_t j = 0; j < skin.joints_count; ++j) {
+        const cgltf_node* parent = skin.joints[j]->parent;
+        bool rootJoint = true;
+        for (size_t p = 0; p < skin.joints_count && parent; ++p)
+            if (skin.joints[p] == parent) rootJoint = false;
+        if (!rootJoint) continue;
+        glm::mat4 world(1.0f);
+        if (parent) cgltf_node_transform_world(parent, glm::value_ptr(world));
+        return world;
+    }
+    return glm::mat4(1.0f);
+}
+
 static void processNode(cgltf_node* node, Node* parent, ResourceManager& resources,
                         const std::vector<std::vector<AssetID>>& meshesPrimitives,
                         const std::vector<MaterialDesc>& materials, cgltf_data* data,
@@ -262,6 +292,14 @@ static void processNode(cgltf_node* node, Node* parent, ResourceManager& resourc
                 mNode->addBehaviour<LODGroupBehaviour>();
             }
             if (node->skin) {
+                // glTF ignores a skinned mesh's own node transform: its joints
+                // alone place it. The renderer draws the primitive at its
+                // node's world times bone matrices relative to the rig's roots
+                // (Rig::rootParent), so it stands in the roots' parent frame.
+                glm::mat4 nodeWorld(1.0f);
+                cgltf_node_transform_world(node, glm::value_ptr(nodeWorld));
+                mNode->transform() = transformOf(
+                    GLTFLoader::skinnedPrimitiveFrame(nodeWorld, skinRootParent(*node->skin)));
                 skinnedMeshes.push_back({mNode, node->skin});
             }
         }
@@ -300,8 +338,14 @@ static std::unique_ptr<Rig> buildRigFromSkin(const cgltf_skin& skin, std::string
         rig->addBone(name, parentIndex, invBind, nodeTransform(joint));
     }
 
+    rig->setRootParent(skinRootParent(skin));
+
     if (!rig->finalize(error)) return nullptr;
     return rig;
+}
+
+glm::mat4 GLTFLoader::skinnedPrimitiveFrame(const glm::mat4& meshNodeWorld, const glm::mat4& rootParent) {
+    return glm::inverse(meshNodeWorld) * rootParent;
 }
 
 // Clip construction shared by load() and loadAnimationData().

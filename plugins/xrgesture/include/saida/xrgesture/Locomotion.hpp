@@ -89,12 +89,13 @@ public:
         LocomotionIntent result;
         if (!permitted)
             return close(LocomotionStopReason::Permission);
-        if (!frame.focused)
-            return close(LocomotionStopReason::Focus);
-        if (!frame.head.tracked || !finite(frame.head.orientation) || !finite(frame.head.position))
-            return close(LocomotionStopReason::HeadTracking);
-        if (!std::isfinite(frame.time) || frame.time < 0)
+        if (!std::isfinite(frame.time) || frame.time < 0 ||
+            (lastSample_ >= 0 && frame.time < lastSample_))
             return close(LocomotionStopReason::InvalidTime);
+        if (!frame.focused)
+            return suspend(LocomotionStopReason::Focus, frame.time);
+        if (!frame.head.tracked || !finite(frame.head.orientation) || !finite(frame.head.position))
+            return suspend(LocomotionStopReason::HeadTracking, frame.time);
         if (active_ && config_.mode == LocomotionGateMode::Pose && !posture(frame, hand_)) {
             const auto& skeleton = frame.hands[xrHandIndex(hand_)].skeleton;
             const bool tracked = skeleton.active && valid(skeleton.joint(XRHandJoint::Wrist)) &&
@@ -103,11 +104,8 @@ public:
         }
         if (frame.time == lastSample_)
             return result;
-        const bool reversed = lastSample_ >= 0 && frame.time < lastSample_;
         const bool gap = lastSample_ >= 0 && frame.time - lastSample_ > config_.maximumSampleGapSeconds;
-        lastSample_ = std::isfinite(frame.time) ? frame.time : -1;
-        if (reversed)
-            return close(LocomotionStopReason::InvalidTime);
+        lastSample_ = frame.time;
         if (gap && config_.mode == LocomotionGateMode::Pose)
             return close(LocomotionStopReason::SampleGap);
         result.discardPendingMotion = gap;
@@ -175,6 +173,17 @@ public:
     }
 
 private:
+    LocomotionIntent suspend(LocomotionStopReason reason, double time) {
+        if (config_.mode != LocomotionGateMode::Explicit)
+            return close(reason);
+        lastSample_ = time;
+        LocomotionIntent result;
+        result.suspended = active_;
+        result.discardPendingMotion = true;
+        result.reason = reason;
+        return result;
+    }
+
     bool handAvailable(const Frame& frame, XRHand hand) const {
         const auto& sample = frame.hands[xrHandIndex(hand)];
         if (sample.native.supported)

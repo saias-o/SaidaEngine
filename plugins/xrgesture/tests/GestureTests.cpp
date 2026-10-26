@@ -370,6 +370,21 @@ static void inputContracts() {
     auto captured = captureInput(3, input.state());
     check(captured.focused && captured.hands[0].native.pressedMask == 1,
           "runtime adapter preserves native snapshot");
+    values[4].active = false;
+    values[4].boolean = values[4].changed = true;
+    input.submit({true, true, 3.1, values, 5});
+    check(input.state().hands[0].active && input.state().hands[0].pressedMask == 1,
+          "inactive tap channel cannot suppress a valid swipe or publish its stale tap");
+    for (auto& value : values)
+        value.active = false;
+    input.submit({true, true, 3.2, values, 5});
+    check(!input.state().hands[0].active && input.state().hands[0].downMask == 0 &&
+              input.state().hands[0].pressedMask == 0,
+          "all inactive channels clear native activity and stale completions");
+    values[0].active = true;
+    input.submit({true, true, 3.3, values, 5});
+    check(input.state().hands[0].active && input.state().hands[0].pressedMask == 1,
+          "a single recovered channel immediately delivers fresh completions");
     XRInput::beginFrame();
     input.submit({});
     captured = captureInput(4, input.state());

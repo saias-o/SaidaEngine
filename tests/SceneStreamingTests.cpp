@@ -981,6 +981,30 @@ void gpuAsyncGltf(VulkanDevice& device) {
     Node animationRoot;
     require(GLTFLoader::instantiate(handle,animationRoot,resources)&&!handle,"worker-prepared animation hierarchy instantiates");
     require(!animationRoot.children().empty(),"animation-only glTF preserves its skeleton hierarchy");
+    // Small authoring units must survive both matrix-node import and the
+    // skinned primitive's root-parent correction, including its rotation.
+    // A float determinant epsilon used to turn this frame into identity.
+    for (bool async : {false, true}) {
+        Node tiny;
+        if (async) {
+            auto small=GLTFLoader::request("animation/tiny_armature.gltf",resources);
+            const auto limit=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+            while(!small.ready()&&!small.failed()&&std::chrono::steady_clock::now()<limit)std::this_thread::yield();
+            require(small.ready()&&GLTFLoader::instantiate(small,tiny,resources),"tiny skin async import");
+        } else require(GLTFLoader::load((root/"animation/tiny_armature.gltf").string(),tiny,resources),"tiny skin sync import");
+        constexpr float scale=.0014690642710775137f;
+        const glm::mat4 expected=glm::translate(glm::mat4(1.f),glm::vec3(0,.076f,0))
+            *glm::rotate(glm::mat4(1.f),glm::radians(-90.f),glm::vec3(1,0,0))
+            *glm::scale(glm::mat4(1.f),glm::vec3(scale));
+        int meshes=0,armatures=0;
+        tiny.traverse([&](Node& node,const glm::mat4& world){
+            if(node.name()!="Armature"&&!node.mesh())return;
+            if(node.mesh())++meshes;else ++armatures;
+            for(int c=0;c<4;++c)for(int r=0;r<4;++r)
+                require(std::abs(world[c][r]-expected[c][r])<1e-6f,"tiny imported skin preserves size, orientation and ground offset");
+        });
+        require(meshes==1&&armatures==1,"tiny skin and matrix armature both checked");
+    }
     handle=GLTFLoader::request("streaming/triangle.gltf",resources);
     while(!handle.ready()&&!handle.failed()&&std::chrono::steady_clock::now()<deadline)std::this_thread::yield();
     require(handle.ready(),"worker decodes textured triangle glTF fixture");
@@ -1319,6 +1343,12 @@ int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); transformPropagationContract(); shadowClipContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract();
     if (argc > 1 && std::string(argv[1]) == "--gpu") gpuLodGroups();
+    if (argc > 1 && std::string(argv[1]) == "--gltf") {
+        Window window(64,64,"glTF import test",false);
+        VulkanDevice device(window);
+        gpuAsyncGltf(device);
+        device.waitIdle();
+    }
     if (argc > 2 && std::string(argv[1]) == "--deformation-fleet") gpuFleetDeformation(argv[2]);
     std::printf("[streaming] PASS (%d checks)\n", checks);
 }

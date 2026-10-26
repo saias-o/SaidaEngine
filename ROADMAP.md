@@ -9,6 +9,15 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
+## Small glTF skin frames — 2026-10-27
+
+- [x] Preserve small armature scales and rotations when importing matrix nodes
+  and placing skinned primitives. A 0.001469 unit conversion was mistaken for
+  a singular matrix, leaving a skin about 681 times too large and sideways.
+  Proof: `tiny_armature.gltf` fails the real import before the fix and passes
+  both synchronous and streamed instantiation afterwards through
+  `saida_scene_streaming_tests --gltf` (21,446 checks on the MX450).
+
 ## Contact shadows and camera coverage — 2026-10-23
 
 - [x] Replace the angular depth bias and raster slope bias with per-texel

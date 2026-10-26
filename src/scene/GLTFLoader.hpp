@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <glm/glm.hpp>
 #include "project/AssetLoader.hpp"
 
 namespace saida {
@@ -41,6 +42,11 @@ public:
     // as load(), so a pose golden-tested here is the pose the editor plays.
     static bool loadAnimationData(const std::string& path, GltfAnimationData& out,
                                   std::string* error = nullptr);
+
+    // Where a skinned primitive stands under its glTF node: in the frame of
+    // the rig's root bones' parent (Rig::rootParent), whatever the node's own
+    // transform, which glTF ignores for skinned meshes.
+    static glm::mat4 skinnedPrimitiveFrame(const glm::mat4& meshNodeWorld, const glm::mat4& rootParent);
 };
 
 } // namespace saida

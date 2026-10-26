@@ -2231,6 +2231,13 @@ Animator to each skinned mesh, so a controller or `AnimGraph` drives all
 Animators below the character rather than assuming there is one. Clip names and
 durations are inspectable with `saida_tool inspect-anim <file.glb>`.
 
+Skinned primitives stand in the world frame of the rig's root joints' parent,
+including its authored scale and rotation; their mesh node's own transform is
+cancelled as required by glTF. Matrix decomposition normalizes the basis before
+testing singularity, so small unit conversions (for example 0.001469) retain
+their scale, orientation and offset. Synchronous and streamed imports share
+this conversion (`saida_scene_streaming_tests --gltf`, `tiny_armature.gltf`).
+
 Formats: `.sclip`, `.sgraph`, `.sretarget`, `.srig`, `.sseq`; the `.sanimc` cache
 is internal. The reflected behaviour `SequenceDirector` plays a `.sseq` at
 runtime: targets are resolved by name in the carrier node's scene (animation
@@ -3022,7 +3029,42 @@ Verification is one translation unit with no engine build:
 `g++ -std=c++20 -O2 -Wall -I../include test_traffic.cpp -o test_traffic` in
 `plugins/traffic/tests`, which prints `PASS saida::traffic`.
 
-### 11.3 Optional C++ XRGesture add-on
+### 11.3 Optional C++ wildlife add-on
+
+`plugins/wildlife` is a standalone, header-only C++17 add-on that lives the
+lives of ambient animals. It is not linked to `saida_engine`, is absent from
+CMake, is never loaded by the editor or runtime, and is never copied by game
+export; a project that includes the header compiles it into its own binary.
+
+The header declares `saida::wildlife::Kind` (walk, run and flee speeds as
+drawn, flee distance and style `None`/`Run`/`Dart`, group spread, roam radius,
+standing and walking spells, air surface and hover band, view range, radius),
+`Group` (home, member kinds, host identity) and `Herds` (groups over fixed
+slots). It uses the C++ standard library only: no scene, node, clip, physics,
+glm or coordinate convention beyond two ground axes. The host supplies the
+groups, an `Allowed(kind, point)` habitat callback, per-group activity and the
+threats of each frame, and reads positions, headings, states, speeds and hover
+heights back.
+
+A group is at one point of its roam at a time, redrawn on allowed ground
+every 45 s while unseen, and spawns whole when that point is within its
+leader's view range while active -- never inside its flight distance, never in
+plain sight near the observer. Animals in view are kept to three view ranges;
+out of sight they are dropped beyond 1.3 view ranges or once inactive. Leaders alternate standing/eating spells with walked legs
+inside their roam; followers keep a loose formation and run to catch up;
+animals keep apart by radius; every step and flight target is tested against
+the habitat. A threat inside the flee distance scales by threat and scares the
+whole group: `Run` kinds flee toward allowed ground until they calm down,
+`Dart` kinds dart and vanish, `None` kinds stay. Kinds without a gait never
+move; kinds that cannot stand keep walking. Spawns are seeded from the group
+identity and host seed; slots are stable while alive and `identity` tells
+reuse apart.
+
+Verification is one translation unit with no engine build:
+`g++ -std=c++17 -O2 -Wall -I../include test_wildlife.cpp -o test_wildlife` in
+`plugins/wildlife/tests`, which prints `PASS saida::wildlife`.
+
+### 11.4 Optional C++ XRGesture add-on
 
 `plugins/xrgesture` is a C++17 header-only add-on, linked explicitly by a game
 through `Saida::XRGesture`; the engine/editor do not load or link it. It owns

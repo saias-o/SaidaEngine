@@ -180,7 +180,15 @@ bool Actions::sync(XrSession session, XrSpace space, XrTime time) {
     si.countActiveActionSets = 1;
     si.activeActionSets = &active;
     // XR_SESSION_NOT_FOCUSED is a positive result, not XR_FAILED.
-    if (xrSyncActions(session, &si) != XR_SUCCESS) {
+    const XrResult result = xrSyncActions(session, &si);
+    if (result != lastSyncResult_) {
+        if (result == XR_SUCCESS)
+            Log::info("XR action sync recovered");
+        else
+            Log::warn("XR action sync suspended: xrSyncActions result=", static_cast<int>(result));
+        lastSyncResult_ = result;
+    }
+    if (result != XR_SUCCESS) {
         deactivate(time);
         return false;
     }

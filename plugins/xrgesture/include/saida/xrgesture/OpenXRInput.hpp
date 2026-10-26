@@ -46,9 +46,10 @@ public:
                     next.hands[hand].pressedMask |= bit;
             }
         }
-        constexpr uint32_t all = (uint32_t{1} << static_cast<uint8_t>(XRMicrogesture::Count)) - 1;
         for (size_t i = 0; i < next.hands.size(); ++i) {
-            next.hands[i].active = active[i] == all;
+            // Each action is independently usable. An inactive channel must not
+            // discard completions already validated on another channel.
+            next.hands[i].active = active[i] != 0;
             if (!next.hands[i].active)
                 next.hands[i].downMask = next.hands[i].pressedMask = 0;
         }
