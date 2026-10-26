@@ -8,6 +8,7 @@
 
 #include "graphics/VulkanDevice.hpp"
 #include "xr/toolkit/XRPassthrough.hpp"
+#include "xr/toolkit/XRInput.hpp"
 #include "core/Log.hpp"
 
 #include <cmath>
@@ -18,6 +19,11 @@ namespace saida::xr {
 
 Session::Session(Instance& instance, VulkanDevice& device)
     : instance_(instance), device_(device) {
+    try { initialize(); }
+    catch (...) { release(); throw; }
+}
+
+void Session::initialize() {
     createSession();
     selectReferenceSpace();
     createReferenceSpace();
@@ -39,18 +45,25 @@ Session::Session(Instance& instance, VulkanDevice& device)
               swapchains_[0]->width(), "x", swapchains_[0]->height(), " per eye");
 }
 
-Session::~Session() {
+Session::~Session() { release(); }
+
+void Session::release() noexcept {
+    XRInput::beginFrame(); // no service snapshot may outlive the native session
     if (session_ != XR_NULL_HANDLE) vkDeviceWaitIdle(device_.device());
     handTracking_.reset(); // native trackers must die before the session
     actions_.reset();  // destroy action spaces/set before the session
     for (VkFence f : fences_)
         if (f) vkDestroyFence(device_.device(), f, nullptr);
+    fences_.clear();
     if (!cmdBuffers_.empty())
         vkFreeCommandBuffers(device_.device(), device_.commandPool(),
                              static_cast<uint32_t>(cmdBuffers_.size()), cmdBuffers_.data());
+    cmdBuffers_.clear();
     swapchains_.clear();  // destroy XR swapchains (and their image views) first
     if (appSpace_ != XR_NULL_HANDLE) xrDestroySpace(appSpace_);
+    appSpace_ = XR_NULL_HANDLE;
     if (session_ != XR_NULL_HANDLE) xrDestroySession(session_);
+    session_ = XR_NULL_HANDLE;
 }
 
 void Session::createSession() {
@@ -121,8 +134,12 @@ void Session::setClipPlanes(float nearZ, float farZ) {
 }
 
 void Session::syncActions() {
-    if (!running_) return;
-    if (actions_) actions_->sync(session_, appSpace_, lastDisplayTime_);
+    const bool focused = running_ && state_ == XR_SESSION_STATE_FOCUSED;
+    if (!focused) {
+        if (actions_) actions_->deactivate(lastDisplayTime_);
+        return;
+    }
+    if (actions_ && !actions_->sync(session_, appSpace_, lastDisplayTime_)) return;
     if (handTracking_) handTracking_->sync(appSpace_, lastDisplayTime_);
 }
 
@@ -200,8 +217,10 @@ void Session::createCommandResources() {
     ai.commandPool = device_.commandPool();
     ai.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     ai.commandBufferCount = kFrameSlots;
-    if (vkAllocateCommandBuffers(device_.device(), &ai, cmdBuffers_.data()) != VK_SUCCESS)
+    if (vkAllocateCommandBuffers(device_.device(), &ai, cmdBuffers_.data()) != VK_SUCCESS) {
+        cmdBuffers_.clear();
         throw std::runtime_error("XR: failed to allocate command buffers");
+    }
 
     fences_.resize(kFrameSlots);
     VkFenceCreateInfo fi{};

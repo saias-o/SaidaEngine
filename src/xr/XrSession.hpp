@@ -71,6 +71,8 @@ public:
     uint32_t viewCount() const { return static_cast<uint32_t>(swapchains_.size()); }
 
 private:
+    void initialize();
+    void release() noexcept;
     void createSession();
     void selectReferenceSpace();
     void createReferenceSpace();

@@ -123,7 +123,16 @@ public:
 }
 
 Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool requireXr, GeometryCapacity geometry,
-               PhysicsCapacity physics) {
+               PhysicsCapacity physics)
+    : Engine(std::move(sceneSetup), initialProject, requireXr, geometry, physics, {}) {}
+
+Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool requireXr, GeometryCapacity geometry,
+               PhysicsCapacity physics, std::vector<std::shared_ptr<xr::InputExtension>> xrInputExtensions) {
+    if (!requireXr && !xrInputExtensions.empty())
+        throw std::invalid_argument("XR input extensions require an XR session");
+#ifndef SAIDA_ENABLE_XR
+    if (requireXr) throw std::runtime_error("This engine was built without OpenXR support");
+#endif
     // The XR process currently has no desktop mirror swapchain. Keep its host
     // GLFW window hidden instead of presenting a misleading unrendered surface.
     // CI may also hide it while exercising the exact editor Build/runtime path
@@ -145,7 +154,7 @@ Engine::Engine(SceneSetup sceneSetup, const std::string& initialProject, bool re
 #ifdef SAIDA_ENABLE_XR
     if (requireXr) {
         try {
-            xrInstance_ = std::make_unique<xr::Instance>();
+            xrInstance_ = std::make_unique<xr::Instance>(std::move(xrInputExtensions));
             xrCreator_ = std::make_unique<xr::XrVulkanDeviceCreator>(*xrInstance_);
             device_ = std::make_unique<VulkanDevice>(*window_, xrCreator_.get());
             xrSession_ = std::make_unique<xr::Session>(*xrInstance_, *device_);

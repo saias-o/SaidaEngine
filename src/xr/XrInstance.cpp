@@ -1,5 +1,6 @@
 #include "xr/XrPlatform.hpp"   // must precede the XR headers (include order)
 #include "xr/XrInstance.hpp"
+#include "xr/XrInputExtensions.hpp"
 
 #include "core/Log.hpp"
 
@@ -29,7 +30,7 @@ const char* resultName(XrInstance instance, XrResult r) {
 
 // Create an instance + resolve the HMD system. Returns true on full success.
 bool createInstanceAndSystem(XrInstance& outInstance, XrSystemId& outSystem,
-                             bool& outHandTrackingExtension) {
+                             bool& outHandTrackingExtension, InputExtensions& inputExtensions) {
     uint32_t extensionCount = 0;
     if (XR_FAILED(xrEnumerateInstanceExtensionProperties(
             nullptr, 0, &extensionCount, nullptr))) return false;
@@ -47,6 +48,8 @@ bool createInstanceAndSystem(XrInstance& outInstance, XrSystemId& outSystem,
         extensions, XR_EXT_HAND_TRACKING_EXTENSION_NAME);
     if (outHandTrackingExtension)
         enabledExtensions.push_back(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+
+    inputExtensions.negotiate(extensions, enabledExtensions);
 
     XrInstanceCreateInfo ci{};
     ci.type = XR_TYPE_INSTANCE_CREATE_INFO;
@@ -83,33 +86,42 @@ void check(XrResult r, const char* what) {
                                  resultName(XR_NULL_HANDLE, r));
 }
 
-Instance::Instance() {
-    if (!createInstanceAndSystem(instance_, systemId_, handTrackingSupported_))
-        throw std::runtime_error("OpenXR: failed to create instance / find HMD system");
+Instance::Instance(InputExtensionList extensions)
+    : inputExtensions_(std::make_unique<InputExtensions>(std::move(extensions))) {
+    try {
+        if (!createInstanceAndSystem(instance_, systemId_, handTrackingSupported_, *inputExtensions_))
+            throw std::runtime_error("OpenXR: failed to create instance / find HMD system");
 
-    XrInstanceProperties props{};
-    props.type = XR_TYPE_INSTANCE_PROPERTIES;
-    if (XR_SUCCEEDED(xrGetInstanceProperties(instance_, &props)))
-        Log::info("OpenXR runtime: ", props.runtimeName);
+        XrInstanceProperties props{};
+        props.type = XR_TYPE_INSTANCE_PROPERTIES;
+        if (XR_SUCCEEDED(xrGetInstanceProperties(instance_, &props)))
+            Log::info("OpenXR runtime: ", props.runtimeName);
 
-    XrSystemHandTrackingPropertiesEXT handProperties{};
-    handProperties.type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT;
-    XrSystemProperties sysProps{};
-    sysProps.type = XR_TYPE_SYSTEM_PROPERTIES;
-    if (handTrackingSupported_) sysProps.next = &handProperties;
-    if (XR_SUCCEEDED(xrGetSystemProperties(instance_, systemId_, &sysProps))) {
-        Log::info("XR system: ", sysProps.systemName);
-        handTrackingSupported_ = handTrackingSupported_ &&
-                                 handProperties.supportsHandTracking == XR_TRUE;
-    } else {
-        handTrackingSupported_ = false;
+        XrSystemHandTrackingPropertiesEXT handProperties{};
+        handProperties.type = XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT;
+        XrSystemProperties sysProps{};
+        sysProps.type = XR_TYPE_SYSTEM_PROPERTIES;
+        if (handTrackingSupported_) sysProps.next = &handProperties;
+        if (XR_SUCCEEDED(xrGetSystemProperties(instance_, systemId_, &sysProps))) {
+            Log::info("XR system: ", sysProps.systemName);
+            handTrackingSupported_ = handTrackingSupported_ &&
+                                     handProperties.supportsHandTracking == XR_TRUE;
+        } else {
+            handTrackingSupported_ = false;
+        }
+        Log::info("XR hand tracking ", handTrackingSupported_ ? "supported" : "unavailable");
+
+        loadFunctions();
+    } catch (...) {
+        inputExtensions_.reset();
+        if (instance_ != XR_NULL_HANDLE) xrDestroyInstance(instance_);
+        instance_ = XR_NULL_HANDLE;
+        throw;
     }
-    Log::info("XR hand tracking ", handTrackingSupported_ ? "supported" : "unavailable");
-
-    loadFunctions();
 }
 
 Instance::~Instance() {
+    inputExtensions_.reset();
     if (instance_ != XR_NULL_HANDLE) xrDestroyInstance(instance_);
 }
 

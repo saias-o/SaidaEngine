@@ -783,6 +783,17 @@ Post-V1 unless the scope changes explicitly.
   `saida_ssao_tests`). Binocular agreement and the instability with AO enabled
   still need a headset comparison against that NoAO baseline; CPU tests and
   desktop captures do not establish it.
+- [x] Add a generic pre-instance XR input-provider seam and optional XRGesture
+  add-on: typed actions, merged profile suggestions, dependency negotiation,
+  focus/reset semantics and native resource ownership; no Meta semantics in
+  core input types. Synthetic gesture/sequence/locomotion tests and the real
+  instance/action bridge against a fake OpenXR dispatch cover both native
+  completion paths and extension rejection/fallback without opening a window.
+- [ ] Qualify XRGesture on actual headset/runtime combinations: native extension
+  availability (including PC Link), thumb contact/swipe accuracy and false
+  activations, tracking/focus loss, left/right mapping, latency and R1World
+  collision/streaming during head-relative stepping. Compilation and synthetic
+  skeleton tests do not establish device recognition quality.
 - [ ] XR: multiview MSAA/resolve, ImGui overlay and a real anchors backend.
 
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and

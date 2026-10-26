@@ -692,6 +692,7 @@ endif()
 if(SAIDA_ENABLE_XR)
     target_sources(saida_engine PRIVATE
         src/xr/XrInstance.cpp
+        src/xr/XrInputExtensions.cpp
         src/xr/XrVulkanBinding.cpp
         src/xr/XrRegistration.cpp
         src/xr/XrSwapchain.cpp

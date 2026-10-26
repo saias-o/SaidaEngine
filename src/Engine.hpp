@@ -10,6 +10,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace saida {
 
@@ -22,6 +23,7 @@ class SceneTree;
 class ImGuiLayer;
 class Renderer;
 class Project;
+namespace xr { class InputExtension; }
 #ifdef SAIDA_ENABLE_XR
 namespace xr { class Instance; class Session; }
 class VulkanDeviceCreator;
@@ -35,6 +37,9 @@ public:
     explicit Engine(SceneSetup sceneSetup, const std::string& initialProject = "",
                     bool requireXr = false, GeometryCapacity geometry = {},
                     PhysicsCapacity physics = {});
+    Engine(SceneSetup sceneSetup, const std::string& initialProject, bool requireXr,
+           GeometryCapacity geometry, PhysicsCapacity physics,
+           std::vector<std::shared_ptr<xr::InputExtension>> xrInputExtensions);
     ~Engine();
     Engine(const Engine&) = delete;
     Engine& operator=(const Engine&) = delete;

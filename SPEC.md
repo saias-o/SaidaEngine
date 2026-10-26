@@ -2840,6 +2840,28 @@ as the rig's inverse (`xr::appSpacePoseForRig`, proven by
 `saida_xr_rig_pose_tests`). A mounted tree finds the rig by its `xr_origin`
 group.
 
+Optional input providers implement the OpenXR-free `xr::InputExtension` contract
+(`xr/XrInputExtension.hpp`). A game passes shared providers in the six-argument
+`Engine` constructor before instance creation; the existing constructor remains
+available. The engine copies and validates descriptions once, negotiates atomic
+extension dependency sets, creates Boolean/Float/Vector2/Pose actions and pose
+spaces before the single action-set attachment, and merges suggestions per
+interaction profile with controller bindings. A rejected merged suggestion
+retries the controller-only bindings. Alternative profiles are allowed; a
+provider is available when its dependencies and at least one profile are
+accepted. Each channel still reports its own activity/tracking status.
+
+`submit` receives borrowed, preallocated typed snapshots on the engine thread
+before the application callback. Session focus and successful `xrSyncActions`
+are required for active values; positive `XR_SESSION_NOT_FOCUSED` also clears
+input and suppresses optical sampling. Teardown resets providers and destroys
+spaces/actions before their parent set/session/instance; partial initialization
+uses the same cleanup. Snapshots must not be retained, and callbacks must not
+throw, block, allocate per frame or reenter the engine. Descriptions are bounded
+to 16 providers, 64 actions and 256 bindings per provider. Providers belong to
+one engine instance and outlive its callbacks through shared ownership. No
+vendor gesture type or action is part of `XRInput` or `XRTypes`.
+
 Limits: multiview MSAA/resolve, XR ImGui overlay, real anchors backend and a
 reproducible headsets/runtimes matrix not closed. The logs indicate hand-tracking
 support and active/lost transitions; a compilation does not replace the hardware
@@ -2999,6 +3021,44 @@ vehicle node. Graphs must stay at stable addresses while flows refer to them.
 Verification is one translation unit with no engine build:
 `g++ -std=c++20 -O2 -Wall -I../include test_traffic.cpp -o test_traffic` in
 `plugins/traffic/tests`, which prints `PASS saida::traffic`.
+
+### 11.3 Optional C++ XRGesture add-on
+
+`plugins/xrgesture` is a C++17 header-only add-on, linked explicitly by a game
+through `Saida::XRGesture`; the engine/editor do not load or link it. It owns
+all Meta dependencies, paths and microgesture types. `MetaMicrogestureInput`
+implements the generic XR input-provider contract; `RuntimeInputState` belongs
+to the plugin. `captureInput` combines that state with the existing `XRInput`
+head and world-space optical joints.
+
+`GestureSystem` supplies five completed thumb microgestures and continuous
+pinch, grab, open palm and point recognizers, with confidence, hysteresis,
+minimum hold time, cooldown and explicit Started/Updated/Ended/Cancelled or
+Performed events. Custom rules receive the complete two-hand/head frame;
+`SequenceRecognizer` composes temporal gesture tokens per hand. Limits are 64
+rules, 16 sequence steps and 256 events per update; framework storage is
+allocated at construction/registration and reused per sample. Custom callbacks
+are responsible for their own allocation behavior. Event ranges are borrowed
+until the next update/reset. Tracking loss, unfocused frames, time reversal and
+sample gaps reset recognition; first-observed held inputs are not completions.
+
+The native backend requires both `XR_EXT_hand_interaction` and
+`XR_META_hand_tracking_microgestures`, and maps the five completed Boolean
+actions for each hand from the extended hand-interaction profile. Native
+recognition is performed by the runtime. NativePreferred falls back to an
+independent geometric heuristic over `XR_EXT_hand_tracking` joints when native
+actions are unavailable/inactive; NativeOnly and SkeletonOnly are explicit
+options. The heuristic measures raised-thumb/contact/motion/release in a
+hand-local, hand-size-normalized frame. It is not Meta's native classifier and
+has not been qualified on a hardware/runtime matrix. Source identity stays in
+each event and availability is explicit.
+
+The optional `LocomotionGate` produces intents only: tap activation, owner hand,
+head-relative steps or lateral snap turns, and cancellation on focus/permission/
+tracking loss, index extension, wrist tilt, idle timeout or sample gap.
+`StepMotion` bounds queued horizontal distance and speed; the host owns collision,
+streaming and applying/rejecting deltas. No gameplay movement is in the engine.
+See the add-on README for upstream research, API usage and headless tests.
 
 ## 12. Export and packaging
 
