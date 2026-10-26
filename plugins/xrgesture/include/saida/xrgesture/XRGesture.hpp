@@ -75,15 +75,20 @@ public:
         }
         if (frame.time == lastTime_)
             return events();
-        const bool discontinuity =
-            lastTime_ >= 0 && (frame.time < lastTime_ || frame.time - lastTime_ > maximumGap_);
+        const bool reversed = lastTime_ >= 0 && frame.time < lastTime_;
+        const bool discontinuity = lastTime_ >= 0 && (reversed || frame.time - lastTime_ > maximumGap_);
         lastTime_ = frame.time;
         if (discontinuity) {
             cancel(frame.time);
-            return events();
+            if (reversed)
+                return events();
         }
         for (XRHand hand : {XRHand::Left, XRHand::Right}) {
             micro_.update(frame, hand, [this](const Event& event) { push(event); });
+            // Fresh runtime completions are valid after a stall; temporal rules
+            // restart on the next sample rather than cancel/restart in one batch.
+            if (discontinuity)
+                continue;
             for (auto& entry : rules_)
                 updateRule(entry, frame, hand);
         }

@@ -72,8 +72,9 @@ static void nativeContracts() {
     auto f = frame();
     auto& native = f.hands[1].native;
     native.supported = native.active = true;
-    native.downMask = native.pressedMask = xrMicrogestureBit(XRMicrogesture::ThumbTap);
-    check(microCount(system.update(f)) == 0, "native held action on first observation is not a gesture");
+    native.downMask = xrMicrogestureBit(XRMicrogesture::ThumbTap);
+    native.pressedMask = 0;
+    check(microCount(system.update(f)) == 0, "native held level without changed flag is not a completion");
     f.time = .02;
     native.downMask = native.pressedMask = 0;
     system.update(f);
@@ -87,8 +88,13 @@ static void nativeContracts() {
             nativeSource = e.source == Source::NativeMeta;
     check(nativeSource, "native source remains distinct from heuristic");
     f.time = .06;
-    check(microCount(system.update(f)) == 0, "sticky native boolean never repeats");
+    native.pressedMask = 0;
+    check(microCount(system.update(f)) == 0, "held native boolean without another change never repeats");
     check(system.update(f).empty(), "duplicate timestamp cannot replay a sample");
+    f.time = .07;
+    native.pressedMask = native.downMask;
+    check(microCount(system.update(f), gesture::ThumbTap) == 1,
+          "fresh native completion bypasses local cooldown and remembered down level");
     f.time = .08;
     native.downMask = native.pressedMask = 0;
     system.update(f);
@@ -99,10 +105,15 @@ static void nativeContracts() {
     f.focused = false;
     check(microCount(system.update(f)) == 0, "unfocused gestures suppressed");
     f.time = .24;
+    native.pressedMask = 0;
     f.focused = true;
     check(microCount(system.update(f)) == 0, "held input after focus regain suppressed");
     f.time = 2;
-    check(microCount(system.update(f)) == 0, "hitch cancels recognition");
+    check(microCount(system.update(f)) == 0, "hitch cannot turn a held native level into a completion");
+    f.time = 4;
+    native.pressedMask = native.downMask;
+    check(microCount(system.update(f), gesture::ThumbTap) == 1,
+          "fresh native completion after a hitch is delivered like Meta's sample");
     f.time = 1;
     check(microCount(system.update(f)) == 0, "clock reversal cancels recognition");
     f.time = std::numeric_limits<double>::quiet_NaN();

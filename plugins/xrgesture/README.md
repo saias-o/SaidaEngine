@@ -91,9 +91,14 @@ actions, each with left/right subactions, bind to
 
 These are completed gestures. Native hand mapping is already defined by the
 runtime and is never mirrored again. All five channels must be active for a
-hand's native sample to be accepted. The recognizer requires a neutral native
-sample first, suppresses sticky/replayed edges and applies a configurable
-per-gesture cooldown (120 ms by default).
+hand's native sample to be accepted. Native completion processing follows Meta's
+[official OpenXR sample](https://github.com/meta-quest/Meta-OpenXR-SDK/blob/bbed2f20e38a5df7113630771c83cb8279e4fc26/Samples/XrSamples/XrMicrogestures/Src/ActionSetDisplayPanel.cpp):
+`changedSinceLastSync && currentState`. No second cooldown, remembered-level
+filter or initial-neutral requirement is applied to the classified native
+completion. Held levels with no changed flag do not fire; a duplicate frame
+timestamp cannot replay events. Fresh native completions after a streaming
+stall are delivered while temporal recognition history is reset. The
+configurable cooldown applies to the independent geometric heuristic only.
 
 `MicrogestureConfig::mode` selects NativeOnly, NativePreferred (default), or
 SkeletonOnly. NativePreferred uses native actions when supported and active;
@@ -136,7 +141,8 @@ Started/Performed tokens into arbitrary per-hand sequences with bounded gaps
 and total duration, for example two taps or grab followed by a swipe. Complex
 arbitrary gestures require a custom classifier/rule; no universal classifier is
 claimed. Lost/invalid data invokes `onReset`; focus loss, time reversal and a
-sample gap over 250 ms cancel active interactions. Reset before removing a live
+sample gap over 250 ms cancel temporal interactions. Fresh native completion
+flags on the first post-stall sample remain usable. Reset before removing a live
 continuous rule. Do not recursively call or mutate a recognizer from callbacks.
 
 The framework reserves 64 rules and reuses fixed 256-event storage. Sequences
@@ -149,11 +155,19 @@ the next update/reset. Configure/register outside the per-frame path.
 `LocomotionGate` produces world-space intents; it never moves scene nodes.
 A tap arms one hand. Further owner-hand swipes produce head-relative 0.5 m steps
 or 30-degree lateral snap turns (default). `LateralAction::Step` selects strafing.
-R1World uses 15-degree snap turns and a more sensitive game-specific microgesture
-configuration. A second owner tap, extended index, wrist tilt over 45 degrees,
-focus/permission/tracking loss, timeout or sample gap cancels the gate. The
-wrist test compares gravity in wrist space, avoiding cancellation on world yaw
-or reference-space rebases.
+R1World uses 15-degree snap turns. All closures expose a `LocomotionStopReason`.
+
+The default Pose mode cancels on index extension, wrist tilt over 45 degrees,
+tracking loss, idle timeout or sample gap. Explicit mode, used by R1World,
+trusts active native input instead of reclassifying finger geometry: skeleton
+occlusion or wrist pitch cannot veto a Meta completion. A tap on the owner hand
+stops; a tap on the other available hand transfers ownership, even when the old
+hand is lost. Tracking loss suspends output and clears queued motion while
+retaining activation; a fresh completion after tracking recovery can move again.
+Sample gaps request clearing pending motion without disarming, and fresh
+native events in that frame remain usable. `idleTimeoutSeconds=0` disables the
+optional idle timeout. Focus/permission/head-pose loss, invalid time and an
+explicit stop still close the gate; old movement is never replayed on recovery.
 
 `StepMotion` consumes intents at bounded speed (2.8 m/s, at most 1 m queued).
 The host applies each delta through its existing character solver and must call

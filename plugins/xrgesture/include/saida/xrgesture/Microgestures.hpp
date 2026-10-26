@@ -56,16 +56,13 @@ public:
             if (!state.native)
                 state = {};
             state.native = true;
-            if (sample.native.downMask == 0)
-                state.nativeArmed = true;
-            if (state.nativeArmed) {
-                const uint32_t pressed =
-                    sample.native.pressedMask & sample.native.downMask & ~state.previousNative;
-                for (uint32_t i = 0; i < static_cast<uint32_t>(XRMicrogesture::Count); ++i)
-                    if (pressed & (uint32_t{1} << i))
-                        publish(state, frame, hand, i + 1, Source::NativeMeta, emit);
-            }
-            state.previousNative = sample.native.downMask;
+            // Match Meta's native sample: changedSinceLastSync && currentState.
+            // The runtime has already classified/debounced the completion. A
+            // second cooldown or remembered down level can discard real events.
+            const uint32_t pressed = sample.native.pressedMask & sample.native.downMask;
+            for (uint32_t i = 0; i < static_cast<uint32_t>(XRMicrogesture::Count); ++i)
+                if (pressed & (uint32_t{1} << i))
+                    emit(Event{i + 1, hand, Phase::Performed, Source::NativeMeta, frame.time, 1});
             return;
         }
         if (state.native)
@@ -79,8 +76,7 @@ public:
 
 private:
     struct State {
-        bool native = false, nativeArmed = false, armed = false, touching = false;
-        uint32_t previousNative = 0;
+        bool native = false, armed = false, touching = false;
         double neutralSince = -1, contactSince = 0;
         glm::vec2 start{0}, last{0};
         float maximumTravel = 0;

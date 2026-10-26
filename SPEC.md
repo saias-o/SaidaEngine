@@ -3040,7 +3040,11 @@ rules, 16 sequence steps and 256 events per update; framework storage is
 allocated at construction/registration and reused per sample. Custom callbacks
 are responsible for their own allocation behavior. Event ranges are borrowed
 until the next update/reset. Tracking loss, unfocused frames, time reversal and
-sample gaps reset recognition; first-observed held inputs are not completions.
+sample gaps reset temporal recognition. Native Boolean completions use the
+runtime changed-and-true flags directly, with no added cooldown, initial-neutral
+requirement or remembered-level filter. Held levels without a changed flag are
+not completions. Fresh native events remain usable on the first post-stall
+sample, while temporal rules restart on the next sample.
 
 The native backend requires both `XR_EXT_hand_interaction` and
 `XR_META_hand_tracking_microgestures`, and maps the five completed Boolean
@@ -3053,10 +3057,15 @@ hand-local, hand-size-normalized frame. It is not Meta's native classifier and
 has not been qualified on a hardware/runtime matrix. Source identity stays in
 each event and availability is explicit.
 
-The optional `LocomotionGate` produces intents only: tap activation, owner hand,
-head-relative steps or lateral snap turns, and cancellation on focus/permission/
-tracking loss, index extension, wrist tilt, idle timeout or sample gap.
-`StepMotion` bounds queued horizontal distance and speed; the host owns collision,
+The optional `LocomotionGate` produces intents only: tap activation, owner hand
+and head-relative steps or lateral snap turns. Default Pose mode cancels on
+tracking loss, index extension, wrist tilt, idle timeout or sample gap. Explicit
+mode trusts native action activity independently of optical joints, suspends
+output during hand loss without forgetting activation, permits tap handoff and
+requests clearing queued motion after a stall. Zero disables the optional idle
+timeout. All modes close on focus/permission/head-pose loss or invalid time and
+report explicit stop reasons. `StepMotion` bounds queued horizontal distance
+and speed; the host owns collision,
 streaming and applying/rejecting deltas. No gameplay movement is in the engine.
 See the add-on README for upstream research, API usage and headless tests.
 

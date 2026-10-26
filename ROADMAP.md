@@ -789,6 +789,12 @@ Post-V1 unless the scope changes explicitly.
   core input types. Synthetic gesture/sequence/locomotion tests and the real
   instance/action bridge against a fake OpenXR dispatch cover both native
   completion paths and extension rejection/fallback without opening a window.
+- [x] Align native completions with Meta's OpenXR sample (changed-and-true,
+  no local cooldown/neutral latch) and add explicit locomotion gating with
+  tracking suspension/recovery, handoff and stop reasons. Quest 3/Oculus Link
+  logs on 2026-10-26 showed native swipes continuing after the old gate closed;
+  four-minute synthetic replay and regression tests cover the corrected path.
+  Rechecking the changed behavior on the headset remains open below.
 - [ ] Qualify XRGesture on actual headset/runtime combinations: native extension
   availability (including PC Link), thumb contact/swipe accuracy and false
   activations, tracking/focus loss, left/right mapping, latency and R1World
