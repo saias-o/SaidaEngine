@@ -178,6 +178,11 @@ public:
     static glm::vec2 mousePosition();       // cursor position in window pixels
     static glm::vec2 scrollDelta();         // wheel/trackpad delta since last frame
     static const std::vector<uint32_t>& textInputCodepoints();
+    // Whether Caps Lock / Num Lock is on, as the last key event reported it
+    // (isKeyDown(KeyCode::NumLock) is only the key being held). False until
+    // the first key event, and on platforms that do not report lock state.
+    static bool isCapsLockOn();
+    static bool isNumLockOn();
     static const std::vector<TouchPoint>& touches();
     static const std::vector<TouchGestureEvent>& touchGestures();
 

@@ -32,6 +32,7 @@ bool g_rawHasLastPos = false;
 double g_rawLastX = 0.0, g_rawLastY = 0.0;
 double g_rawScrollDx = 0.0, g_rawScrollDy = 0.0;
 std::vector<uint32_t> g_rawTextInput;
+int g_rawLockMods = 0;
 
 // Raw hardware state
 bool g_keyCurr[GLFW_KEY_LAST + 1] = {};
@@ -43,6 +44,9 @@ glm::vec2 g_mouseDelta{0.0f};
 glm::vec2 g_mousePos{0.0f};
 glm::vec2 g_scrollDelta{0.0f};
 std::vector<uint32_t> g_textInput;
+// Lock state (on/off, not the key held), as GLFW reports it with key events.
+bool g_capsLock = false;
+bool g_numLock = false;
 std::vector<TouchPoint> g_touches;
 std::vector<TouchPoint> g_pendingTouches;
 std::vector<TouchGestureEvent> g_touchGestures;
@@ -469,6 +473,12 @@ void Input::bindRaw(GLFWwindow* window) {
     glfwSetCharCallback(window, [](GLFWwindow*, unsigned int codepoint) {
         g_rawTextInput.push_back(codepoint);
     });
+#ifdef GLFW_LOCK_KEY_MODS  // GLFW 3.3+; an older header reports no lock state
+    glfwSetInputMode(window, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
+    glfwSetKeyCallback(window, [](GLFWwindow*, int, int, int, int mods) {
+        g_rawLockMods = mods & (GLFW_MOD_CAPS_LOCK | GLFW_MOD_NUM_LOCK);
+    });
+#endif
 
 #ifdef __EMSCRIPTEN__
     g_touchBackendAvailable = installWebTouchBackend();
@@ -569,6 +579,7 @@ void Input::newFrame() {
     }
     sampleGamepad();
 
+    int lockMods = 0;
 #ifndef __EMSCRIPTEN__
     if (g_window) {
         double dx, dy;
@@ -579,6 +590,7 @@ void Input::newFrame() {
         g_window->consumeScrollDelta(sx, sy);
         g_scrollDelta = {static_cast<float>(sx), static_cast<float>(sy)};
         g_textInput = g_window->consumeTextInput();
+        lockMods = g_window->lockMods();
     } else
 #endif
     {
@@ -588,7 +600,14 @@ void Input::newFrame() {
         g_rawScrollDx = g_rawScrollDy = 0.0;
         g_textInput = std::move(g_rawTextInput);
         g_rawTextInput.clear();
+        lockMods = g_rawLockMods;
     }
+#ifdef GLFW_LOCK_KEY_MODS
+    g_capsLock = (lockMods & GLFW_MOD_CAPS_LOCK) != 0;
+    g_numLock = (lockMods & GLFW_MOD_NUM_LOCK) != 0;
+#else
+    (void)lockMods;
+#endif
     g_touches = std::move(g_pendingTouches);
     g_pendingTouches.clear();
     g_touchGestures = std::move(g_pendingTouchGestures);
@@ -954,6 +973,8 @@ glm::vec2 Input::mouseDelta() { return g_mouseDelta; }
 glm::vec2 Input::mousePosition() { return g_mousePos; }
 glm::vec2 Input::scrollDelta() { return g_scrollDelta; }
 const std::vector<uint32_t>& Input::textInputCodepoints() { return g_textInput; }
+bool Input::isCapsLockOn() { return g_capsLock; }
+bool Input::isNumLockOn() { return g_numLock; }
 const std::vector<TouchPoint>& Input::touches() { return g_touches; }
 const std::vector<TouchGestureEvent>& Input::touchGestures() {
     return g_touchGestures;

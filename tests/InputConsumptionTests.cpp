@@ -7,6 +7,8 @@
 
 namespace {
 int buttonLevels[GLFW_MOUSE_BUTTON_LAST + 1]{};
+GLFWkeyfun keyCallback = nullptr;
+bool lockKeyMods = false;
 int checks = 0;
 void require(bool condition, const char* message) {
     ++checks;
@@ -29,6 +31,13 @@ extern "C" void saidaTestWindowSize(GLFWwindow*, int* w, int* h) { *w = *h = 64;
 extern "C" GLFWcursorposfun saidaTestCursorCallback(GLFWwindow*, GLFWcursorposfun) { return nullptr; }
 extern "C" GLFWscrollfun saidaTestScrollCallback(GLFWwindow*, GLFWscrollfun) { return nullptr; }
 extern "C" GLFWcharfun saidaTestCharCallback(GLFWwindow*, GLFWcharfun) { return nullptr; }
+extern "C" GLFWkeyfun saidaTestKeyCallback(GLFWwindow*, GLFWkeyfun callback) {
+    keyCallback = callback;
+    return nullptr;
+}
+extern "C" void saidaTestInputMode(GLFWwindow*, int mode, int value) {
+    if (mode == GLFW_LOCK_KEY_MODS) lockKeyMods = value == GLFW_TRUE;
+}
 extern "C" int saidaTestJoystickIsGamepad(int) { return GLFW_FALSE; }
 
 int main() {
@@ -65,6 +74,22 @@ int main() {
             require(!Input::isMouseButtonReleased(button), "release is delivered once");
         }
     }
+
+    // Lock keys are a state, not a held key: Num Lock on with its key up is
+    // what keeps numpad digits typing digits in a text field.
+    require(lockKeyMods && keyCallback, "the raw window asks GLFW for the lock modifiers");
+    require(!Input::isNumLockOn() && !Input::isCapsLockOn(), "no lock reported before a key event");
+    keyCallback(&window, GLFW_KEY_KP_8, 0, GLFW_PRESS, GLFW_MOD_NUM_LOCK);
+    Input::sample();
+    require(Input::isNumLockOn() && !Input::isKeyDown(KeyCode::NumLock), "Num Lock on while its key is up");
+    require(!Input::isCapsLockOn(), "Num Lock alone leaves Caps Lock off");
+    keyCallback(&window, GLFW_KEY_A, 0, GLFW_RELEASE, GLFW_MOD_CAPS_LOCK | GLFW_MOD_SHIFT);
+    Input::sample();
+    require(Input::isCapsLockOn() && !Input::isNumLockOn(), "the latest key event carries the lock state");
+    keyCallback(&window, GLFW_KEY_A, 0, GLFW_PRESS, 0);
+    Input::sample();
+    require(!Input::isCapsLockOn() && !Input::isNumLockOn(), "locks turned off are reported off");
+
     Input::bindRaw(nullptr);
     std::cout << "[input-consumption] PASS (" << checks << " checks)\n";
 }

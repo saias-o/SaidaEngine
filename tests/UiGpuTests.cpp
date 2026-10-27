@@ -140,6 +140,25 @@ int main(int argc, char** argv) {
         canvas.executeJS("field.removeEventListener('wheel',wheel);field.removeAttribute('data-wheel');");
         canvas.fireScrollEvent(0,1);
         assert(!canvas.findElementById("field")->HasAttribute("data-wheel"));
+        // Numpad digits are digits only under KM_NUMLOCK (Input::isNumLockOn):
+        // without it RmlUi moves the cursor on 8/4/2 and deletes on '.'.
+        // Typed text is laid out, which needs a font face.
+        canvas.findElementById("field")->SetProperty("font-family", "monospace");
+        device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc){canvas.updateTextureIfNeededAsync(enc,0);});
+        auto typeOnNumpad = [&](int modifiers) {
+            auto* field = static_cast<Rml::ElementFormControl*>(canvas.findElementById("field"));
+            field->SetValue("");
+            for (const char c : std::string("48.02")) {
+                canvas.fireKeyEvent(true, c == '.' ? Rml::Input::KI_DECIMAL
+                                                   : Rml::Input::KeyIdentifier(Rml::Input::KI_NUMPAD0 + (c - '0')), modifiers);
+                canvas.fireTextInput(uint32_t(c));
+                canvas.fireKeyEvent(false, c == '.' ? Rml::Input::KI_DECIMAL
+                                                    : Rml::Input::KeyIdentifier(Rml::Input::KI_NUMPAD0 + (c - '0')), modifiers);
+            }
+            return field->GetValue();
+        };
+        assert(typeOnNumpad(Rml::Input::KM_NUMLOCK) == "48.02");
+        assert(typeOnNumpad(0) != "48.02");
         canvas.loadURL(assetPath("tests/fixtures/ui-project/ui/box-sizing-reset.html"));
         assert(canvas.lastLoadOk());
         canvas.executeJS(R"JS(

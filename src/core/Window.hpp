@@ -44,6 +44,9 @@ public:
     void consumeMouseDelta(double& dx, double& dy);
     void consumeScrollDelta(double& dx, double& dy);
     std::vector<uint32_t> consumeTextInput();
+    // GLFW_MOD_CAPS_LOCK / GLFW_MOD_NUM_LOCK as the last key event found them:
+    // whether the lock is on, not whether its key is held.
+    int lockMods() const { return lockMods_; }
 
     // Cursor capture: disabled (hidden, locked) for fly-cam vs normal for UI.
     bool cursorCaptured() const { return cursorCaptured_; }
@@ -61,6 +64,7 @@ private:
     static void cursorPosCallback(GLFWwindow* window, double x, double y);
     static void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
     static void charCallback(GLFWwindow* window, unsigned int codepoint);
+    static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
     GLFWmonitor* currentMonitor() const;
 
@@ -72,6 +76,7 @@ private:
     double scrollDx_ = 0.0;
     double scrollDy_ = 0.0;
     std::vector<uint32_t> textInput_;
+    int lockMods_ = 0;
     double lastX_ = 0.0;
     double lastY_ = 0.0;
     bool firstMouse_ = true;

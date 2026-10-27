@@ -172,6 +172,10 @@ driver. `--cases stability` captures a stationary scene repeatedly in the same
 engine instance, then switches its Sun off without moving the eye. The motion
 case likewise samples one running world. Separate launches can disagree where
 voxel material writes overlap, so they cannot isolate temporal instability.
+`--cases lod view` isolates camera-selected geometry and view-dependent diffuse
+sampling under a canopy: the first changes screen LOD in one running world,
+the second compares the same floor points from two camera positions with an
+anchored probe grid. Run both with `--quality 4` and `--quality 0`.
 Its default GI-off reference was captured on the MX450 before the GI
 refactor. For another device/driver, record a separate reference directory on
 the unmodified renderer with `--cases off --record-off <new-directory>`, inspect

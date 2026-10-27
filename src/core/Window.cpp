@@ -32,6 +32,10 @@ Window::Window(int width, int height, std::string title, bool visible) {
     glfwSetCursorPosCallback(window_, cursorPosCallback);
     glfwSetScrollCallback(window_, scrollCallback);
     glfwSetCharCallback(window_, charCallback);
+    // Key state is polled (glfwGetKey); the callback only reads the lock
+    // modifiers, which GLFW reports with key events alone.
+    glfwSetInputMode(window_, GLFW_LOCK_KEY_MODS, GLFW_TRUE);
+    glfwSetKeyCallback(window_, keyCallback);
 
     savedWidth_ = width;
     savedHeight_ = height;
@@ -70,6 +74,11 @@ void Window::scrollCallback(GLFWwindow* window, double xoffset, double yoffset) 
 void Window::charCallback(GLFWwindow* window, unsigned int codepoint) {
     auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
     self->textInput_.push_back(static_cast<uint32_t>(codepoint));
+}
+
+void Window::keyCallback(GLFWwindow* window, int, int, int, int mods) {
+    auto self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
+    self->lockMods_ = mods & (GLFW_MOD_CAPS_LOCK | GLFW_MOD_NUM_LOCK);
 }
 
 void Window::consumeMouseDelta(double& dx, double& dy) {

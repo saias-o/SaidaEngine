@@ -952,6 +952,8 @@ if (BUILD_TESTING)
         glfwSetCursorPosCallback=saidaTestCursorCallback
         glfwSetScrollCallback=saidaTestScrollCallback
         glfwSetCharCallback=saidaTestCharCallback
+        glfwSetKeyCallback=saidaTestKeyCallback
+        glfwSetInputMode=saidaTestInputMode
         glfwJoystickIsGamepad=saidaTestJoystickIsGamepad)
     target_compile_options(saida_input_consumption_tests PRIVATE -Wall -Wextra -UGLFW_DLL)
     add_test(NAME saida_input_consumption_tests COMMAND $<TARGET_FILE:saida_input_consumption_tests>)
@@ -1038,6 +1040,7 @@ if (BUILD_TESTING)
     add_executable(saida_grass_tests tests/GrassTests.cpp)
     saida_test_target(saida_grass_tests)
     target_link_libraries(saida_grass_tests PRIVATE saida_engine)
+    target_compile_definitions(saida_grass_tests PRIVATE SAIDA_PROJECT_ROOT="${CMAKE_SOURCE_DIR}")
     target_compile_options(saida_grass_tests PRIVATE -Wall -Wextra)
     add_test(NAME saida_grass_tests COMMAND $<TARGET_FILE:saida_grass_tests>)
 

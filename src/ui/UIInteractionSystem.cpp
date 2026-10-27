@@ -80,8 +80,10 @@ int rmlModifiers() {
     if (Input::isKeyDown(KeyCode::LeftShift) || Input::isKeyDown(KeyCode::RightShift)) modifiers |= Rml::Input::KM_SHIFT;
     if (Input::isKeyDown(KeyCode::LeftAlt) || Input::isKeyDown(KeyCode::RightAlt)) modifiers |= Rml::Input::KM_ALT;
     if (Input::isKeyDown(KeyCode::LeftSuper) || Input::isKeyDown(KeyCode::RightSuper)) modifiers |= Rml::Input::KM_META;
-    if (Input::isKeyDown(KeyCode::CapsLock)) modifiers |= Rml::Input::KM_CAPSLOCK;
-    if (Input::isKeyDown(KeyCode::NumLock)) modifiers |= Rml::Input::KM_NUMLOCK;
+    // The lock's state, not its key: without KM_NUMLOCK, RmlUi reads numpad
+    // 1-9 as End/arrows/Home/PgUp/PgDn and numpad '.' as Delete in text fields.
+    if (Input::isCapsLockOn()) modifiers |= Rml::Input::KM_CAPSLOCK;
+    if (Input::isNumLockOn()) modifiers |= Rml::Input::KM_NUMLOCK;
     if (Input::isKeyDown(KeyCode::ScrollLock)) modifiers |= Rml::Input::KM_SCROLLLOCK;
     return modifiers;
 }
