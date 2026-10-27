@@ -11,13 +11,19 @@
 #include "lighting.glsl"
 #include "grass_blade.glsl"
 
-layout(location = 6) in vec4 fragGI;
-layout(location = 0) in vec3 fragWorldPos;
-layout(location = 1) in vec3 fragNormal;
-layout(location = 2) in vec3 fragColor;
-layout(location = 3) in float fragHeight;
-layout(location = 4) in float fragGust;
-layout(location = 5) in float fragDetail;
+// Centroid: a blade is a few millimetres wide, narrower than a pixel from a
+// few metres off. Under MSAA a pixel that covers one of its samples is shaded
+// at its centre, outside the blade, and plain interpolation extrapolates there:
+// a height of 30 blade heights lit the tip 270 times, a white spark the bloom
+// spread to a disc; below zero, a black speck. At the centroid of the covered
+// samples every input stays the blade's own.
+layout(location = 6) centroid in vec4 fragGI;
+layout(location = 0) centroid in vec3 fragWorldPos;
+layout(location = 1) centroid in vec3 fragNormal;
+layout(location = 2) centroid in vec3 fragColor;
+layout(location = 3) centroid in float fragHeight;
+layout(location = 4) centroid in float fragGust;
+layout(location = 5) centroid in float fragDetail;
 
 layout(location = 0) out vec4 outColor;
 

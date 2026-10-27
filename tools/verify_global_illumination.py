@@ -23,11 +23,11 @@ from PIL import Image, ImageChops, ImageStat
 
 WIDTH, HEIGHT = 640, 360
 EYE, TARGET = (0., 2., 7.), (0., 1., 0.)
-CASES = ('off', 'open', 'canyon', 'room', 'metal', 'optout', 'scroll', 'rebase', 'motion', 'stability')
+CASES = ('off', 'open', 'canyon', 'room', 'metal', 'optout', 'scroll', 'rebase', 'motion', 'stability', 'lod', 'view')
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def project(point, eye=EYE, target=TARGET):
+def project(point, eye=EYE, target=TARGET, subpixel=False):
     def unit(v):
         length = math.sqrt(sum(x * x for x in v))
         return [x / length for x in v]
@@ -41,7 +41,9 @@ def project(point, eye=EYE, target=TARGET):
     focal = HEIGHT / (2 * math.tan(math.radians(60) / 2))
     if z <= 0:
         raise ValueError('sample is behind the fixture camera')
-    px, py = round(WIDTH/2 + focal*x/z), round(HEIGHT/2 - focal*y/z)
+    px, py = WIDTH/2 + focal*x/z, HEIGHT/2 - focal*y/z
+    if not subpixel:
+        px, py = round(px), round(py)
     box = (px-4, py-4, px+4, py+4)
     if not (0 <= box[0] < box[2] <= WIDTH and 0 <= box[1] < box[3] <= HEIGHT):
         raise ValueError(f'sample outside the fixture: {box}')
@@ -57,10 +59,10 @@ def incident(pixel):
     return (-b + math.sqrt(b*b - 4*a*c)) / (2*a)
 
 
-def rgb(image, point=(0., 0., 0.), room=False):
-    area = project(point, (0., 1.8, 1.5), (0., .2, -1.)) if room else project(point)
+def rgb(image, point=(0., 0., 0.), room=False, eye=EYE, target=TARGET, subpixel=False):
+    area = project(point, (0., 1.8, 1.5), (0., .2, -1.)) if room else project(point, eye, target, subpixel)
     # Convert each pixel before averaging: ACES/sRGB is nonlinear.
-    patch = image.crop(area)
+    patch = image.transform((8, 8), Image.Transform.EXTENT, area, Image.Resampling.BILINEAR) if subpixel else image.crop(area)
     pixels = list(patch.get_flattened_data() if hasattr(patch, 'get_flattened_data') else patch.getdata())
     return [sum(incident(p[c]) for p in pixels) / len(pixels) for c in range(3)]
 
@@ -86,7 +88,7 @@ class Run:
         self.images = {}
         self.results = {}
 
-    def capture(self, name, scene='canyon-red', gi=True, **params):
+    def capture(self, name, scene='canyon-red', gi=True, debug=None, **params):
         if name in self.images:
             return self.images[name]
         fixture = dict(scene=scene, gi=gi, quality=self.args.quality, frames=self.args.frames,
@@ -98,7 +100,8 @@ class Run:
         if not executable.exists():
             executable = self.build / 'tests/saida_gi_capture'
         with (self.root / f'{name}.log').open('w', encoding='utf-8') as log:
-            subprocess.run([str(executable), str(request)], env=self.env, check=True,
+            env = dict(self.env, SAIDA_GI_DEBUG=debug) if debug else self.env
+            subprocess.run([str(executable), str(request)], env=env, check=True,
                            stdout=log, stderr=subprocess.STDOUT, timeout=240)
         image = Image.open(fixture['image']).convert('RGB')
         if image.size != (WIDTH, HEIGHT):
@@ -244,6 +247,41 @@ class Run:
             assert max(drift) < .20, f'GI is still loading at {speed} m/s: {metrics[speed]}'
             assert max(jump) < .08, f'GI jumps during approach at {speed} m/s: {metrics[speed]}'
         return metrics
+
+    def view(self):
+        # Anchored probes never scroll. Compare the same world points as the
+        # eye translates beneath a canopy; all lighting is diffuse indirect.
+        end = max(self.args.frames, 240)
+        before = self.capture('view', 'canopy', debug='irradiance', frames=end, motionFrame=end+1,
+                              cameraShift=3., sampleFrames=[end+1, end+120])
+        points = [(x, 0., z) for x in (-1., 0., 1.) for z in (-1., 0., 1.)]
+        reference = [luma(rgb(before, point, subpixel=True)) for point in points]
+        assert min(reference) > .001, f'view fixture is dark: {reference}'
+        eye, target = (3., EYE[1], EYE[2]), (3., TARGET[1], TARGET[2])
+        changes = []
+        for frame in (end+1, end+120):
+            image = Image.open(self.root / f'view-{frame}.png').convert('RGB')
+            values = [luma(rgb(image, point, eye=eye, target=target, subpixel=True)) for point in points]
+            changes.append(max(abs(a-b)/a for a, b in zip(reference, values)))
+        assert max(changes) < .03, f'view direction changed diffuse irradiance: {changes}'
+        return dict(max_relative_changes=changes)
+
+    def lod(self):
+        # The same world/atlases survive a geometric canopy becoming an impostor.
+        # No direct light, AO or IBL: the floor can only change through GI.
+        end = max(self.args.frames, 240)
+        before = self.capture('lod', 'lod', frames=end, motionFrame=end+1,
+                              sampleFrames=[end+60, end+240])
+        points = [(x, 0., z) for x in (-1., 0., 1.) for z in (0., 1., 2.)]
+        reference = [luma(rgb(before, point)) for point in points]
+        assert min(reference) > .001, f'LOD floor is not visible: {reference}'
+        changes = []
+        for frame in (end+60, end+240):
+            image = Image.open(self.root / f'lod-{frame}.png').convert('RGB')
+            values = [luma(rgb(image, point)) for point in points]
+            changes.append(max(abs(a-b)/a for a, b in zip(reference, values)))
+        assert max(changes) < .03, f'screen LOD changed indirect occlusion: {changes}'
+        return dict(max_relative_changes=changes)
 
     def stability(self):
         # Maintenance updates with fixed geometry, light and eye.

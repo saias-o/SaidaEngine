@@ -27,6 +27,9 @@ public:
     // Runtime-only availability, true by default. A level with an unloaded mesh
     // is unavailable even when its caller has marked it ready.
     void setLevelReady(int level, bool ready);
+    bool levelReady(int level) const {
+        return level >= 0 && level < int(ready_.size()) && ready_[size_t(level)];
+    }
     // The finest level this group may show (0, the default, lets coverage
     // decide alone). Coarser levels still follow coverage. A caller with a
     // budget for its most detailed level -- the few nearest trees of a
@@ -53,6 +56,9 @@ public:
     // it was also updated the frame before: one hidden or disabled meanwhile
     // comes back at its level at once, and 0 (a camera cut) fades nothing.
     void updateForView(const glm::mat4& view, const glm::mat4& projection, uint64_t frame = 0);
+    // Enabling or disabling the group changes which levels are the node's
+    // geometry: both mark the node changed (Node::markChanged).
+    void onEnable() override;
     void onDisable() override;
     void onDestroy() override { onDisable(); }
     void save(nlohmann::json& out) const override;

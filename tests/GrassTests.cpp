@@ -4,7 +4,12 @@
 
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <iterator>
+#include <sstream>
+#include <string>
 
 // GrassNode's contract: a malformed field is refused rather than drawn as
 // something plausible, and the rings GrassFeature draws around the camera
@@ -156,6 +161,31 @@ void testTheSceneListsItsFields() {
     require(scene.grassFields().size() == 1, "enabled again, it is listed again");
 }
 
+// A blade is narrower than a pixel from a few metres off. Under MSAA such a
+// pixel is shaded at its centre, outside the blade, and an input interpolated
+// there is extrapolated: the tip's light grows as its height squared, and a
+// height of 30 lit a white spark that the bloom spread into a disc around the
+// camera, worse the higher it stood. Every input passed from grass.vert to
+// grass.frag is read at the centroid of the samples the blade covers.
+void testBladeInputsAreReadOnTheBlade() {
+    const std::filesystem::path root = SAIDA_PROJECT_ROOT;
+    for (const auto& [file, qualifier] : {std::pair<const char*, const char*>{"shaders/grass.vert", " out "},
+                                          std::pair<const char*, const char*>{"shaders/grass.frag", " in "}}) {
+        std::ifstream input(root / file, std::ios::binary);
+        require(input.good(), "the grass shader is readable");
+        std::istringstream lines(std::string{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()});
+        int varyings = 0;
+        for (std::string line; std::getline(lines, line);) {
+            if (line.rfind("layout(location", 0) != 0 || line.find(qualifier) == std::string::npos) continue;
+            // The fragment shader's colour target is not an interpolated input.
+            if (line.find("outColor") != std::string::npos) continue;
+            ++varyings;
+            require(line.find("centroid") != std::string::npos, "a blade input is interpolated at the centroid");
+        }
+        require(varyings == 7, "every blade input is checked");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -164,6 +194,7 @@ int main() {
     testRingsNestExactly();
     testOnlyTheFieldAndTheReachAreDrawn();
     testTheSceneListsItsFields();
+    testBladeInputsAreReadOnTheBlade();
     std::cout << "[grass] " << gChecks << " checks passed\n";
     return 0;
 }

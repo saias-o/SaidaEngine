@@ -38,7 +38,10 @@ void giProbeTap(int k,ivec3 c,vec3 g,vec3 N,float trilinear,bool visibilityTest,
 }
 vec4 sampleGICascade(int k,vec3 wp,vec3 N,vec3 V,bool visibilityTest) {
     float spacing=lights.giCascadeOrigins[k].w;
-    vec3 biased=wp+(N*.12+V*.08)*spacing;
+    // Diffuse irradiance belongs to the surface, not the observer. A view bias
+    // slides the lookup across visibility/classification boundaries as the eye
+    // moves, making static occlusion around thin geometry swim.
+    vec3 biased=wp+N*.12*spacing;
     vec3 g=mat3(lights.giWorldToGrid)*(biased-lights.giCascadeOrigins[k].xyz)/spacing;
     ivec3 base=ivec3(floor(g));vec3 f=fract(g);
     vec3 sum=vec3(0);float weights=0,valid=0;

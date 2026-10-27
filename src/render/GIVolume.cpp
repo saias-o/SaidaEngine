@@ -1,4 +1,5 @@
 #include "render/GIVolume.hpp"
+#include "render/gi/GIContributors.hpp"
 #ifndef SAIDA_RHI_WEBGPU
 #include "graphics/VulkanDevice.hpp"
 #endif
@@ -89,31 +90,37 @@ void GIVolume::prepare(Scene& scene,glm::vec3 camera,uint32_t frame) {
     SAIDA_PROFILE_SCOPE("GI/Prepare");
     frame_=int(frame%2);++serial_;int invalidations=0;
     const bool rebased=worldFromStable_!=scene.worldFromStable();worldFromStable_=scene.worldFromStable();
-    const bool policyChanged=policyRevision_!=scene.subtreeRevision();policyRevision_=scene.subtreeRevision();
+    const bool policyChanged=pendingContributors_ || policyRevision_!=scene.subtreeRevision();policyRevision_=scene.subtreeRevision();
+    if(policyChanged) {
+        // Only the branches that changed are walked again (GIContributorCache):
+        // a world of moving, LOD-switching animals and cars no longer re-walks
+        // every node each frame. The per-contributor slots are rebuilt only
+        // when the selection itself moved.
+        collected_.clear();
+        pendingContributors_=contributorCache_.collect(scene,collected_);
+        SAIDA_PROFILE_COUNTER("GI/ContributorWalk",contributorCache_.walked());
+        SAIDA_PROFILE_COUNTER("GI/ContributorBranches",contributorCache_.branches());
+        if(collected_!=contributorNodes_) {
+            contributorNodes_.swap(collected_);
+            slots_.resize(contributorNodes_.size());
+            for(size_t i=0;i<contributorNodes_.size();++i) {auto& c=contributors_[contributorNodes_[i]];c.seen=serial_;slots_[i]=&c;}
+            for(auto it=contributors_.begin();it!=contributors_.end();) {
+                if(it->second.seen!=serial_) {if(it->second.mesh) ++invalidations,grid_.invalidate(it->second.low,it->second.high);it=contributors_.erase(it);} else ++it;
+            }
+        }
+    }
     const auto stableFromWorld=glm::inverse(worldFromStable_);
     const double now=Time::unscaledElapsed();
     grid_.move(glm::dvec3(stableFromWorld*glm::dvec4(camera,1)),now-lastPrepareTime_);
     lastPrepareTime_=now;
     // Cache stable bounds, so rebasing the world does not dirty stationary geometry.
-    for(MeshNode* node:scene.meshes()) {
+    for(size_t i=0;i<contributorNodes_.size();++i) {
+        MeshNode* node=contributorNodes_[i];Contributor& c=*slots_[i];
         Mesh* mesh=node->sourceMesh();Material* material=node->material();
-        if(!mesh || !material || mesh->skinned() || material->desc().billboardColumns || !node->meshEnabled()) continue;
-        auto found=contributors_.find(node);
-        if(!policyChanged && found!=contributors_.end()) {
-            auto& cached=found->second;cached.seen=serial_;
-            if(!rebased && cached.poseRevision==node->subtreeTransformRevision() && cached.mesh==mesh &&
-               cached.material==material && cached.loaded==mesh->loaded()) continue;
+        if(!mesh || !material || mesh->skinned() || material->desc().billboardColumns || !node->meshEnabled()) {
+            if(c.mesh) ++invalidations,grid_.invalidate(c.low,c.high);
+            c=Contributor{};continue;
         }
-        bool visible=true,dynamic=false;
-        for(Node* ancestor=node;ancestor;ancestor=ancestor->parent()) {
-            visible &= ancestor->visible() && ancestor->enabled();
-            if(auto* body=ancestor->asCollisionObject()) dynamic |= body->motion()!=BodyMotion::Static;
-        }
-        if(!visible || dynamic) {
-            if(found!=contributors_.end()) {++invalidations,grid_.invalidate(found->second.low,found->second.high);contributors_.erase(found);}
-            continue;
-        }
-        auto& c=contributors_[node];c.seen=serial_;
         if(!rebased && c.poseRevision==node->subtreeTransformRevision() && c.mesh==mesh &&
            c.material==material && c.loaded==mesh->loaded()) continue;
         c.poseRevision=node->subtreeTransformRevision();
@@ -125,9 +132,6 @@ void GIVolume::prepare(Scene& scene,glm::vec3 camera,uint32_t frame) {
         const auto bounds=mesh->bounds();const glm::dvec3 center=glm::dvec3(transform*glm::dvec4(bounds.center(),1));
         const glm::dmat3 m(transform);const auto extent=glm::abs(m[0])*double(bounds.extent().x)*.5+glm::abs(m[1])*double(bounds.extent().y)*.5+glm::abs(m[2])*double(bounds.extent().z)*.5;
         c.low=center-extent;c.high=center+extent;++invalidations,grid_.invalidate(c.low,c.high);
-    }
-    for(auto it=contributors_.begin();it!=contributors_.end();) {
-        if(it->second.seen!=serial_) {++invalidations,grid_.invalidate(it->second.low,it->second.high);it=contributors_.erase(it);} else ++it;
     }
     bool terrainChanged=false;
     for(const auto* terrain:scene.terrainRings()) {

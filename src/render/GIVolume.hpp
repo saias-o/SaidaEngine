@@ -3,6 +3,7 @@
 #include "graphics/Buffer.hpp"
 #include "graphics/ComputePipeline.hpp"
 #include "render/gi/GIClipmap.hpp"
+#include "render/gi/GIContributors.hpp"
 #include <array>
 #include <memory>
 #include <unordered_map>
@@ -56,6 +57,10 @@ private:
     double lastPrepareTime_=0;
     glm::dmat4 worldFromStable_{1};
     std::unordered_map<const MeshNode*,Contributor> contributors_;
+    std::vector<MeshNode*> contributorNodes_,collected_;
+    std::vector<Contributor*> slots_;  // contributors_ of contributorNodes_, by index
+    GIContributorCache contributorCache_;
+    bool pendingContributors_ = true;
     std::unordered_map<const TerrainRingsNode*,std::pair<uint64_t,uint64_t>> terrains_;
     std::array<std::unique_ptr<rhi::RenderTexture>,2> irradiance_,visibility_;
     std::unique_ptr<rhi::Sampler> sampler_;

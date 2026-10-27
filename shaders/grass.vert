@@ -26,13 +26,14 @@ layout(set = 0, binding = 0) uniform CameraUBO {
 #include "noise.glsl"
 #include "surface_variation.glsl"
 
-layout(location = 6) out vec4 fragGI;
-layout(location = 0) out vec3 fragWorldPos;
-layout(location = 1) out vec3 fragNormal;
-layout(location = 2) out vec3 fragColor;
-layout(location = 3) out float fragHeight;  // 0 at the root, 1 at the tip
-layout(location = 4) out float fragGust;    // how hard the passing gust lays it, 0 to 1
-layout(location = 5) out float fragDetail;  // how much of the blade's own look is drawn, 0 to 1
+// Centroid, as grass.frag reads them: never extrapolated off a sub-pixel blade.
+layout(location = 6) centroid out vec4 fragGI;
+layout(location = 0) centroid out vec3 fragWorldPos;
+layout(location = 1) centroid out vec3 fragNormal;
+layout(location = 2) centroid out vec3 fragColor;
+layout(location = 3) centroid out float fragHeight;  // 0 at the root, 1 at the tip
+layout(location = 4) centroid out float fragGust;    // how hard the passing gust lays it, 0 to 1
+layout(location = 5) centroid out float fragDetail;  // how much of the blade's own look is drawn, 0 to 1
 
 const float PI = 3.14159265359;
 const float ROOT_SINK = 0.02;        // m below the ground, so no root floats over a crease

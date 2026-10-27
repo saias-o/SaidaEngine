@@ -548,7 +548,17 @@ by serialized mesh materials, retains legacy shading when false. Its GPU flag
 shares the reflection scalar's sign, preserving the classic and bindless layouts.
 Unlit materials retain their existing path. Dynamic physics descendants, skinned
 meshes and impostors do not contribute voxels. Static foliage contributes reduced
-opacity. `ScenePassFeature::recordGIVoxels` lets procedural surfaces contribute:
+opacity. LOD groups contribute their finest loaded, ready geometric representation,
+independently of camera coverage, the screen-detail budget and cross-fades. Only
+that representation's root bypasses LOD visibility; authored child visibility,
+disabled nodes, hidden groups and dynamic bodies still exclude geometry. A finer
+upload replaces the fallback when ready. The selection is cached per branch by
+the node's subtree revision (`GIContributorCache`): only branches that changed
+(children, visibility, enabling, LOD readiness or a LOD group enabled or
+disabled) or still wait on a mesh are walked again, so moving and LOD-switching
+animals and vehicles no longer re-walk the scene each frame. Diffuse probe lookups use a normal bias
+only, so moving the eye does not slide the sample across probe visibility boundaries.
+`ScenePassFeature::recordGIVoxels` lets procedural surfaces contribute:
 desktop terrain injects its heightfield and layer colours, respecting holes,
 through its existing uploaded buffers. Height/layer/hole changes invalidate GI.
 
@@ -2743,7 +2753,12 @@ the application through `UIInteractionSystem::focusWebCanvas` (reached as
 captured has no click to focus its canvas. The focused canvas receives keys and
 text and captures the keyboard from the next update, until a click elsewhere,
 its removal from the scene or `focusWebCanvas(nullptr)`; proven by
-`saida_ui_interaction_tests`. The
+`saida_ui_interaction_tests`. Keys reach RmlUi with the lock *state*:
+`Input::isCapsLockOn` / `isNumLockOn` come from the modifiers GLFW reports with
+each key event (`GLFW_LOCK_KEY_MODS`), not from the lock key being held, so
+numpad digits and decimal type text instead of moving the cursor or deleting
+(`saida_input_consumption_tests`, `saida_ui_gpu_tests`). Scroll Lock, which GLFW
+does not report, is still the key held. The
 roadmap retains the stronger lifetime-checked-handle contract and the missing
 re-entrancy corpus.
 

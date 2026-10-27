@@ -33,7 +33,9 @@ void LODGroupBehaviour::setBounds(const Aabb& local) {
 void LODGroupBehaviour::setLevelReady(int level, bool ready) {
     if (level < 0 || level >= int(ready_.size()))
         throw std::out_of_range("LOD readiness level is outside the configured chain");
+    if (ready_[size_t(level)] == ready) return;
     ready_[size_t(level)] = ready;
+    if (node()) node()->markChanged();
 }
 
 void LODGroupBehaviour::setLevels(std::vector<Level> levels) {
@@ -89,6 +91,10 @@ int LODGroupBehaviour::availableLevel() const {
     return -1;
 }
 
+void LODGroupBehaviour::onEnable() {
+    if (node()) node()->markChanged();
+}
+
 void LODGroupBehaviour::onDisable() {
     // Resolve live paths, since a previously selected child may have been freed.
     if (node()) for (const auto& level : levels_)
@@ -96,6 +102,9 @@ void LODGroupBehaviour::onDisable() {
             child->setVisible(true);
             applyFade(child, 1.f);
         }
+    // Every level is now the node's own geometry: caches keyed by the
+    // subtree revision (GIContributorCache) must see it.
+    if (node()) node()->markChanged();
     resolvedRevision_ = 0;
     fading_ = -1;
     progress_ = 1.f;

@@ -1,4 +1,6 @@
 #include "Engine.hpp"
+#include "behaviours/LODGroupBehaviour.hpp"
+#include "render/gi/GIContributors.hpp"
 #include "core/Window.hpp"
 #include "graphics/ResourceManager.hpp"
 #include "nodes/LightNode.hpp"
@@ -32,6 +34,7 @@ struct Fixture {
     bool follow = false;
     float travel = 0.f;
     float cameraTravel = 0.f;
+    float cameraShift = 0.f;
     unsigned motionFrames = 120;
     bool rebase = false;
     float rotation = 0.f;
@@ -81,6 +84,52 @@ void setup(Scene& scene, ResourceManager& resources, const Fixture& f) {
     const float corridorLength=2.f*std::abs(f.cameraTravel);
     box(scene, resources, "Floor", {0, -.4f, 0}, {18, .8f, 18+corridorLength}, {.2f, .2f, .2f},
         f.name == "metal", f.optOut);
+    if (f.name == "lod" || f.name == "canopy") {
+        auto* group = scene.createChild<Node>();
+        group->setName("Canopy");
+        auto* canopy = box(scene, resources, "Near", {0, 3, 0}, {8, .8f, 8}, glm::vec3(.2f));
+        group->addChild(scene.detachChild(canopy));
+        auto* far = group->createChild<Node>();
+        far->setName("Far"); // An impostor contributes no geometric GI voxels.
+        auto* lod = group->addBehaviour<LODGroupBehaviour>();
+        lod->setLevels({{"Near", 0.f}, {"Far", 0.f}});
+        lod->setCrossFade(.5f);
+        // Exercise visibility ownership with real loaded mesh resources.
+        // The cached walk (GIVolume's) must answer as the plain one after
+        // every change, and walk nothing when nothing changed.
+        GIContributorCache cache;
+        auto require = [](bool ok) { if (!ok) throw std::runtime_error("GI contributor selection failed"); };
+        auto contributors = [&] {
+            std::vector<MeshNode*> result, cached;
+            collectGIContributors(scene, result);
+            cache.collect(scene, cached);
+            require(cached == result);
+            std::vector<MeshNode*> again;
+            cache.collect(scene, again);
+            require(again == result && cache.walked() == 0);
+            result.clear();
+            collectGIContributors(*group, result);
+            return result;
+        };
+        lod->setEnabled(false);
+        require(contributors() == std::vector<MeshNode*>{canopy});
+        lod->setEnabled(true);
+        require(contributors() == std::vector<MeshNode*>{canopy});
+        canopy->setVisible(false);
+        require(contributors() == std::vector<MeshNode*>{canopy});
+        group->setVisible(false);
+        require(contributors().empty());
+        group->setVisible(true);
+        canopy->setEnabled(false);
+        require(contributors().empty());
+        canopy->setEnabled(true);
+        lod->setLevelReady(0, false);
+        require(contributors().empty());
+        lod->setLevelReady(0, true);
+        require(contributors() == std::vector<MeshNode*>{canopy});
+        canopy->setVisible(true);
+        return;
+    }
     if (f.name == "open" || f.name == "metal") return;
 
     if (f.name == "room") {
@@ -114,7 +163,7 @@ Fixture parse(int argc, char** argv) {
     Fixture f;
     f.name = j.at("scene").get<std::string>();
     if (f.name != "open" && f.name != "metal" && f.name != "room" &&
-        f.name != "canyon-red" && f.name != "canyon-blue")
+        f.name != "canyon-red" && f.name != "canyon-blue" && f.name != "lod" && f.name != "canopy")
         throw std::invalid_argument("unknown GI fixture scene");
     f.gi = j.at("gi").get<bool>();
     const int quality=j.value("quality",0);
@@ -124,6 +173,7 @@ Fixture parse(int argc, char** argv) {
     f.follow = j.value("follow", false);
     f.travel = j.value("travel", 0.f);
     f.cameraTravel = j.value("cameraTravel", 0.f);
+    f.cameraShift = j.value("cameraShift", 0.f);
     f.motionFrames = j.value("motionFrames", 120u);
     f.rebase = j.value("rebase", false);
     f.rotation = j.value("rotation", 0.f);
@@ -135,7 +185,7 @@ Fixture parse(int argc, char** argv) {
     f.image = j.at("image").get<std::string>();
     f.profile = j.value("profile", std::string{});
     if (f.frames == 0 || !std::isfinite(f.travel) || !std::isfinite(f.rotation) ||
-        !std::isfinite(f.cameraTravel) || !std::isfinite(f.lightScale) || f.lightScale < 0 || f.motionFrames == 0)
+        !std::isfinite(f.cameraTravel) || !std::isfinite(f.cameraShift) || !std::isfinite(f.lightScale) || f.lightScale < 0 || f.motionFrames == 0)
         throw std::invalid_argument("invalid GI capture parameters");
     unsigned previous = f.frames;
     for (unsigned frame : f.sampleFrames) {
@@ -165,6 +215,14 @@ int main(int argc, char** argv) {
                 engine.setCameraOverride(eye+shift,target+shift);
             }
             if (frame != f.motionFrame) return;
+            if (f.cameraShift != 0.f) {
+                const glm::vec3 offset(f.cameraShift, 0, 0);
+                engine.setCameraOverride(eye+offset, target+offset);
+            }
+            if (f.name == "lod") {
+                auto* group = engine.scene().findByPath("Canopy");
+                group->getBehaviour<LODGroupBehaviour>()->setFinestLevel(1);
+            }
             for (auto* light : engine.scene().lights()) light->intensity *= f.lightScale;
             const glm::vec3 shift(f.travel, 0, 0);
             if (f.rebase) {
