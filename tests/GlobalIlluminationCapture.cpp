@@ -27,6 +27,7 @@ constexpr glm::vec3 kTarget{0.f, 1.f, 0.f};
 struct Fixture {
     std::string name;
     bool gi = false;
+    GIQuality quality = GIQuality::Auto;
     bool optOut = false;
     bool follow = false;
     float travel = 0.f;
@@ -60,6 +61,7 @@ MeshNode* box(Scene& scene, ResourceManager& resources, const char* name,
 void setup(Scene& scene, ResourceManager& resources, const Fixture& f) {
     auto& settings = scene.settings();
     settings.giEnabled = f.gi;
+    settings.giQuality = f.quality;
     settings.giMode = GIMode::FullRealtime;
     settings.giVolume = f.follow ? GIVolumeMode::Follow : GIVolumeMode::Anchored;
     settings.giIntensity = 1.f;
@@ -115,6 +117,9 @@ Fixture parse(int argc, char** argv) {
         f.name != "canyon-red" && f.name != "canyon-blue")
         throw std::invalid_argument("unknown GI fixture scene");
     f.gi = j.at("gi").get<bool>();
+    const int quality=j.value("quality",0);
+    if(quality<0 || quality>4)throw std::invalid_argument("quality must be 0..4");
+    f.quality=GIQuality(quality);
     f.optOut = j.value("optOut", false);
     f.follow = j.value("follow", false);
     f.travel = j.value("travel", 0.f);

@@ -463,6 +463,17 @@ visibility atlases, a bounded ray buffer, and toroidal voxel/probe grids.
 `giVolume` selects Anchored (0, the default) or Follow (1); `giQuality` selects
 Auto/Low/Medium/High/Ultra (0..4). The serializer also accepts their enum names.
 The Inspector, reflected properties/scripts and MCP scene settings expose both.
+Auto retains the hardware tier's performance policy. Explicit High and Ultra
+are quality-first overrides: both evaluate GI per fragment (including normal
+maps), use eight-corner trilinear probe interpolation and visibility moments
+throughout coverage, and update every realtime frame even in AmortizedRealtime.
+High traces 96 rays per probe with 1024 probe / 256 brick budgets and 0.6
+hysteresis. Ultra traces 128 rays, uses 128 x 64 x 128 voxels per cascade and
+0.3 hysteresis, and updates every probe and all queued voxel bricks each frame
+(across all cascades). Ultra also retains source mesh geometry for voxelization
+instead of choosing a coarse LOD. These profiles retain the same probe spacing,
+cascade coverage and directional atlas resolution; Ultra is a costly comparison
+mode, not a path-traced reference or a promise to remove every GI artifact.
 `giWarmupProgress` is runtime state and is never serialized. `SAIDA_GI_DEBUG`
 set to `voxels` or `irradiance` shows the finest cascade's voxel albedo, or the
 probe irradiance each lit surface receives (magenta where uncovered).
@@ -480,10 +491,13 @@ doubles and 64-bit cells; shaders receive only local origins and a rotation.
 change; `Scene::rebaseOrigin` records it automatically. Independently placing a
 subtree does not change the scene's stable frame.
 
-Each update schedules at most 64/128/192/256 probes and 16/32/48/64 voxel bricks
-for Low/Medium/High/Ultra. Rays per probe are 32/40/48/64. Bricks are 8 cubed;
+The Auto hardware tiers schedule at most 64/128/192/256 probes and
+16/32/48/64 voxel bricks for Low/Medium/High/Ultra. Explicit Low and Medium use
+the same policy. Rays per probe are 32/40/48/64. Initial and entering probes
+allow up to three probe budgets per frame. Bricks are 8 cubed;
 voxel grids are 32 x 16 x 32 (Low) or 64 x 32 x 64. Cascades receive fair shares,
-with extra work near the camera. One frame's bricks all belong to one cascade, so
+with extra work near the camera. With amortized work budgets, one frame's bricks
+all belong to one cascade, so
 its voxel pass draws each overlapping mesh once; a mesh is drawn only when it
 overlaps one of those bricks. Entering voxel bricks and untraced probes precede
 maintenance edits in each cascade's queues. A cascade's probes wait for its
@@ -507,7 +521,7 @@ visibility and previous-probe bounce, and read material emission. GI ray lightin
 never reads camera shadow maps. A diffuse environment with positive intensity
 owns sky misses; otherwise flat ambient supplies them. Inside ready coverage,
 GI replaces ambient plus diffuse IBL, with metallic/Fresnel weighting; specular
-IBL is attenuated by indirect visibility. Tetrahedral interpolation uses four
+IBL is attenuated by indirect visibility. Auto/Low/Medium use tetrahedral interpolation with four
 probes and their directional visibility moments at every distance: a nearest
 probe without visibility reads probes buried in buildings, which leaked sun onto
 shaded facades or painted them black. A probe whose rays meet back faces more
@@ -515,13 +529,14 @@ than a quarter of the time sits inside geometry and weighs nothing (Majercik
 2021 classification, without relocation); back-face hits also shorten its
 visibility distance. A point reads the finest cascade holding it, and the next
 one only across two cells at its edge in Follow (half a cell in Anchored), so
-incoming probes refine before receiving full weight; the visibility test applies within
-32/64/128/256 m (Low/Medium/High/Ultra). Cascade edges and uninitialized
+incoming probes refine before receiving full weight; the optimized visibility test applies within
+32/64/128/256 m for the Auto hardware tiers (explicit Low/Medium use 32/64 m).
+Explicit High/Ultra retain visibility throughout coverage. Cascade edges and uninitialized
 cells fade to a coarser cascade and then to legacy sky/ambient. FullRealtime
 updates continuously, even for a stationary scene. AmortizedRealtime warms up
 continuously, then updates every fourth frame. Baking runs a bounded 256 updates.
 
-Ordinary meshes and terrain read diffuse GI from a half-resolution irradiance
+In Auto/Low/Medium, ordinary meshes and terrain read diffuse GI from a half-resolution irradiance
 stage reconstructed from pre-pass depth, upsampled by depth into the RGB channels
 of the RGBA16F AO map (alpha retains AO visibility). This stage also runs with AO
 disabled; without screen GI, surfaces sample the probes directly. Grass, foliage and impostors
@@ -591,7 +606,7 @@ depth: the raw occlusion (`shaders/ssao.glsl`) and its edge-aware average
 layer (`screen_ambient_occlusion.glsl`, set 0 binding 17); a scene without AO
 or GI runs neither pass and reads nothing.
 
-With GI on, a fourth stage on the same grid (`ambient_occlusion_gi.frag`, the
+With GI on in Auto/Low/Medium, a fourth stage on the same grid (`ambient_occlusion_gi.frag`, the
 scene's set 0 and the depth in set 1) rebuilds each grid texel's point and
 geometric normal like the kernel and evaluates `giIrradianceOrSky` there: the
 probes' irradiance over their coverage, the legacy ambient and diffuse sky past

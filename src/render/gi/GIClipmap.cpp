@@ -117,8 +117,8 @@ void GIClipmap::plan() {
     // A minimum share for each cascade; fine cascades receive the spare turns.
     const int cycle=config_.cascades+2;
     auto cascadeFor=[&](uint64_t turn) { const int i=int(turn%cycle); return i<config_.cascades ? i : (i-config_.cascades)%config_.cascades; };
-    // Bricks come from one cascade per frame: a voxel pass draws every mesh
-    // overlapping its bricks, so spreading them over cascades multiplies draws.
+    // Optimized profiles voxelize one cascade per frame. The maximum-quality
+    // profile drains every cascade before tracing, including after a teleport.
     for(int attempts=0;attempts<cycle;++attempts) {
         const int k=cascadeFor(brickTurn_++); auto& q=brickQueue_[k];
         if(q.empty()) continue;
@@ -127,7 +127,7 @@ void GIClipmap::plan() {
             brickDirty_[global]=0; brickMask_[global]=1; plannedBricks_.push_back(uint32_t(global));
             if(brickEntering_[global]) {brickEntering_[global]=0;--enteringBricks_[k];}
         }
-        break;
+        if(!config_.updateAll) break;
     }
     const int budget=untraced_>0?config_.maxProbeBudget():config_.probeBudget;
     for(int attempts=0;int(plannedProbes_.size())<budget && attempts<budget*cycle;++attempts) {

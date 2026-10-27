@@ -89,7 +89,7 @@ class Run:
     def capture(self, name, scene='canyon-red', gi=True, **params):
         if name in self.images:
             return self.images[name]
-        fixture = dict(scene=scene, gi=gi, frames=self.args.frames,
+        fixture = dict(scene=scene, gi=gi, quality=self.args.quality, frames=self.args.frames,
                        image=str(self.root / f'{name}.png'), profile=str(self.root / f'{name}.json'))
         fixture.update(params)
         request = self.root / f'{name}.fixture.json'
@@ -292,6 +292,8 @@ def main():
     parser.add_argument('--reference', type=Path)
     parser.add_argument('--record-off', type=Path)
     parser.add_argument('--frames', type=int, default=240)
+    parser.add_argument('--quality', type=int, choices=range(5), default=0,
+                        help='0 Auto, 1 Low, 2 Medium, 3 High, 4 Ultra (maximum cost)')
     parser.add_argument('--cases', nargs='+', choices=CASES, default=list(CASES))
     args = parser.parse_args()
     if args.frames < 121:

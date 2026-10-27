@@ -25,6 +25,7 @@ struct GIConfig {
     float lookAheadSeconds = .75f;
     int maxProbeBudget() const { return probeBudget * catchUp; }
     bool follow = false;
+    bool updateAll = false;
     int probesPerCascade() const { return probes.x * probes.y * probes.z; }
     int probeCount() const { return probesPerCascade() * cascades; }
     glm::ivec3 bricks() const { return voxels / kGIBrickSize; }

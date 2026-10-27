@@ -180,6 +180,9 @@ Recording refuses an existing directory. Several semantic contracts deliberately
 fail on the original single-volume DDGI; phase-0 evidence is their measured
 failure, not a passing GI qualification. Every run retains PNGs, request JSON,
 logs, profiles and a per-case report under `build-rel/global-illumination-run`.
+Use `--quality 0..4` to compare Auto, Low, Medium, High and Ultra with the same
+fixtures; the fixture JSON accepts the same integer as `quality`. Explicit
+Ultra updates all probes every frame and can run much slower than Auto.
 
 An optimized build validates its Vulkan usage on request: set
 `SAIDA_VULKAN_VALIDATION=1` and, for the MSYS2 layer, `VK_ADD_LAYER_PATH` to

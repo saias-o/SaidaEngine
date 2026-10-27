@@ -5,6 +5,30 @@
 #include <cmath>
 
 namespace {
+void maximumQuality() {
+    using namespace saida;
+    GIConfig c;c.follow=true;c.cascades=6;c.voxels={128,64,128};
+    c.updateAll=true;c.catchUp=1;
+    c.probeBudget=c.probeCount();c.brickBudget=c.bricksPerCascade()*c.cascades;
+    GIClipmap field(c);
+    // Initial fill, steady motion, reversal, and teleport must all finish
+    // their entering slabs in the very frame whose probes consume them.
+    for(const glm::dvec3 camera:{glm::dvec3(0),glm::dvec3(2.4,0,0),glm::dvec3(-4,2,8),glm::dvec3(1000)}) {
+        field.move(camera,1./60.);field.plan();
+        assert(field.queuedBricks()==0);
+        assert(field.probes().size()==size_t(c.probeCount()));
+        assert(field.warmupProgress()==1.f);
+        std::set<int> probes;
+        for(auto p:field.probes())assert(probes.insert(p.x).second);
+        field.invalidate(camera-glm::dvec3(10000),camera+glm::dvec3(10000));
+        field.plan();
+        assert(field.bricks().size()==size_t(c.brickBudget));
+        std::set<uint32_t> bricks(field.bricks().begin(),field.bricks().end());
+        assert(bricks.size()==field.bricks().size());
+        assert(field.queuedBricks()==0);
+    }
+}
+
 void enteringSlabs() {
     using namespace saida;
     GIConfig c;c.follow=true;c.spacing=2;c.brickBudget=8;c.probeBudget=64;
@@ -79,7 +103,7 @@ void anticipation() {
 
 int main() {
     using namespace saida;
-    enteringSlabs();anticipation();
+    enteringSlabs();anticipation();maximumQuality();
     GIConfig c; c.cascades=6; c.follow=true; c.brickBudget=24; c.probeBudget=256; c.spacing=2;
     GIClipmap field(c);
     field.move({0,0,0});

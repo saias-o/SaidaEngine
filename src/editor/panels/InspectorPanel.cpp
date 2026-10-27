@@ -640,6 +640,11 @@ void InspectorPanel::draw(EditorUI* editor) {
         if(ImGui::Combo("GI Quality",&quality,"Auto\0Low\0Medium\0High\0Ultra\0"))
             pe.push<int>("GI Quality",[](Node& n){return int(static_cast<Scene&>(n).settings().giQuality);},
                 [](Node& n,int v){static_cast<Scene&>(n).settings().giQuality=GIQuality(v);},quality);
+        if(ImGui::IsItemHovered())
+            ImGui::SetTooltip("Auto keeps the hardware performance budget.\n"
+                              "High: per-pixel GI, 8 probe taps, faster updates.\n"
+                              "Ultra: finer voxels, all probes every frame. Very high GPU cost.\n"
+                              "High and Ultra update every realtime frame, including in Amortized mode.");
         if(s.giEnabled && s.giWarmupProgress<1.f) ImGui::ProgressBar(s.giWarmupProgress,ImVec2(-1,0),"GI warm-up");
         pe.sliderFloat("GI Intensity", G(&SceneSettings::giIntensity), S(&SceneSettings::giIntensity), 0.0f, 8.0f);
         pe.checkbox("Debug: show voxel grid", G(&SceneSettings::giDebugVoxels), S(&SceneSettings::giDebugVoxels));

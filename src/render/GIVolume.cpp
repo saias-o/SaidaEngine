@@ -32,6 +32,8 @@ GIConfig configOf(const GIVolumeDesc& d) {
     GIConfig c; c.probes=d.counts; c.voxels={d.voxelResolution,d.voxelResolution/2,d.voxelResolution};
     c.cascades=d.cascades;c.spacing=d.spacing.x;
     c.probeBudget=d.probeBudget;c.brickBudget=d.brickBudget;c.follow=d.follow;
+    c.updateAll=d.updateAll;
+    if(c.updateAll) c.catchUp=1;
     return c;
 }
 rhi::BindGroupEntry imageEntry(int b,rhi::TextureView v,bool storage=false) {
@@ -76,6 +78,9 @@ GIVolume::GIVolume(rhi::Device& device,const GIVolumeDesc& desc,
     }
     createVoxelResources(materialLayout);createComputeResources(globalLayout);
     Log::info("GI: ",desc_.cascades," cascades, ",desc_.probeCount()," probes; frame budgets ",desc_.probeBudget," probes / ",desc_.brickBudget," voxel bricks");
+    Log::info("GI quality: ",desc_.raysPerProbe," rays/probe, ",desc_.voxelResolution," voxel width, ",
+        desc_.fullResolution?"per-pixel":"half-resolution"," lighting, ",desc_.trilinear?8:4," probe taps, ",
+        desc_.updateAll?"all probes and queued bricks each frame":"amortized work budgets");
 }
 GIVolume::~GIVolume()=default;
 
@@ -184,7 +189,7 @@ void GIVolume::fillUniforms(LightingUBO& u,const Scene& scene) const {
     for(int k=0;k<desc_.cascades;++k) {
         const auto& c=grid_.cascade(k);
         u.giCascadeOrigins[k]=glm::vec4(glm::vec3(scene.worldFromStable()*glm::dvec4(c.origin,1)),float(c.spacing));
-        u.giCascadeWrap[k]=glm::ivec4(c.probeWrap,0);
+        u.giCascadeWrap[k]=glm::ivec4(c.probeWrap,desc_.trilinear?1:0);
     }
     u.giOrigin=glm::vec4(glm::vec3(u.giCascadeOrigins[0]),u.giOrigin.w);
 }
@@ -261,7 +266,7 @@ void GIVolume::voxelize(rhi::CommandEncoder& e,Scene& scene,GpuProfiler* profile
         for(const auto& item:contributors_) {
             const auto& c=item.second;if(!c.loaded || !overlaps(c)) continue;
             const MeshNode* node=item.first;Mesh* mesh=node->sourceMesh();Material* material=node->material();
-            if(k>1 && node->hasLods()) {for(int lod=int(node->lods().size())-1;lod>0;--lod) if(auto* coarse=node->sourceMesh(lod);coarse && coarse->loaded()) {mesh=coarse;break;}}
+            if(!desc_.updateAll && k>1 && node->hasLods()) {for(int lod=int(node->lods().size())-1;lod>0;--lod) if(auto* coarse=node->sourceMesh(lod);coarse && coarse->loaded()) {mesh=coarse;break;}}
             rp.setBindGroup(1,material->descriptorSet());mesh->bind(rp);
             VoxelPush pc{node->worldTransform(),glm::vec4(0,material->desc().foliage.w>0?.4f:1.f,material->desc().doubleSided?1.f:0.f,0)};
             for(int axis=0;axis<3;++axis) {pc.params.x=float(axis);rp.setPushConstants(&pc,sizeof(pc));mesh->draw(rp);}

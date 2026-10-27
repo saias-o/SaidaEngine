@@ -116,13 +116,24 @@ std::vector<WebCanvasWorldDraw> collectWorldWebCanvasDraws(Scene& scene, glm::ve
 #endif
 
 // Budgets limit GI work independently of the number of cascades.
-GIVolumeDesc giDescForTier(QualityTier tier) {
+GIVolumeDesc giDescForTier(QualityTier tier, bool explicitQuality=false) {
     GIVolumeDesc d;
     switch(tier) {
         case QualityTier::Ultra: d.raysPerProbe=64;d.probeBudget=256;d.brickBudget=64;break;
         case QualityTier::High: d.raysPerProbe=48;d.probeBudget=192;d.brickBudget=48;break;
         case QualityTier::Medium: d.raysPerProbe=40;d.probeBudget=128;d.brickBudget=32;break;
         default: d.raysPerProbe=32;d.probeBudget=64;d.brickBudget=16;d.voxelResolution=32;break;
+    }
+    // Auto retains the hardware's performance budget. Explicit High/Ultra
+    // let users trade that budget for spatial quality and faster convergence.
+    if(explicitQuality && (tier==QualityTier::High || tier==QualityTier::Ultra)) {
+        d.fullResolution=true;d.trilinear=true;
+        d.raysPerProbe=96;d.probeBudget=1024;d.brickBudget=256;
+        d.hysteresis=.6f;
+        if(tier==QualityTier::Ultra) {
+            d.raysPerProbe=128;d.voxelResolution=128;
+            d.updateAll=true;d.hysteresis=.3f;
+        }
     }
     return d;
 }
@@ -865,23 +876,31 @@ void Renderer::prepareGI(Scene& scene,glm::vec3 camera) {
         case GIQuality::Ultra:tier=QualityTier::Ultra;break;
         default:break;
     }
-    auto desired=giDescForTier(tier);
+    auto desired=giDescForTier(tier,scene.settings().giQuality!=GIQuality::Auto);
     desired.follow=scene.settings().giVolume==GIVolumeMode::Follow;
     if(desired.follow) {
         desired.spacing=glm::vec3(2.f);
         desired.cascades=tier==QualityTier::Low?4:tier==QualityTier::Medium?5:6;
     }
+    if(desired.updateAll) {
+        desired.probeBudget=desired.probeCount();
+        const int bricks=desired.voxelResolution/kGIBrickSize;
+        desired.brickBudget=bricks*(bricks/2)*bricks*desired.cascades;
+    }
     const auto& current=gi_->desc();
-    if(current.follow!=desired.follow || current.cascades!=desired.cascades || current.probeBudget!=desired.probeBudget) {
+    if(current.follow!=desired.follow || current.cascades!=desired.cascades || current.probeBudget!=desired.probeBudget ||
+       current.fullResolution!=desired.fullResolution || current.updateAll!=desired.updateAll) {
         device_.waitIdle();
         gi_=std::make_unique<GIVolume>(device_,desired,resources_.materialSetLayout(),*globalSetLayout_);
         // Both frame slots must lose descriptors referring to the destroyed grids.
         cachedGiIrradianceView_={};cachedGiVisibilityView_={};cachedGiSampler_={};
         giRealtimeWarmupRemaining_=kGIRealtimeWarmupFrames;
+        if(scene.settings().lightingMode==LightingMode::Realtime) giUpdateThisFrame_=true;
     }
     if(giUpdateThisFrame_) gi_->prepare(scene,camera,currentFrame_);
 }
 bool Renderer::shouldUpdateRealtimeGI() const {
+    if(gi_->desc().fullResolution) return true;
     if(giLastMode_==static_cast<int>(GIMode::FullRealtime)) return true;
     if(giRealtimeWarmupRemaining_>0 || gi_->warmupProgress()<1.f) return true;
     return (giFrameCounter_%4)==0;
@@ -1446,7 +1465,8 @@ bool Renderer::ambientOcclusionActive(const SceneSettings& settings) const {
 }
 
 bool Renderer::screenGIActive(const SceneSettings& settings) const {
-    return aoPass_ && aoTexture_ && aoIrradianceTexture_ && gi_ && gi_->available() && settings.giEnabled;
+    return aoPass_ && aoTexture_ && aoIrradianceTexture_ && gi_ && gi_->available() &&
+           settings.giEnabled && !gi_->desc().fullResolution;
 }
 
 void Renderer::readyAmbientOcclusionMap(rhi::CommandEncoder& encoder) {

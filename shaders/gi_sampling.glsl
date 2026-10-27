@@ -43,17 +43,31 @@ vec4 sampleGICascade(int k,vec3 wp,vec3 N,vec3 V,bool visibilityTest) {
     ivec3 base=ivec3(floor(g));vec3 f=fract(g);
     vec3 sum=vec3(0);float weights=0,valid=0;
     vec2 irrSize=vec2(textureSize(TEX2D(giIrradiance),0)),visSize=vec2(textureSize(TEX2D(giVisibility),0));
+    vec2 irrInTile=1.0+(octEncode(N)*.5+.5)*float(lights.giAtlas.x);
+    if(lights.giCascadeWrap[k].w!=0) {
+        // All eight corners keep a classified/occluded probe from leaving the
+        // four-tap tetrahedron with too little support and a visible diagonal.
+        vec3 a=1.0-f;
+        giProbeTap(k,base,g,N,a.x*a.y*a.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+        giProbeTap(k,base+ivec3(1,0,0),g,N,f.x*a.y*a.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+        giProbeTap(k,base+ivec3(0,1,0),g,N,a.x*f.y*a.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+        giProbeTap(k,base+ivec3(0,0,1),g,N,a.x*a.y*f.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+        giProbeTap(k,base+ivec3(1,1,0),g,N,f.x*f.y*a.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+        giProbeTap(k,base+ivec3(1,0,1),g,N,f.x*a.y*f.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+        giProbeTap(k,base+ivec3(0,1,1),g,N,a.x*f.y*f.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+        giProbeTap(k,base+ivec3(1),g,N,f.x*f.y*f.z,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+    } else {
     // Tetrahedral interpolation without dynamic indexing (which NVIDIA spills to
     // local memory): its vertices are 0, the largest fraction's axis, all but
     // the smallest's, and 1.
     float fmax=max(f.x,max(f.y,f.z)),fmin=min(f.x,min(f.y,f.z)),fmid=f.x+f.y+f.z-fmax-fmin;
     ivec3 emax=f.x>=f.y && f.x>=f.z?ivec3(1,0,0):f.y>=f.z?ivec3(0,1,0):ivec3(0,0,1);
     ivec3 emin=f.z<=f.y && f.z<=f.x?ivec3(0,0,1):f.y<=f.x?ivec3(0,1,0):ivec3(1,0,0);
-    vec2 irrInTile=1.0+(octEncode(N)*.5+.5)*float(lights.giAtlas.x);
     giProbeTap(k,base,g,N,1.0-fmax,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
     giProbeTap(k,base+emax,g,N,fmax-fmid,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
     giProbeTap(k,base+ivec3(1)-emin,g,N,fmid-fmin,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
     giProbeTap(k,base+ivec3(1),g,N,fmin,visibilityTest,irrInTile,irrSize,visSize,sum,weights,valid);
+    }
     // Invalid probes leave the normalisation; only a cell whose probes are
     // nearly all invalid hands its share to the coarser cascade.
     return vec4(sum/max(weights,.005),clamp(valid*4.0,0.0,1.0));
@@ -65,7 +79,7 @@ vec4 sampleGI(vec3 wp,vec3 N,vec3 V) {
     // Visibility moments matter where walls are thin against the probe spacing;
     // past giClipmap.w metres the back-face classification is enough.
     vec3 toEye=wp-lights.cameraPos.xyz;
-    bool visibilityTest=dot(toEye,toEye)<float(lights.giClipmap.w*lights.giClipmap.w);
+    bool visibilityTest=lights.giCascadeWrap[0].w!=0 || dot(toEye,toEye)<float(lights.giClipmap.w*lights.giClipmap.w);
     // One cascade per point, the finest holding it; only its edge band also
     // reads the next one. Every probe fetch is a cache miss in the atlas.
     int count=lights.giClipmap.x,k=0;float fade=0.0;

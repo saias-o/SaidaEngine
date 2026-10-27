@@ -22,6 +22,7 @@ struct GIVolumeDesc {
     int raysPerProbe=48, probeBudget=128, brickBudget=16, cascades=1;
     float hysteresis=.8f, distExponent=12.f;
     bool follow=false;
+    bool fullResolution=false, trilinear=false, updateAll=false;
     int probeCount() const { return counts.x*counts.y*counts.z*cascades; }
 };
 // Persistent toroidal atlases. Only scheduled probes and voxel bricks are written.

@@ -784,6 +784,22 @@ Post-V1 unless the scope changes explicitly.
     Paris warm-walking smoke passes. The strict `off`, `open` and `scroll`
     diagnostics fail both before and after; their references/thresholds were
     retained. Temporal noise and sustained all-tier movement remain open.
+  - [x] Expose quality-first High/Ultra policies independently of Auto's
+    hardware budgets (2026-10-27). High/Ultra use per-fragment, eight-probe
+    interpolation; Ultra doubles voxel resolution and refreshes all probes and
+    all queued bricks every frame. The client can compare them live and retain
+    its selection through Toaster mode. RTX 4070 verification: CPU initial-fill,
+    scrolling, reversal and teleport tests pass; GPU `canyon`, `room`, `optout`,
+    `motion` and `stability` pass at quality 4. In the 24 m/s fixture, maximum
+    moving-versus-settled drift is 0.17% (Auto: 6.84%); stationary captures have
+    zero display delta and still respond to a light switch. Native/Web player
+    builds and WGSL translation pass. Native CTest: 109/111 initially; the SDK
+    consumer passes after clearing its stale package output, while terrain-ring
+    reference setup still fails copying shaders with `File exists`, before
+    rendering. R1World's three fixed-camera offline Paris captures complete,
+    including the quality-button/Toaster restoration checks. Probe density,
+    placement and the remaining voxel approximation are not solved by these
+    profiles; sustained all-tier movement remains open below.
   - [ ] Add a water voxel injector, textured terrain contribution, and optional
     per-node contribution controls. Profile spatial queries during heavy editing
     and streaming, and add adaptive budgets only where measurements justify them.
