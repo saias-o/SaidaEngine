@@ -39,6 +39,51 @@ vec3 acesFilmic(vec3 x) {
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
+// The exposure the frame is tonemapped with (scene exposure, then adaptation).
+float frameExposure() {
+    return push.fogParams.w * (push.outputParams.y > 0.5 ? exp2(exposureState.x) : 1.0);
+}
+
+// FXAA, Lottes' console variant: a blur along the local edge, its direction
+// taken from the luma gradient of the tonemapped image so that HDR highlights
+// do not dominate. It is the only anti-aliasing on WebGPU (no MSAA there) and
+// catches what MSAA leaves on Vulkan: alpha-tested foliage, shading edges.
+float aaLuma(vec3 hdr) {
+    return dot(sqrt(acesFilmic(hdr * frameExposure())), vec3(0.299, 0.587, 0.114));
+}
+
+vec3 aaTap(vec2 uv, vec2 lo, vec2 hi) {
+    return textureLod(TEX2D(hdrInput), clamp(uv, lo, hi), 0.0).rgb;
+}
+
+vec3 fxaa(vec2 uv, vec3 centre) {
+    const float EDGE_THRESHOLD = 0.125;
+    const float EDGE_THRESHOLD_MIN = 0.0625;
+    const float SPAN_MAX = 8.0;
+    vec2 px = 1.0 / vec2(textureSize(TEX2D(hdrInput), 0));
+    vec2 lo = push.sourceRect.xy + 0.5 * px;
+    vec2 hi = push.sourceRect.xy + push.sourceRect.zw - 0.5 * px;
+    // Half-texel offsets: each bilinear tap averages a 2x2 block.
+    float nw = aaLuma(aaTap(uv + vec2(-0.5, -0.5) * px, lo, hi));
+    float ne = aaLuma(aaTap(uv + vec2(0.5, -0.5) * px, lo, hi));
+    float sw = aaLuma(aaTap(uv + vec2(-0.5, 0.5) * px, lo, hi));
+    float se = aaLuma(aaTap(uv + vec2(0.5, 0.5) * px, lo, hi));
+    float m = aaLuma(centre);
+    float lumaMax = max(max(max(nw, ne), max(sw, se)), m);
+    float lumaMin = min(min(min(nw, ne), min(sw, se)), m);
+    if (lumaMax - lumaMin < max(EDGE_THRESHOLD_MIN, lumaMax * EDGE_THRESHOLD)) return centre;
+
+    vec2 dir = vec2((sw + se) - (nw + ne), (nw + sw) - (ne + se));
+    float reduce = max((nw + ne + sw + se) * 0.03125, 1.0 / 128.0);
+    float scale = 1.0 / (min(abs(dir.x), abs(dir.y)) + reduce);
+    dir = clamp(dir * scale, vec2(-SPAN_MAX), vec2(SPAN_MAX)) * px;
+    vec3 inner = 0.5 * (aaTap(uv + dir * (1.0 / 3.0 - 0.5), lo, hi) + aaTap(uv + dir * (2.0 / 3.0 - 0.5), lo, hi));
+    vec3 outer = inner * 0.5 + 0.25 * (aaTap(uv - dir * 0.5, lo, hi) + aaTap(uv + dir * 0.5, lo, hi));
+    float outerLuma = aaLuma(outer);
+    // The wide blur crossed another edge: keep the narrow one.
+    return (outerLuma < lumaMin || outerLuma > lumaMax) ? inner : outer;
+}
+
 vec3 reconstructViewPosition(vec2 uv, float depth) {
     return viewPositionFromDepth(uv, depth, push.projectionParams, push.projectionParams2,
                                  push.projectionOffsets);
@@ -224,14 +269,13 @@ vec3 lensEffects(vec2 uv) {
 
 void main() {
     vec4 hdr4 = sampleHdr(fragUV);
-    vec3 hdr = hdr4.rgb;
+    vec3 hdr = fxaa(sourceUV(fragUV), hdr4.rgb);
 
     hdr = applyFog(hdr, fragUV);
     hdr += bloom(fragUV);
     hdr += lensEffects(fragUV);
 
-    hdr *= push.fogParams.w;
-    if (push.outputParams.y > 0.5) hdr *= exp2(exposureState.x);
+    hdr *= frameExposure();
 
     vec3 mapped = acesFilmic(hdr);
 

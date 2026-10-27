@@ -405,7 +405,12 @@ a threshold near it: a threshold takes distant ground for sky. Shadow maps keep
 conventional depth (clear 1, `Less`) and their own light projections.
 
 The RHI compiles to Vulkan or WebGPU. GLSL shaders are compiled to SPIR-V, then
-transpiled to WGSL with naga for the Web. The Web player has no MSAA. XR
+transpiled to WGSL with naga for the Web. The Web player has no MSAA. The
+tonemap pass always applies FXAA (console variant, luma of the tonemapped
+image): the only anti-aliasing on the Web, and on Vulkan it smooths what 4x
+MSAA leaves (alpha-tested foliage, shading edges). On WebGPU the shadow depth
+pass binds a set 0 whose shadow map is a 1x1 placeholder, since a texture may
+not be sampled by the pass rendering into it. XR
 rendering uses the same renderer with stereo/multiview views.
 
 `TerrainRingsNode` draws terrain to the horizon as nested square rings
@@ -3423,7 +3428,7 @@ bump, never to mask a divergence.
 - Web player: WebGPU mandatory, HTTP mandatory, UI limited to the
   `UICanvasNode`/`UITextNode` HUD and screen-space `WebCanvasNode` (mouse
   only), gamepads without the
-  `standard` browser mapping ignored, advanced touch UI not proven, MSAA absent.
+  `standard` browser mapping ignored, advanced touch UI not proven, MSAA absent (FXAA only).
 - Web audio subject to the user gesture.
 - One Emscripten runtime/canvas per page; build not modularized.
 - Native/headless/Web registries explicitly matrixed; the advanced UI stays out of

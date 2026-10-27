@@ -29,6 +29,14 @@ ShadowMap::ShadowMap(rhi::Device& device, const rhi::BindGroupLayout* globalLayo
     createTexture();
     createSampler();
     createPipeline();
+#ifdef SAIDA_RHI_WEBGPU
+    rhi::RenderTextureDesc placeholderDesc;
+    placeholderDesc.format = format_;
+    placeholderDesc.width = placeholderDesc.height = 1;
+    placeholderDesc.layers = kMaxShadows;
+    placeholderDesc.usage = rhi::TextureUsage::DepthAttachment | rhi::TextureUsage::Sampled;
+    placeholder_ = std::make_unique<rhi::RenderTexture>(device_, placeholderDesc);
+#endif
 }
 
 ShadowMap::~ShadowMap() = default;

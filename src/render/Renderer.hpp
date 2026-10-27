@@ -304,6 +304,9 @@ private:
 #ifdef SAIDA_RHI_WEBGPU
     // WebGPU rejects sampling a texture while the same pass storage-writes it.
     std::vector<std::unique_ptr<rhi::BindGroup>> giComputeGlobalGroups_;
+    // Likewise a texture cannot be sampled by the pass that renders into it:
+    // the shadow casters bind set 0 with a placeholder for the shadow map.
+    std::vector<std::unique_ptr<rhi::BindGroup>> shadowCasterGlobalGroups_;
 #endif
     std::vector<std::unique_ptr<rhi::Buffer>> uniformBuffers_;
     std::vector<std::unique_ptr<rhi::Buffer>> lightingBuffers_;

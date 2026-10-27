@@ -691,6 +691,15 @@ void Renderer::rebuildGlobalSet(int frame, Texture* environment, Texture* blendE
             shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
             giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry,
             blendEnvironmentEntry, blendEnvironmentSamplerEntry, aoEntry, aoSamplerEntry});
+
+    rhi::BindGroupEntry shadowPlaceholder = shadowEntry;
+    shadowPlaceholder.view = shadowMap_->casterPlaceholderView();
+    shadowCasterGlobalGroups_[frame] = std::make_unique<rhi::BindGroup>(*globalSetLayout_,
+        std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowPlaceholder, boneEntry,
+            giIrradianceEntry, giVisibilityEntry, giVoxelEntry, environmentEntry,
+            shadowSamplerEntry, giIrradianceSamplerEntry, giVisibilitySamplerEntry,
+            giVoxelSamplerEntry, environmentSamplerEntry, sunOcclusionEntry, sunOcclusionSamplerEntry,
+            blendEnvironmentEntry, blendEnvironmentSamplerEntry, aoEntry, aoSamplerEntry});
 #else
     globalGroups_[frame] = std::make_unique<rhi::BindGroup>(*globalSetLayout_,
         std::vector<rhi::BindGroupEntry>{cameraEntry, lightEntry, shadowEntry, boneEntry,
@@ -763,6 +772,7 @@ void Renderer::createGlobalDescriptorSets() {
     globalGroups_.resize(kMaxFramesInFlight);
 #ifdef SAIDA_RHI_WEBGPU
     giComputeGlobalGroups_.resize(kMaxFramesInFlight);
+    shadowCasterGlobalGroups_.resize(kMaxFramesInFlight);
 #endif
     for (int i = 0; i < kMaxFramesInFlight; i++) rebuildGlobalSet(i);
 }
@@ -1570,7 +1580,11 @@ void Renderer::recordShadowPasses(rhi::CommandEncoder& encoder) {
     shadowMap_->record(encoder, shadowCount_,
         [this, &recordedDraws](rhi::RenderPassEncoder& rp, int layer) {
             // Set 0 holds the bone palette the skinned casters index into.
+#ifdef SAIDA_RHI_WEBGPU
+            rp.setBindGroup(0, *shadowCasterGlobalGroups_[currentFrame_]);
+#else
             rp.setBindGroup(0, *globalGroups_[currentFrame_]);
+#endif
             struct ShadowPush {
                 glm::mat4 mvp;
                 glm::vec4 params;
