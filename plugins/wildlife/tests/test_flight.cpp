@@ -71,5 +71,25 @@ int main() {
         }
     }
     require(have,"obstacle test has a live bird");
+    // The host's ground can be its costliest answer: a bird asks it about
+    // once a tick in flight, and not at all while it sits still.
+    {
+        Herds asked;setup(asked,bird());int queries=0;
+        asked.setFlightGround([&queries](Vec2){++queries;return 10.f;});
+        int flying=0;
+        for(int i=0;i<180*60;++i) {
+            asked.update(1.f/60,scene);
+            const auto& a=asked.animals().front();
+            flying+=a.alive&&(a.flightPhase==FlightPhase::Cruise||a.flightPhase==FlightPhase::Takeoff||a.flightPhase==FlightPhase::Approach);
+        }
+        require(flying>60,"the ground-query fixture flies");
+        require(queries<flying*1.5f+180*60*.1f,"ground asked about once a tick in flight");
+        asked.setFlightActivity(0,0);
+        for(int i=0;i<60*60;++i)asked.update(1.f/60,scene);
+        require(asked.animals().front().flightPhase==FlightPhase::Perched,"the ground-query fixture roosts");
+        queries=0;
+        for(int i=0;i<10*60;++i)asked.update(1.f/60,scene);
+        require(queries==0,"a roosting bird never asks the ground again");
+    }
     std::puts("PASS saida::wildlife flight: continuous takeoff/cruise/landing, perches, roosts, fright, support loss, seeded replay and death");
 }

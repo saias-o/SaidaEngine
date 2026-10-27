@@ -137,6 +137,7 @@ public:
         membersEnabled_.clear();
         for (const auto& group : groups_) membersEnabled_.emplace_back(group.members.size(), true);
         animals_.assign(budget, Animal{});
+        floors_.assign(budget, FloorMemo{});
         seed_ = seed ? seed : 1;
         for (auto& g : groups_)
             for (auto& k : g.members)
@@ -146,7 +147,13 @@ public:
     void setAllowed(Allowed allowed) { allowed_ = std::move(allowed); }
     using Elevation = std::function<float(Vec2)>;
     using FlightClear = std::function<bool(Vec2, float, Vec2, float)>;
-    void setFlightGround(Elevation ground) { flightGround_ = std::move(ground); }
+    // The ground birds fly over and land on. The plugin asks it again only
+    // where an animal moved: a host whose ground changes under a still bird
+    // sets it again, which forgets every answer.
+    void setFlightGround(Elevation ground) {
+        flightGround_ = std::move(ground);
+        floors_.assign(animals_.size(), FloorMemo{});
+    }
     void setFlightClear(FlightClear clear) { flightClear_ = std::move(clear); }
     void setFlightLandingAllowed(Allowed allowed) { flightLanding_ = std::move(allowed); }
     void setPerches(std::vector<Perch> perches) { perches_ = std::move(perches); }
@@ -361,7 +368,7 @@ private:
             g.fear -= dt / std::max<size_t>(1, members(a.group));
             if (g.fear <= 0.f) stand(a);
         }
-        if (k.flight.enabled) { stepFlight(a, dt); return; }
+        if (k.flight.enabled) { stepFlight(index, dt); return; }
         if (k.surface == Surface::Air) {
             const float mid = 0.5f * (k.hoverLow + k.hoverHigh), amp = 0.5f * (k.hoverHigh - k.hoverLow);
             const float phase = float(a.identity % 97) + float(index);
@@ -425,6 +432,13 @@ private:
     }
 
     float flightFloor(Vec2 at) const { return flightGround_ ? flightGround_(at) : 0.f; }
+    // The floor under a slot's animal where it last asked: a host's ground
+    // query can cost microseconds, and a bird sitting still asks it every tick.
+    float floorUnder(size_t index, Vec2 at) {
+        auto& m = floors_[index];
+        if (m.at.x != at.x || m.at.y != at.y) m.at = at, m.floor = flightFloor(at);
+        return m.floor;
+    }
     bool flightClear(Vec2 a, float ay, Vec2 b, float by) const {
         return !flightClear_ || flightClear_(a, ay, b, by);
     }
@@ -464,9 +478,10 @@ private:
         a.target=a.position; a.targetElevation=flightFloor(a.position)+(landing?0.f:f.low);
         if(landing&&!landingAllowed(a.kind,a.target))a.flightTimer=3.f,a.flightPhase=FlightPhase::Cruise;
     }
-    void stepFlight(Animal& a, float dt) {
+    void stepFlight(size_t index, float dt) {
+        Animal& a=animals_[index];
         const Kind& k=kindOf(a); const auto& f=k.flight;
-        const float floor=flightFloor(a.position);
+        const float floor=floorUnder(index,a.position);
         auto& group=state_[a.group];
         if (!a.flightInitialized) {
             a.flightInitialized=true; a.elevation=floor;
@@ -532,13 +547,14 @@ private:
             Vec2 off=next-o.position; float r=length(off),keep=std::max(1.f,k.radius+kindOf(o).radius);
             if (r>.001f && r<keep) next=next+off*((keep-r)/r*std::min(.5f,dt*3.f));
         }
+        const float nextFloor=floorUnder(index,next);
         float targetY=a.targetElevation;
-        if (approaching && d>8.f) targetY=std::max(targetY,flightFloor(next)+std::min(f.low,d*.4f));
-        if (!approaching) targetY=std::max(targetY,flightFloor(next)+f.low);
+        if (approaching && d>8.f) targetY=std::max(targetY,nextFloor+std::min(f.low,d*.4f));
+        if (!approaching) targetY=std::max(targetY,nextFloor+f.low);
         float vy=std::clamp((targetY-a.elevation)*2.f,-f.climb,f.climb);
         a.verticalSpeed+=std::clamp(vy-a.verticalSpeed,-f.acceleration*dt,f.acceleration*dt);
         float nextY=a.elevation+a.verticalSpeed*dt;
-        if (nextY<flightFloor(next)) nextY=flightFloor(next);
+        if (nextY<nextFloor) nextY=nextFloor;
         if (allowed(a.kind,next) && flightClear(a.position,a.elevation,next,nextY)) {
             a.position=next; a.elevation=nextY;
         } else {
@@ -562,7 +578,7 @@ private:
             a.flightTimer=between(f.restMin,f.restMax)/std::max(.15f,group.flightActivity);
             a.speed=a.verticalSpeed=a.bank=a.pitch=0.f; a.state=State::Idle;a.flap=0.f;
         }
-        a.height=std::max(0.f,a.elevation-flightFloor(a.position));
+        a.height=std::max(0.f,a.elevation-floorUnder(index,a.position));
     }
 
     size_t members(uint32_t group) const {
@@ -633,9 +649,18 @@ private:
         }
     }
 
+    // Nearest homes first: when the budget is short, the animals the observer
+    // would meet soonest get the slots, whatever order the host listed them in.
     void spawnNear(const Scene& scene) {
         size_t used = live();
-        for (size_t gi = 0; gi < groups_.size() && used < budget_; ++gi) {
+        if (used >= budget_) return;
+        order_.resize(groups_.size());
+        for (size_t gi = 0; gi < groups_.size(); ++gi) order_[gi] = gi;
+        std::stable_sort(order_.begin(), order_.end(), [&](size_t a, size_t b) {
+            return distance(groups_[a].home, scene.observer) < distance(groups_[b].home, scene.observer);
+        });
+        for (size_t oi = 0; oi < order_.size() && used < budget_; ++oi) {
+            const size_t gi = order_[oi];
             auto& s = state_[gi];
             const Group& g = groups_[gi];
             if (s.spawned || !s.active || s.cooldown > 0.f || g.members.empty()) continue;
@@ -705,6 +730,9 @@ private:
     std::vector<GroupState> state_;
     std::vector<std::vector<bool>> membersEnabled_;
     std::vector<Animal> animals_;
+    std::vector<size_t> order_;  // spawnNear's scratch, kept to spare an allocation a frame
+    struct FloorMemo { Vec2 at{1e30f, 1e30f}; float floor = 0.f; };
+    std::vector<FloorMemo> floors_;  // by slot, as animals_
     Allowed allowed_;
     Allowed flightLanding_;
     bool landingAllowed(uint16_t kind,Vec2 at) const { return flightLanding_?flightLanding_(kind,at):allowed(kind,at); }

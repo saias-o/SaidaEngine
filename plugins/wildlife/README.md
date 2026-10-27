@@ -28,7 +28,8 @@ moment it is at one point of it, drawn on ground it may stand on, and drawn
 again every 45 s while unseen. It is spawned whole when that point is within
 its leader's view range of the observer and the host says it is out
 (`setActive`: its hour, season, weather are the host's business), so it is met
-as often as one passes where it is. It never spawns inside its own flight
+as often as one passes where it is. When the slots run short, the groups whose
+homes are nearest the observer spawn first. It never spawns inside its own flight
 distance, where it would bolt at once; close by it is never spawned in plain
 sight, only behind the observer's back; further out it may come into view. An
 animal in view is kept out to three view ranges; out of sight it is dropped
@@ -91,6 +92,11 @@ callback and stable nonzero perch IDs through `setFlightGround`,
 `setFlightClear`, `setFlightLandingAllowed`, `setPerches`. Read `flightPhase`,
 `elevation`, `verticalSpeed`, `bank`, `pitch` and `flap` to place and animate
 the animal. The add-on does not depend on scenes or animation backends.
+
+The ground callback may be the host's costliest answer, so it is asked once a
+tick per moving bird and not again for a bird that has not moved; a host
+whose ground changes under a still bird calls `setFlightGround` again, which
+forgets every answer.
 
 `setFlightActivity(group, share)` sends present birds to roost at low activity;
 `setActive` remains seasonal presence. Threats still flush a roost. Missing

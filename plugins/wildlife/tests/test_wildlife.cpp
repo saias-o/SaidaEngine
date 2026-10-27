@@ -93,6 +93,19 @@ int main() {
         check(h.live() == 3, "a group spawns within view range, up to the budget");
         check(h.spawned(0), "the group is marked spawned");
     }
+    // A short budget goes to the nearest group, not the first one listed: a
+    // far herd must not keep the deer at the walker's feet from coming.
+    {
+        Kind k = deer();
+        k.roam = 1.f;
+        Herds h;
+        h.reset({k}, {Group{{110.f, 0.f}, {0, 0}, 3}, Group{{60.f, 0.f}, {0, 0}, 4}}, 2, 7);
+        Scene s;
+        s.observer = {0.f, 0.f};
+        s.facing = {-1.f, 0.f};
+        run(h, s, 0.5f);
+        check(h.live() == 2 && h.spawned(1) && !h.spawned(0), "the nearest group takes a short budget");
+    }
     // Never out of nowhere in plain sight close by: facing the home at 20 m
     // spawns nothing; turning away lets it come.
     {
