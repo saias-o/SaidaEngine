@@ -39,6 +39,9 @@ namespace {
 
 // Smallest half-extent / radius we let through so Jolt's convex radius is valid.
 constexpr float kMinHalf = 0.02f;
+// Authored primitives may represent small animals or precision props. The
+// centimetre floor belongs to inferred/fallback shapes, not explicit sizes.
+constexpr float kMinPrimitiveHalf = 0.0001f;
 
 // Auto derives its primitive from the meshes' bounds, ConvexHull and Mesh are
 // built from their geometry; the other types carry their own dimensions.
@@ -176,8 +179,8 @@ JPH::Ref<JPH::Shape> buildTriangleMesh(Node& bodyNode, const glm::mat4& invBodyT
 
 JPH::Ref<JPH::Shape> buildBox(const glm::vec3& halfExtents) {
     using namespace JPH;
-    glm::vec3 he = glm::max(halfExtents, glm::vec3(kMinHalf));
-    ShapeSettings::ShapeResult r = BoxShapeSettings(toJolt(he)).Create();
+    glm::vec3 he = glm::max(halfExtents, glm::vec3(kMinPrimitiveHalf));
+    ShapeSettings::ShapeResult r = BoxShapeSettings(toJolt(he),std::min(.05f,std::min({he.x,he.y,he.z})*.5f)).Create();
     return r.IsValid() ? r.Get() : Ref<Shape>();
 }
 
@@ -339,12 +342,12 @@ JPH::Ref<JPH::Shape> CollisionShapeNode::buildShape(const glm::mat4& invBodyTR, 
     Quat localRot = Quat::sIdentity();
     switch (resolved_) {
         case CollisionShapeType::Sphere: {
-            ShapeSettings::ShapeResult r = SphereShapeSettings(std::max(radius, kMinHalf)).Create();
+            ShapeSettings::ShapeResult r = SphereShapeSettings(std::max(radius, kMinPrimitiveHalf)).Create();
             if (r.IsValid()) prim = r.Get();
             break;
         }
         case CollisionShapeType::Capsule: {
-            float rad = std::max(radius, kMinHalf);
+            float rad = std::max(radius, kMinPrimitiveHalf);
             float halfCyl = std::max(0.0f, height * 0.5f - rad);
             ShapeSettings::ShapeResult r = CapsuleShapeSettings(halfCyl, rad).Create();
             if (r.IsValid()) {

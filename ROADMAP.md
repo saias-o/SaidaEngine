@@ -9,6 +9,15 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
+## Optional wildlife flight — 2026-10-27
+
+- [x] Add species-configurable flight, continuous takeoff/approach, host-owned
+  ground/clearance and perch support, roost activity, group steering and wind.
+  Proof: standalone `plugins/wildlife/tests/test_flight.cpp` passes the complete
+  flight cycle, exact perch attachment, night roost, fright, absent support,
+  seeded replay and permanent resident retirement; base wildlife tests pass.
+  This is a CPU behavior contract, not a visual or whole-game performance claim.
+
 ## Small glTF skin frames — 2026-10-27
 
 - [x] Preserve small armature scales and rotations when importing matrix nodes
@@ -212,6 +221,12 @@ the corresponding contracts of `SPEC.md`.
 
 ## Ragdolls, reach and attachment — 2026-10-13
 
+- [x] Join disconnected skin roots with an explicit earlier ragdoll part,
+  drive their physical positions back into the pose, and preserve authored
+  millimetre-scale primitives. Headless `saida_ragdoll_tests` verifies the
+  disconnected-root pose, invalid/forward parent rejection and small shapes;
+  106 checks pass, alongside all five physics/ragdoll CTest cases. R1World's
+  separate CPU GLB integration test exercises its 119 resident animal models.
 - [x] Share player/crowd knockdown recovery, suspend animated colliders through
   ragdoll recovery and use the root physics world for mounted scenes. Verified
   2026-10-23: 93 ragdoll checks, native CTest 110/110, Web player build, offline

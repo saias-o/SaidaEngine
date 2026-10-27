@@ -122,6 +122,44 @@ void restPose(const Rig& rig, LocalPose& local, GlobalPose& global) {
     global.computeFrom(local, rig);
 }
 
+void disconnectedRootsAndSmallShapes() {
+    PhysicsWorld world;
+    Rig rig;
+    auto add=[&](const char* name,int parent,glm::vec3 at) {
+        Transform rest;rest.position=at;
+        rig.addBone(name,parent,glm::inverse(glm::translate(glm::mat4(1),at)),rest);
+    };
+    add("torso",-1,{0,1,0});add("detached limb",-1,{.2f,1,0});
+    require(rig.finalize(),"disconnected skin roots are a valid rig");
+    RagdollProfile profile;
+    RagdollPart trunk;trunk.bone="torso";trunk.length=.3f;trunk.radius=.1f;profile.parts.push_back(trunk);
+    RagdollPart limb;limb.bone="detached limb";limb.length=.3f;limb.radius=.04f;limb.parent="torso";profile.parts.push_back(limb);
+    LocalPose local;GlobalPose pose;restPose(rig,local,pose);
+    Ragdoll ragdoll(rig,profile);
+    require(ragdoll.valid(),"an explicit earlier parent joins disconnected skin roots");
+    require(ragdoll.spawn(world,pose,local,glm::mat4(1),{3,2,0}),"disconnected ragdoll spawns");
+    for(int i=0;i<30;++i)world.step(kDt);
+    LocalPose read;ragdoll.readPose(glm::mat4(1),read);GlobalPose drawn;drawn.computeFrom(read,rig);
+    for(size_t i=0;i<2;++i)requireNear(glm::distance(glm::vec3(drawn.globalMatrices[i][3]),ragdoll.bonePosition(i)),0,.001f,
+        "every disconnected driven root follows its physical joint position");
+    ragdoll.despawn();
+    profile.parts[1].parent="missing";
+    require(!Ragdoll(rig,profile).valid(),"an unknown explicit parent is refused");
+    profile.parts[0].parent="detached limb";
+    require(!Ragdoll(rig,profile).valid(),"forward parent references cannot form a cycle");
+
+    Node body;
+    for(auto type:{CollisionShapeType::Box,CollisionShapeType::Sphere,CollisionShapeType::Capsule}) {
+        auto* shape=body.createChild<CollisionShapeNode>();shape->shapeType=type;
+        shape->halfExtents={.002f,.003f,.004f};shape->radius=.002f;shape->height=.008f;
+        body.updateTransforms(glm::mat4(1),true);
+        auto built=shape->buildShape(glm::mat4(1),body);
+        require(built!=nullptr,"millimetre-sized authored primitive builds");
+        require(built->GetLocalBounds().GetSize().GetY()<.01f,"explicit small shape has no centimetre inflation");
+        body.removeChild(shape);
+    }
+}
+
 JPH::BodyID addFloor(PhysicsWorld& world) {
     JPH::Ref<JPH::Shape> box = new JPH::BoxShape(JPH::Vec3(50.0f, 0.5f, 50.0f));
     BodyDesc desc;
@@ -379,6 +417,7 @@ void reachAndAttach(const Rig& rig) {
 } // namespace
 
 int main() {
+    disconnectedRootsAndSmallShapes();
     const auto rig = makeRig();
     const std::pair<const char*, void (*)(const Rig&)> cases[] = {
         {"drop and settle", dropAndSettle}, {"hinges", hingesBendOneWay}, {"ragdolls collide", ragdollsCollide},

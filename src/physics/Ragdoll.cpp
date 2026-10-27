@@ -25,7 +25,7 @@ namespace {
 
 constexpr float kEpsilon = 1e-6f;
 // Shortest capsule kept: Jolt asserts on a zero cylinder.
-constexpr float kMinimumHalfCylinder = 0.01f;
+constexpr float kMinimumHalfCylinder = 0.00001f;
 // Group ids handed out to ragdolls so that two of them collide with each other
 // while each keeps its own parts apart. cInvalidGroup is never used.
 std::atomic<uint32_t> g_nextGroup{1};
@@ -140,6 +140,15 @@ void Ragdoll::build(const Rig& rig) {
         }
         for (int32_t a = rig.bones()[size_t(part.bone)].parentIndex; a >= 0; a = rig.bones()[size_t(a)].parentIndex)
             if (partOfBone_[size_t(a)] >= 0) { part.parent = partOfBone_[size_t(a)]; break; }
+        part.drivesPosition = i == 0 || part.parent < 0;
+        if (!def.parent.empty()) {
+            const int32_t parentBone = rig.findBoneIndex(def.parent);
+            if (parentBone < 0 || partOfBone_[size_t(parentBone)] < 0) {
+                error_ = "part '" + def.bone + "' names no earlier parent part '" + def.parent + "'"; return;
+            }
+            part.drivesPosition = part.drivesPosition || part.parent != partOfBone_[size_t(parentBone)];
+            part.parent = partOfBone_[size_t(parentBone)];
+        }
         if (i > 0 && part.parent < 0) { error_ = "part '" + def.bone + "' has no part among its ancestors"; return; }
         const glm::vec3 origin = positionOf(restGlobal_[size_t(part.bone)]);
         const glm::vec3 reach = part.end >= 0 ? positionOf(restGlobal_[size_t(part.end)]) - origin
@@ -341,7 +350,7 @@ void Ragdoll::readPose(const glm::mat4& objectToWorld, LocalPose& out) const {
             const glm::quat rotation = glm::normalize(toObjectRotation * bodyRotation * part.boneInBodyRotation);
             const glm::quat aboveRotation = parentBone >= 0 ? rotationOf(above) : glm::quat(1, 0, 0, 0);
             local.rotation = glm::normalize(glm::inverse(aboveRotation) * rotation);
-            if (p == 0) {
+            if (part.drivesPosition) {
                 const glm::vec3 position = bodyPosition + bodyRotation * part.boneInBodyPosition;
                 local.position = glm::vec3(glm::inverse(above) * (toObject * glm::vec4(position, 1.0f)));
             }

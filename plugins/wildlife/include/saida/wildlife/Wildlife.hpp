@@ -44,9 +44,22 @@ enum class Surface : uint8_t { Ground, Air };
 // short way and vanish into cover (small animals: a lizard, a mouse).
 enum class FleeStyle : uint8_t { None, Run, Dart };
 
+struct Flight {
+    bool enabled = false;
+    float speed = 9.f, acceleration = 4.f, climb = 3.f, turn = 1.5f;
+    float low = 8.f, high = 25.f;
+    float flyMin = 15.f, flyMax = 50.f, restMin = 10.f, restMax = 35.f;
+    float glide = .2f, flapHz = 4.f, groundShare = .3f;
+    float perchLow = 1.f, perchHigh = 30.f;
+};
+enum class FlightPhase : uint8_t { Ground, Takeoff, Cruise, Approach, Perched };
+// Elevations use one fixed host frame, never height above changing terrain.
+struct Perch { Vec2 at; float elevation = 0.f; uint64_t identity = 0; };
+
 // One kind of animal. Speeds in metres per second as drawn: a gait clip
 // covers ground at `walkSpeed`, and the host scales playback to any other.
 struct Kind {
+    Flight flight;
     float walkSpeed = 0.f;     // 0: no gait, it never walks
     float runSpeed = 0.f;      // 0: no run clip
     float fleeSpeed = 0.f;     // how fast it flees; 0: its run (or walk) speed
@@ -89,6 +102,12 @@ struct Animal {
     float height = 0.f;        // air: metres above the ground
     float timer = 0.f;         // seconds left of what it is doing
     uint64_t identity = 0;     // grows with every spawn into this slot
+    FlightPhase flightPhase = FlightPhase::Ground;
+    float elevation = 0.f, verticalSpeed = 0.f, bank = 0.f, pitch = 0.f;
+    float flightAge = 0.f, flightTimer = 0.f, flap = 1.f;
+    float targetElevation = 0.f;
+    uint64_t perch = 0;
+    bool flightInitialized = false;
 };
 
 // What can scare an animal: a walker, a car. `scale` multiplies every flee
@@ -115,6 +134,8 @@ public:
         kinds_ = std::move(kinds);
         groups_ = std::move(groups);
         state_.assign(groups_.size(), GroupState{});
+        membersEnabled_.clear();
+        for (const auto& group : groups_) membersEnabled_.emplace_back(group.members.size(), true);
         animals_.assign(budget, Animal{});
         seed_ = seed ? seed : 1;
         for (auto& g : groups_)
@@ -123,6 +144,17 @@ public:
     }
     // Where a kind may stand; without one, anywhere.
     void setAllowed(Allowed allowed) { allowed_ = std::move(allowed); }
+    using Elevation = std::function<float(Vec2)>;
+    using FlightClear = std::function<bool(Vec2, float, Vec2, float)>;
+    void setFlightGround(Elevation ground) { flightGround_ = std::move(ground); }
+    void setFlightClear(FlightClear clear) { flightClear_ = std::move(clear); }
+    void setFlightLandingAllowed(Allowed allowed) { flightLanding_ = std::move(allowed); }
+    void setPerches(std::vector<Perch> perches) { perches_ = std::move(perches); }
+    // Activity drives foraging versus roosting; seasonal presence uses setActive.
+    void setFlightActivity(size_t group, float activity) {
+        if (group < state_.size()) state_[group].flightActivity = std::clamp(activity, 0.f, 1.f);
+    }
+    void setWind(Vec2 wind) { wind_ = wind; }
     // Whether a group is out now (its hour, its season). An inactive group is
     // not spawned, and its animals leave when nobody sees them go.
     void setActive(size_t group, bool active) {
@@ -130,6 +162,18 @@ public:
     }
     // Fewer slots than reset gave: the rest stay empty (the host's share).
     void setBudget(size_t budget) { budget_ = std::min(budget, animals_.size()); }
+
+    // Host-owned permanent population changes (death, capture, relocation).
+    // Unlike visibility retirement, a disabled resident cannot respawn. The
+    // host persists this policy and reapplies it after reset(). Slot identity
+    // and member indices remain stable; survivors keep their original member.
+    bool setMemberEnabled(size_t group, size_t member, bool enabled) {
+        if (group >= membersEnabled_.size() || member >= membersEnabled_[group].size()) return false;
+        membersEnabled_[group][member] = enabled;
+        if (!enabled) for (auto& animal : animals_)
+            if (animal.alive && animal.group == group && animal.member == member) animal.alive = false;
+        return true;
+    }
 
     const std::vector<Kind>& kinds() const { return kinds_; }
     const std::vector<Group>& groups() const { return groups_; }
@@ -188,6 +232,7 @@ private:
         uint32_t moves = 0;
         float cooldown = 0.f;   // seconds before a group that left may come back
         float fear = 0.f;       // seconds left of its fright
+        float flightActivity = 1.f;
         Vec2 fleeFrom;
         uint32_t spawns = 0;
     };
@@ -292,7 +337,7 @@ private:
                 }
                 continue;
             }
-            if (k.walkSpeed <= 0.f && k.runSpeed <= 0.f) continue;
+            if (!k.flight.enabled && k.walkSpeed <= 0.f && k.runSpeed <= 0.f) continue;
             if (s.fear <= 0.f || a.state != State::Flee) a.target = fleeTarget(a, from);
             a.state = State::Flee;
         }
@@ -308,7 +353,7 @@ private:
         // Frights: the nearest threat inside the flee distance scares the group.
         if (k.fleeDistance > 0.f && k.flee != FleeStyle::None)
             for (const auto& t : scene_->threats)
-                if (distance(t.position, a.position) < k.fleeDistance * t.scale) {
+                if (std::hypot(distance(t.position, a.position),k.flight.enabled?a.height:0.f) < k.fleeDistance * t.scale) {
                     scare(a.group, t.position);
                     break;
                 }
@@ -316,6 +361,7 @@ private:
             g.fear -= dt / std::max<size_t>(1, members(a.group));
             if (g.fear <= 0.f) stand(a);
         }
+        if (k.flight.enabled) { stepFlight(a, dt); return; }
         if (k.surface == Surface::Air) {
             const float mid = 0.5f * (k.hoverLow + k.hoverHigh), amp = 0.5f * (k.hoverHigh - k.hoverLow);
             const float phase = float(a.identity % 97) + float(index);
@@ -376,6 +422,147 @@ private:
             break;
         }
         }
+    }
+
+    float flightFloor(Vec2 at) const { return flightGround_ ? flightGround_(at) : 0.f; }
+    bool flightClear(Vec2 a, float ay, Vec2 b, float by) const {
+        return !flightClear_ || flightClear_(a, ay, b, by);
+    }
+    const Perch* chosenPerch(const Animal& a) const {
+        if (!a.perch) return nullptr;
+        for (const auto& p : perches_) if (p.identity == a.perch) return &p;
+        return nullptr;
+    }
+    bool occupied(const Animal& a, const Perch& p) const {
+        for (const auto& other : animals_)
+            if (&other != &a && other.alive && other.perch == p.identity) return true;
+        return false;
+    }
+    void flightDestination(Animal& a, bool landing) {
+        const Kind& k = kindOf(a); const auto& f = k.flight;
+        a.perch = 0;
+        if (landing && random() > f.groundShare) {
+            const Perch* best = nullptr; float score = 1e30f;
+            for (const auto& p : perches_) {
+                const float d = distance(a.position,p.at);
+                if(d>=score||distance(p.at,groups_[a.group].home)>k.roam)continue;
+                const float h = p.elevation - flightFloor(p.at);
+                if (h < f.perchLow || h > f.perchHigh || occupied(a,p) || !landingAllowed(a.kind,p.at)) continue;
+                if (d < score && flightClear(a.position,a.elevation,p.at,p.elevation + .15f)) { best=&p;score=d; }
+            }
+            if (best) { a.target=best->at; a.targetElevation=best->elevation; a.perch=best->identity; return; }
+        }
+        for (int attempt=0; attempt<12; ++attempt) {
+            Vec2 target = pointNear(a.kind,groups_[a.group].home,k.roam);
+            const float y = flightFloor(target) + (landing ? 0.f : between(f.low,f.high));
+            if (distance(target,a.position)<2.f || !(landing?landingAllowed(a.kind,target):allowed(a.kind,target))) continue;
+            // The final descent is checked every tick; cruise legs clear obstacles.
+            if (flightClear(a.position,a.elevation,target,landing ? std::max(a.elevation,y+f.low) : y)) {
+                a.target=target; a.targetElevation=y; return;
+            }
+        }
+        a.target=a.position; a.targetElevation=flightFloor(a.position)+(landing?0.f:f.low);
+        if(landing&&!landingAllowed(a.kind,a.target))a.flightTimer=3.f,a.flightPhase=FlightPhase::Cruise;
+    }
+    void stepFlight(Animal& a, float dt) {
+        const Kind& k=kindOf(a); const auto& f=k.flight;
+        const float floor=flightFloor(a.position);
+        auto& group=state_[a.group];
+        if (!a.flightInitialized) {
+            a.flightInitialized=true; a.elevation=floor;
+            a.flightTimer=between(1.f,f.restMax); a.flightAge=between(0.f,100.f);
+        }
+        a.flightAge+=dt; a.flightTimer-=dt;
+        const bool scared=a.state==State::Flee;
+        const bool roost=group.flightActivity<.15f;
+        const bool resting=a.flightPhase==FlightPhase::Ground || a.flightPhase==FlightPhase::Perched;
+        if (resting) {
+            a.speed=a.verticalSpeed=a.bank=a.pitch=0.f; a.flap=0.f;
+            if (a.flightPhase==FlightPhase::Perched) {
+                if (const auto* p=chosenPerch(a)) a.position=p->at,a.elevation=p->elevation;
+                else a.flightTimer=-1.f; // support removed: take off continuously from this pose
+            } else {
+                a.elevation=floor;
+                if(!roost&&!scared&&k.walkSpeed>0.f) {
+                    a.timer-=dt;
+                    if(a.state==State::Walk) {if(move(a,k.walkSpeed,3.f,dt)||a.timer<=0.f)stand(a);}
+                    else if(a.timer<=0.f) {wander(a); a.target=pointNear(a.kind,a.position,std::min(5.f,k.roam));}
+                } else a.state=State::Idle;
+            }
+            if(a.flightPhase==FlightPhase::Perched)a.state=State::Idle;
+            if (scared || (a.flightTimer<=0.f && !roost) || (a.perch && !chosenPerch(a))) {
+                a.flightPhase=FlightPhase::Takeoff; a.flightTimer=between(f.flyMin,f.flyMax);
+                a.perch=0; flightDestination(a,false);
+            } else { a.height=std::max(0.f,a.elevation-floor); return; }
+        }
+        if (scared && a.flightPhase==FlightPhase::Approach) {
+            a.flightPhase=FlightPhase::Takeoff; a.flightTimer=f.flyMin; flightDestination(a,false);
+        }
+        if (a.flightPhase!=FlightPhase::Approach && !scared && (a.flightTimer<=0.f || roost)) {
+            a.flightPhase=FlightPhase::Approach; flightDestination(a,true);
+        }
+        if (a.perch && !chosenPerch(a)) { a.flightPhase=FlightPhase::Cruise; flightDestination(a,false); }
+        const bool approaching=a.flightPhase==FlightPhase::Approach;
+        Vec2 to=a.target-a.position; float d=length(to);
+        if (!approaching && d<std::max(3.f,a.speed*1.5f)) flightDestination(a,false),to=a.target-a.position,d=length(to);
+        const int leader=leaderOf(a.group);
+        if(!approaching&&!scared&&leader>=0&&&animals_[size_t(leader)]!=&a) {
+            const auto& lead=animals_[size_t(leader)];
+            if(lead.flightPhase==FlightPhase::Cruise||lead.flightPhase==FlightPhase::Takeoff) {
+                const Vec2 slot=formation(lead,a.member);
+                if(distance(a.position,slot)>k.spread*2.f)to=slot-a.position,d=length(to),a.targetElevation=lead.elevation;
+            }
+        }
+        if (scared) {
+            Vec2 away=a.position-group.fleeFrom;
+            if (length(away)>.1f) to=away,d=length(to);
+        }
+        const float turn=std::remainder(headingOf(to)-a.heading,6.2831853f);
+        const float rate=std::clamp(turn*2.f,-f.turn,f.turn);
+        a.heading+=rate*dt;
+        float speed=f.speed*(scared?1.25f:1.f);
+        if (approaching) speed=std::min(speed,std::max(.03f,d*1.2f));
+        if (a.flightPhase==FlightPhase::Takeoff) speed*=.65f;
+        a.speed+=std::clamp(speed-a.speed,-f.acceleration*dt,f.acceleration*dt);
+        Vec2 drift=wind_*.18f;
+        if (approaching) drift=drift*std::min(1.f,d/12.f);
+        Vec2 next=a.position+(forward(a.heading)*a.speed+drift)*dt;
+        // Cohesion in flight is loose, with bounded separation in three dimensions.
+        for (const auto& o:animals_) if (&o!=&a && o.alive && kindOf(o).flight.enabled && std::abs(o.elevation-a.elevation)<1.5f) {
+            Vec2 off=next-o.position; float r=length(off),keep=std::max(1.f,k.radius+kindOf(o).radius);
+            if (r>.001f && r<keep) next=next+off*((keep-r)/r*std::min(.5f,dt*3.f));
+        }
+        float targetY=a.targetElevation;
+        if (approaching && d>8.f) targetY=std::max(targetY,flightFloor(next)+std::min(f.low,d*.4f));
+        if (!approaching) targetY=std::max(targetY,flightFloor(next)+f.low);
+        float vy=std::clamp((targetY-a.elevation)*2.f,-f.climb,f.climb);
+        a.verticalSpeed+=std::clamp(vy-a.verticalSpeed,-f.acceleration*dt,f.acceleration*dt);
+        float nextY=a.elevation+a.verticalSpeed*dt;
+        if (nextY<flightFloor(next)) nextY=flightFloor(next);
+        if (allowed(a.kind,next) && flightClear(a.position,a.elevation,next,nextY)) {
+            a.position=next; a.elevation=nextY;
+        } else {
+            // Brake and climb rather than teleporting through a wall/tree.
+            a.speed=std::max(0.f,a.speed-f.acceleration*dt*2.f);
+            a.heading+=f.turn*dt;
+            const float up=a.elevation+f.climb*dt;
+            if (flightClear(a.position,a.elevation,a.position,up)) a.elevation=up;
+            a.flightPhase=FlightPhase::Cruise; a.flightTimer=3.f; a.perch=0;
+            flightDestination(a,false);
+        }
+        a.bank+=(std::clamp(-rate*a.speed/9.81f,-.85f,.85f)-a.bank)*(1.f-std::exp(-5.f*dt));
+        a.pitch+=(std::atan2(a.verticalSpeed,std::max(1.f,a.speed))-a.pitch)*(1.f-std::exp(-5.f*dt));
+        a.flap=(!approaching && !scared && a.flightPhase==FlightPhase::Cruise &&
+                 std::fmod(a.flightAge,8.f)<f.glide*8.f)?0.f:1.f;
+        a.state=scared?State::Flee:State::Walk;
+        if (a.flightPhase==FlightPhase::Takeoff && a.elevation-floor>std::min(2.f,f.low*.5f)) a.flightPhase=FlightPhase::Cruise;
+        if (approaching && distance(a.position,a.target)<.025f && std::abs(a.elevation-a.targetElevation)<.02f) {
+            a.position=a.target; a.elevation=a.targetElevation;
+            a.flightPhase=a.perch?FlightPhase::Perched:FlightPhase::Ground;
+            a.flightTimer=between(f.restMin,f.restMax)/std::max(.15f,group.flightActivity);
+            a.speed=a.verticalSpeed=a.bank=a.pitch=0.f; a.state=State::Idle;a.flap=0.f;
+        }
+        a.height=std::max(0.f,a.elevation-flightFloor(a.position));
     }
 
     size_t members(uint32_t group) const {
@@ -452,7 +639,10 @@ private:
             auto& s = state_[gi];
             const Group& g = groups_[gi];
             if (s.spawned || !s.active || s.cooldown > 0.f || g.members.empty()) continue;
-            const Kind& lead = kinds_[g.members.front()];
+            size_t leader = 0;
+            while (leader < g.members.size() && !membersEnabled_[gi][leader]) ++leader;
+            if (leader == g.members.size()) continue;
+            const Kind& lead = kinds_[g.members[leader]];
             // Out of reach of its whole roam: where it is will be drawn anew.
             if (distance(g.home, scene.observer) > lead.viewRange + lead.roam) {
                 s.whereAge = 1e9f;
@@ -460,7 +650,7 @@ private:
             }
             if (s.whereAge >= kRelocateSeconds) {
                 rng_ = mix(seed_ ^ mix(g.identity * 0x9E37ull + ++s.moves));
-                s.where = pointNear(g.members.front(), g.home, lead.roam, 16);
+                s.where = pointNear(g.members[leader], g.home, lead.roam, 16);
                 s.whereAge = 0.f;
             }
             const float away = distance(s.where, scene.observer);
@@ -475,11 +665,16 @@ private:
             Vec2 first{};
             bool any = false;
             for (uint32_t m = 0; m < g.members.size() && used < budget_; ++m) {
+                if (!membersEnabled_[gi][m]) continue;
                 const uint16_t kind = g.members[m];
                 const Kind& k = kinds_[kind];
                 const Vec2 around = any ? first : s.where;
                 const float radius = any ? k.spread * std::sqrt(float(m) + 1.f) : std::min(k.roam, k.spread);
-                const Vec2 at = pointNear(kind, around, radius);
+                Vec2 at = pointNear(kind, around, radius);
+                if(k.flight.enabled&&!landingAllowed(kind,at)) {
+                    for(int attempt=0;attempt<12&&!landingAllowed(kind,at);++attempt)at=pointNear(kind,g.home,k.roam);
+                    if(!landingAllowed(kind,at))continue;
+                }
                 if (!allowed(kind, at)) continue;
                 size_t slot = 0;
                 while (slot < animals_.size() && animals_[slot].alive) ++slot;
@@ -508,8 +703,15 @@ private:
     std::vector<Kind> kinds_;
     std::vector<Group> groups_;
     std::vector<GroupState> state_;
+    std::vector<std::vector<bool>> membersEnabled_;
     std::vector<Animal> animals_;
     Allowed allowed_;
+    Allowed flightLanding_;
+    bool landingAllowed(uint16_t kind,Vec2 at) const { return flightLanding_?flightLanding_(kind,at):allowed(kind,at); }
+    Elevation flightGround_;
+    FlightClear flightClear_;
+    std::vector<Perch> perches_;
+    Vec2 wind_;
     const Scene* scene_ = nullptr;
     size_t budget_ = static_cast<size_t>(-1);
     uint64_t seed_ = 1, rng_ = 1;

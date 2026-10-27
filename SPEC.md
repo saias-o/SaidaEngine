@@ -1392,6 +1392,9 @@ implemented; the hull and triangle-mesh builders fall back to a box, with a
 logged warning, when the body carries no CPU mesh data. Builders gather every
 mesh below the body. They compose local child transforms with the body's linear
 scale/rotation residual, avoiding subtraction of large world translations.
+Explicit Box/Sphere/Capsule dimensions support millimetre-sized primitives
+(0.1 mm numerical floor); inferred/fallback bounds retain their 2 cm floor.
+Small boxes reduce their convex radius to fit their half extents.
 Colliders built millions of metres from the origin therefore retain their local
 geometry after rebasing. Covered by the distant-frame mesh regression in
 `saida_scene_streaming_tests --gpu`, including a translated and scaled child.
@@ -1817,6 +1820,14 @@ continuous collision; `partOf` maps a query hit to a part. `humanoidRagdoll`
 gives an eleven-body adult from named bones (T-pose arm defaults). Covered by
 `saida_ragdoll_tests` (fall and rest without sinking, joint integrity, one-way
 knees, inter-ragdoll contact, rebase, refusal by capacity and by bone name).
+
+`RagdollPart::parent` optionally names an earlier part's bone, allowing
+disconnected skin roots to join a torso without rewriting the rig or clips.
+Unknown and forward parent references are refused. A driven bone with no
+driven skeletal ancestor receives position as well as rotation from physics;
+ordinary chains still retain their bone lengths. Capsule cylinders use a
+10 micrometre numerical floor rather than inflating small rigs by 2 cm.
+Headless `saida_ragdoll_tests` covers these roots and explicit small shapes.
 
 `RagdollBehaviour` drives it beside a node's `Animator` through a pose modifier:
 `activate` (Simulated; the node follows the root part), automatic `freeze` once
@@ -3060,9 +3071,34 @@ move; kinds that cannot stand keep walking. Spawns are seeded from the group
 identity and host seed; slots are stable while alive and `identity` tells
 reuse apart.
 
+`Herds::setMemberEnabled(group, member, false)` removes a resident and blocks
+its future spawns while preserving survivor member indices. Invalid indices
+return false. `reset` enables all members; durable death/capture/relocation
+policy and any corpse representation remain host-owned and must be replayed
+before updating a reset population.
+
 Verification is one translation unit with no engine build:
 `g++ -std=c++17 -O2 -Wall -I../include test_wildlife.cpp -o test_wildlife` in
 `plugins/wildlife/tests`, which prints `PASS saida::wildlife`.
+
+Kinds may additionally enable `Kind::flight`. `Flight` configures cruise
+speed, bounded acceleration, climb and turn rates, altitude band, flight/rest
+spells, flap frequency, glide share and perch/ground preferences. `Animal`
+reports `FlightPhase` (Ground, Takeoff, Cruise, Approach, Perched), elevation,
+vertical speed, bank, pitch and flap/glide intent. Flight bypasses the older
+sinusoidal air-hover path. Elevation uses a fixed host frame; `height` remains
+clearance above ground. Final landing attachment has a sub-3-cm tolerance.
+
+The host supplies `setFlightGround`, `setFlightClear`,
+`setFlightLandingAllowed` and `setPerches` (positions, elevations, stable
+nonzero IDs). Landing habitat can differ from aerial transit habitat. Perches
+are reserved per animal; lost support triggers takeoff. `setFlightActivity`
+controls foraging/roosting separately from seasonal presence (`setActive`).
+Wind adds drift; birds steer toward their group, separate and react to ground
+threats using vertical as well as horizontal separation. Calendars, weather
+interpretation, species, branch extraction, animation and geographic frames
+remain host-owned. Standalone `test_flight.cpp` covers the flight cycle, perch
+support, night roosting, fright, absent support, seeded replay and resident death.
 
 ### 11.4 Optional C++ XRGesture add-on
 

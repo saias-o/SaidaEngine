@@ -41,6 +41,10 @@ enum class RagdollJoint { Cone, Hinge };
 struct RagdollPart {
     std::string bone;   // the bone this body drives
     std::string end;    // the bone its capsule reaches (usually a child or grandchild)
+    // Optional earlier part's bone for rigs with disconnected skin roots.
+    // Empty selects the nearest skeletal ancestor, as usual. A disconnected
+    // driven root also receives position from physics when reading the pose.
+    std::string parent;
     // For a bone with no useful end (a head), the capsule runs `length` along
     // `axis` (both in the bone's bind-pose object frame) from the bone.
     float length = 0.0f;
@@ -63,7 +67,8 @@ struct RagdollPart {
 struct RagdollProfile {
     // Parents before children. The first part is the root: it alone gives its
     // bone a position; the others only turn theirs. Each later part joins the
-    // nearest earlier part among its bone's ancestors.
+    // nearest earlier part among its bone's ancestors, unless parent names an
+    // earlier part explicitly (disconnected skin roots).
     std::vector<RagdollPart> parts;
     float mass = 70.0f;  // kg, the whole body
     float friction = 0.8f, restitution = 0.05f;
@@ -145,6 +150,7 @@ public:
 private:
     struct Part {
         int32_t bone = -1, end = -1, parent = -1;  // parent: index into parts_
+        bool drivesPosition = false;
         float length = 0.0f, radius = 0.0f, mass = 0.0f;
         glm::vec3 restDirection{0.0f, 1.0f, 0.0f};  // bone-local, toward the capsule's end
         JPH::BodyID body;

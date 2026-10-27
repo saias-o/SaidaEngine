@@ -54,6 +54,13 @@ groups visited again draw the same animals in the same places. Slot indices
 are stable while an animal lives; `Animal::identity` grows with every spawn
 into a slot, so a host can tell reuse apart.
 
+`setMemberEnabled(group, member, false)` removes a particular resident and
+prevents its future spawns, independently of visibility retirement. Invalid
+indices return false. Survivors keep their original member indices, and a
+disabled leader is replaced by the lowest surviving member. The host owns
+persistence: `reset` enables all members, so replay disabled resident IDs
+before the first update. Corpse rendering and physics belong to the host.
+
 ## Use
 
 ```cpp
@@ -75,6 +82,22 @@ for (const auto& a : herds.animals()) {
     draw(a.position, a.heading, a.state, a.speed, a.height);
 }
 ```
+
+## Flight and perches
+
+Enable `Kind::flight` instead of the legacy air-hover model. Supply ground
+elevations in one fixed frame, a clearance callback, a separate landing-habitat
+callback and stable nonzero perch IDs through `setFlightGround`,
+`setFlightClear`, `setFlightLandingAllowed`, `setPerches`. Read `flightPhase`,
+`elevation`, `verticalSpeed`, `bank`, `pitch` and `flap` to place and animate
+the animal. The add-on does not depend on scenes or animation backends.
+
+`setFlightActivity(group, share)` sends present birds to roost at low activity;
+`setActive` remains seasonal presence. Threats still flush a roost. Missing
+support triggers takeoff, occupied perches cannot be selected twice, and ground
+foraging uses an available walking gait. Wind drift, loose group cohesion,
+separation and flap/glide spells apply during flight. Compile `test_flight.cpp`
+using the same flags as the base wildlife test.
 
 ## Verification
 

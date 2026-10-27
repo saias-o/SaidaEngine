@@ -56,6 +56,27 @@ static void run(Herds& herds, Scene& scene, float seconds) {
 }
 
 int main() {
+    {
+        Herds h;
+        h.reset({deer()}, {Group{{0,0},{0,0,0},7}}, 4, 11);
+        Scene s;s.observer={60,0};s.facing={1,0};run(h,s,1);
+        check(h.live()==3,"resident retirement fixture spawns all members");
+        const auto victim=h.animals().front();
+        check(h.setMemberEnabled(victim.group,victim.member,false),"a resident can be disabled");
+        check(h.live()==2,"disabling removes exactly one living resident");
+        check(!h.setMemberEnabled(99,0,false)&&!h.setMemberEnabled(0,99,false),"invalid resident indices are refused");
+        s.observer={1000,0};run(h,s,10);s.observer={60,0};run(h,s,10);
+        check(h.live()==2,"a disabled resident stays gone after visibility retirement and respawn");
+        for(const auto& a:h.animals())check(!a.alive||a.member!=victim.member,"surviving member indices do not shift");
+        h.reset({deer()}, {Group{{0,0},{0,0,0},7}}, 4, 11);
+        h.setMemberEnabled(0,victim.member,false);run(h,s,1);
+        check(h.live()==2,"host persistence can restore disabled residents before the first spawn");
+        h.setMemberEnabled(0,0,false);h.setMemberEnabled(0,1,false);h.setMemberEnabled(0,2,false);
+        run(h,s,60);check(h.live()==0,"a wholly disabled group stays empty indefinitely");
+        Kind near=deer(),far=deer();near.viewRange=10;near.roam=1;far.viewRange=120;far.roam=1;
+        h.reset({near,far},{Group{{0,0},{0,1},9}},4,11);h.setMemberEnabled(0,0,false);run(h,s,1);
+        check(h.live()==1,"spawning uses the surviving leader's range rather than a disabled member's kind");
+    }
     // Nothing is spawned beyond the view range, a group spawns whole once
     // the observer comes within it, and the budget caps it.
     {
