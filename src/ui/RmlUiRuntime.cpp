@@ -4,6 +4,7 @@
 #include "core/Paths.hpp"
 #include "core/Time.hpp"
 #include "ui/RmlUiRenderInterface.hpp"
+#include "ui/HtmlDocument.hpp"
 #include "ui/WebCss.hpp"
 #include "ui/WebMarkup.hpp"
 
@@ -16,6 +17,7 @@
 #include <RmlUi/Core/Factory.h>
 #include <RmlUi/Core/FileInterface.h>
 #include <RmlUi/Core/StyleSheetContainer.h>
+#include <RmlUi/Core/StreamMemory.h>
 #include <RmlUi/Core/StyleTypes.h>
 #include <RmlUi/Core/SystemInterface.h>
 
@@ -250,17 +252,20 @@ std::unique_ptr<RmlUiRenderInterface> gRenderInterface;
 // left-aligned run of text with nothing logged.
 //
 // This sheet is the engine's authoring baseline (SPEC section 8.2): it restores
-// what HTML authors already assume of the browser's own sheet — the block /
-// inline-block distinction, and a button's centred label — and nothing else.
+// what HTML authors assume of the browser's own sheet: display, control box
+// sizing and a button's centred label. The HTML root fills the game canvas.
 // It is a contract, not a theme — no margins, no fonts, no colours — and
 // it is embedded rather than shipped as a file so it can never go missing from
 // a package. It is merged *under* each document, so any rule the document
 // declares wins.
 constexpr const char* kUserAgentStyleSheet = R"RCSS(
-body, div, p, section, h1, h2, h3, h4, h5, h6, header, footer, main, nav,
+html, body, div, p, section, h1, h2, h3, h4, h5, h6, header, footer, main, nav,
 article, aside, form, fieldset, figure, figcaption, ul, ol, li { display: block; }
 img, button, input, select, textarea { display: inline-block; }
 button { text-align: center; }
+button, select, input[type=radio], input[type=checkbox], input[type=reset],
+input[type=button], input[type=submit], input[type=color], input[type=search] { box-sizing: border-box; }
+html { width: 100%; height: 100%; }
 [hidden] { display: none; }
 )RCSS";
 
@@ -372,7 +377,10 @@ Rml::SharedPtr<Rml::StyleSheetContainer> gUserAgentSheet;
 // letting documents silently fall back to RCSS's inline default.
 void applyUserAgentStyleSheet(Rml::ElementDocument& document) {
     if (!gUserAgentSheet) {
-        gUserAgentSheet = Rml::Factory::InstanceStyleSheetString(kUserAgentStyleSheet);
+        Rml::StreamMemory stream(reinterpret_cast<const Rml::byte*>(kUserAgentStyleSheet),
+                                 std::strlen(kUserAgentStyleSheet));
+        stream.SetSourceURL("saida-internal://user-agent");
+        gUserAgentSheet = Rml::Factory::InstanceStyleSheetStream(&stream);
         if (!gUserAgentSheet) {
             Log::error("[RmlUi] the engine user-agent stylesheet failed to parse — "
                        "documents will use the RCSS inline default");
@@ -515,6 +523,7 @@ bool RmlUiRuntime::ensureInitialized() {
         gSystemInterface.reset();
     } else {
         Rml::Factory::RegisterElementInstancer("button", &gButtonInstancer);
+        installHtmlDocumentSupport();
         loadDefaultFonts();
     }
     return initialized_;
@@ -555,15 +564,15 @@ const char* RmlUiRuntime::userAgentStyleSheet() {
 }
 
 Rml::ElementDocument* RmlUiRuntime::loadDocument(Rml::Context& context, const std::string& path) {
-    Rml::ElementDocument* document = context.LoadDocument(path);
-    if (document) applyUserAgentStyleSheet(*document);
-    return document;
+    std::string markup;
+    if (!gFileInterface->LoadFile(path, markup)) return nullptr;
+    return loadDocumentFromMemory(context, markup, path);
 }
 
 Rml::ElementDocument* RmlUiRuntime::loadDocumentFromMemory(Rml::Context& context,
                                                            const std::string& markup,
                                                            const std::string& sourceName) {
-    Rml::ElementDocument* document = context.LoadDocumentFromMemory(normalizeWebMarkup(markup), sourceName);
+    Rml::ElementDocument* document = loadUiMarkup(context, markup, sourceName);
     if (document) applyUserAgentStyleSheet(*document);
     return document;
 }

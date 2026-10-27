@@ -156,6 +156,7 @@ public:
     uint64_t documentGeneration() const { return documentGeneration_; }
     bool isLiveElement(Rml::Element* element, uint64_t generation) const;
     Rml::Element* findElementById(const std::string& id) const;
+    Rml::ElementDocument* documentElement() const { return document_; }
     Rml::Element* querySelector(const std::string& selector) const;
     void querySelectorAll(const std::string& selector, std::vector<Rml::Element*>& elements) const;
     void addJsEventListener(Rml::Element* element, const std::string& event, JSContext* ctx, JSValueConst callback);

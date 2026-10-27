@@ -2337,6 +2337,13 @@ script bodies, comments or quoted attributes. In an HTML-root document,
 embedded styles and style attributes also use Web alpha. Native `<rml>`
 documents keep their existing inline RCSS semantics. This is an explicit
 authoring adapter, not an HTML5 recovery parser.
+HTML documents preserve a real `html` document element with a distinct `body`
+child, their separate attributes and the `html > body` selector relationship.
+`html`, `:root` and `document.documentElement` refer to that root; `document.body`
+refers to the child. Native RML retains its existing document-as-body model.
+`HtmlDocument` selects and restores the context's document instancer per load,
+so the two formats can coexist in one context. This is still a targeted game-UI
+DOM rather than an HTML5 browser implementation.
 
 ### 8.2 Expected authoring surface
 
@@ -2362,7 +2369,7 @@ timer authority is added.
 `textContent` returns descendant text, while `innerHTML`/`innerRML` return
 markup. The style bridge exposes `getPropertyValue` and camel-case accessors
 for opacity, transform, display, color, backgroundColor, width/height,
-left/top/right/bottom, padding/margin, borderRadius, fontSize, position,
+left/top/right/bottom, padding/margin, borderRadius, fontSize, boxSizing, position,
 animation and transition. Accessors read local styles, not computed styles.
 
 **Authoring baseline — the engine user-agent stylesheet.** RmlUi ships no
@@ -2375,17 +2382,24 @@ engine therefore merges its own baseline under every document it loads
 it cannot go missing from a package):
 
 ```rcss
-body, div, p, section, h1, h2, h3, h4, h5, h6, header, footer, main, nav,
+html, body, div, p, section, h1, h2, h3, h4, h5, h6, header, footer, main, nav,
 article, aside, form, fieldset, figure, figcaption, ul, ol, li { display: block; }
 img, button, input, select, textarea { display: inline-block; }
 button { text-align: center; }
+button, select, input[type=radio], input[type=checkbox], input[type=reset],
+input[type=button], input[type=submit], input[type=color], input[type=search] { box-sizing: border-box; }
+html { width: 100%; height: 100%; }
 [hidden] { display: none; }
 ```
 
 It is a contract, not a theme: it sets what a browser's own sheet gives every
-page — `display`, and a button's centred label — and nothing else: no margins,
+page — `display`, control box sizing and a button's centred label — plus a
+viewport-sized HTML root for game canvases: no margins,
 no fonts, no colours. It is merged *under* the document, so any rule the
-document declares wins. Documents must be created through
+document declares wins, including a universal `*` selector. The embedded sheet
+uses the reserved in-memory source URL `saida-internal://user-agent` to assign
+its declarations lower cascade priority than every author declaration.
+Documents must be created through
 `RmlUiRuntime::loadDocument`/`loadDocumentFromMemory`; a document loaded
 straight from an `Rml::Context` does not get the baseline. Both halves are
 proven by `saida_ui_corpus_tests` (the baseline applies and paints the declared
@@ -2411,6 +2425,30 @@ backgrounds, fonts and line-height. `text-shadow` is filtered; vendor properties
 complex transforms, masks, filters and advanced compositing are not guaranteed. A
 `.hidden` class may lose against a more specific selector; use for example
 `#panel.hidden`.
+
+**Box sizing.** `box-sizing: content-box | border-box | inherit | initial |
+unset` is supported in stylesheets, inline styles and the JS style API.
+`inherit` takes the immediate parent's computed model and follows class changes,
+inline mutations, custom-property substitutions and reparenting. `initial` and
+`unset` select `content-box`, including on controls whose user-agent default is
+`border-box`. The property does not inherit implicitly. Width/height,
+min/max constraints, percentages and flex-basis use the selected model, with
+content sizes floored at zero. Templates opt into an ordinary CSS reset on
+`body`, followed by `* { box-sizing: inherit; }`; the engine does not impose a
+global border-box reset. These CSS-wide keywords are not yet a general promise
+for other properties, and `revert`/`revert-layer` are not implemented.
+
+`saida_ui_box_sizing_tests` covers the cascade and dynamic layout;
+`saida_ui_gpu_tests` covers the actual JS accessor and rendered canvas geometry.
+`tools/verify_ui_box_sizing.mjs` compares 24 boxes from the same unmodified
+HTML/CSS fixtures in Saida and Chromium, including the common
+`html { box-sizing: border-box; } *, *::before, *::after { box-sizing: inherit; }`
+reset and `:root` variables. This does not add generated pseudo-element content.
+The RmlUi changes live in
+`cmake/patches/rmlui-web-compatibility.patch`, applied to build-local translation units
+by `cmake/RmlUiWebCompatibility.cmake` for native, Web player and Web viewer
+builds. Vendored sources remain unchanged; an incompatible upstream update
+fails configuration rather than silently losing compatibility.
 
 External `.css` stylesheets and JS `style.setProperty` accept comma-form
 `rgba(r,g,b,a)` with Web alpha 0..1, including 1 for fully opaque. The file

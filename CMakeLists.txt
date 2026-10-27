@@ -470,6 +470,8 @@ set(RMLUI_HARFBUZZ_SAMPLE OFF CACHE BOOL "" FORCE)
 set(RMLUI_PRECOMPILED_HEADERS OFF CACHE BOOL "" FORCE)
 set(RMLUI_COMPILER_OPTIONS OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/rmlui ${CMAKE_BINARY_DIR}/rmlui)
+include(cmake/RmlUiWebCompatibility.cmake)
+saida_enable_rmlui_web_compatibility("${CMAKE_CURRENT_SOURCE_DIR}/third_party/rmlui")
 
 # AutoLOD is built separately: `cmake -S autolod -B build/autolod -G Ninja && cmake --build build/autolod`
 # AutoLODBridge resolves build/autolod/autolod.exe at runtime.
@@ -513,6 +515,7 @@ add_library(saida_engine STATIC
     src/ui/RmlUiRenderInterface.cpp
     src/ui/RmlUiGpuRenderer.cpp
     src/ui/RmlUiRuntime.cpp
+    src/ui/HtmlDocument.cpp
     src/ui/WorldPanelGeometry.cpp
     src/scene/Behaviour.cpp
     src/nodes/MeshNode.cpp
@@ -1244,6 +1247,11 @@ if (BUILD_TESTING)
     saida_test_target(saida_ui_authoring_tests)
     target_link_libraries(saida_ui_authoring_tests PRIVATE saida_engine)
     add_test(NAME saida_ui_authoring_tests COMMAND $<TARGET_FILE:saida_ui_authoring_tests>)
+
+    add_executable(saida_ui_box_sizing_tests tests/UiBoxSizingTests.cpp)
+    saida_test_target(saida_ui_box_sizing_tests)
+    target_link_libraries(saida_ui_box_sizing_tests PRIVATE saida_engine)
+    add_test(NAME saida_ui_box_sizing_tests COMMAND $<TARGET_FILE:saida_ui_box_sizing_tests>)
 
     add_executable(saida_ui_gpu_tests tests/UiGpuTests.cpp)
     saida_test_target(saida_ui_gpu_tests)

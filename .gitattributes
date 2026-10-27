@@ -1,6 +1,9 @@
 # Normalize line endings: store text as LF in the repo and in the working tree.
 * text=auto eol=lf
 
+# Unified diff context requires a leading space, including before tabs and on blank lines.
+cmake/patches/*.patch -whitespace
+
 # Large binary assets tracked via Git LFS.
 # (.obj scoped to models/ so it never catches compiled object files.)
 models/**/*.obj filter=lfs diff=lfs merge=lfs -text

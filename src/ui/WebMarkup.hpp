@@ -35,7 +35,7 @@ inline Attribute attribute(const std::string& tag, const std::string& name) {
 
 // Small authoring adapter, not an HTML5 recovery parser. Lex tags outside raw
 // script/style content so example markup inside JavaScript strings is untouched.
-inline std::string normalizeWebMarkup(const std::string& input) {
+inline std::string normalizeWebMarkup(const std::string& input, bool* htmlDocument = nullptr) {
     using namespace web_markup_detail;
     const std::string folded = lower(input);
     std::string out;
@@ -69,7 +69,7 @@ inline std::string normalizeWebMarkup(const std::string& input) {
         size_t nameEnd = nameStart;
         while (nameEnd < tag.size() && std::isalnum(static_cast<unsigned char>(tag[nameEnd]))) ++nameEnd;
         const std::string name = lower(tag.substr(nameStart, nameEnd-nameStart));
-        if (name == "html") { webDocument = true; tag.replace(nameStart, nameEnd-nameStart, "rml"); }
+        if (name == "html") webDocument = true;
         if (!closing && name == "link") {
             auto type = attribute(tag, "type");
             const auto rel = attribute(tag, "rel");
@@ -107,6 +107,7 @@ inline std::string normalizeWebMarkup(const std::string& input) {
             i = next;
         }
     }
+    if (htmlDocument) *htmlDocument = webDocument;
     return out;
 }
 } // namespace saida

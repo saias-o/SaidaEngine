@@ -51,6 +51,8 @@ set(RMLUI_HARFBUZZ_SAMPLE OFF CACHE BOOL "" FORCE)
 set(RMLUI_PRECOMPILED_HEADERS OFF CACHE BOOL "" FORCE)
 set(RMLUI_COMPILER_OPTIONS OFF CACHE BOOL "" FORCE)
 add_subdirectory(${SAIDA_ROOT}/third_party/rmlui ${CMAKE_BINARY_DIR}/rmlui)
+include(${SAIDA_ROOT}/cmake/RmlUiWebCompatibility.cmake)
+saida_enable_rmlui_web_compatibility("${SAIDA_ROOT}/third_party/rmlui")
 
 add_executable(saida_web
     main.cpp
@@ -128,6 +130,7 @@ add_executable(saida_web
     ${SAIDA_ROOT}/src/ui/HudRasterizer.cpp
     ${SAIDA_ROOT}/src/ui/RmlUiRenderInterface.cpp
     ${SAIDA_ROOT}/src/ui/RmlUiRuntime.cpp
+    ${SAIDA_ROOT}/src/ui/HtmlDocument.cpp
     # ResourceManager loads animation assets (.sclip/.sgraph): their types
     # and the playback chain they reference must link too.
     ${SAIDA_ROOT}/src/scene/animation/AnimBlackboard.cpp

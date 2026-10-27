@@ -42,7 +42,7 @@ int main() {
            "button:hover { transition: opacity 0.180000s cubic-out; }");
     assert(normalizeWebStyleValue("animation", "enter 800ms ease-in-out") == "enter 0.800000s cubic-in-out");
     assert(normalizeWebMarkup("<html><head><link rel='stylesheet' href='x.css'/></head><body><input><br></body></html>") ==
-           "<rml><head><link rel='stylesheet' href='x.css' type=\"text/rcss\"/></head><body><input/><br/></body></rml>");
+           "<html><head><link rel='stylesheet' href='x.css' type=\"text/rcss\"/></head><body><input/><br/></body></html>");
     const std::string script = "<script>const example = '<html><link rel=stylesheet></html>';</script>";
     assert(normalizeWebMarkup(script) == script);
 

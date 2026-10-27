@@ -1,0 +1,159 @@
+--- a/StyleSheetSpecification.cpp
++++ b/StyleSheetSpecification.cpp
+@@ -315,7 +315,7 @@
+ 	RegisterProperty(PropertyId::Float, "float", "none", false, true).AddParser("keyword", "none, left, right");
+ 	RegisterProperty(PropertyId::Clear, "clear", "none", false, true).AddParser("keyword", "none, left, right, both");
+ 
+-	RegisterProperty(PropertyId::BoxSizing, "box-sizing", "content-box", false, true).AddParser("keyword", "content-box, border-box");
++	RegisterProperty(PropertyId::BoxSizing, "box-sizing", "content-box", false, true).AddParser("keyword", "content-box, border-box, inherit, initial, unset");
+ 
+ 	RegisterProperty(PropertyId::ZIndex, "z-index", "auto", false, false).AddParser("keyword", "auto").AddParser("number");
+ 
+--- a/ElementStyle.cpp
++++ b/ElementStyle.cpp
+@@ -31,6 +31,24 @@
+ };
+ static ControlledLifetimeResource<ElementStyleData> element_style_data;
+ 
++// Match the box-sizing keyword order in StyleSheetSpecification.
++constexpr int kBoxSizingInherit = 2;
++constexpr int kBoxSizingInitial = 3;
++constexpr int kBoxSizingUnset = 4;
++
++static Style::BoxSizing ResolveBoxSizing(const Property& property, Element* element)
++{
++	const int keyword = property.Get<int>();
++	if (keyword == kBoxSizingInherit)
++	{
++		Element* parent = element->GetParentNode();
++		return parent ? parent->GetComputedValues().box_sizing() : Style::BoxSizing::ContentBox;
++	}
++	if (keyword == kBoxSizingInitial || keyword == kBoxSizingUnset)
++		return Style::BoxSizing::ContentBox;
++	return static_cast<Style::BoxSizing>(keyword);
++}
++
+ static PseudoClassState operator|(PseudoClassState lhs, PseudoClassState rhs)
+ {
+ 	return PseudoClassState(int(lhs) | int(rhs));
+@@ -653,6 +671,18 @@
+ const Property* ElementStyle::GetProperty(PropertyId id) const
+ {
+ 	const PropertyElementPair result = GetSpecifiedProperty(GetPropertySources(), id);
++	if (id == PropertyId::BoxSizing && result.element)
++	{
++		SmallUnorderedSet<String> dependencies;
++		const Property* property = result.element->GetStyle()->ResolveVariables(id, result.property, dependencies,
++			element_style_data->returned_property_storage);
++		if (!property)
++			return nullptr;
++		const auto value = ResolveBoxSizing(*property, result.element);
++		element_style_data->returned_property_storage = Property(value);
++		element_style_data->returned_property_storage.definition = StyleSheetSpecification::GetProperty(id);
++		return &element_style_data->returned_property_storage;
++	}
+ 	if (!result.element)
+ 		return result.property;
+ 
+@@ -804,6 +834,8 @@
+ void ElementStyle::DirtyInheritedProperties()
+ {
+ 	dirty_properties |= StyleSheetSpecification::GetRegisteredInheritedProperties();
++	// Explicit inheritance also depends on the parent after reparenting.
++	dirty_properties.Insert(PropertyId::BoxSizing);
+ }
+ 
+ void ElementStyle::DirtyPropertiesWithUnits(Units units)
+@@ -1007,6 +1039,10 @@
+ 	// it here so they are notified of a change.
+ 	if (dirty_properties.Contains(PropertyId::TextOverflow))
+ 		dirty_inherited_properties.Insert(PropertyId::TextOverflow);
++	// Recompute descendants which explicitly inherit box-sizing. Passing through
++	// nodes without a declaration is necessary for longer inheritance chains.
++	if (dirty_properties.Contains(PropertyId::BoxSizing))
++		dirty_inherited_properties.Insert(PropertyId::BoxSizing);
+ 
+ 	// Propagate dirty inherited properties to children. Var shorthands are local to the element and never inherited.
+ 	if (!dirty_inherited_properties.Empty() || !dirty_variables.empty())
+@@ -1149,7 +1185,7 @@
+ 		values.clear((Clear)p->Get<int>());
+ 		break;
+ 	case PropertyId::BoxSizing:
+-		values.box_sizing((BoxSizing)p->Get<int>());
++		values.box_sizing(ResolveBoxSizing(*p, element));
+ 		break;
+ 
+ 	case PropertyId::ZIndex:
+--- a/StyleSheetNode.cpp
++++ b/StyleSheetNode.cpp
+@@ -1,5 +1,6 @@
+ #include "StyleSheetNode.h"
+ #include "../../Include/RmlUi/Core/Element.h"
++#include "../../Include/RmlUi/Core/ElementDocument.h"
+ #include "../../Include/RmlUi/Core/Profiling.h"
+ #include "../../Include/RmlUi/Core/StyleSheet.h"
+ #include "StyleSheetFactory.h"
+@@ -141,7 +142,26 @@
+ 
+ void StyleSheetNode::ImportProperties(const PropertyDictionary& _properties, int rule_specificity)
+ {
+-	properties.Import(_properties, specificity + rule_specificity);
++	// The engine's embedded baseline has user-agent origin. Even an author's
++	// universal selector must override it, independently of selector specificity.
++	// Use the reserved in-memory stream URL, never a project file name.
++	bool user_agent_origin = false;
++	for (const auto& entry : _properties.GetProperties())
++	{
++		const auto& source = entry.second.source;
++		if (source && source->path == "saida-internal://user-agent")
++		{
++			user_agent_origin = true;
++			break;
++		}
++	}
++	if (user_agent_origin)
++	{
++		constexpr int kUserAgentOriginOffset = -1'000'000'000;
++		properties.Merge(_properties, kUserAgentOriginOffset + specificity + rule_specificity);
++	}
++	else
++		properties.Import(_properties, specificity + rule_specificity);
+ }
+ 
+ const PropertyDictionary& StyleSheetNode::GetProperties() const
+@@ -165,7 +185,7 @@
+ 
+ 	for (auto& name : selector.pseudo_class_names)
+ 	{
+-		if (!element->IsPseudoClassSet(name))
++		if (name == "root" ? element != element->GetOwnerDocument() : !element->IsPseudoClassSet(name))
+ 			return false;
+ 	}
+ 
+@@ -336,7 +356,7 @@
+ 	// particular order for performance reasons.
+ 	for (const String& name : selector.pseudo_class_names)
+ 	{
+-		if (!element->IsPseudoClassSet(name))
++		if (name == "root" ? element != element->GetOwnerDocument() : !element->IsPseudoClassSet(name))
+ 			return false;
+ 	}
+ 
+--- a/XMLNodeHandlerBody.cpp
++++ b/XMLNodeHandlerBody.cpp
+@@ -17,6 +17,15 @@
+ 	// Apply any attributes to the document, but only if the current element is the root of the current document,
+ 	// which should only hold for body elements, but not for inline injected templates.
+ 	ElementDocument* document = parser->GetParseFrame()->element->GetOwnerDocument();
++	// HTML has a real body child; native RML keeps its document-as-body model.
++	if (document && document == element && document->GetTagName() == "html")
++	{
++		ElementPtr body = Factory::InstanceElement(element, "*", "body", attributes);
++		if (!body)
++			return nullptr;
++		element = document->AppendChild(std::move(body));
++	}
++
+ 	if (document && document == element)
+ 	{
+ 		for (auto& pair : attributes)

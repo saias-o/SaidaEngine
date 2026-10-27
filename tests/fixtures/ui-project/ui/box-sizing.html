@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head><link rel="stylesheet" href="box-sizing.css"></head>
+<body>
+  <div class="box" id="content"></div>
+  <div class="box" id="border"></div>
+  <div id="parent">
+    <div id="chain"><div class="box" id="inherited"></div></div>
+    <div id="barrier"><div class="box inherited" id="barrier-child"></div></div>
+    <div class="box" id="initial"></div>
+    <div class="box" id="unset"></div>
+    <div class="box" id="variable"></div>
+  </div>
+  <div id="other"></div>
+  <div id="percentage-parent"><div class="box" id="percentage"></div></div>
+  <div id="flex"><div class="box" id="flex-a"></div><div class="box" id="flex-b"></div></div>
+  <div class="box" id="minimum"></div>
+  <div class="box" id="maximum"></div>
+  <div class="box" id="tiny"></div>
+  <button class="box" id="button"></button>
+  <select class="box" id="select"></select>
+  <input class="box" type="text" id="input-text">
+  <input class="box" type="checkbox" id="checkbox">
+  <textarea class="box" id="textarea"></textarea>
+</body>
+</html>

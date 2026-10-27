@@ -89,7 +89,21 @@ int main(int argc, char** argv) {
         canvas.executeJS("const p=document.getElementById('panel'); p.innerHTML='A <b>quiet</b> coast'; p.setAttribute('data-text',p.textContent); p.style.opacity='0.5'; p.style.backgroundColor='rgba(20,80,160,0.5)'; p.setAttribute('data-opacity',p.style.getPropertyValue('opacity'));");
         assert(canvas.findElementById("panel")->GetAttribute<Rml::String>("data-text", "") == "A quiet coast");
         assert(canvas.findElementById("panel")->GetAttribute<Rml::String>("data-opacity", "") == "0.5");
+        canvas.executeJS(R"JS(
+            p.style.boxSizing='inherit';
+            p.setAttribute('data-box-sizing',p.style.boxSizing+':'+p.style.getPropertyValue('box-sizing'));
+        )JS");
+        assert(canvas.findElementById("panel")->GetAttribute<Rml::String>("data-box-sizing", "") == "inherit:inherit");
+        canvas.executeJS("p.style.boxSizing='';p.setAttribute('data-cleared',p.style.getPropertyValue('box-sizing'));");
+        assert(canvas.findElementById("panel")->GetAttribute<Rml::String>("data-cleared", "missing").empty());
+        canvas.executeJS("p.style.setProperty('box-sizing','border-box');p.setAttribute('data-box-sizing',p.style.boxSizing);");
+        assert(canvas.findElementById("panel")->GetAttribute<Rml::String>("data-box-sizing", "") == "border-box");
+        canvas.executeJS("p.hidden=false;p.style.width='100px';p.style.height='50px';p.style.padding='10px';");
         device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) { canvas.updateTextureIfNeededAsync(enc, 0); });
+        assert(canvas.findElementById("panel")->GetBox().GetSize(Rml::BoxArea::Border) == Rml::Vector2f(100, 50));
+        canvas.executeJS("p.style.boxSizing='content-box';");
+        device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) { canvas.updateTextureIfNeededAsync(enc, 1); });
+        assert(canvas.findElementById("panel")->GetBox().GetSize(Rml::BoxArea::Border) == Rml::Vector2f(120, 70));
         auto* pulse = canvas.findElementById("pulse");
         Time::advance(1.f/60.f);
         device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) { canvas.updateTextureIfNeededAsync(enc, 1); });
@@ -126,6 +140,20 @@ int main(int argc, char** argv) {
         canvas.executeJS("field.removeEventListener('wheel',wheel);field.removeAttribute('data-wheel');");
         canvas.fireScrollEvent(0,1);
         assert(!canvas.findElementById("field")->HasAttribute("data-wheel"));
+        canvas.loadURL(assetPath("tests/fixtures/ui-project/ui/box-sizing-reset.html"));
+        assert(canvas.lastLoadOk());
+        canvas.executeJS(R"JS(
+            var htmlRoot=document.documentElement, actualBody=document.body;
+            htmlRoot.setAttribute('data-dom', actualBody.id+':'+document.querySelector(':root').id+':'+document.querySelectorAll('html').length);
+            htmlRoot.style.boxSizing='content-box';
+        )JS");
+        assert(canvas.lastError().empty());
+        assert(canvas.documentElement()->GetAttribute<Rml::String>("data-dom", "") == "real-body:root:1");
+        device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) { canvas.updateTextureIfNeededAsync(enc, 0); });
+        assert(canvas.findElementById("reset-button")->GetBox().GetSize(Rml::BoxArea::Border) == Rml::Vector2f(224, 104));
+        canvas.executeJS("actualBody.style.boxSizing='border-box';");
+        device.withSingleTimeEncoder([&](rhi::CommandEncoder& enc) { canvas.updateTextureIfNeededAsync(enc, 1); });
+        assert(canvas.findElementById("reset-button")->GetBox().GetSize(Rml::BoxArea::Border) == Rml::Vector2f(200, 80));
     }
     device.waitIdle();
 

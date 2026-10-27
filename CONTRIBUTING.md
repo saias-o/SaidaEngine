@@ -21,6 +21,11 @@ development workflow. Automated coding agents must also follow
 - Keep each change focused; do not perform unrelated refactors.
 - Do not weaken, delete or bypass a test merely to make a change pass.
 - Do not edit vendored sources under `third_party`.
+- RmlUi compatibility fixes are reviewed patches under `cmake/patches`, applied
+  to build-local translation units by `RmlUiWebCompatibility.cmake` in every
+  runtime. Keep the patch context intact and verify it after updating RmlUi;
+  configuration must fail when it no longer applies. Git is required to apply
+  these patches, including when building an extracted source archive.
 - Modify Witness generators rather than generated Witness output when the
   generator is the source of truth.
 - Never regenerate a frozen fixture merely to hide a divergence. A format
@@ -252,7 +257,7 @@ resting pose: completed CSS animations return to the underlying style.
 The DOM subset includes selectors, classes, text/markup, attribute methods,
 form `.value`, `.hidden`, listeners, `style.setProperty/getPropertyValue` and
 common camel-case style accessors (`element.style.opacity`, `backgroundColor`,
-`transform`, sizes/position, `animation`, `transition`). In a listener,
+`transform`, sizes/position, `boxSizing`, `animation`, `transition`). In a listener,
 read `event.target.value` for the player's input. Use classes for animated
 state changes. CSS animations run autonomously on unscaled UI time; no global
 timer, browser `window`, React runtime or network access is implied.
@@ -263,7 +268,15 @@ Validate and inspect the actual renderer before declaring a UI finished:
 build-rel/bin/saida_tool.exe validate-ui templates/ui/menu.html --project . --pretty
 build-rel/bin/saida_tool.exe render-ui templates/ui/menu.html --project . --size 1280x800 --time 0.5 --out build-rel/menu-half.png --layout-json build-rel/menu-half.json
 build-rel/tests/saida_ui_gpu_tests.exe build-rel/menu-gpu.png
+ctest --test-dir build-rel -R saida_ui_box_sizing_tests --output-on-failure
+node tools/verify_ui_box_sizing.mjs build-rel
 ```
+
+The optional browser comparison requires Playwright and a Chromium installation;
+pass its executable as the second argument when using a system browser, and set
+`SAIDA_PLAYWRIGHT_MODULE` when Playwright is installed outside this repository.
+It loads the same fixture in Saida and the browser and compares dimensions;
+it does not use a separately recreated browser reference.
 
 `render-ui` samples CSS animations at 60 Hz and renders the final state with
 the CPU reference; document JavaScript is exercised in the native canvas.

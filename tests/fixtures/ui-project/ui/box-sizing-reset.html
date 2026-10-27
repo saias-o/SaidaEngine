@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html id="root" lang="en">
+<head><style>
+html { box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+:root { --root-size: border-box; }
+body { margin: 0; width: 400px; height: 600px; padding: 5px; font-family: NextSans; }
+html > body > .box { width: 200px; height: 80px; padding: 10px; border: 2px solid red; }
+#escape { box-sizing: content-box; }
+#root-variable { box-sizing: var(--root-size); }
+</style></head>
+<body id="real-body" data-body="separate">
+  <div class="box" id="reset-div"></div>
+  <button class="box" id="reset-button"></button>
+  <input class="box" type="checkbox" id="reset-checkbox">
+  <div class="box" id="escape"></div>
+  <div class="box" id="root-variable"></div>
+</body>
+</html>

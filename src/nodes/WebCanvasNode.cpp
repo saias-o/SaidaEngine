@@ -268,7 +268,7 @@ JSValue jsDocumentGetBody(JSContext* ctx, JSValueConst) {
 JSValue jsDocumentGetDocumentElement(JSContext* ctx, JSValueConst) {
     auto* canvas = webCanvasFromJs(ctx);
     if (!canvas) return JS_NULL;
-    return makeElementObject(ctx, canvas, canvas->querySelector("rml"), gElementClassId);
+    return makeElementObject(ctx, canvas, canvas->documentElement(), gElementClassId);
 }
 
 JSValue jsElementQuerySelector(JSContext* ctx, JSValueConst thisValue, int argc, JSValueConst* argv) {
@@ -563,6 +563,7 @@ constexpr StyleAccessor kStyleAccessors[] = {
     {"width", "width"}, {"height", "height"}, {"left", "left"}, {"top", "top"},
     {"right", "right"}, {"bottom", "bottom"}, {"padding", "padding"}, {"margin", "margin"},
     {"borderRadius", "border-radius"}, {"fontSize", "font-size"},
+    {"boxSizing", "box-sizing"},
     {"transition", "transition"}, {"animation", "animation"}, {"position", "position"}
 };
 
@@ -1419,6 +1420,7 @@ Rml::Element* WebCanvasNode::findElementById(const std::string& id) const {
 }
 
 Rml::Element* WebCanvasNode::querySelector(const std::string& selector) const {
+    if (document_ && document_->Matches(selector)) return document_;
     return document_ ? document_->QuerySelector(selector) : nullptr;
 }
 
@@ -1426,6 +1428,7 @@ void WebCanvasNode::querySelectorAll(const std::string& selector, std::vector<Rm
     elements.clear();
     if (!document_) return;
     Rml::ElementList list;
+    if (document_->Matches(selector)) list.push_back(document_);
     document_->QuerySelectorAll(list, selector);
     elements.assign(list.begin(), list.end());
 }

@@ -1,0 +1,15 @@
+body { margin: 0; font-family: NextSans; }
+.box { width: 200px; height: 80px; padding: 10px; border: 2px solid red; margin: 0; }
+#border, #parent { box-sizing: border-box; }
+#parent.content { box-sizing: content-box; }
+#chain, #inherited, .inherited { box-sizing: inherit; }
+#initial { box-sizing: initial; }
+#unset { box-sizing: unset; }
+#variable { box-sizing: var(--sizing, inherit); }
+#percentage-parent, #flex { width: 400px; }
+#percentage { width: 50%; box-sizing: border-box; }
+#flex { display: flex; }
+#flex .box { flex: 0 0 200px; box-sizing: border-box; }
+#minimum { width: 100px; min-width: 200px; box-sizing: border-box; }
+#maximum { width: 300px; max-width: 200px; box-sizing: border-box; }
+#tiny { width: 1px; height: 1px; box-sizing: border-box; }

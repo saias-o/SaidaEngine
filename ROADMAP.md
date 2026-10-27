@@ -1414,6 +1414,27 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   `[hidden]`, with a rendered authoring test. Tags outside the published list
   keep RCSS's `inline` default.
 
+- [x] UI box-model parity (2026-10-27): support `box-sizing`'s `inherit`,
+  `initial` and `unset`, including live parent/class/variable changes and
+  reparenting; expose JS `style.boxSizing`; match HTML control sizing defaults.
+  Author styles, including universal resets, now outrank the user-agent sheet.
+  The shared build-local RmlUi patch preserves `third_party`. Covered by
+  `saida_ui_box_sizing_tests`, the JS/GPU corpus and an optional Chromium
+  comparison of 24 boxes from identical HTML/CSS sources.
+
+- [x] UI HTML-root parity (2026-10-27): preserve a real `html` root and a
+  separate body child, including independent attributes, child selectors,
+  `:root` variables and `document.documentElement`/`document.body`. File and
+  in-memory loading share the adapter; RML keeps its original model and the
+  per-load document instancer is restored. The browser comparison includes
+  the common `html { box-sizing: border-box; } * { box-sizing: inherit; }`
+  reset. Generated `::before`/`::after` content remains outside this change.
+
+- [ ] UI CSS-wide keywords: generalize computed `inherit`/`initial`/`unset`
+  beyond the tested box-sizing contract, with shorthand expansion and dynamic
+  invalidation; implement cascade-origin `revert`/`revert-layer` only with the
+  corresponding real origin/layer semantics and browser comparisons.
+
 - [x] UI: give a screen-space canvas a reference resolution.
   `WebCanvasNode` carries `referenceWidth`/`referenceHeight` and a `scaleMode`
   (`Stretch` = the historic resize-to-window and still the default, `Fit` =
