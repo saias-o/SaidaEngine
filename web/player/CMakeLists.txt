@@ -137,6 +137,8 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/nodes/UINode.cpp
     ${SAIDA_ROOT}/src/nodes/UICanvasNode.cpp
     ${SAIDA_ROOT}/src/nodes/UITextNode.cpp
+    ${SAIDA_ROOT}/src/nodes/WebCanvasNode.cpp     # CPU raster, composed by UIRenderer
+    ${SAIDA_ROOT}/src/ui/WorldPanelGeometry.cpp
     ${SAIDA_ROOT}/src/nodes/WaterNode.cpp
     ${SAIDA_ROOT}/src/nodes/TerrainRingsNode.cpp  # indexed by the scene; drawn on desktop only
     ${SAIDA_ROOT}/src/nodes/GrassNode.cpp         # indexed by the scene; drawn on desktop only

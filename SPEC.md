@@ -153,7 +153,7 @@ paths are normalized and symlinks that leave the root are rejected.
 | Physics | Jolt | single-thread Jolt | outside viewer/fold |
 | Audio | miniaudio | Web Audio | not required |
 | JavaScript | QuickJS | QuickJS | targeted validation |
-| Game UI | RmlUi | RmlUi HUD `UICanvasNode`/`UITextNode`; WebCanvas absent | partial authoring |
+| Game UI | RmlUi | RmlUi HUD `UICanvasNode`/`UITextNode`; screen-space `WebCanvasNode` (CPU raster) | partial authoring |
 | Keyboard/mouse | yes | yes | browser/host UI |
 | Gamepad | GLFW standard | Gamepad API, `standard` mapping | not required |
 | Pad haptics | no (GLFW) | `dual-rumble` if exposed by the pad | not required |
@@ -2366,6 +2366,15 @@ the canvas; `value` uses the real RmlUi form control, so `event.target.value`
 and text typed by the player share the same state. No network, OS or global
 timer authority is added.
 
+A document and gameplay talk through JSON, as `NodeRef.call` does between
+scripts. The document's `host.call(exportName, ...args)` reaches the first
+`ScriptBehaviour` export of that name on its `WebCanvasNode` or an ancestor;
+arguments and result cross the context boundary as JSON. In the other direction,
+`NodeRef.call(exportName, ...args)` on a `WebCanvasNode` falls back to a global
+function of its document when no script on the node exports that name
+(`WebCanvasNode::callDocument`). The document still gains no timer: a script on
+the canvas that needs one forwards its `onUpdate(dt)` with a call.
+
 `textContent` returns descendant text, while `innerHTML`/`innerRML` return
 markup. The style bridge exposes `getPropertyValue` and camel-case accessors
 for opacity, transform, display, color, backgroundColor, width/height,
@@ -2663,8 +2672,17 @@ RGBA8 pixel buffer via the CPU backend, then each platform composes it via its R
 (Vulkan bindless quad, WebGPU texture+bindgroup) — that is the visual-parity
 invariant applied to the HUD. On desktop, the non-text UI nodes
 (color/image/button/toggle) stay bindless quads via `UIRenderer::traverseUI`; the
-V1 Web player registers only `UICanvasNode`/`UITextNode` and rejects the other UI
-nodes and `WebCanvasNode` as long as their Web backend is not ported.
+V1 Web player registers `UICanvasNode`/`UITextNode` and a screen-space
+`WebCanvasNode`, and rejects the other UI nodes as long as their Web backend is
+not ported. On the Web, `WebCanvasNode::initCpu` runs lazily from `UIRenderer`
+once a viewport exists; the document is rasterized synchronously by the same CPU
+backend as the HUD (`rasterizeCpu`, only when the document changed) and composed
+as one WebGPU texture per canvas at its `screenPosition`/`screenSize`. The player
+routes the left mouse button and pointer moves to interactive screen-space
+canvases itself (`routeWebCanvasPointer`); keyboard, scroll, touch and
+world-space canvases are not routed on the Web. Because the document context only
+exists after the first render, a gameplay script calling into it on the first
+frames must tolerate a missing export.
 `setText/getText` operate on the real nodes; WitnessGame reaches `[E2E] PASS` with
 an actually rasterized HUD (`[HUD] rasterized N visible pixel(s)`) in the editor,
 packaged desktop and Web.
@@ -3403,7 +3421,8 @@ bump, never to mask a divergence.
 - V1 is available only as a public beta; no beta, local badge or CI result
   equals stable public qualification.
 - Web player: WebGPU mandatory, HTTP mandatory, UI limited to the
-  `UICanvasNode`/`UITextNode` HUD, WebCanvas absent, gamepads without the
+  `UICanvasNode`/`UITextNode` HUD and screen-space `WebCanvasNode` (mouse
+  only), gamepads without the
   `standard` browser mapping ignored, advanced touch UI not proven, MSAA absent.
 - Web audio subject to the user gesture.
 - One Emscripten runtime/canvas per page; build not modularized.

@@ -73,7 +73,7 @@ inline constexpr std::array<RuntimeTypeRow, 54> kRuntimeTypeMatrix{{
     {"UITextNode", RuntimeTypeCategory::Node, {R, R, R, R}},
     {"UIToggleNode", RuntimeTypeCategory::Node, {R, A, A, A}},
     {"Water", RuntimeTypeCategory::Node, {R, R, R, R}},
-    {"WebCanvasNode", RuntimeTypeCategory::Node, {R, A, A, A}},
+    {"WebCanvasNode", RuntimeTypeCategory::Node, {R, A, A, R}},
     {"XRAnchor", RuntimeTypeCategory::Node, {O, A, A, A}},
     {"XRController", RuntimeTypeCategory::Node, {O, A, A, A}},
     {"XRHand", RuntimeTypeCategory::Node, {O, A, A, A}},

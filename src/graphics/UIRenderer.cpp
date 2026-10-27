@@ -4,6 +4,9 @@
 #include "graphics/Pipeline.hpp"
 #include "scene/Scene.hpp"
 #include "nodes/UICanvasNode.hpp"
+#ifdef SAIDA_RHI_WEBGPU
+#include "nodes/WebCanvasNode.hpp"
+#endif
 #ifndef SAIDA_RHI_WEBGPU
 #include "graphics/Texture.hpp"
 #include "nodes/UIColorNode.hpp"
@@ -124,6 +127,48 @@ void UIRenderer::gatherHud(UICanvasNode& canvas, glm::vec2 viewportSize) {
 #endif
 }
 
+#ifdef SAIDA_RHI_WEBGPU
+void UIRenderer::gatherWebCanvases(Scene& scene, glm::vec2 viewportSize) {
+    if (viewportSize.x <= 0.0f || viewportSize.y <= 0.0f) return;
+    for (WebCanvasNode* wcn : scene.webCanvases()) {
+        if (!wcn || !wcn->isActiveInHierarchy() || wcn->mode() != WebCanvasNode::Mode::ScreenSpace) continue;
+        if (!wcn->cpuInitialized()) wcn->initCpu(wcn->width(), wcn->height(), wcn->mode());
+        if (wcn->fillsViewport()) wcn->applyViewportLayout(viewportSize);
+        WebCanvasTexture& slot = webCanvasTextures_[wcn];
+        if (const std::vector<uint8_t>* pixels = wcn->rasterizeCpu()) {
+            const uint32_t w = wcn->width(), h = wcn->height();
+            if (pixels->size() == static_cast<size_t>(w) * h * 4) {
+                if (!slot.texture || slot.texture->width() != w || slot.texture->height() != h) {
+                    slot.texture = std::make_unique<rhi::Texture>(device_, pixels->data(), w, h, rhi::Format::RGBA8Unorm, false);
+                    slot.group.reset();
+                } else {
+                    slot.texture->updatePixels(pixels->data(), pixels->size());
+                }
+            }
+        }
+        if (!slot.texture) continue;
+        if (!slot.group) {
+            rhi::BindGroupEntry textureEntry;
+            textureEntry.binding = 0;
+            textureEntry.view = slot.texture->imageView();
+            rhi::BindGroupEntry samplerEntry;
+            samplerEntry.binding = 1;
+            samplerEntry.sampler = slot.texture->sampler();
+            slot.group = std::make_unique<rhi::BindGroup>(
+                *textureLayout_, std::vector<rhi::BindGroupEntry>{textureEntry, samplerEntry});
+        }
+        UIDrawCmd cmd{};
+        cmd.position = wcn->screenPosition();
+        cmd.size = wcn->screenSize();
+        cmd.color = glm::vec4(1.0f);
+        cmd.hasTexture = 1;
+        cmd.sortOrder = wcn->renderOrder();
+        cmd.textureGroup = slot.group.get();
+        drawCmds_.push_back(cmd);
+    }
+}
+#endif
+
 void UIRenderer::gatherUI(Scene& scene, glm::vec2 viewportSize) {
     SAIDA_PROFILE_FUNCTION();
     drawCmds_.clear();
@@ -152,6 +197,10 @@ void UIRenderer::gatherUI(Scene& scene, glm::vec2 viewportSize) {
             drawCmds_.push_back(cmd);
         }
     }
+#endif
+
+#ifdef SAIDA_RHI_WEBGPU
+    gatherWebCanvases(scene, viewportSize);
 #endif
 
 #ifndef SAIDA_RHI_WEBGPU

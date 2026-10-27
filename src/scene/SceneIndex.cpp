@@ -16,9 +16,7 @@
 #include "nodes/UIImageNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
 #include "graphics/Material.hpp"
-#ifndef SAIDA_RHI_WEBGPU
 #include "nodes/WebCanvasNode.hpp"
-#endif
 
 #include <cstring>
 
@@ -113,9 +111,7 @@ void SceneIndex::publish(Node& node, Entry& e) {
     e.terrain = dynamic_cast<TerrainRingsNode*>(&node);
     e.grass = dynamic_cast<GrassNode*>(&node);
     e.particles = dynamic_cast<ParticleSystemNode*>(&node);
-#ifndef SAIDA_RHI_WEBGPU
     e.webCanvas = dynamic_cast<WebCanvasNode*>(&node);
-#endif
     e.body = node.asCollisionObject();
     e.joint = node.asJointNode();
     if (!e.active) {

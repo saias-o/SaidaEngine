@@ -25,6 +25,7 @@
 #include "scene/SceneMeasure.hpp"
 #include "scene/SceneTree.hpp"
 #include "nodes/UITextNode.hpp"
+#include "nodes/WebCanvasNode.hpp"
 #include "scene/animation/Animator.hpp"
 #include "scene/animation/SequenceDirectorBehaviour.hpp"
 #include "scripting/JsContext.hpp"
@@ -2238,6 +2239,13 @@ JSValue jsNodeRefCall(JSContext* ctx, JSValueConst, int argc,
         if (status == ScriptCallStatus::Succeeded) return jsonToJs(ctx, result);
         if (status == ScriptCallStatus::Failed)
             return JS_ThrowInternalError(ctx, "NodeRef.call('%s') failed", exportName.c_str());
+    }
+    if (auto* canvas = dynamic_cast<WebCanvasNode*>(target)) {
+        nlohmann::json result;
+        const int status = canvas->callDocument(exportName, args, result);
+        if (status == 1) return jsonToJs(ctx, result);
+        if (status == 2)
+            return JS_ThrowInternalError(ctx, "NodeRef.call('%s') failed in document", exportName.c_str());
     }
     return JS_ThrowTypeError(ctx, "NodeRef target has no callable export '%s'",
                              exportName.c_str());

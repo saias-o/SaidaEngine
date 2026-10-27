@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "rhi/Rhi.hpp"
 #include "ui/HudRasterizer.hpp"
 
@@ -70,6 +72,13 @@ private:
 
     HudRasterizer hud_;
 #ifdef SAIDA_RHI_WEBGPU
+    // Web player: one texture per screen-space WebCanvas, fed by its CPU raster.
+    struct WebCanvasTexture {
+        std::unique_ptr<rhi::Texture> texture;
+        std::unique_ptr<rhi::BindGroup> group;
+    };
+    std::unordered_map<const void*, WebCanvasTexture> webCanvasTextures_;
+    void gatherWebCanvases(Scene& scene, glm::vec2 viewportSize);
     std::unique_ptr<rhi::BindGroupLayout> textureLayout_;
     std::unique_ptr<rhi::Texture> hudTexture_;
     std::unique_ptr<rhi::BindGroup> hudTextureGroup_;

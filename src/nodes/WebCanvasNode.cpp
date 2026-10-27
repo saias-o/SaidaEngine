@@ -5,14 +5,19 @@
 #include "core/Log.hpp"
 #include "core/Paths.hpp"
 #include "core/Time.hpp"
-#include "graphics/Buffer.hpp"
 #include "graphics/ResourceManager.hpp"
+#ifndef SAIDA_RHI_WEBGPU
+#include "graphics/Buffer.hpp"
 #include "graphics/VulkanDevice.hpp"
+#endif
 #include "scripting/JsContext.hpp"
 #include "scripting/JsRuntime.hpp"
+#include "scripting/ScriptBehaviour.hpp"
 #include "scene/SceneTree.hpp"
 #include "ui/RmlUiRenderInterface.hpp"
+#ifndef SAIDA_RHI_WEBGPU
 #include "ui/RmlUiGpuRenderer.hpp"
+#endif
 #include "ui/WebCss.hpp"
 #include "ui/WebMarkup.hpp"
 #include "ui/RmlUiRuntime.hpp"
@@ -606,6 +611,42 @@ JSValue jsTreeReloadScene(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     return JS_UNDEFINED;
 }
 
+// Document -> gameplay bridge: host.call(exportName, ...args) reaches the first
+// ScriptBehaviour export of that name on this canvas or one of its ancestors.
+// Arguments and result cross the context boundary as JSON, as with NodeRef.call.
+JSValue jsHostCall(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    auto* canvas = webCanvasFromJs(ctx);
+    if (!canvas || argc < 1) return JS_ThrowTypeError(ctx, "host.call(exportName, ...args)");
+    const char* raw = JS_ToCString(ctx, argv[0]);
+    if (!raw) return JS_EXCEPTION;
+    const std::string name(raw);
+    JS_FreeCString(ctx, raw);
+    nlohmann::json args = nlohmann::json::array();
+    for (int i = 1; i < argc; ++i) {
+        JSValue text = JS_JSONStringify(ctx, argv[i], JS_UNDEFINED, JS_UNDEFINED);
+        if (JS_IsException(text)) return text;
+        const char* chars = JS_IsUndefined(text) ? nullptr : JS_ToCString(ctx, text);
+        args.push_back(chars ? nlohmann::json::parse(chars, nullptr, false) : nlohmann::json());
+        if (chars) JS_FreeCString(ctx, chars);
+        JS_FreeValue(ctx, text);
+    }
+    for (Node* node = canvas; node; node = node->parent()) {
+        for (const auto& behaviour : node->behaviours()) {
+            auto* script = dynamic_cast<ScriptBehaviour*>(behaviour.get());
+            if (!script) continue;
+            nlohmann::json result;
+            const ScriptCallStatus status = script->callExport(name, args, result);
+            if (status == ScriptCallStatus::Succeeded) {
+                const std::string dumped = result.dump();
+                return JS_ParseJSON(ctx, dumped.c_str(), dumped.size(), "<host.call>");
+            }
+            if (status == ScriptCallStatus::Failed)
+                return JS_ThrowInternalError(ctx, "host.call('%s') failed", name.c_str());
+        }
+    }
+    return JS_ThrowTypeError(ctx, "host.call: no script export '%s'", name.c_str());
+}
+
 JSValue jsTreeQuit(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     auto* canvas = webCanvasFromJs(ctx);
     if (canvas && canvas->tree()) canvas->tree()->quit();
@@ -720,6 +761,7 @@ WebCanvasNode::~WebCanvasNode() {
 }
 
 void WebCanvasNode::retireGpuResources() {
+#ifndef SAIDA_RHI_WEBGPU
     if (!device_ || !texture_) return;
     struct RetiredCanvas {
         std::unique_ptr<Texture> texture;
@@ -736,8 +778,10 @@ void WebCanvasNode::retireGpuResources() {
         Log::error("[WebCanvas] retirement submission failed: ", e.what());
         device_->waitIdle();
     }
+#endif
 }
 
+#ifndef SAIDA_RHI_WEBGPU
 void WebCanvasNode::init(VulkanDevice& device, uint32_t width, uint32_t height, Mode mode) {
     width_ = width;
     height_ = height;
@@ -750,6 +794,43 @@ void WebCanvasNode::init(VulkanDevice& device, uint32_t width, uint32_t height, 
     ensureJsContext();
     loadDocumentFromState();
 }
+#else
+void WebCanvasNode::initCpu(uint32_t width, uint32_t height, Mode mode) {
+    width_ = std::max(width, 1u);
+    height_ = std::max(height, 1u);
+    mode_ = mode;
+    cpuInitialized_ = true;
+    ensureRmlContext();
+    ensureJsContext();
+    loadDocumentFromState();
+    markUiDirty();
+}
+
+const std::vector<uint8_t>* WebCanvasNode::rasterizeCpu() {
+    SAIDA_PROFILE_FUNCTION();
+    checkHotReload();
+    if (!rmlContext_ || !uiSchedule_.due(Time::unscaledElapsed(), uiDirty_)) return nullptr;
+    rmlContext_->Update();
+    uiSchedule_.updated(Time::unscaledElapsed(), rmlContext_->GetNextUpdateDelay());
+    RmlUiRenderInterface* renderer = RmlUiRuntime::renderer();
+    if (!renderer) return nullptr;
+    std::vector<std::string> dependencies;
+    renderer->beginFrame(width_, height_);
+    {
+        RmlDependencyCapture capture(dependencies);
+        rmlContext_->Render();
+    }
+    renderer->endFrame();
+    appendDocumentWatchers(dependencies);
+    uiDirty_ = false;
+    if (renderer->pixels().empty()) return nullptr;
+    if (!loggedRenderStats_) {
+        Log::info("[WebCanvas] '", name(), "' CPU raster ", width_, "x", height_);
+        loggedRenderStats_ = true;
+    }
+    return &renderer->pixels();
+}
+#endif
 
 void WebCanvasNode::loadHTML(const std::string& html) {
     url_.clear();
@@ -1017,6 +1098,7 @@ bool WebCanvasNode::fireTouchEvent(uint64_t id, glm::vec2 position, TouchEvent t
     return handled;
 }
 
+#ifndef SAIDA_RHI_WEBGPU
 void WebCanvasNode::updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& encoder, uint32_t frameSlot) {
     SAIDA_PROFILE_FUNCTION();
     checkHotReload();
@@ -1118,6 +1200,7 @@ void WebCanvasNode::updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& enco
     SAIDA_PROFILE_COUNTER_ADD("WebCanvas/Uploads", 1);
     SAIDA_PROFILE_COUNTER_ADD("WebCanvas/UploadBytes", static_cast<double>(byteCount));
 }
+#endif
 
 void WebCanvasNode::serialize(nlohmann::json& j, ResourceManager& resources) const {
     Node::serialize(j, resources);
@@ -1155,7 +1238,12 @@ void WebCanvasNode::deserialize(const nlohmann::json& j, ResourceManager& resour
         startupScripts_ = j["startupScripts"].get<std::vector<std::string>>();
     }
 
+#ifndef SAIDA_RHI_WEBGPU
     init(resources.device(), width_, height_, mode_);
+#else
+    // Web: initCpu() runs lazily from the UIRenderer once a viewport exists.
+    (void)resources;
+#endif
 }
 
 void WebCanvasNode::ensureJsContext() {
@@ -1295,7 +1383,19 @@ void WebCanvasNode::installDocumentBindings() {
     defineGetSet(ctx, tree, "paused",
         makeGetter(ctx, jsTreeGetPaused, "get paused"), JS_UNDEFINED);
     JS_SetPropertyStr(ctx, global, "tree", tree);
+
+    JSValue host = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, host, "call", JS_NewCFunction(ctx, jsHostCall, "call", 1));
+    JS_SetPropertyStr(ctx, global, "host", host);
     JS_FreeValue(ctx, global);
+}
+
+int WebCanvasNode::callDocument(const std::string& name, const nlohmann::json& args, nlohmann::json& result) {
+    if (!jsContext_ || name.empty()) return 0;
+    const JsFunctionStatus status = jsContext_->globalFunctionStatus(name.c_str());
+    if (status == JsFunctionStatus::Missing) return 0;
+    if (status != JsFunctionStatus::Callable) return 2;
+    return jsContext_->callGlobalJson(name.c_str(), args, result) ? 1 : 2;
 }
 
 bool WebCanvasNode::loadDocumentFromState(bool keepExistingOnFailure) {
@@ -1566,6 +1666,9 @@ void WebCanvasNode::clearJsEventListeners() {
 }
 
 void WebCanvasNode::createPlaceholderTexture() {
+#ifdef SAIDA_RHI_WEBGPU
+    markUiDirty();
+#else
     if (!device_ || width_ == 0 || height_ == 0) return;
     retireGpuResources();
 
@@ -1590,6 +1693,7 @@ void WebCanvasNode::createPlaceholderTexture() {
     stagingBuffers_.clear();
     rasterFrame_.reset();
     markUiDirty();
+#endif
 }
 
 } // namespace saida

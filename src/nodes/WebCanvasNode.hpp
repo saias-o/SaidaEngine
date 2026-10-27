@@ -1,7 +1,11 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
+
 #include "core/FileWatcher.hpp"
+#ifndef SAIDA_RHI_WEBGPU
 #include "graphics/Texture.hpp"  // fwd-declares rhi::vulkan::CommandEncoder
+#endif
 #include "scene/Node.hpp"
 #include "ui/RmlUiRenderInterface.hpp"
 #include "ui/UiUpdateSchedule.hpp"
@@ -16,9 +20,11 @@ namespace saida {
 class RmlUiGpuRenderer;
 
 class JsContext;
+#ifndef SAIDA_RHI_WEBGPU
 class Buffer;
-class ResourceManager;
 class VulkanDevice;
+#endif
+class ResourceManager;
 
 } // namespace saida
 
@@ -79,7 +85,17 @@ public:
     WebCanvasNode();
     ~WebCanvasNode() override;
 
+#ifndef SAIDA_RHI_WEBGPU
     void init(VulkanDevice& device, uint32_t width, uint32_t height, Mode mode = Mode::ScreenSpace);
+#else
+    // Web player: no Vulkan texture. The document is rasterized on the CPU by the
+    // same RmlUi backend as the HUD, and the UIRenderer uploads the pixels.
+    void initCpu(uint32_t width, uint32_t height, Mode mode = Mode::ScreenSpace);
+    bool cpuInitialized() const { return cpuInitialized_; }
+    // Pixels (RGBA8, width*height) when the document changed since the last
+    // call, null otherwise: the caller keeps its texture.
+    const std::vector<uint8_t>* rasterizeCpu();
+#endif
 
     void loadHTML(const std::string& html);
     void loadURL(const std::string& url);
@@ -142,6 +158,11 @@ public:
     void setRenderOrder(int order) { renderOrder_ = order; }
 
     const std::string& lastError() const { return lastError_; }
+
+    // Gameplay -> document bridge: NodeRef.call() on a WebCanvasNode reaches a
+    // global function of its document. JSON in, JSON out, like ScriptBehaviour.
+    // Returns 0 when the function is missing, 1 on success, 2 on failure.
+    int callDocument(const std::string& name, const nlohmann::json& args, nlohmann::json& result);
     bool lastLoadOk() const { return lastLoadOk_; }
 
     void addStartupScript(const std::string& script) { startupScripts_.push_back(script); }
@@ -150,8 +171,10 @@ public:
     void setStartupScripts(std::vector<std::string> scripts) { startupScripts_ = std::move(scripts); }
     const std::vector<std::string>& startupScripts() const { return startupScripts_; }
 
+#ifndef SAIDA_RHI_WEBGPU
     void updateTextureIfNeededAsync(rhi::vulkan::CommandEncoder& encoder, uint32_t frameSlot);
     Texture* texture() const { return texture_.get(); }
+#endif
 
     uint64_t documentGeneration() const { return documentGeneration_; }
     bool isLiveElement(Rml::Element* element, uint64_t generation) const;
@@ -201,12 +224,16 @@ private:
     std::string url_;
     std::string html_;
 
+#ifndef SAIDA_RHI_WEBGPU
     VulkanDevice* device_ = nullptr;
     std::unique_ptr<Texture> texture_;
     std::vector<std::unique_ptr<Buffer>> stagingBuffers_;
     std::shared_ptr<RmlUiRenderInterface::RasterFrame> rasterFrame_;
     std::unique_ptr<RmlUiGpuRenderer> gpuRenderer_;
     bool gpuRendering_ = true;
+#else
+    bool cpuInitialized_ = false;
+#endif
     void retireGpuResources();
     std::unique_ptr<JsContext> jsContext_;
     std::string rmlContextName_;

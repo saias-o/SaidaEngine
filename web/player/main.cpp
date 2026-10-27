@@ -36,6 +36,7 @@
 #include "scene/SceneSerializer.hpp"
 #include "scene/SceneTree.hpp"
 #include "nodes/UICanvasNode.hpp"
+#include "nodes/WebCanvasNode.hpp"
 #include "nodes/UINode.hpp"
 #include "nodes/UITextNode.hpp"
 #include "scripting/JsRuntime.hpp"
@@ -125,6 +126,7 @@ bool bootGame() {
     NodeRegistry::instance().registerType<UINode>("UINode");
     NodeRegistry::instance().registerType<UICanvasNode>("UICanvasNode");
     NodeRegistry::instance().registerType<UITextNode>("UITextNode");
+    NodeRegistry::instance().registerType<WebCanvasNode>("WebCanvasNode");
 
     std::string typeMatrixError;
     if (!verifyRegisteredRuntimeTypes(RuntimeTypeTarget::PlayerWeb, typeMatrixError))
@@ -175,6 +177,26 @@ bool bootGame() {
     return true;
 }
 
+// Souris -> documents WebCanvas plein écran (le desktop passe par UIInteractionSystem).
+void routeWebCanvasPointer(Scene& world) {
+    const glm::vec2 mouse = Input::mousePosition();
+    const bool down = Input::isMouseButtonDown(MouseButton::Left);
+    for (WebCanvasNode* canvas : world.webCanvases()) {
+        if (!canvas || !canvas->isActiveInHierarchy() || !canvas->interactive() ||
+            canvas->mode() != WebCanvasNode::Mode::ScreenSpace || !canvas->cpuInitialized())
+            continue;
+        if (!canvas->screenContains(mouse)) continue;
+        const glm::vec2 local = canvas->screenToLocal(mouse);
+        const int x = static_cast<int>(local.x), y = static_cast<int>(local.y);
+        canvas->fireMouseEvent(WebCanvasNode::MouseEvent::Move, x, y,
+                               down ? WebCanvasNode::MouseButton::Left : WebCanvasNode::MouseButton::None);
+        if (Input::isMouseButtonPressed(MouseButton::Left))
+            canvas->fireMouseEvent(WebCanvasNode::MouseEvent::Down, x, y, WebCanvasNode::MouseButton::Left);
+        if (Input::isMouseButtonReleased(MouseButton::Left))
+            canvas->fireMouseEvent(WebCanvasNode::MouseEvent::Up, x, y, WebCanvasNode::MouseButton::Left);
+    }
+}
+
 void frame() {
     if (!gApp.running) return;
 
@@ -188,6 +210,7 @@ void frame() {
 
     gApp.resources->pumpAssetLoads();
     Input::sample();  // GLFW keyboard/mouse → actions, before the behaviours
+    routeWebCanvasPointer(*gApp.world);
     gApp.world->update(Time::delta());
     JsRuntime::instance().executePendingJobs();
     gApp.cameraDirector.update(*gApp.world, gApp.camera, Time::delta());
