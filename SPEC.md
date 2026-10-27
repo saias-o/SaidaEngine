@@ -1203,7 +1203,9 @@ rejected at GPU creation. WitnessGame embeds a deliberate `corrupt.obj` and a
 On Web, `project-files.json` separates the MEMFS boot from the streamed assets:
 PNG/JPG, OBJ and `.srig/.sclip/.sgraph` are served on demand by fetch via the
 AssetLoader. Scenes, scripts, glTF/GLB, `.sseq` and `.sretarget` stay preloaded
-as long as their consumers are not asynchronous.
+as long as their consumers are not asynchronous. So do the images under a folder
+holding a UI document (`.html`, `.rml`, `.rcss`, `.css`): RmlUi reads them
+synchronously.
 
 ### 4.3 Media formats
 
@@ -2146,7 +2148,8 @@ globals the engine explicitly installs — `console` and the
   behaviour → false/null, never an exception. The Animator's `animationEvent` is
   a reflected signal subscribable via `on`.
 - `time`: `delta`, `elapsed`, `wait`, `every`, `tween`, `cancel`.
-- `input`: actions, forces, axes, vectors, mouse and test injection.
+- `input`: actions, forces, axes, vectors, mouse (`mousePosition`, `mouseDelta`,
+  `scrollDelta`: wheel/trackpad since the last frame) and test injection.
 - `audio`: `play(alias)`.
 - `tree`: scene change/reload, quit, pause, `autoload`, `firstInGroup`,
   `nodesInGroup` and `nodeById`. `changeScene(path)` returns `true` when the

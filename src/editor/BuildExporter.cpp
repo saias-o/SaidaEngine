@@ -407,9 +407,26 @@ BuildExporter::Result BuildExporter::exportWebBuild(const Project& project,
     // preload no longer pays the cost of large assets.
     nlohmann::json bootFiles = nlohmann::json::array();
     nlohmann::json streamedFiles = nlohmann::json::array();
-    for (const std::string& file : packageFileList(packagedProject)) {
+    const std::vector<std::string> packaged = packageFileList(packagedProject);
+    // RmlUi reads a document's images synchronously: an image under a folder
+    // holding a UI document (or its stylesheet) is mounted at boot instead.
+    std::vector<std::string> uiFolders;
+    for (const std::string& file : packaged) {
         const std::string ext = fs::path(file).extension().string();
-        const bool streamed = ext == ".png" || ext == ".jpg" || ext == ".jpeg" ||
+        if (ext == ".html" || ext == ".rml" || ext == ".rcss" || ext == ".css") {
+            const std::string folder = fs::path(file).parent_path().generic_string();
+            uiFolders.push_back(folder.empty() ? folder : folder + "/");
+        }
+    }
+    const auto underUiFolder = [&](const std::string& file) {
+        for (const std::string& folder : uiFolders)
+            if (file.rfind(folder, 0) == 0) return true;
+        return false;
+    };
+    for (const std::string& file : packaged) {
+        const std::string ext = fs::path(file).extension().string();
+        const bool image = ext == ".png" || ext == ".jpg" || ext == ".jpeg";
+        const bool streamed = (image && !underUiFolder(file)) ||
                               ext == ".obj" || ext == ".srig" || ext == ".sclip" ||
                               ext == ".sgraph";
         (streamed ? streamedFiles : bootFiles).push_back(file);

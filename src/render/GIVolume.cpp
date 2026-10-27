@@ -293,10 +293,15 @@ void GIVolume::createComputeResources(rhi::BindGroupLayout& globalLayout) {
 #endif
     giComputeSetLayout_=std::make_unique<rhi::BindGroupLayout>(device_,entries);
     for(int f=0;f<2;++f)for(int mode=0;mode<2;++mode) {
-        auto irr=imageEntry(3,irradiance_[mode]->view(),true);irr.sampler=sampler_->handle();
-        auto vis=imageEntry(4,visibility_[mode]->view(),true);vis.sampler=sampler_->handle();
-        auto normal=imageEntry(6,normalTexture_->view());normal.sampler=sampler_->handle();
-        auto emission=imageEntry(7,emissionTexture_->view());emission.sampler=sampler_->handle();
+        auto irr=imageEntry(3,irradiance_[mode]->view(),true);
+        auto vis=imageEntry(4,visibility_[mode]->view(),true);
+        auto normal=imageEntry(6,normalTexture_->view());
+        auto emission=imageEntry(7,emissionTexture_->view());
+#ifndef SAIDA_RHI_WEBGPU
+        // Combined image samplers. WebGPU binds the samplers apart (8-11): a
+        // sampler on a texture entry makes Dawn read it as a sampler entry.
+        for(auto* e:{&irr,&vis,&normal,&emission}) e->sampler=sampler_->handle();
+#endif
         std::vector<rhi::BindGroupEntry> bindings={bufferEntry(0,*raysBuffer_),imageEntry(1,irradiance_[1-mode]->view(),true),imageEntry(2,visibility_[1-mode]->view(),true),irr,vis,bufferEntry(5,*schedule_[f]),normal,emission};
 #ifdef SAIDA_RHI_WEBGPU
         for(int b=8;b<12;++b) {rhi::BindGroupEntry s{};s.binding=b;s.sampler=sampler_->handle();bindings.push_back(s);}

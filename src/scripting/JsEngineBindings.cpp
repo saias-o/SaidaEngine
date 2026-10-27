@@ -1057,6 +1057,10 @@ JSValue jsInputMouseDelta(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     return makeVec2(ctx, Input::mouseDelta());
 }
 
+JSValue jsInputScrollDelta(JSContext* ctx, JSValueConst, int, JSValueConst*) {
+    return makeVec2(ctx, Input::scrollDelta());
+}
+
 JSValue jsInputRebindKey(JSContext* ctx, JSValueConst, int argc,
                          JSValueConst* argv) {
     std::string action;
@@ -2512,6 +2516,7 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
                       JS_NewCFunction(ctx, jsInputInjectDevice, "injectDevice", 1));
     JS_SetPropertyStr(ctx, input, "mousePosition", JS_NewCFunction(ctx, jsInputMousePosition, "mousePosition", 0));
     JS_SetPropertyStr(ctx, input, "mouseDelta", JS_NewCFunction(ctx, jsInputMouseDelta, "mouseDelta", 0));
+    JS_SetPropertyStr(ctx, input, "scrollDelta", JS_NewCFunction(ctx, jsInputScrollDelta, "scrollDelta", 0));
     JS_SetPropertyStr(ctx, input, "bindKey", JS_NewCFunction(ctx, jsInputBindKey, "bindKey", 3));
     JS_SetPropertyStr(ctx, input, "bindGamepadButton",
                       JS_NewCFunction(ctx, jsInputBindGamepadButton, "bindGamepadButton", 3));

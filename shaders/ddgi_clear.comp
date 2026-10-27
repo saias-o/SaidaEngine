@@ -2,7 +2,9 @@
 #extension GL_GOOGLE_include_directive : require
 #include "web_compat.glsl"
 #include "gi_voxel_storage.glsl"
-layout(local_size_x=8,local_size_y=8,local_size_z=8) in;
+// One workgroup per 8^3 brick; 8x8x4 invocations clearing two layers each keeps
+// the group within WebGPU's default limit of 256 invocations.
+layout(local_size_x=8,local_size_y=8,local_size_z=4) in;
 PUSH_QUALIFIER Push { ivec4 params; } pc;
 void main() {
     ivec3 bricks=vox.res.xyz/8;
@@ -11,5 +13,8 @@ void main() {
     int c=job/perCascade;int b=job%perCascade;
     ivec3 xyz=ivec3(b%bricks.x,(b/bricks.x)%bricks.y,b/(bricks.x*bricks.y))*8+ivec3(gl_LocalInvocationID);
     xyz.z+=c*vox.res.z;
-    imageStore(voxelAlbedo,xyz,vec4(0));imageStore(voxelNormal,xyz,vec4(0));imageStore(voxelEmission,xyz,vec4(0));
+    for(int layer=0;layer<2;++layer){
+        ivec3 p=xyz+ivec3(0,0,layer*4);
+        imageStore(voxelAlbedo,p,vec4(0));imageStore(voxelNormal,p,vec4(0));imageStore(voxelEmission,p,vec4(0));
+    }
 }
