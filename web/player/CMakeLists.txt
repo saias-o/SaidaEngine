@@ -94,6 +94,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/project/AssetRegistry.cpp
     ${SAIDA_ROOT}/src/project/AssetLoader.cpp
     ${SAIDA_ROOT}/src/project/Project.cpp
+    ${SAIDA_ROOT}/src/plugins/EnginePlugin.cpp
     ${SAIDA_ROOT}/src/project/PlayerStorage.cpp
     ${SAIDA_ROOT}/src/scene/Behaviour.cpp
     ${SAIDA_ROOT}/src/scene/BehaviourRegistry.cpp
@@ -141,7 +142,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/ui/WorldPanelGeometry.cpp
     ${SAIDA_ROOT}/src/nodes/WaterNode.cpp
     ${SAIDA_ROOT}/src/nodes/TerrainRingsNode.cpp  # indexed by the scene; drawn on desktop only
-    ${SAIDA_ROOT}/src/nodes/GrassNode.cpp         # indexed by the scene; drawn on desktop only
+    ${SAIDA_ROOT}/src/nodes/GrassNode.cpp         # indexed by the scene; drawn by GrassFeature
     ${SAIDA_ROOT}/src/physics/CollisionObjectNode.cpp
     ${SAIDA_ROOT}/src/physics/CollisionShapeNode.cpp
     ${SAIDA_ROOT}/src/physics/CharacterBodyNode.cpp
@@ -208,6 +209,7 @@ add_executable(saida_player
     ${SAIDA_ROOT}/src/render/RenderFeatureRegistry.cpp
     ${SAIDA_ROOT}/src/render/Renderer.cpp
     ${SAIDA_ROOT}/src/render/EnvironmentSH.cpp
+    ${SAIDA_ROOT}/src/render/features/GrassFeature.cpp
     ${SAIDA_ROOT}/src/render/features/ParticleFeature.cpp
     ${SAIDA_ROOT}/src/render/features/SkyboxFeature.cpp
     ${SAIDA_ROOT}/src/render/features/WaterFeature.cpp
@@ -242,6 +244,8 @@ target_compile_definitions(saida_player PRIVATE
 target_compile_options(saida_player PRIVATE -fexceptions $<$<CONFIG:Release>:-Oz> --use-port=emdawnwebgpu)
 target_link_libraries(saida_player PRIVATE quickjs Jolt RmlUi::RmlUi)
 include(${SAIDA_ROOT}/cmake/MediaRuntime.cmake)
+include(${SAIDA_ROOT}/cmake/Plugins.cmake)
+saida_add_plugins(saida_player)
 saida_add_media_runtime(saida_player)
 
 target_link_options(saida_player PRIVATE

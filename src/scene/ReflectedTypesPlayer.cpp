@@ -30,6 +30,7 @@
 #include "behaviours/SurfaceDriveBehaviour.hpp"
 #include "behaviours/DeformableMeshBehaviour.hpp"
 #include "behaviours/LODGroupBehaviour.hpp"
+#include "nodes/GrassNode.hpp"
 #include "nodes/LightNode.hpp"
 #include "nodes/ParticleSystemNode.hpp"
 #include "behaviours/RotatorBehaviour.hpp"
@@ -89,7 +90,8 @@ void registerReflectedTypes() {
 
     registerNode<LightNode>();
     registerNode<WaterNode>();
-    // Desktop-only render nodes are absent in RuntimeTypeMatrix::PlayerWeb.
+    registerNode<GrassNode>();
+    // TerrainRings, desktop-only, is absent in RuntimeTypeMatrix::PlayerWeb.
     // Registering them here makes the boot-time registry contract reject every
     // Web game, including scenes that do not contain either type.
     registerNode<ParticleSystemNode>();

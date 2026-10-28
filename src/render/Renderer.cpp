@@ -1353,8 +1353,8 @@ void Renderer::buildFeatures(uint32_t viewMask, rhi::Format depthFormat,
     // The Renderer knows ONLY the ScenePassFeature interface. Concrete effects
     // (water, skybox, particles, …) plug in through the registry, so this never
     // names or includes a concrete effect — adding one touches no Renderer code.
-    // On web the registry only carries the ported subset (skybox + GPU
-    // particles); WaterFeature/Outline/DebugLines stay desktop-only.
+    // On web the registry only carries the ported subset (grass, water, skybox,
+    // GPU particles); TerrainRings/Outline/DebugLines stay desktop-only.
     features_ = RenderFeatureRegistry::instance().build();
     RenderContext ctx{device_, resources_, *globalSetLayout_,
                       rhi::Format::RGBA16Float, depthFormat, samples,

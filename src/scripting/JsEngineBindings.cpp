@@ -24,11 +24,13 @@
 #include "scene/Scene.hpp"
 #include "scene/SceneMeasure.hpp"
 #include "scene/SceneTree.hpp"
+#include "nodes/GrassNode.hpp"
 #include "nodes/UITextNode.hpp"
 #include "nodes/WebCanvasNode.hpp"
 #include "scene/animation/Animator.hpp"
 #include "scene/animation/SequenceDirectorBehaviour.hpp"
 #include "scripting/JsContext.hpp"
+#include "plugins/EnginePlugin.hpp"
 #include "scripting/ScriptBehaviour.hpp"
 #include "scripting/JsTimerBindings.hpp"
 
@@ -950,6 +952,67 @@ JSValue jsNodeGetText(JSContext* ctx, JSValueConst, int, JSValueConst*) {
     if (!text)
         return JS_ThrowTypeError(ctx, "node.getText: script is not attached to a UITextNode");
     return JS_NewString(ctx, text->text().c_str());
+}
+
+// Numbers of a JS array property, or false when it is missing or not numeric.
+bool readNumberArray(JSContext* ctx, JSValueConst object, const char* name, std::vector<double>& out) {
+    JSValue array = JS_GetPropertyStr(ctx, object, name);
+    bool ok = JS_IsArray(array);
+    if (ok) {
+        JSValue lengthValue = JS_GetPropertyStr(ctx, array, "length");
+        uint32_t length = 0;
+        ok = JS_ToUint32(ctx, &length, lengthValue) == 0;
+        JS_FreeValue(ctx, lengthValue);
+        out.assign(ok ? length : 0, 0.0);
+        for (uint32_t i = 0; ok && i < length; ++i) {
+            JSValue item = JS_GetPropertyUint32(ctx, array, i);
+            ok = JS_IsNumber(item) && JS_ToFloat64(ctx, &out[i], item) == 0;
+            JS_FreeValue(ctx, item);
+        }
+    }
+    JS_FreeValue(ctx, array);
+    return ok;
+}
+
+// grass.setGrassField({groundSamples, heights, uvFromLocal, coverSize, cover}):
+// the field a GrassNode grows on, from a script. `heights` are groundSamples^2
+// node-local heights (row-major), `uvFromLocal` the affine map
+// [a, b, c, d, e, f] with u = a*x + b*z + c and v = d*x + e*z + f, `cover`
+// coverSize^2 RGBA8 texels packed as numbers (r in the low byte, alpha the
+// density). Returns GrassNode::setField's verdict; a refused field leaves the
+// previous one in place and the log says why.
+JSValue grassSetField(JSContext* ctx, Node* target, int argc, JSValueConst* argv, const char* who) {
+    auto* grass = dynamic_cast<GrassNode*>(target);
+    if (!grass) return JS_ThrowTypeError(ctx, "%s: not a Grass node", who);
+    if (argc < 1 || !JS_IsObject(argv[0]))
+        return JS_ThrowTypeError(ctx, "%s({groundSamples, heights, uvFromLocal, coverSize, cover})", who);
+    int32_t samples = 0, coverSize = 0;
+    JSValue value = JS_GetPropertyStr(ctx, argv[0], "groundSamples");
+    const bool haveSamples = JS_ToInt32(ctx, &samples, value) == 0;
+    JS_FreeValue(ctx, value);
+    value = JS_GetPropertyStr(ctx, argv[0], "coverSize");
+    const bool haveCover = JS_ToInt32(ctx, &coverSize, value) == 0;
+    JS_FreeValue(ctx, value);
+    std::vector<double> heights, map, cover;
+    if (!haveSamples || !haveCover || !readNumberArray(ctx, argv[0], "heights", heights) ||
+        !readNumberArray(ctx, argv[0], "uvFromLocal", map) || map.size() != 6 ||
+        !readNumberArray(ctx, argv[0], "cover", cover))
+        return JS_ThrowTypeError(ctx, "%s: groundSamples, coverSize, heights, uvFromLocal[6] and cover are required", who);
+    GrassNode::Field field;
+    field.groundSamples = samples;
+    field.heights.assign(heights.begin(), heights.end());
+    // Column-major: (u, v, 1) = M * (x, z, 1).
+    field.uvFromLocal = glm::mat3(float(map[0]), float(map[3]), 0.0f,
+                                  float(map[1]), float(map[4]), 0.0f,
+                                  float(map[2]), float(map[5]), 1.0f);
+    field.coverSize = coverSize;
+    field.cover.reserve(cover.size());
+    for (double texel : cover) field.cover.push_back(uint32_t(int64_t(texel) & 0xFFFFFFFFll));
+    return JS_NewBool(ctx, grass->setField(std::move(field)));
+}
+
+JSValue jsNodeSetGrassField(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
+    return grassSetField(ctx, nodeFromJs(ctx), argc, argv, "node.setGrassField");
 }
 
 JSValue jsNodeAddToGroup(JSContext* ctx, JSValueConst, int argc, JSValueConst* argv) {
@@ -2012,6 +2075,8 @@ enum NodeRefMethod {
     NodeRefVehicleHandbrake,
     NodeRefVehicleInput,
     NodeRefVehicleState,
+    // A Grass node's field, given by a script (the stage that knows the ground).
+    NodeRefSetGrassField,
 };
 
 JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
@@ -2135,6 +2200,8 @@ JSValue jsNodeRefMethod(JSContext* ctx, JSValueConst, int argc,
     case NodeRefQueueFree:
         target->queueFree();
         return JS_UNDEFINED;
+    case NodeRefSetGrassField:
+        return grassSetField(ctx, target, argc, argv, "NodeRef.setGrassField");
     case NodeRefSetText: {
         auto* text = dynamic_cast<UITextNode*>(target);
         if (!text) return JS_ThrowTypeError(ctx, "NodeRef target is not a UITextNode");
@@ -2415,6 +2482,7 @@ JSValue makeNodeRef(JSContext* ctx, Node* target) {
     setNodeRefMethod(ctx, object, target->id(), "setEnabled", jsNodeRefMethod, 1, NodeRefSetEnabled);
     setNodeRefMethod(ctx, object, target->id(), "queueFree", jsNodeRefMethod, 0, NodeRefQueueFree);
     setNodeRefMethod(ctx, object, target->id(), "setText", jsNodeRefMethod, 1, NodeRefSetText);
+    setNodeRefMethod(ctx, object, target->id(), "setGrassField", jsNodeRefMethod, 1, NodeRefSetGrassField);
     setNodeRefMethod(ctx, object, target->id(), "getText", jsNodeRefMethod, 0, NodeRefGetText);
     setNodeRefMethod(ctx, object, target->id(), "addToGroup", jsNodeRefMethod, 1, NodeRefAddToGroup);
     setNodeRefMethod(ctx, object, target->id(), "removeFromGroup", jsNodeRefMethod, 1, NodeRefRemoveFromGroup);
@@ -2478,6 +2546,7 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JS_SetPropertyStr(ctx, node, "setEnabled", JS_NewCFunction(ctx, jsNodeSetEnabled, "setEnabled", 1));
     JS_SetPropertyStr(ctx, node, "queueFree", JS_NewCFunction(ctx, jsNodeQueueFree, "queueFree", 0));
     JS_SetPropertyStr(ctx, node, "setText", JS_NewCFunction(ctx, jsNodeSetText, "setText", 1));
+    JS_SetPropertyStr(ctx, node, "setGrassField", JS_NewCFunction(ctx, jsNodeSetGrassField, "setGrassField", 1));
     JS_SetPropertyStr(ctx, node, "getText", JS_NewCFunction(ctx, jsNodeGetText, "getText", 0));
     JS_SetPropertyStr(ctx, node, "addToGroup", JS_NewCFunction(ctx, jsNodeAddToGroup, "addToGroup", 1));
     JS_SetPropertyStr(ctx, node, "removeFromGroup", JS_NewCFunction(ctx, jsNodeRemoveFromGroup, "removeFromGroup", 1));
@@ -2579,6 +2648,8 @@ void JsEngineBindings::installForBehaviour(JsContext& context, Behaviour& behavi
     JSValue audio = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, audio, "play", JS_NewCFunction(ctx, jsAudioPlay, "play", 1));
     JS_SetPropertyStr(ctx, global, "audio", audio);
+
+    plugins::installScriptApi(ctx, global);
 
     JSValue physics = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, physics, "available", JS_NewCFunction(ctx, jsPhysicsAvailable, "available", 0));

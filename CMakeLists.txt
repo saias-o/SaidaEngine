@@ -225,6 +225,7 @@ set(WEB_READY_SHADERS
     debug_line.vert debug_line.frag
     ui.vert ui.frag
     water.vert water_surface.vert water.frag cartoon_water.vert cartoon_water_surface.vert cartoon_water.frag
+    grass.vert grass.frag
     web_canvas_world.vert web_canvas_world.frag
     particle_render.vert particle_render.frag
     culling.comp
@@ -626,6 +627,7 @@ add_library(saida_engine STATIC
     src/render/gi/GIClipmap.cpp
     # XR sources are added conditionally below via target_sources (SAIDA_ENABLE_XR)
     src/project/Project.cpp
+    src/plugins/EnginePlugin.cpp
     src/project/ProjectRename.cpp
     src/project/AssetRegistry.cpp
     src/project/AssetLoader.cpp
@@ -1418,6 +1420,8 @@ if (BUILD_TESTING)
 
 endif()
 
+include(cmake/Plugins.cmake)
+
 # ── Editor executable (the app the Hub launches) ────────────────────────────
 # Thin target: just the entry point, linking the editor. Launched directly it
 # opens an empty scene; the Hub passes a project via --project to load content.
@@ -1426,6 +1430,7 @@ add_executable(SaidaEngine
 )
 saida_app_target(SaidaEngine)
 target_link_libraries(SaidaEngine PRIVATE saida_editor)
+saida_add_plugins(SaidaEngine)
 target_compile_options(SaidaEngine PRIVATE -Wall -Wextra)
 add_dependencies(SaidaEngine Shaders)
 
@@ -1447,6 +1452,7 @@ add_executable(SaidaEngineRuntime
 )
 saida_app_target(SaidaEngineRuntime)
 target_link_libraries(SaidaEngineRuntime PRIVATE saida_engine)
+saida_add_plugins(SaidaEngineRuntime)
 target_compile_options(SaidaEngineRuntime PRIVATE -Wall -Wextra)
 add_dependencies(SaidaEngineRuntime Shaders)
 

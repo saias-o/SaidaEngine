@@ -1,6 +1,8 @@
 // Shared by grass.vert and grass.frag: the fields of GrassNodes in view
 // (render/features/GrassFeature.hpp mirrors these layouts).
 
+#include "web_compat.glsl"
+
 const int MAX_FIELDS = 9;     // GrassFeature::kMaxFields
 const int MAX_GROUND = 65;    // GrassNode::kMaxGroundSamples
 const int MAX_BOUNDARY = 257; // GrassNode::kMaxBoundarySamples
@@ -38,7 +40,8 @@ layout(std430, set = 1, binding = 2) readonly buffer CoverBuffer {
     uint cover[];
 };
 
-layout(push_constant) uniform Push {
+// WebGPU has no push constants: the Web variant reads this block from group 3.
+PUSH_QUALIFIER Push {
     vec2 origin;      // node-local x, z of cell (0, 0)'s corner of this ring
     float spacing;    // metres between blades in this ring
     uint slot;

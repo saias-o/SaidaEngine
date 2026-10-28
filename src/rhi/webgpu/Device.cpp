@@ -134,12 +134,21 @@ uint32_t Device::allocPushSlot(const void* data, uint32_t size) {
     const uint32_t offset = pushCursor_;
     const uint32_t slot = (size + kPushSlotAlignment - 1) & ~(kPushSlotAlignment - 1);
     if (offset + slot > kPushRingBytes) {
-        std::printf("rhi::webgpu: push ring exhausted (frame uses > %u bytes)\n", kPushRingBytes);
+        ++pushDropped_;  // said once a frame in beginFrame(), not once a draw
         return 0;
     }
     std::memcpy(pushStaging_.data() + offset, data, size);
     pushCursor_ = offset + slot;
     return offset;
+}
+
+void Device::beginFrame() {
+    if (pushDropped_ > 0)
+        std::printf("rhi::webgpu: push ring exhausted: %u pushes of the last frame past %u bytes read slot 0\n",
+                    pushDropped_, kPushRingBytes);
+    pushCursor_ = 0;
+    pushFlushed_ = 0;
+    pushDropped_ = 0;
 }
 
 void Device::flushPushRing() {

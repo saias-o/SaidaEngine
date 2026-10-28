@@ -1,4 +1,5 @@
 #include "nodes/WebCanvasNode.hpp"
+#include "plugins/EnginePlugin.hpp"
 
 #include "core/Profiler.hpp"
 
@@ -1387,6 +1388,7 @@ void WebCanvasNode::installDocumentBindings() {
     JSValue host = JS_NewObject(ctx);
     JS_SetPropertyStr(ctx, host, "call", JS_NewCFunction(ctx, jsHostCall, "call", 1));
     JS_SetPropertyStr(ctx, global, "host", host);
+    plugins::installScriptApi(ctx, global);
     JS_FreeValue(ctx, global);
 }
 

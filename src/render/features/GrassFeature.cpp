@@ -62,12 +62,24 @@ GrassFeature::RingDraw GrassFeature::ringDraw(int ring, float density, float rad
 void GrassFeature::createPipelines(const RenderContext& ctx) {
     device_ = &ctx.device;
     const uint32_t frames = std::max(1u, ctx.framesInFlight);
+#ifdef SAIDA_RHI_WEBGPU
+    // WebGPU allows storage buffers in the vertex stage only read-only, which
+    // the ground and the cover are.
+    std::vector<rhi::webgpu::BindGroupLayoutEntry> layout{
+        {0, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment},
+        {1, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},
+        {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},
+    };
+    layout[1].readOnlyStorage = layout[2].readOnlyStorage = true;
+    setLayout_ = std::make_unique<rhi::BindGroupLayout>(*device_, layout);
+#else
     setLayout_ = std::make_unique<rhi::BindGroupLayout>(*device_,
         std::vector<rhi::BindGroupLayoutEntry>{
             {0, rhi::BindingType::UniformBuffer, rhi::ShaderStages::Vertex | rhi::ShaderStages::Fragment},
             {1, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},
             {2, rhi::BindingType::StorageBuffer, rhi::ShaderStages::Vertex},
         });
+#endif
     const uint64_t uboBytes = sizeof(GpuGrass) * kMaxFields;
     frames_.resize(frames);
     for (FrameBuffers& f : frames_) {

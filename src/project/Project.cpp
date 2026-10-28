@@ -3,6 +3,7 @@
 #include "core/FormatVersions.hpp"
 #include "core/Log.hpp"
 #include "core/Paths.hpp"
+#include "plugins/EnginePlugin.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -133,6 +134,7 @@ bool Project::load(const std::string& neprojPath) {
     bool loadedShowColliders = true;
     std::unordered_map<std::string, std::string> loadedAudioAliases;
     std::unordered_map<std::string, std::string> loadedAutoloads;
+    std::vector<std::string> loadedPlugins;
 
     try {
         std::stringstream buffer;
@@ -181,6 +183,11 @@ bool Project::load(const std::string& neprojPath) {
                 for (const auto& [name, value] : aliases->items()) {
                     if (value.is_string()) loadedAudioAliases[name] = value.get<std::string>();
                 }
+            }
+
+            if (auto plugins = doc.find("plugins"); plugins != doc.end() && plugins->is_array()) {
+                for (const auto& value : *plugins)
+                    if (value.is_string()) loadedPlugins.push_back(value.get<std::string>());
             }
 
             if (auto autoloads = doc.find("autoloads"); autoloads != doc.end() && autoloads->is_object()) {
@@ -235,6 +242,7 @@ bool Project::load(const std::string& neprojPath) {
     showColliders_ = loadedShowColliders;
     audioAliases_ = std::move(loadedAudioAliases);
     autoloads_ = std::move(loadedAutoloads);
+    plugins_ = std::move(loadedPlugins);
     filePath_      = path.string();
     rootPath_      = path.parent_path().string();
     loaded_        = true;
@@ -242,6 +250,7 @@ bool Project::load(const std::string& neprojPath) {
 
     for (const auto& [aliasName, aliasPath] : audioAliases_)
         AudioManager::get().setAlias(aliasName, aliasPath);
+    plugins::activate(plugins_);
 
     assetRegistry_.sync(rootPath_);
     assetRegistry_.save(rootPath_);
@@ -303,6 +312,7 @@ bool Project::save() const {
     for (const auto& [autoName, autoVal] : autoloads_)
         autoloads[autoName] = autoVal;
     doc["autoloads"] = std::move(autoloads);
+    if (!plugins_.empty()) doc["plugins"] = plugins_;
 
     file << doc.dump(2) << "\n";
 

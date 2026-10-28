@@ -49,7 +49,7 @@ public:
     void waitIdle() const {}  // driver-managed on web
 
     // RAF serializes frames, so the previous submit has consumed the ring.
-    void beginFrame() { pushCursor_ = 0; pushFlushed_ = 0; }
+    void beginFrame();
     uint32_t allocPushSlot(const void* data, uint32_t size);
     void flushPushRing();
     WGPUBuffer pushRingBuffer() const { return pushRing_; }
@@ -71,13 +71,18 @@ private:
     WGPUQueue queue_ = nullptr;
     rhi::Capabilities capabilities_{};
 
-    static constexpr uint32_t kPushRingBytes = 256 * 1024;  // 1024 slots/frame
+    // One 256-byte slot a draw or dispatch that pushes: a city with its trees,
+    // characters and shadow cascades issues a few thousand a frame. Every
+    // pipeline's push bind group points at this buffer, so it cannot grow
+    // after creation; 4 MiB is 16384 slots for 4 MiB of memory.
+    static constexpr uint32_t kPushRingBytes = 4 * 1024 * 1024;
     WGPUBindGroupLayout emptyLayout_ = nullptr;
     WGPUBindGroup emptyGroup_ = nullptr;
     WGPUBuffer pushRing_ = nullptr;
     std::vector<uint8_t> pushStaging_;
     uint32_t pushCursor_ = 0;
     uint32_t pushFlushed_ = 0;
+    uint32_t pushDropped_ = 0;  // pushes refused this frame, said once at its end
     WGPUBuffer zeroBuffer_ = nullptr;
     uint64_t zeroBufferSize_ = 0;
 };

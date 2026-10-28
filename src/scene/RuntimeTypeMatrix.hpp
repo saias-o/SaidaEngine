@@ -50,8 +50,9 @@ inline constexpr std::array<RuntimeTypeRow, 54> kRuntimeTypeMatrix{{
     {"CharacterBody", RuntimeTypeCategory::Node, {R, R, A, R}},
     {"CollisionShape", RuntimeTypeCategory::Node, {R, R, A, R}},
     {"FixedJoint", RuntimeTypeCategory::Node, {R, R, A, R}},
-    // Desktop only, like TerrainRings: its vertex stage reads storage buffers.
-    {"Grass", RuntimeTypeCategory::Node, {R, R, A, A}},
+    // Desktop and Web player: its vertex stage reads read-only storage buffers,
+    // which WebGPU allows (TerrainRings' still needs more).
+    {"Grass", RuntimeTypeCategory::Node, {R, R, A, R}},
     {"HingeJoint", RuntimeTypeCategory::Node, {R, R, A, R}},
     {"LightNode", RuntimeTypeCategory::Node, {R, R, R, R}},
     {"MeshNode", RuntimeTypeCategory::Node, {R, R, R, R}},

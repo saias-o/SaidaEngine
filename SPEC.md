@@ -133,7 +133,9 @@ in the desktop and XR loops; its argument is scaled simulation time.
 VMA v3.1.0 is vendored under `third_party/vma`; the public headers use forward
 declarations and a single TU defines `VMA_IMPLEMENTATION`. Same rule for
 stb/tinyobj. Descriptor sets are organized by frequency: set 0 global per frame,
-set 1 per material, model matrix in a push constant. Application code does not
+set 1 per material, model matrix in a push constant (on WebGPU, a 256-byte slot of a
+per-frame 4 MiB uniform ring bound at group 3, 16384 pushes a frame; overflow is
+reported once a frame). Application code does not
 manipulate VMA types directly.
 
 `SceneTree` carries the active scene, the persistent `World`, the autoloads, the
@@ -1020,12 +1022,16 @@ eyes use the same world direction field, with unchanged push-constant sizes.
 The procedural cloud layer affects the visible sky; image-based reflections
 continue to sample the selected HDR pair.
 
-`GrassNode` (desktop only, like `TerrainRingsNode`) draws grass blades around
+`GrassNode` (desktop and Web player; its vertex stage reads only read-only storage
+buffers, which WebGPU allows, unlike `TerrainRingsNode`) draws grass blades around
 the camera with no geometry: the caller gives a field -- a heightfield of up to
 65 x 65 node-local heights over the unit square of a parameter (u, v), split
 into triangles as a ground mesh on the same grid is, an affine map from
 node-local (x, z) to (u, v), and an RGBA8 cover of up to 512 x 512 texels,
-sRGB colour and density. Optional `southBoundary`/`northBoundary` arrays refine the two boundary
+sRGB colour and density. A script gives the field with
+`setGrassField({groundSamples, heights, uvFromLocal: [a, b, c, d, e, f], coverSize, cover})`
+on the Grass node (`node`) or a reference to it, where u = a·x + b·z + c and v = d·x + e·z + f
+and each cover texel is a packed RGBA8 number (r in the low byte); it returns `setField`'s verdict. Optional `southBoundary`/`northBoundary` arrays refine the two boundary
 strips with sorted `(u, local y)` knots (at most 257 per side). Each array spans
 0 to 1 and includes every regular boundary vertex at its existing height;
 malformed or non-finite arrays are refused without replacing the field. The
@@ -3240,6 +3246,32 @@ report explicit stop reasons. `StepMotion` bounds queued horizontal distance
 and speed; the host owns collision,
 streaming and applying/rejecting deltas. No gameplay movement is in the engine.
 See the add-on README for upstream research, API usage and headless tests.
+
+### 11.5 Runtime plugins
+
+The add-ons above are compiled into a game's own binary. A runtime plugin is
+for script-only projects that run on the stock editor, runtime and Web player:
+optional engine functionality kept out of the engine sources. It lives in
+`plugins/<name>/` with a `plugin.cmake`, which adds its sources (and libraries)
+to the executable being built; `cmake/Plugins.cmake` includes it for every name
+in the `SAIDA_PLUGINS` CMake option (default `tts`) and for each of the
+editor, `SaidaEngineRuntime` and the Web player. Engine sources never name a
+plugin.
+
+A plugin derives `saida::EnginePlugin` (`src/plugins/EnginePlugin.hpp`) and
+registers itself from its translation unit with `SAIDA_REGISTER_PLUGIN(Type)`.
+It stays inert until a project enables it: `.saidaproj` `"plugins": ["tts"]`.
+`Project::load` activates exactly the listed plugins (`onActivate` /
+`onDeactivate`) and reports a listed name that is not compiled into the running
+executable. An active plugin's `installScriptApi(ctx, global)` runs for every
+behaviour script context and every WebCanvas document context, after the
+engine's own globals. Exported players carry the plugins their executable was
+built with; the project list decides which ones run.
+
+`plugins/tts` exposes `tts.speak(text, {lang, rate, pitch})`, `tts.stop()` and
+`tts.available()`: SAPI with the installed system voices on Windows (a voice of
+`lang` is preferred), the browser's `speechSynthesis` on the Web, unavailable
+elsewhere. Utterances queue; `stop` cancels the current one and the queue.
 
 ## 12. Export and packaging
 

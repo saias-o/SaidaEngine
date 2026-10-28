@@ -4,10 +4,11 @@
 #include "render/features/SkyboxFeature.hpp"
 #include "render/features/ParticleFeature.hpp"
 #include "render/features/WaterFeature.hpp"
+// Grass reads read-only storage buffers in its vertex stage, which WebGPU allows.
+#include "render/features/GrassFeature.hpp"
 #ifndef SAIDA_RHI_WEBGPU
 // Distant terrain reads storage buffers in its vertex stage: desktop-only.
 #include "render/features/TerrainRingsFeature.hpp"
-#include "render/features/GrassFeature.hpp"
 // Editor overlays (selection outline, debug gizmos): desktop-only.
 #include "render/features/DebugLinesFeature.hpp"
 #include "render/features/OutlineFeature.hpp"
@@ -44,8 +45,8 @@ void registerBuiltinRenderFeatures() {
     auto& r = RenderFeatureRegistry::instance();
 #ifndef SAIDA_RHI_WEBGPU
     r.add(90, [] { return std::make_unique<TerrainRingsFeature>(); }); // opaque, writes depth
-    r.add(95, [] { return std::make_unique<GrassFeature>(); });        // opaque, writes depth
 #endif
+    r.add(95, [] { return std::make_unique<GrassFeature>(); });        // opaque, writes depth
     r.add(100, [] { return std::make_unique<WaterFeature>(); });      // before sky: writes depth
 #ifndef SAIDA_RHI_WEBGPU
     r.add(150, [] { return std::make_unique<OutlineFeature>(); });    // after opaques/water, before sky

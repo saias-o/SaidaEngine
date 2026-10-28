@@ -100,6 +100,9 @@ public:
     // (Godot Autoload). Value = a ".scene" prefab path, or a registered behaviour
     // type name. Survive scene changes.
     const std::unordered_map<std::string, std::string>& autoloads() const { return autoloads_; }
+    // Runtime plugins this project enables (.saidaproj "plugins"); see plugins/EnginePlugin.hpp.
+    const std::vector<std::string>& plugins() const { return plugins_; }
+    void setPlugins(std::vector<std::string> names) { plugins_ = std::move(names); }
     void setAutoload(const std::string& name, const std::string& pathOrType);
     void removeAutoload(const std::string& name);
 
@@ -123,6 +126,7 @@ private:
     bool showColliders_ = true;
     std::unordered_map<std::string, std::string> audioAliases_;
     std::unordered_map<std::string, std::string> autoloads_;
+    std::vector<std::string> plugins_;
 
     AssetRegistry assetRegistry_;
 };

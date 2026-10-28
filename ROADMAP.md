@@ -383,6 +383,21 @@ evidence belong in the game's README.
   grey environment produces RGB 142 versus ACES/sRGB's expected 141.60.
   This is a rendering check, not a fresh Witness gameplay/release qualification.
 
+- [x] Grass on the Web player: `GrassNode` registered and `Required` for
+  PlayerWeb, `GrassFeature` built for WebGPU (read-only storage buffers in the
+  vertex stage, push block emulated at group 3), `grass.vert/frag` in the WGSL
+  set. The WebGPU push ring grows to 4 MiB (16384 pushes a frame) and reports an
+  overflow once a frame. Verified 2026-10-28: `saida_grass_tests` and
+  `saida_runtime_type_matrix_tests` pass; a FirstMinutes3D Web export (587 meshes,
+  grass fields, beach water) loads and renders in Chrome without WebGPU
+  validation errors. TerrainRings stays desktop-only.
+
+- [ ] Firefox WebGPU: the same FirstMinutes3D Web export stays black in Firefox
+  after `[WebCanvas] 'UI' CPU raster 1920x1080` (Chrome renders it). Capture the
+  Firefox console to find the refused shader module or pipeline (Firefox's WGSL
+  validation and limits differ from Dawn's), then fix it in the engine and add
+  Firefox to the Web verification.
+
 - [ ] Replace the roughness-selected ordinary equirectangular mip chain with
   a GGX-prefiltered specular environment. Keep offline/once-per-source work,
   bounded memory, and prove constant-radiance conservation, localized bright
