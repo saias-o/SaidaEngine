@@ -461,6 +461,12 @@ void Engine::captureFrameThenExit(CaptureRequest request) {
     // code, and a caller that checks the file rather than the code would take it
     // for the image it asked for.
     if (captureFailed_) return;
+    if (captureScheduler_.armed() || captureRequested_) {
+        Log::error("[capture] another frame capture is pending");
+        captureFailed_ = true;
+        return;
+    }
+    captureExits_ = true;
 
     if (request.fixedStep > 0.0f) setFixedTimestep(request.fixedStep);
 
@@ -469,6 +475,33 @@ void Engine::captureFrameThenExit(CaptureRequest request) {
         Log::error("[capture] ", error);
         captureFailed_ = true;
     }
+}
+
+bool Engine::captureFramePng(std::string path, CaptureCompletion completion, std::string& error) {
+    error.clear();
+    if (captureScheduler_.armed() || captureRequested_) {
+        error = "another frame capture is pending";
+        return false;
+    }
+    CaptureRequest request;
+    request.pngPath = std::move(path);
+    request.waitForAssets = false;
+    if (!captureScheduler_.arm(std::move(request), error)) return false;
+    captureExits_ = false;
+    captureCompletion_ = std::move(completion);
+    return true;
+}
+
+void Engine::completeFrameCapture(bool success, const std::string& error) {
+    const bool exits = captureExits_;
+    auto completion = std::move(captureCompletion_);
+    capturePath_.clear();
+    captureRequested_ = false;
+    if (exits) {
+        if (!success) captureFailed_ = true;
+        window_->close();
+    }
+    if (completion) completion(success, error);
 }
 
 // Called immediately before the frame is drawn. The request must be in place
@@ -483,42 +516,42 @@ void Engine::armFrameCapture() {
 
     if (decision == CaptureScheduler::Decision::Abandon) {
         Log::error("[capture] ", captureScheduler_.abandonReason());
-        captureFailed_ = true;
-        window_->close();
+        completeFrameCapture(false, captureScheduler_.abandonReason());
         return;
     }
 
     capturePath_ = captureScheduler_.request().pngPath;
     std::string error;
-    if (!renderer_->requestCapture(capturePath_, error)) {
+    bool accepted = false;
+    try { accepted = renderer_->requestCapture(capturePath_, error); }
+    catch (const std::exception& e) { error = e.what(); }
+    if (!accepted) {
         Log::error("[capture] ", error);
-        captureFailed_ = true;
-        capturePath_.clear();
-        window_->close();
+        completeFrameCapture(false, error);
         return;
     }
     captureRequested_ = true;
 }
 
 // Called after the frame is drawn: the copy is now recorded, so the image can
-// be read back and written. The window closes either way, so a failed capture
-// cannot leave the process spinning on an image that will never arrive.
+// be read back and written. Interactive requests complete without exiting;
+// command-line captures close the window on either success or failure.
 void Engine::serviceFrameCapture() {
     if (capturePath_.empty() || !captureRequested_) return;
-    if (!renderer_->capturePending()) return;
+    // A resize can cancel the renderer's copy. Resolve that failure as well,
+    // otherwise the application would wait forever for its completion callback.
 
     std::string error;
-    if (renderer_->resolveCapture(error)) {
+    const bool success = renderer_->resolveCapture(error);
+    if (success) {
         Log::info("[capture] wrote ", capturePath_, " (frame ",
                   captureScheduler_.framesCounted(), " after ",
                   captureScheduler_.framesWaited(), " settle frames, ",
                   framesDrawn_, " drawn)");
     } else {
         Log::error("[capture] ", error);
-        captureFailed_ = true;
     }
-    capturePath_.clear();
-    window_->close();
+    completeFrameCapture(success, error);
 }
 
 void Engine::runDesktop() {

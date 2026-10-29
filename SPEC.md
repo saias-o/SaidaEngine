@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-10-23. This document is the engine's technical truth. It describes
+Updated: 2026-10-29. This document is the engine's technical truth. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -2588,6 +2588,21 @@ not guarantee: it is requested when `supportedUsageFlags` offers it, and
 of writing an empty file. The channel order comes from the actual swapchain
 format, and a format outside R8G8B8A8/B8G8R8A8 is refused rather than written
 with swapped channels.
+
+Native Vulkan applications can call
+`Engine::captureFramePng(path, completion, error)` for an interactive capture of
+the next presented composite without closing the window, waiting for assets or
+changing the simulation clock. It returns false for an empty path or another
+capture already pending, without invoking completion. An accepted request calls
+completion once on the main thread after PNG readback with success and an error
+message. Capture/write failures are recoverable and do not set the command-line
+`captureFailed()` flag. Requests can be repeated after completion, including
+after a failure. Both APIs share the scheduler, renderer and PNG writer; the
+application controls which UI is visible in the exposure. Readback waits for the
+GPU and PNG encoding is synchronous. XR presentation does not supply a desktop
+swapchain and reports a capture error. `saida_interactive_capture_tests` covers
+repeated requests, overlap rejection, a real file-write failure, callback
+delivery, valid PNG output and continued frames after success and failure.
 
 **Which frame is captured** is a separate concern, owned by
 `render/CaptureScheduler` — no Vulkan, no window, no renderer, so the rule that

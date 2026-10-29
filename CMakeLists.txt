@@ -849,6 +849,15 @@ if (BUILD_TESTING)
     add_test(NAME saida_capture_scheduler_tests
         COMMAND $<TARGET_FILE:saida_capture_scheduler_tests>)
 
+    add_executable(saida_interactive_capture_tests tests/InteractiveCaptureTests.cpp)
+    saida_test_target(saida_interactive_capture_tests)
+    target_link_libraries(saida_interactive_capture_tests PRIVATE saida_engine)
+    add_dependencies(saida_interactive_capture_tests Shaders)
+    target_compile_options(saida_interactive_capture_tests PRIVATE -UNDEBUG)
+    add_test(NAME saida_interactive_capture_tests COMMAND $<TARGET_FILE:saida_interactive_capture_tests>)
+    set_tests_properties(saida_interactive_capture_tests PROPERTIES
+        ENVIRONMENT "SAIDA_WINDOW_HIDDEN=1;SAIDA_WINDOW_SIZE=640x360" TIMEOUT 120)
+
     # Reversed depth is a convention three places must share (projection,
     # depth test, clear value); the projection half is proven without a GPU.
     add_executable(saida_reversed_depth_tests tests/ReversedDepthTests.cpp src/core/Camera.cpp)

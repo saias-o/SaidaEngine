@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-23. This file is the engine's **single backlog**: everything
+Updated: 2026-10-29. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -21,6 +21,16 @@ the corresponding contracts of `SPEC.md`.
   all LODs publish (five-second deadline), including saved-state restoration.
   A single scene update cannot create every private LOD: each new allocation
   waits for earlier uploads to settle. All original assertions are retained.
+## Interactive frame capture — 2026-10-29
+
+- [x] Expose a reusable native PNG capture with main-thread completion, without
+  closing the application or changing its clock. Share the command-line
+  scheduler/readback path and report canceled/resized or failed writes without
+  stranding the caller. Proof: `saida_interactive_capture_tests` passes on the
+  MX450 with repeated captures, overlap rejection, write failure, resize and
+  continued rendering; capture scheduler, argument and PNG writer tests also
+  pass (4/4, `build-rel`, workspace-local TEMP). This does not establish Web or
+  XR capture support; the Vulkan swapchain remains required.
 
 ## Optional wildlife flight — 2026-10-27
 

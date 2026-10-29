@@ -75,6 +75,12 @@ public:
     void captureFrameThenExit(CaptureRequest request);
     bool captureFailed() const { return captureFailed_; }
 
+    // Capture the next presented frame without changing the clock or closing
+    // the window. Completion runs on the main thread after PNG readback; a
+    // rejected request returns false and does not invoke completion.
+    using CaptureCompletion = std::function<void(bool, const std::string&)>;
+    bool captureFramePng(std::string path, CaptureCompletion completion, std::string& error);
+
     // Profiles the run (--profile): the profiler is on from now, and when
     // run() returns its last frames are written to `tracePath` as a Chrome
     // trace and summarized in the log, scope by scope. Measuring a game needs
@@ -126,6 +132,9 @@ private:
     uint32_t framesDrawn_ = 0;
     bool captureRequested_ = false;
     bool captureFailed_ = false;
+    bool captureExits_ = true;
+    CaptureCompletion captureCompletion_;
+    void completeFrameCapture(bool success, const std::string& error);
     float fixedTimestep_ = 0.0f;
     bool cameraOverride_ = false;
     glm::vec3 cameraOverridePosition_{0.0f};
