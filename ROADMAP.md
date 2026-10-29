@@ -9,6 +9,19 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
+## Mesh upload results — 2026-10-29
+
+- [x] Expose Pending/Ready/Failed and a reason on each mesh proxy, including
+  decoder, allocation and batch-submission failure. Keep drawable geometry
+  distinct from the last in-place upload result. Proof:
+  `saida_scene_streaming_tests --uploads` passes 21,370 checks, including a
+  real arena refusal; console streaming and six physics/ragdoll suites pass.
+- [x] Qualify the general `--gpu` suite: 21,608 checks pass on RTX 4070.
+  The deformation fixture now advances scene updates and upload pumping until
+  all LODs publish (five-second deadline), including saved-state restoration.
+  A single scene update cannot create every private LOD: each new allocation
+  waits for earlier uploads to settle. All original assertions are retained.
+
 ## Optional wildlife flight — 2026-10-27
 
 - [x] Add species-configurable flight, continuous takeoff/approach, host-owned

@@ -790,6 +790,7 @@ void gpuQueuedMeshes(ResourceManager& resources) {
     auto id=cache.queueMemory(data,{},nullptr);
     auto* proxy=cache.get(id,nullptr,loader,0);
     require(proxy&&!proxy->loaded()&&proxy->collisionVertices().empty(),"queued mesh has stable empty proxy");
+    require(proxy->uploadState()==Mesh::UploadState::Pending,"queued upload reports Pending");
     cache.pumpUploads(sizeof(Vertex),1000.);
     require(!proxy->loaded()&&proxy->geometryAllocation().indexCount==0&&proxy->collisionVertices().empty(),
             "partial GPU upload cannot draw or collide");
@@ -800,6 +801,7 @@ void gpuQueuedMeshes(ResourceManager& resources) {
         cache.pumpUploads(sizeof(Vertex),1000.);std::this_thread::yield();
     }
     require(proxy->loaded()&&!cache.hasPendingLoads(),"bounded slices eventually publish Ready");
+    require(proxy->uploadState()==Mesh::UploadState::Ready&&proxy->uploadError().empty(),"completed upload has no error");
     require(proxy->collisionIndices()==indices&&proxy->collisionVertices().size()==vertices.size(),"Ready publishes collision data");
     require(proxy->bounds().max.y==2.f,"worker-prepared bounds are published with geometry");
     require(cache.get(id,nullptr,loader,0)==proxy,"proxy address stays stable");
@@ -817,6 +819,14 @@ void gpuQueuedMeshes(ResourceManager& resources) {
     require(resources.geometryUsage().vertices==before.vertices+vertices.size(),"cancellation releases reserved geometry");
     cache.clear();
     require(resources.geometryUsage().vertices==before.vertices,"streamed cache releases its allocations");
+    GeometryRegistry tiny(resources.device(),3,3);
+    MeshCache refused(tiny);
+    const auto rejected=refused.queueMemory(data,{},nullptr);
+    auto* failed=refused.get(rejected,nullptr,loader,0);
+    refused.pumpUploads(1024*1024,1000.);
+    require(failed->uploadState()==Mesh::UploadState::Failed&&!failed->uploadError().empty(),
+            "arena refusal reaches the stable proxy with its reason");
+    require(!failed->loaded()&&!refused.hasPendingLoads(),"failed upload is terminal, not pending");
 }
 
 void gpuUploadLifetime(VulkanDevice& device) {
@@ -1144,7 +1154,21 @@ void gpuDeformation(VulkanDevice& device) {
     require(damage->absorbedEnergy()==0&&!nearMesh->runtimeMesh(),"rejected automatic contacts allocate no deformation and cause no damage");
     require(damage->applyImpact({0,0,-.5f},{0,0,1},10000),"generic component accepts a local impact");
     damage->setContactFilter({});
-    tree.world().update(.1f);settle();
+    auto settleLods=[&] {
+        // Private LOD copies wait for earlier uploads before reserving arena
+        // space. Pump both the scene and uploads as the runtime does.
+        const auto deadline=std::chrono::steady_clock::now()+std::chrono::seconds(5);
+        auto ready=[&] {
+            return nearMesh->runtimeMesh()&&nearMesh->runtimeMesh()->loaded()&&
+                nearMesh->runtimeMesh(1)&&nearMesh->runtimeMesh(1)->loaded()&&
+                farMesh->runtimeMesh()&&farMesh->runtimeMesh()->loaded()&&resources.assetLoadsSettled();
+        };
+        while(!ready()&&std::chrono::steady_clock::now()<deadline) {
+            resources.pumpAssetLoads();tree.world().update(.1f);std::this_thread::yield();
+        }
+        require(ready(),"all deformation LODs publish within five seconds of scene and upload pumping");
+    };
+    settleLods();
     require(nearMesh->runtimeMesh()&&nearMesh->mesh()!=source,"damaged instance owns private geometry");
     require(farMesh->runtimeMesh()&&farMesh->mesh()!=source,"disabled LOD receives the same cage state");
     require(nearMesh->runtimeMesh(1)&&nearMesh->meshForLod(1)!=source,"internal mesh LOD receives the same cage state");
@@ -1172,7 +1196,7 @@ void gpuDeformation(VulkanDevice& device) {
     damage->resetDeformation();
     require(nearMesh->mesh()==source&&nearMesh->meshForLod(1)==source&&farMesh->mesh()==source,"repair releases all runtime LOD overrides");
     require(nearMesh->sourceMesh()==source,"runtime deformation keeps source asset identity");
-    damage->load(saved);tree.world().update(.1f);settle();
+    damage->load(saved);settleLods();
     require(damage->absorbedEnergy()>0&&nearMesh->runtimeMesh(1),"compact saved state restores damage on all LODs");
     damage->resetDeformation();
     body->removeChild(farMesh);
@@ -1338,11 +1362,21 @@ void gpuLodGroups() {
     gpuStreamedGroupContract(resources, mesh);
     device.waitIdle();
 }
+
+void gpuUploadContracts() {
+    Window window(64,64,"Mesh upload contracts",false);
+    VulkanDevice device(window);
+    ResourceManager resources(device,nullptr,{512,1024});
+    gpuQueuedMeshes(resources);
+    gpuQueuedColliderPublication(resources);
+    device.waitIdle();
+}
 }
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); transformPropagationContract(); shadowClipContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract();
     if (argc > 1 && std::string(argv[1]) == "--gpu") gpuLodGroups();
+    if (argc > 1 && std::string(argv[1]) == "--uploads") gpuUploadContracts();
     if (argc > 1 && std::string(argv[1]) == "--gltf") {
         Window window(64,64,"glTF import test",false);
         VulkanDevice device(window);

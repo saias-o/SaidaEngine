@@ -1157,7 +1157,13 @@ Each resource pump copies at most 512 KiB of geometry, in slices at most
 meshes share one ordered GPU submission. The allocation is reserved once, survives
 compaction between slices and exposes neither draw indices nor collision data
 until the last slice's fence signals. Trimming cancels partial uploads and releases their
-reservations. A failed upload is logged and leaves an empty proxy. The native
+reservations. `Mesh::uploadState()` exposes Pending, Ready or Failed on the
+main thread; `uploadError()` carries decoding, allocation or submission errors.
+A failed initial upload leaves a stable empty proxy with a terminal result,
+rather than an unobservable wait. `loaded()` still describes drawable geometry:
+an in-place update failure can report Failed while old geometry remains loaded.
+Cancellation is terminal; a new upload resets the result and success clears its
+error. The native
 transfer batch polls Vulkan fences without waiting for the queue. Staging buffers
 remain owned by the device until completion; submissions on the graphics queue
 include transfer/read dependencies. At eight outstanding uploads, resource pumps

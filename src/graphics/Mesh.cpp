@@ -107,6 +107,8 @@ void Mesh::upload(const std::vector<Vertex>& vertices, const std::vector<uint32_
     collision_ = std::move(collision);
     gpuBytes_ = uint64_t(vertices.size()) * sizeof(Vertex) + uint64_t(indices.size()) * sizeof(uint32_t);
     loaded_ = true;
+    uploadState_ = UploadState::Ready;
+    uploadError_.clear();
 }
 
 std::shared_ptr<PreparedMesh> prepareMesh(MeshData data) {
@@ -126,6 +128,7 @@ void Mesh::retainDeformationSource(std::shared_ptr<const MeshData> data) {
 
 void Mesh::beginUpload(const PreparedMesh& data) {
     cancelUpload();
+    markUploadPending();
     registry_.reserve(allocation_, data.geometry.vertices.size(), data.geometry.indices.size());
 }
 void Mesh::uploadRange(const PreparedMesh& data, size_t vertexStart, size_t vertices,
@@ -140,6 +143,8 @@ void Mesh::finishUpload(const PreparedMesh& data) {
     gpuBytes_ = uint64_t(data.geometry.vertices.size()) * sizeof(Vertex) +
                 uint64_t(data.geometry.indices.size()) * sizeof(uint32_t);
     loaded_ = true;
+    uploadState_ = UploadState::Ready;
+    uploadError_.clear();
 }
 void Mesh::cancelUpload() {
     registry_.free(allocation_);
@@ -148,6 +153,14 @@ void Mesh::cancelUpload() {
     bounds_ = {};
     collision_ = std::make_shared<MeshCollisionData>();
     gpuBytes_ = 0;
+    uploadState_ = UploadState::Failed;
+    uploadError_ = "upload cancelled";
+}
+
+void Mesh::failUpload(std::string reason) {
+    if (!loaded_) cancelUpload();
+    uploadState_ = UploadState::Failed;
+    uploadError_ = std::move(reason);
 }
 
 Mesh::~Mesh() {

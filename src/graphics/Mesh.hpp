@@ -89,6 +89,11 @@ public:
                      size_t indexStart, size_t indices);
     void finishUpload(const PreparedMesh& data);
     void cancelUpload();
+    enum class UploadState { Pending, Ready, Failed };
+    UploadState uploadState() const { return uploadState_; }
+    const std::string& uploadError() const { return uploadError_; }
+    void markUploadPending() { uploadState_ = UploadState::Pending; uploadError_.clear(); }
+    void failUpload(std::string reason);
 
     // False until a proxy has received its geometry.
     bool loaded() const { return loaded_; }
@@ -130,6 +135,8 @@ private:
     Aabb bounds_;
     uint64_t gpuBytes_ = 0;
     bool loaded_ = false;
+    UploadState uploadState_ = UploadState::Pending;
+    std::string uploadError_;
     bool skinned_ = false;
     std::shared_ptr<const MeshData> deformationSource_;
     bool deformationSourceSkinned_ = false;

@@ -100,7 +100,8 @@ void MeshCache::finalizePending(AssetRegistry* /*registry*/) {
         if (state == AssetLoadState::Ready) {
             if (auto data = std::static_pointer_cast<PreparedMesh>(it->second.payload()))
                 uploads_.push_back({id, std::move(data)});
-        }
+            else meshes_.at(id)->failUpload("mesh decoder returned no geometry");
+        } else meshes_.at(id)->failUpload(it->second.error());
         // Releasing the handle also releases decoded CPU geometry. On failure
         // the stable proxy remains empty and drawing it stays a no-op.
         it = pending_.erase(it);
@@ -135,6 +136,7 @@ bool MeshCache::queueUpdate(Mesh* mesh, std::shared_ptr<const PreparedMesh> data
         mesh->collisionIndices() != data->geometry.indices) return false;
     // In-place slices may span frames: culling must cover old and new positions.
     mesh->includeBounds(data->bounds);
+    mesh->markUploadPending();
     uploads_.push_back({id, std::move(data), 0, mesh->allocation().indexCount, true});
     return true;
 }
@@ -174,13 +176,23 @@ void MeshCache::pumpUploads(size_t byteBudget, double timeBudgetMs) {
             }
         } catch (const std::exception& e) {
             Log::error("MeshCache: streamed mesh ", upload.id, " failed: ", e.what());
-            if(!mesh->loaded())mesh->cancelUpload();
+            mesh->failUpload(e.what());
             uploads_.pop_front();
         }
         if (std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() >= timeBudgetMs) break;
     }
-    const auto serial = geometry_.endUploadBatch();
-    for (auto& ready : finished) { ready.serial = serial; completing_.push_back(std::move(ready)); }
+    try {
+        const auto serial = geometry_.endUploadBatch();
+        for (auto& ready : finished) { ready.serial = serial; completing_.push_back(std::move(ready)); }
+    } catch (const std::exception& e) {
+        // Submission can fail after every slice was recorded. No resource in
+        // that batch may remain Pending after its work has been discarded.
+        Log::error("MeshCache: upload batch submission failed: ", e.what());
+        for (const auto& ready : finished) meshes_.at(ready.id)->failUpload(e.what());
+        for (const auto& upload : uploads_) if (upload.reserved) meshes_.at(upload.id)->failUpload(e.what());
+        uploads_.erase(std::remove_if(uploads_.begin(), uploads_.end(),
+            [](const auto& upload) { return upload.reserved; }), uploads_.end());
+    }
 }
 
 AssetID MeshCache::registerMemory(const std::vector<Vertex>& vertices,
