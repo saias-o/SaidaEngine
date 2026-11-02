@@ -745,27 +745,37 @@ Post-V1 unless the scope changes explicitly.
     effect/commit ledger, connection quality, verified replays, `SyncTest`
     and an in-process lossy network. Proven by
     `plugins/netcode/tests/test_netcode.cpp` (`PASS saida::netcode`, seeds
-    0-199; 0-39 also under `_GLIBCXX_ASSERTIONS` and UBSan). It needs the UDP
-    transport below for real peers; LAN and Internet remain unqualified.
-  - Provide non-blocking UDP sockets, bind/send/receive, IPv4/IPv6 endpoints
-    and explicit lifecycle/error handling, with bounded queues and packet sizes.
-    UDP is a datagram transport; peer connections are explicit sessions layered
-    over it, with handshake, keepalive, timeout, disconnect and reconnect.
-  - Expose reusable peer/session identifiers, packet sequencing, duplicate and
-    stale-packet rejection, RTT/jitter/loss metrics, and optional acknowledged
-    reliable delivery for control messages alongside unreliable gameplay data.
-    Bound retransmissions and bandwidth; avoid fragmentation at the chosen MTU.
-  - Keep the module independent of game topology, geographic tiles, discovery,
-    entity ownership and replication rules. Allow games to build direct P2P
-    sessions and exchange tick-stamped inputs/state for prediction and rollback.
-  - Define transport validation and session authentication, reject malformed or
-    oversized traffic, and bound per-peer resource use. Any future JS exposure
-    needs an explicit capability and permission-policy tests (SPEC 6.2).
-  - Qualify loopback, LAN and Internet peer sessions, packet loss, duplication,
-    reordering, latency, jitter, timeouts and teardown without blocking frames.
-    Report backend capabilities explicitly; native UDP must not imply raw UDP
-    support in the Web runtime. Discovery and NAT traversal need their own
-    proven solution before claiming arbitrary Internet P2P connectivity.
+    0-199; 0-39 also under `_GLIBCXX_ASSERTIONS` and UBSan).
+  - [x] UDP peer-to-peer transport, discovery and NAT traversal:
+    `plugins/p2p` (SPEC 11.7, 2026-11-02). Dual-stack non-blocking sockets;
+    Noise XX authenticated, ChaCha20-Poly1305 encrypted links on the engine's
+    mbedTLS, replay window, no amplification, admission before key agreement
+    under a rate budget; unreliable and reliable ordered channels coalesced to
+    a 1200-byte MTU and fragmented by the link; RTT, variance and loss;
+    keepalive, timeout, close, restart detection; every bound and refusal
+    named. Hole punching with crossing first packets merged into one peer,
+    introductions, public address learned from peers. Discovery with no
+    server: a Mainline DHT node (BEP 5/42/43) on the same socket, topics
+    (`Rendezvous`) with admission by topic tag, membership and introductions
+    of newcomers, arena codes with a check character, LAN multicast beacons.
+    `NetcodeTransport` runs a netcode session on it. Proven by
+    `plugins/p2p/tests/test_p2p.cpp` (`PASS saida::p2p` in 237 of 240 runs, simulated Internet
+    with the four NAT kinds; real loopback IPv4/IPv6 and LAN beacons) and
+    live on the real Mainline DHT (`examples/p2p_probe.cpp`: discovery by
+    arena code between two processes in 0.5-2 s).
+  - [ ] Find the rare failures of `test_p2p` (3 of 240 runs, none
+    reproduced on its seed): twice the 8-player cell mesh incomplete after
+    20 s, once two DHT clients finding nothing in 20 s. Make the test's keys
+    seedable first, so a failing run can be replayed.
+  - [ ] Relay for the pairs no punching opens (symmetric NAT against
+    port-restricted or symmetric NAT), through a peer both reach.
+  - [ ] DHT over IPv6 (BEP 32), and private addresses for players behind one
+    router whose LAN does not carry multicast and whose router does not
+    hairpin.
+  - [ ] Qualify a session between two machines on different home networks,
+    and on a mobile carrier (CGNAT). Any future JS exposure needs an explicit
+    capability and permission-policy tests (SPEC 6.2); the Web runtime has no
+    raw UDP.
 
 - [ ] Rendering: optimize and refine the dynamic outdoor GI now implemented in
   SPEC §4.1. On 2026-10-22 the user explicitly prioritized working, optimized GI

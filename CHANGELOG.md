@@ -35,8 +35,27 @@ and create a new tag under `RELEASE.md`.
   simulation fails to replay identically; `SimNetwork` runs whole sessions in
   one process over lossy links. Over 50-70 ms, 5% loss and 1% duplication, 16
   players cost 0.013 ms per machine per frame on a Ryzen 7 5700U and 42.8 KB/s
-  of upload each. The transport (UDP, peer sessions, NAT traversal) is still
-  to be built (ROADMAP 5).
+  of upload each.
+
+### Peer-to-peer transport add-on
+
+- `plugins/p2p`, a C++17 static library (`Saida::P2P`) on the engine's
+  mbedTLS: games meet and play with no server of their own. `Host` runs
+  encrypted links over one dual-stack UDP socket: Noise XX handshake (the
+  application name in the prologue, admission before any key agreement, no
+  amplification), ChaCha20-Poly1305 packets with a replay window, 25 bytes of
+  overhead, unreliable and reliable ordered channels coalesced per frame and
+  fragmented by the link, round trip and loss from acknowledgements,
+  keepalive, timeout, restart detection, hole punching and introductions.
+- `Dht` is a Mainline DHT node on the same socket; `Rendezvous` turns it into
+  meeting by topic: an open world joins a topic per map cell, a fighting game
+  an arena code (`K7QM-2XPA`, mistypes refused by a check character), and the
+  local network is covered by multicast beacons. `NetcodeTransport` runs a
+  `plugins/netcode` rollback session over it. Simulated: every NAT pair
+  except symmetric against port-restricted or symmetric connects; players
+  meet 1-3 s after typing a code; a rollback session over a lossy punched
+  link agrees on every checksum at 6 KB/s. Live: two processes found each
+  other by arena code on the real DHT in 0.5-2 s. No relay yet (ROADMAP 5).
 
 ### Ambient occlusion at half resolution
 

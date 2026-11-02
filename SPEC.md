@@ -3366,6 +3366,75 @@ Verification is one translation unit with no engine build:
 in `plugins/netcode/tests`, which prints `PASS saida::netcode`; an integer
 argument replays every bench with other network draws.
 
+### 11.7 Optional C++ peer-to-peer add-on
+
+`plugins/p2p` is an optional C++17 static library (`Saida::P2P`, its own
+`CMakeLists.txt`) that a native game links to meet and play with no server of
+its own. It is not linked to `saida_engine`, is never loaded by the editor or
+runtime and is never copied by game export. It uses the engine's mbedTLS
+(`third_party/mbedtls`) for cryptography, the system's UDP sockets, and
+`plugins/netcode`'s `Wire.hpp` for byte encoding. The Web runtime has no raw
+UDP: the add-on is native only.
+
+`UdpSocket` is non-blocking and dual-stack (IPv4 peers as mapped addresses),
+with Windows' `SIO_UDP_CONNRESET` reports disabled; every layer sends through
+the `DatagramSocket` interface. `Host` runs encrypted links over one socket.
+The handshake is Noise XX (`Noise_XX_25519_ChaChaPoly_SHA256`) with the
+`HostConfig::application` name in the prologue; a peer's identity is
+`Identity::idOf` its static key, which `NetcodeTransport` uses as netcode's
+`PlayerId`. The first packet is padded to 256 bytes so that no answer exceeds
+its request, carries an intent of at most 64 bytes that the admission policy
+sees before any key agreement, and is answered within `handshakeRate`. Data
+datagrams are a 9-byte header and ChaCha20-Poly1305 with the packet number as
+nonce; a 256-packet window refuses replays. Frames carry acknowledgements (the
+largest packet and a 64-bit mask), unreliable messages, reliable messages
+(numbered, delivered once and in order) and their fragments, keepalives,
+closes, introductions and the host's own reliable service messages; messages
+are coalesced up to the MTU (1200 bytes) at `flush()` and fragmented by the
+link above it, never by IP. Loss is three later packets acknowledged and 9/8
+of the round trip elapsed, or the retransmission timeout; the round trip
+follows RFC 6298 from the handshake exchange on. Bounds: `maxMessage`,
+`maxUnreliable`, `maxQueuedBytes`, `maxInflightBytes`, `maxPacketsPerFlush`,
+`receiveBudget`, `maxPeers`, `maxHandshakes`; a receiver buffering past twice
+`maxQueuedBytes` cuts the peer off. A peer silent for `timeoutSeconds` is
+`Disconnected` (`Timeout`); a new process with the same identity replaces the
+old link (`Restarted`). `connect()` repeats its first packet with backoff;
+crossing first packets are both answered and the resulting sessions merge
+into one peer, which is what punches through NATs. Each side sends the other,
+reliably, the address it sees (`publicAddress()`); `introduce()` makes two
+peers connect to each other at once. Refused datagrams and sends are counted
+under a named `Reason`.
+
+`Dht` is a Mainline DHT node (BEP 5 queries, BEP 42 `ip`, BEP 43 read-only
+flag; IPv4 only) sharing the host's socket through `Host::setForeign` and
+`sendRaw`, so the port it announces with `implied_port` is the one peers must
+reach. `watch(key)` looks a key up, announces under it, asks the closest
+nodes again every `refreshSeconds` and walks the network again every
+`relookupSeconds`; lookups stop waiting for a node after `slowSeconds`.
+`Rendezvous` owns a `Dht`, resolves bootstrap names on a detached thread and
+installs the host's foreign handler, admission and service 1. A `Topic` is a
+SHA-256 of the application and a name; its DHT key and its 8-byte handshake
+tag are derived from it. Peers that join a topic announce and look it up,
+connect to the addresses found (retrying with backoff), are admitted only with
+the tag of a topic the receiver is in, exchange their topic lists, and get
+`PeerJoined`/`PeerLeft`; a peer that reached a member through discovery is
+introduced to the other members; one that shares no topic for
+`lingerSeconds` is disconnected. Multicast beacons on an IPv4 group (a
+separate socket from `openLanSocket`) do the same on the local network. Arena
+codes are 35 random bits and an odd-weighted check character in eight
+Crockford base-32 characters; `normalizeArenaCode` refuses every single
+mistyped character. `RendezvousStatus::problem` names an unreachable DHT.
+Symmetric NAT against port-restricted or symmetric NAT cannot be punched and
+has no relay; two players behind one router meet over the LAN beacons, the
+DHT path needing router hairpinning.
+
+Verification: `plugins/p2p/tests/test_p2p.cpp` (built by the add-on's CMake,
+or by one `g++` line in its header) prints `PASS saida::p2p`; an integer
+argument redraws every simulated network. `SimInternet` provides public hosts,
+full-cone, address-restricted, port-restricted and symmetric NATs and lossy
+lines. `examples/p2p_probe.cpp` joins the real DHT and meets another process
+by arena code.
+
 ## 12. Export and packaging
 
 `BuildExporter` and `saida_tool export-game` produce a desktop package with an
