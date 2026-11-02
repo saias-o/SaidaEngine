@@ -31,6 +31,12 @@ Place durable knowledge in its canonical document, never in this file:
 - Do not claim human authorship or alter the configured human or service Git
   identity.
 
+## Branches
+
+- Never create a branch, in this repository or in the R1World repository
+  around it. Work and commit on `main`, the branch already checked out.
+- Do not switch branches, open worktrees or rewrite `main`'s history.
+
 ## Two local failures that are not what they look like
 
 Both cost an agent significant time by reading as regressions in the change
