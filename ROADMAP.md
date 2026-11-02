@@ -759,14 +759,11 @@ Post-V1 unless the scope changes explicitly.
     (`Rendezvous`) with admission by topic tag, membership and introductions
     of newcomers, arena codes with a check character, LAN multicast beacons.
     `NetcodeTransport` runs a netcode session on it. Proven by
-    `plugins/p2p/tests/test_p2p.cpp` (`PASS saida::p2p` in 237 of 240 runs, simulated Internet
-    with the four NAT kinds; real loopback IPv4/IPv6 and LAN beacons) and
-    live on the real Mainline DHT (`examples/p2p_probe.cpp`: discovery by
-    arena code between two processes in 0.5-2 s).
-  - [ ] Find the rare failures of `test_p2p` (3 of 240 runs, none
-    reproduced on its seed): twice the 8-player cell mesh incomplete after
-    20 s, once two DHT clients finding nothing in 20 s. Make the test's keys
-    seedable first, so a failing run can be replayed.
+    `plugins/p2p/tests/test_p2p.cpp` (`PASS saida::p2p` on seeds 0-399,
+    each run replayable from its seed; simulated Internet with the four NAT
+    kinds; real loopback IPv4/IPv6 and LAN beacons) and live on the real
+    Mainline DHT (`examples/p2p_probe.cpp`: discovery by arena code between
+    two processes in 0.5-4 s).
   - [ ] Relay for the pairs no punching opens (symmetric NAT against
     port-restricted or symmetric NAT), through a peer both reach.
   - [ ] DHT over IPv6 (BEP 32), and private addresses for players behind one

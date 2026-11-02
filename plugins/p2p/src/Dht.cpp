@@ -33,7 +33,6 @@ struct Lookup {
     NodeId target;
     bool peers;  // get_peers (else find_node)
     std::vector<Candidate> candidates;
-    int inflight = 0;
     bool done = false;
 };
 
@@ -42,7 +41,8 @@ struct Watch {
     bool announce;
     double refresh;
     std::unique_ptr<Lookup> lookup;
-    std::vector<Candidate> closest;  // answered, with tokens
+    std::vector<Candidate> closest;  // answered, with tokens, nearest first
+    std::vector<Address> probed;     // nodes a refresh heard of and asked since the last lookup
     double nextRefresh = 0, lastAnnounce = -1e18, lastLookup = -1e18;
 };
 
@@ -109,6 +109,8 @@ struct Dht::Impl {
     std::vector<std::unique_ptr<Watch>> watches;
     std::unique_ptr<Lookup> selfLookup;
     std::vector<Address> bootstrap;  // asked at the next poll(), when the time is known
+    std::vector<Address> seeds;      // every node addNode() was given: asked again while we know nobody
+    double nextBootstrap = 0, bootstrapBackoff = 2;
     double lastSelfLookup = -1e18;
     double budget, budgetAt = 0;
     std::vector<DhtFound> found;
@@ -303,7 +305,6 @@ struct Dht::Impl {
         }
         if (txn.kind == Kind::Step) {
             if (Lookup* l = lookupBySerial(txn.lookup)) {
-                --l->inflight;
                 for (Candidate& c : l->candidates)
                     if (c.address == from) {
                         c.state = Answered;
@@ -314,9 +315,7 @@ struct Dht::Impl {
             }
         } else if (txn.kind == Kind::Refresh) {
             for (auto& w : watches)
-                if (w->key == txn.key)
-                    for (Candidate& c : w->closest)
-                        if (c.address == from && tok) c.token = *tok;
+                if (w->key == txn.key) refreshed(*w, id, from, tok, heard);
         }
     }
 
@@ -324,7 +323,6 @@ struct Dht::Impl {
         failed(txn.address);
         if (txn.kind == Kind::Step) {
             if (Lookup* l = lookupBySerial(txn.lookup)) {
-                --l->inflight;
                 for (Candidate& c : l->candidates)
                     if (c.address == txn.address) c.state = Failed;
             }
@@ -471,26 +469,67 @@ struct Dht::Impl {
             if (!query(c.address, l.peers ? "get_peers" : "find_node", std::move(args), t)) return;
             c.state = Asked;
             c.askedAt = now;
-            ++l.inflight;
             ++fast;
         }
         if (!open) l.done = true;
     }
 
+    void announceTo(const Watch& w, const Candidate& c) {
+        if (c.token.empty()) return;
+        BValue args = BValue::makeDict();
+        args.set("info_hash", BValue::bytes(w.key.data(), 20));
+        args.set("port", BValue::integer(cfg.port ? cfg.port : 1));
+        args.set("implied_port", BValue::integer(1));
+        args.set("token", BValue::string(c.token));
+        Transaction t{};
+        t.kind = Kind::Announce;
+        t.key = w.key;
+        query(c.address, "announce_peer", std::move(args), t);
+    }
+
     void announce(Watch& w) {
-        for (const Candidate& c : w.closest) {
-            if (c.token.empty()) continue;
-            BValue args = BValue::makeDict();
-            args.set("info_hash", BValue::bytes(w.key.data(), 20));
-            args.set("port", BValue::integer(cfg.port ? cfg.port : 1));
-            args.set("implied_port", BValue::integer(1));
-            args.set("token", BValue::string(c.token));
-            Transaction t{};
-            t.kind = Kind::Announce;
-            t.key = w.key;
-            query(c.address, "announce_peer", std::move(args), t);
-        }
+        for (const Candidate& c : w.closest) announceTo(w, c);
         w.lastAnnounce = now;
+    }
+
+    void askForPeers(const Watch& w, const Address& node) {
+        BValue args = BValue::makeDict();
+        args.set("info_hash", BValue::bytes(w.key.data(), 20));
+        Transaction tx{};
+        tx.kind = Kind::Refresh;
+        tx.key = w.key;
+        query(node, "get_peers", std::move(args), tx);
+    }
+
+    // A refresh answer. Two lookups for one key can end on different nodes
+    // (routing tables differ): each refresh keeps walking towards the key, so
+    // every watcher of a key ends up asking -- and announcing to -- the same
+    // nearest nodes, and finds the others there.
+    void refreshed(Watch& w, const NodeId& id, const Address& from, const std::string* tok,
+                   const std::vector<Candidate>& heard) {
+        auto nearer = [&](const Candidate& a, const Candidate& b) { return lessDistance(w.key, a.id, b.id); };
+        bool known = false;
+        for (Candidate& c : w.closest)
+            if (c.address == from) {
+                known = true;
+                if (tok) c.token = *tok;
+            }
+        if (!known) {
+            Candidate c{id, from, Answered, tok ? *tok : std::string(), now};
+            if (w.closest.size() < cfg.k || nearer(c, w.closest.back())) {
+                w.closest.insert(std::lower_bound(w.closest.begin(), w.closest.end(), c, nearer), c);
+                if (w.closest.size() > cfg.k) w.closest.pop_back();
+                if (w.announce) announceTo(w, c);
+            }
+        }
+        for (const Candidate& c : heard) {
+            if (w.closest.size() >= cfg.k && !nearer(c, w.closest.back())) continue;
+            bool asked = std::find(w.probed.begin(), w.probed.end(), c.address) != w.probed.end();
+            for (const Candidate& x : w.closest) asked = asked || x.address == c.address;
+            if (asked || w.probed.size() >= 8 * cfg.k) continue;
+            w.probed.push_back(c.address);
+            askForPeers(w, c.address);
+        }
     }
 
     void poll(double t) {
@@ -510,6 +549,17 @@ struct Dht::Impl {
                 ++it;
             }
         }
+        // Bootstrap, and again with backoff for as long as nobody answered: lost
+        // packets or a router that was down must not leave the node alone forever.
+        const size_t good = goodCount();
+        if (good > 0) bootstrapBackoff = 2;
+        bool asking = false;
+        for (const auto& [tid, t] : txns) asking = asking || t.kind == Kind::Bootstrap;
+        if (bootstrap.empty() && good == 0 && !asking && !seeds.empty() && now >= nextBootstrap) bootstrap = seeds;
+        if (!bootstrap.empty()) {
+            nextBootstrap = now + bootstrapBackoff;
+            bootstrapBackoff = std::min(bootstrapBackoff * 2, 60.0);
+        }
         for (const Address& a : std::exchange(bootstrap, {})) {
             BValue args = BValue::makeDict();
             args.set("target", BValue::bytes(self.data(), 20));
@@ -518,9 +568,8 @@ struct Dht::Impl {
             if (!query(a, "find_node", std::move(args), t)) bootstrap.push_back(a);
         }
         // Keep the routing table populated: walk towards our own id.
-        const size_t g = goodCount();
         if (!selfLookup && !table.empty() &&
-            ((g < 4 * cfg.k && now - lastSelfLookup > 15) || now - lastSelfLookup > 600)) {
+            ((good < 4 * cfg.k && now - lastSelfLookup > 15) || now - lastSelfLookup > 600)) {
             selfLookup = startLookup(self, false);
             lastSelfLookup = now;
         }
@@ -542,6 +591,7 @@ struct Dht::Impl {
                     for (const Candidate& c : w.lookup->candidates)
                         if (c.state == Answered && best.size() < cfg.k) best.push_back(c);
                     if (!best.empty()) w.closest = std::move(best);
+                    w.probed.clear();
                     w.lookup.reset();
                     if (w.announce && !w.closest.empty()) announce(w);
                     w.nextRefresh = now + w.refresh;
@@ -549,14 +599,7 @@ struct Dht::Impl {
                 continue;
             }
             if (now >= w.nextRefresh && !w.closest.empty()) {
-                for (const Candidate& c : w.closest) {
-                    BValue args = BValue::makeDict();
-                    args.set("info_hash", BValue::bytes(w.key.data(), 20));
-                    Transaction tx{};
-                    tx.kind = Kind::Refresh;
-                    tx.key = w.key;
-                    query(c.address, "get_peers", std::move(args), tx);
-                }
+                for (const Candidate& c : w.closest) askForPeers(w, c.address);
                 w.nextRefresh = now + w.refresh;
                 if (w.announce && now - w.lastAnnounce > cfg.announceSeconds) announce(w);
             }
@@ -583,7 +626,9 @@ Dht::Dht(Send send, const DhtConfig& config, const NodeId* id) : impl_(std::make
 Dht::~Dht() = default;
 
 void Dht::addNode(const Address& node) {
-    if (node.valid() && !node.v6 && impl_->bootstrap.size() < 256) impl_->bootstrap.push_back(node);
+    if (!node.valid() || node.v6 || impl_->seeds.size() >= 256) return;
+    if (std::find(impl_->seeds.begin(), impl_->seeds.end(), node) == impl_->seeds.end()) impl_->seeds.push_back(node);
+    impl_->bootstrap.push_back(node);
 }
 void Dht::receive(const Address& from, const uint8_t* data, size_t size) { impl_->receive(from, data, size); }
 void Dht::poll(double now) { impl_->poll(now); }

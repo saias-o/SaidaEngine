@@ -21,6 +21,9 @@ using Digest = std::array<uint8_t, 32>;
 // The operating system's entropy through mbedTLS's CTR-DRBG; thread-safe.
 void randomBytes(void* out, size_t size);
 uint64_t randomU64();
+// Tests only: from here on every draw (keys, indices, DHT ids) follows from
+// `seed`, so a failing simulated run replays exactly. Never call it in a game.
+void seedRandomForTesting(uint64_t seed);
 
 Digest sha256(const void* data, size_t size);
 Digest sha256(const void* a, size_t aSize, const void* b, size_t bSize);

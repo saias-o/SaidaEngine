@@ -300,6 +300,8 @@ struct Rendezvous::Impl {
     void onHostEvent(const HostEvent& e) {
         if (e.type == HostEventType::Connected) {
             if (ensure(e.peer)) sendTopics(e.peer);
+            for (Attempt& a : attempts)
+                if (a.address == e.address) a.failures = 0;  // reachable: no backoff next time
         } else if (e.type == HostEventType::Disconnected) {
             for (size_t i = 0; i < remotes.size(); ++i) {
                 if (remotes[i].peer != e.peer) continue;

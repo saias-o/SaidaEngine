@@ -21,14 +21,19 @@ constexpr uint8_t kInit = 1, kResponse = 2, kFinish = 3, kData = 4;
 constexpr uint8_t kVersion = 1;
 // An Init is padded to this size; the Response it earns is never larger.
 constexpr size_t kInitSize = 256;
-constexpr size_t kMaxIntent = 64, kMaxHello = 128;
+// A Response is 9 + 32 + 48 + (8 + hello) + 16 bytes: with these sizes it
+// stays below the 256 of the Init that asked for it.
+constexpr size_t kMaxIntent = 64, kMaxHello = 120;
 constexpr size_t kDataHeader = 9;  // type, receiver index, packet number (low 32 bits)
-constexpr size_t kAckReserve = 24;
+// The largest acknowledgement frame (type, two varints, mask) and the largest
+// fragment header (type, seq, index, count, service, length): a fragment of
+// fragmentBytes always fits a packet beside an acknowledgement.
+constexpr size_t kAckReserve = 1 + 10 + 10 + 8, kFragmentHeader = 1 + 10 + 3 + 3 + 1 + 3;
 constexpr uint64_t kReliableWindow = 4096;  // messages in flight
 constexpr size_t kMaxGroups = 8;            // unreliable messages being reassembled
 constexpr uint8_t kObservedService = 255;   // the host's own: "this is the address I see for you"
 
-enum FrameType : uint8_t { fAck = 1, fMsg, fRel, fRelFrag, fMsgFrag, fPing, fClose, fIntro, fObserved, fService };
+enum FrameType : uint8_t { fAck = 1, fMsg, fRel, fRelFrag, fMsgFrag, fPing, fClose, fIntro, fService };
 
 void put32(uint8_t* p, uint32_t v) {
     for (int i = 0; i < 4; ++i) p[i] = uint8_t(v >> (8 * i));
@@ -229,8 +234,9 @@ struct Host::Impl {
         cfg.maxPacketsPerFlush = std::max<size_t>(cfg.maxPacketsPerFlush, 1);
         cfg.retrySeconds = std::max(cfg.retrySeconds, 0.01);
         capacity = cfg.mtu - kDataHeader - Aead::kTag;
-        // A fragment frame: type, seq, index, count, length (varints) + data.
-        fragmentBytes = capacity - kAckReserve - 1 - 10 - 3 - 3 - 3;
+        fragmentBytes = capacity - kAckReserve - kFragmentHeader;
+        cfg.maxMessage = std::min(cfg.maxMessage, 65535 * fragmentBytes);  // fragment indices are 16-bit
+        cfg.maxUnreliable = std::min(cfg.maxUnreliable, 64 * fragmentBytes);
         tokens = cfg.handshakeRate;
         static const char tag[] = "saida-p2p/1 ";
         prologue.assign(tag, tag + sizeof tag - 1);
@@ -570,14 +576,17 @@ struct Host::Impl {
             if (type == fService) service = r.u8();
             const uint64_t size = r.var();
             const uint8_t* data = size <= cfg.mtu ? r.bytes(size_t(size)) : nullptr;
-            if (!data || count == 0 || count > 65535 || index >= count || (type == fService && !service)) return false;
+            if (!data || count == 0 || count * fragmentBytes > cfg.maxMessage + fragmentBytes || index >= count ||
+                (type == fService && !service))
+                return false;
             onReliable(peer, seq, uint8_t(service), uint16_t(index), uint16_t(count), data, size_t(size));
             return true;
         }
         case fMsgFrag: {
             const uint64_t id = r.var(), index = r.var(), count = r.var(), size = r.var();
             const uint8_t* data = size <= cfg.mtu ? r.bytes(size_t(size)) : nullptr;
-            if (!data || count < 2 || count * fragmentBytes > cfg.maxUnreliable + fragmentBytes || index >= count)
+            if (!data || count < 2 || count > 64 || count * fragmentBytes > cfg.maxUnreliable + fragmentBytes ||
+                index >= count)
                 return false;
             onGroup(peer, id, uint16_t(index), uint16_t(count), data, size_t(size));
             return true;
@@ -598,13 +607,6 @@ struct Host::Impl {
             Key key;
             std::memcpy(key.data(), k, 32);
             onIntroduction(peer, Address::readCompact(a, asize), key, Bytes(intent, intent + isize));
-            return true;
-        }
-        case fObserved: {
-            const uint8_t asize = r.u8();
-            const uint8_t* a = r.bytes(asize);
-            if (!a) return false;
-            notePublic(Address::readCompact(a, asize));
             return true;
         }
         default:
@@ -709,13 +711,20 @@ struct Host::Impl {
             ++peer.deliver;
             deliverReliable(peer, service, data, size);
         } else {
-            InMessage& m = peer.in[seq];
-            if (m.count == 0) m.count = count, m.service = service, m.parts.resize(count), m.got.assign(count, 0);
-            if (m.count != count || m.got[index]) return;
             // The packet is already acknowledged: a fragment cannot be dropped
             // and fetched again. An honest sender never queues past its own
-            // maxQueuedBytes; a peer that does is cut off.
-            if (peer.inBytes + size > 2 * cfg.maxQueuedBytes) return refuse(Reason::QueueFull), kill(peer, Reason::QueueFull);
+            // maxQueuedBytes; a peer that makes us hold more is cut off. The
+            // bookkeeping of a message counts too (one Bytes per fragment).
+            auto found = peer.in.find(seq);
+            const size_t bookkeeping = found == peer.in.end() ? count * (sizeof(Bytes) + 1) : 0;
+            if (peer.inBytes + bookkeeping + size > 2 * cfg.maxQueuedBytes)
+                return refuse(Reason::QueueFull), kill(peer, Reason::QueueFull);
+            InMessage& m = peer.in[seq];
+            if (m.count == 0) {
+                m.count = count, m.service = service, m.parts.resize(count), m.got.assign(count, 0);
+                peer.inBytes += bookkeeping;
+            }
+            if (m.count != count || m.got[index]) return;
             m.parts[index].assign(data, data + size);
             m.got[index] = 1;
             ++m.have;
@@ -727,6 +736,7 @@ struct Host::Impl {
             peer.in.erase(peer.in.begin());
             ++peer.deliver;
             scratch.clear();
+            peer.inBytes -= m.count * (sizeof(Bytes) + 1);
             for (Bytes& p : m.parts) {
                 peer.inBytes -= p.size();
                 scratch.insert(scratch.end(), p.begin(), p.end());
@@ -1111,9 +1121,14 @@ bool Host::connecting(const Address& to) const {
     return false;
 }
 Address Host::publicAddress() const {
+    // The most reported of the last five minutes: a NAT that changed our
+    // mapping is believed as soon as peers report the new one.
     const Impl::Vote* best = nullptr;
+    double latest = -1e300;
+    for (const auto& v : impl_->votes) latest = std::max(latest, v.at);
     for (const auto& v : impl_->votes)
-        if (!best || v.count > best->count || (v.count == best->count && v.at > best->at)) best = &v;
+        if (latest - v.at <= 300 && (!best || v.count > best->count || (v.count == best->count && v.at > best->at)))
+            best = &v;
     return best ? best->address : Address{};
 }
 void Host::notePublicAddress(const Address& seen) { impl_->notePublic(seen); }

@@ -55,7 +55,8 @@ and create a new tag under `RELEASE.md`.
   except symmetric against port-restricted or symmetric connects; players
   meet 1-3 s after typing a code; a rollback session over a lossy punched
   link agrees on every checksum at 6 KB/s. Live: two processes found each
-  other by arena code on the real DHT in 0.5-2 s. No relay yet (ROADMAP 5).
+  other by arena code on the real DHT in 0.5-4 s. Every simulated test passes
+  on 400 seeds, each run replayable from its seed. No relay yet (ROADMAP 5).
 
 ### Ambient occlusion at half resolution
 

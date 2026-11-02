@@ -860,20 +860,21 @@ static void sockets() {
                      (unsigned long long)ma.status().lanBeaconsSent, (unsigned long long)ma.status().lanBeaconsHeard);
 }
 
+// test_p2p [seed [test ...]]: every simulated test is a function of the seed
+// (network draws and keys alike), so a failure replays with the same arguments.
 int main(int argc, char** argv) {
     if (argc > 1) seedOffset = std::strtoull(argv[1], nullptr, 10);
-    crypto();
-    noise();
-    formats();
-    link();
-    hostile();
-    reliability();
-    natMatrix();
-    introductions();
-    dht();
-    arena();
-    cells();
-    sockets();
+    const std::pair<const char*, void (*)()> tests[] = {
+        {"crypto", crypto}, {"noise", noise}, {"formats", formats}, {"link", link},
+        {"hostile", hostile}, {"reliability", reliability}, {"nat", natMatrix}, {"introductions", introductions},
+        {"dht", dht}, {"arena", arena}, {"cells", cells}, {"sockets", sockets}};
+    for (size_t i = 0; i < sizeof tests / sizeof *tests; ++i) {
+        bool chosen = argc <= 2;
+        for (int a = 2; a < argc; ++a) chosen = chosen || std::strcmp(argv[a], tests[i].first) == 0;
+        if (!chosen) continue;
+        seedRandomForTesting(seedOffset * 0x9e3779b97f4a7c15ULL + i + 1);
+        tests[i].second();
+    }
     std::printf(failures ? "FAIL saida::p2p (%d)\n" : "PASS saida::p2p\n", failures);
     return failures ? 1 : 0;
 }

@@ -13,10 +13,24 @@
 namespace saida::p2p {
 namespace {
 
+// A test's entropy: a SplitMix64 stream from its seed.
+int fixedEntropy(void* state, unsigned char* out, size_t size) {
+    uint64_t& s = *static_cast<uint64_t*>(state);
+    for (size_t i = 0; i < size; ++i) {
+        s += 0x9e3779b97f4a7c15ULL;
+        uint64_t x = s;
+        x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ULL;
+        x = (x ^ (x >> 27)) * 0x94d049bb133111ebULL;
+        out[i] = uint8_t(x ^ (x >> 31));
+    }
+    return 0;
+}
+
 struct Drbg {
     mbedtls_entropy_context entropy;
     mbedtls_ctr_drbg_context drbg;
     std::mutex mutex;
+    uint64_t testState = 0;
     Drbg() {
         mbedtls_entropy_init(&entropy);
         mbedtls_ctr_drbg_init(&drbg);
@@ -24,6 +38,13 @@ struct Drbg {
         if (mbedtls_ctr_drbg_seed(&drbg, mbedtls_entropy_func, &entropy, reinterpret_cast<const unsigned char*>(tag),
                                   sizeof tag - 1) != 0)
             throw std::runtime_error("saida::p2p: no system entropy");
+    }
+    void reseedForTesting(uint64_t seed) {
+        std::lock_guard<std::mutex> lock(mutex);
+        mbedtls_ctr_drbg_free(&drbg);
+        mbedtls_ctr_drbg_init(&drbg);
+        testState = seed;
+        mbedtls_ctr_drbg_seed(&drbg, fixedEntropy, &testState, nullptr, 0);
     }
 };
 
@@ -67,6 +88,8 @@ void randomBytes(void* out, size_t size) {
         p += n, size -= n;
     }
 }
+
+void seedRandomForTesting(uint64_t seed) { drbg().reseedForTesting(seed); }
 
 uint64_t randomU64() {
     uint64_t v;

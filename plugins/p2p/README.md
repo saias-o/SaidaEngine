@@ -111,8 +111,10 @@ about each other, so they punch at the same moment.
 
 **Discovery.** The Rendezvous announces the socket's public port in the DHT
 under a key derived from the topic (`announce_peer` with `implied_port`) and
-asks the closest nodes again every `refreshSeconds`; both sides of a pair find
-each other and connect. A newcomer that reaches one member of a topic is
+asks the closest nodes again every `refreshSeconds`, moving to any nearer node
+they mention, so every watcher of a topic converges on the same nodes; both
+sides of a pair find each other and connect. A DHT nobody answered asks its
+bootstrap nodes again, from 2 s up to every minute. A newcomer that reaches one member of a topic is
 introduced to all the others, so a crowd forms in one round trip. Handshakes
 carry the topic's tag (a hash; the topic itself never crosses the wire) and
 are refused without one. On the local network, beacons on a multicast group
@@ -126,11 +128,14 @@ unreachable DHT.
 
 ## Proven
 
-`tests/test_p2p.cpp` (`PASS saida::p2p`; 0–2 also under `_GLIBCXX_ASSERTIONS`
-and UBSan), on a Ryzen 7 5700U. Over 240 runs of seeds 0–179, three failed and
-none of them again on the same seed (keys and indices are truly random): twice
-the 8-player cell mesh was not complete within 20 s, once two DHT clients
-found nothing within 20 s. Open in ROADMAP 5.
+`tests/test_p2p.cpp`, on a Ryzen 7 5700U: every simulated test passes on seeds
+0–399, and seeds 0–9 also under `_GLIBCXX_ASSERTIONS` and UBSan with the real
+sockets. `test_p2p [seed [test ...]]` makes keys, indices and network draws a
+function of the seed (`seedRandomForTesting`), so a failure replays exactly.
+That is how the last two rare failures were found: a DHT whose bootstrap
+answers were lost never asked again, and two lookups that ended on different
+nodes never met; both are fixed (bootstrap retried with backoff, refreshes
+that keep walking towards the key).
 
 | Check | Result |
 | --- | --- |
@@ -151,9 +156,10 @@ found nothing within 20 s. Open in ROADMAP 5.
 | LAN beacons, two processes on one machine | met in about 45 ms |
 
 Live, on the real Mainline DHT from a home connection (`examples/p2p_probe.cpp`,
-2 November 2026): ready in 0.2 s with about 55 nodes, the public address
+2 November 2026): ready in 0.2–1.8 s with 25–55 nodes, the public address
 learned; two processes on one arena code found each other's announcement
-0.5 s and 2 s after joining; connected over the LAN beacons in 0.1 s.
+0.5–4 s after joining; connected over the LAN beacons at once, pinging in
+0.2 ms.
 
 ## Limits
 

@@ -55,7 +55,7 @@ struct Identity {
 
 struct HostConfig {
     std::string application = "saida";  // hashed into every handshake: apps never cross
-    Bytes hello;                        // shown to every peer once authenticated (<= 128 bytes)
+    Bytes hello;                        // shown to every peer once authenticated (<= 120 bytes)
     size_t mtu = 1200;                  // largest datagram sent (QUIC's safe minimum)
     size_t maxPeers = 64;
     size_t maxHandshakes = 64;          // in progress at once
@@ -169,6 +169,7 @@ public:
     bool sendRaw(const Address& to, const uint8_t* data, size_t size);
 
     std::vector<HostEvent> takeEvents();
+    // Valid until the next poll(); null for a peer that is gone.
     const PeerInfo* peer(PeerHandle handle) const;
     PeerHandle peerAt(const Address& address) const;
     PeerHandle peerWithKey(const Key& key) const;

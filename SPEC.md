@@ -3409,8 +3409,10 @@ under a named `Reason`.
 flag; IPv4 only) sharing the host's socket through `Host::setForeign` and
 `sendRaw`, so the port it announces with `implied_port` is the one peers must
 reach. `watch(key)` looks a key up, announces under it, asks the closest
-nodes again every `refreshSeconds` and walks the network again every
-`relookupSeconds`; lookups stop waiting for a node after `slowSeconds`.
+nodes again every `refreshSeconds` (moving to nearer nodes they name, so all
+watchers of a key converge on the same nodes) and walks the network again
+every `relookupSeconds`; lookups stop waiting for a node after `slowSeconds`;
+a node with no good node asks its bootstrap nodes again with backoff.
 `Rendezvous` owns a `Dht`, resolves bootstrap names on a detached thread and
 installs the host's foreign handler, admission and service 1. A `Topic` is a
 SHA-256 of the application and a name; its DHT key and its 8-byte handshake
@@ -3429,8 +3431,9 @@ has no relay; two players behind one router meet over the LAN beacons, the
 DHT path needing router hairpinning.
 
 Verification: `plugins/p2p/tests/test_p2p.cpp` (built by the add-on's CMake,
-or by one `g++` line in its header) prints `PASS saida::p2p`; an integer
-argument redraws every simulated network. `SimInternet` provides public hosts,
+or by one `g++` line in its header) prints `PASS saida::p2p`; `test_p2p seed
+[test ...]` redraws every simulated network and, through
+`seedRandomForTesting`, every key and index, so a run replays exactly. `SimInternet` provides public hosts,
 full-cone, address-restricted, port-restricted and symmetric NATs and lossy
 lines. `examples/p2p_probe.cpp` joins the real DHT and meets another process
 by arena code.
