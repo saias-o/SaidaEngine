@@ -3294,6 +3294,78 @@ built with; the project list decides which ones run.
 `lang` is preferred), the browser's `speechSynthesis` on the Web, unavailable
 elsewhere. Utterances queue; `stop` cancels the current one and the queue.
 
+### 11.6 Optional C++ netcode add-on
+
+`plugins/netcode` is a standalone, header-only C++17 add-on for deterministic
+rollback multiplayer, compiled into a game's own binary like the add-ons of
+11.2-11.4. It is not linked to `saida_engine`, is absent from CMake, is never
+loaded by the editor or runtime and is never copied by game export. It uses the
+C++ standard library only: no scene, socket, thread or clock. The host
+implements `Simulation` (save, load, advance one frame, optional checksum,
+commit and retract) and `Transport` (send a datagram unreliably, or reliably
+in order), delivers received datagrams to `Session::receive`, calls `poll(now)`
+once per rendered frame and `tick(input)` once per fixed step.
+
+Every participant simulates every participant; there is no server and no
+permanent arbiter. Founders first measure the line (`Synchronizing`); the
+coordinator then gives each a wait offset by its one-way time, so frame 0
+begins at the same instant everywhere (`Started`, `startLateness()`). Input is
+a fixed `inputSize` blob per player per frame, sent with every unacknowledged
+frame (XOR and run-length coded). The local input delay follows the line by
+default (`adaptiveDelay`): the farthest member's one-way time plus twice its
+RFC 3550 jitter, in frames, minus `rollbackComfort`, within
+`minInputDelay`..`maxInputDelay`, the worst target of each second, one frame
+per tick, raised by repeating the last input and lowered only on a tick whose
+input repeats the last one sent; `setInputDelay` fixes it. Missing remote
+input is predicted by `Simulation::predict` (default: repeat the last one) for
+at most `maxPrediction` frames, after which `tick` returns `Waiting` with the
+player waited for. A received input that differs from the one used, or a
+roster change for a simulated frame, loads the state saved before that frame
+and simulates again (`Pass::Resimulate`); a rollback is never deeper than the
+prediction window. States are saved only for frames simulated with an
+unknown input, checksum frames and while a snapshot is owed.
+`FrameContext::effect` deduplicates presentation effects across
+resimulations and retracts those a correction removes;
+`FrameContext::commit` hands a consequence to `Simulation::commit` exactly
+once, when its frame is confirmed. `TickClock` turns frame time into ticks
+with the session's `timeScale()` (clock drift absorbed within
+`maxTimeAdjust`) and bounded catch-up; a machine more than `skipAdvantage`
+frames ahead skips a tick (`Skipped`). `Smoother<N>` hides corrections on
+screen; `quality()` reports the worst member's round trip, jitter and loss,
+the last second's rollback and stalls, the delay and 0-5 bars.
+
+Membership is carried by the input stream: `Add`, `Live`, `Leave` and `Drop`
+commands are written into the writer's own input for a frame, applied by every
+machine at that frame and ordered by (frame, sponsor id) when they compete. A
+joiner asks a bound member (`join`), receives a confirmed snapshot (state,
+roster, last inputs) in reliable chunks once its `Add` is confirmed, catches up
+and goes live at the frame its sponsor writes. A member silent past
+`disconnectSeconds` is reported lost with the last frame each member holds;
+the lowest-id member standing writes the drop at the latest of those frames,
+and members fetch missing frames from each other (input relay). Every member
+must reach every other. Confirmed states are hashed every `checksumInterval`
+frames and published; a mismatch is a `Desync` event, and a mismatch with the
+coordinator reloads the coordinator's confirmed state (`autoResync`).
+
+Messages carry a magic, protocol version 1, session id, sender id and
+incarnation; the session refuses a sender bound to another endpoint, a stale
+incarnation, a lost sender, a wrong session or version, malformed or
+oversized content, frames outside the input window and senders over
+`receiveBudget`, each counted under a named `Reason` and reported as an
+`Event`. Authentication, integrity, discovery and NAT traversal belong to the
+transport. `Session::record` writes every confirmed frame (roster changes,
+departures, XOR-coded inputs) and the state hashes into a `Replay`, sealed by a
+hash when stored; `ReplayPlayer` plays it back, commits only when asked, and
+stops at the first frame whose state hash differs. `SyncTest` qualifies a
+simulation by replaying its last frames every frame and naming the first
+divergent one; `SimNetwork` is an in-process transport with latency, jitter,
+loss, duplication and reordering.
+
+Verification is one translation unit with no engine build:
+`g++ -std=c++17 -O2 -Wall -Wextra -I../include test_netcode.cpp -o test_netcode`
+in `plugins/netcode/tests`, which prints `PASS saida::netcode`; an integer
+argument replays every bench with other network draws.
+
 ## 12. Export and packaging
 
 `BuildExporter` and `saida_tool export-game` produce a desktop package with an

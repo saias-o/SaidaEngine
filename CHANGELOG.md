@@ -10,6 +10,34 @@ These changes are on `main`, outside the immutable Beta 4 tag. No new release
 version is assigned here; the next publication must update the product version
 and create a new tag under `RELEASE.md`.
 
+### Rollback netcode add-on
+
+- `plugins/netcode`, header-only C++17 and standard library only, like
+  `plugins/traffic`: a `Session` in which every participant simulates every
+  participant, with no server. Founders measure the line, then begin frame 0
+  at the same instant. The input delay follows the line (the farthest
+  member's one-way time and jitter, minus three frames of accepted rollback),
+  one lossless frame at a time, or a fixed setting. Remote input is predicted
+  by the game's own predictor (default: repeat) for at most `maxPrediction`
+  frames; a wrong prediction loads the saved state and simulates forward
+  again. A machine far ahead after the other side hitched gives ticks back.
+  States that no rollback can return to are not saved.
+- Effects are never shown twice across rollbacks and consequences are
+  committed once, when their frame is confirmed. Joining, going live, leaving
+  and dropping a lost member are commands in the input stream, so the roster
+  is as deterministic as the inputs. A newcomer receives a confirmed snapshot
+  in reliable chunks and catches up; members relay each other's missing
+  input; confirmed state hashes detect a desync and the coordinator's state
+  repairs it. Every refusal has a named reason. `quality()` drives a
+  connection indicator.
+- Replays record confirmed frames at about 4 bytes a frame for 3-4 players and
+  play back with every state hash checked. `SyncTest` names the first frame a
+  simulation fails to replay identically; `SimNetwork` runs whole sessions in
+  one process over lossy links. Over 50-70 ms, 5% loss and 1% duplication, 16
+  players cost 0.013 ms per machine per frame on a Ryzen 7 5700U and 42.8 KB/s
+  of upload each. The transport (UDP, peer sessions, NAT traversal) is still
+  to be built (ROADMAP 5).
+
 ### Ambient occlusion at half resolution
 
 - `AmbientOcclusionPass` runs the kernel and its denoise on a grid of half the

@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-10-29. This file is the engine's **single backlog**: everything
+Updated: 2026-11-02. This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -737,6 +737,16 @@ supervised, not autonomous.
 Post-V1 unless the scope changes explicitly.
 
 - [ ] Network: build a generic UDP networking module (requested 2026-10-23).
+  - [x] Rollback session layer, transport-independent: `plugins/netcode`
+    (SPEC 11.6, 2026-11-02). Synchronized start, adaptive lossless input
+    delay, game-defined prediction, bounded rollback, time scale and tick
+    skipping, deterministic membership (join by confirmed snapshot, leave,
+    drop of a lost member, input relay), desync detection and resync,
+    effect/commit ledger, connection quality, verified replays, `SyncTest`
+    and an in-process lossy network. Proven by
+    `plugins/netcode/tests/test_netcode.cpp` (`PASS saida::netcode`, seeds
+    0-199; 0-39 also under `_GLIBCXX_ASSERTIONS` and UBSan). It needs the UDP
+    transport below for real peers; LAN and Internet remain unqualified.
   - Provide non-blocking UDP sockets, bind/send/receive, IPv4/IPv6 endpoints
     and explicit lifecycle/error handling, with bounded queues and packet sizes.
     UDP is a datagram transport; peer connections are explicit sessions layered
