@@ -63,6 +63,17 @@ struct MaterialDesc {
     // a full azimuth turn; rows cover -90..90 degrees elevation (one = level).
     uint32_t billboardColumns = 0; // 0 keeps the authored mesh transform
     uint32_t billboardRows = 1;
+    // An animated atlas: `billboardFrames` blocks of rows, one per pose of a
+    // looping clip. With `billboardStride` > 0 the loop advances with the
+    // ground the instance covers along its forward (-Z) axis, one loop per
+    // stride: a walk that never slides, driven by nothing but its position.
+    // Otherwise it loops every `billboardLoopSeconds`, phased per instance.
+    uint32_t billboardFrames = 1;
+    float billboardLoopSeconds = 1.0f;
+    float billboardStride = 0.0f;
+    glm::vec4 billboardMotion() const {
+        return glm::vec4(float(billboardFrames), billboardLoopSeconds, billboardStride, 0.0f);
+    }
     // Billboard normal atlases encode authored-frame RGB normals and visibility
     // in alpha. Missing atlases keep the inexpensive volume lighting path.
     float billboardNormalStrength() const {
@@ -104,6 +115,8 @@ struct MaterialDesc {
                specularColorId == o.specularColorId && specularStrengthId == o.specularStrengthId &&
                dielectricF0 == o.dielectricF0 && specularStrength == o.specularStrength &&
                billboardColumns == o.billboardColumns && billboardRows == o.billboardRows &&
+               billboardFrames == o.billboardFrames && billboardLoopSeconds == o.billboardLoopSeconds &&
+               billboardStride == o.billboardStride &&
                environmentReflection == o.environmentReflection && receiveGlobalIllumination == o.receiveGlobalIllumination &&
                baseColor == o.baseColor && emissiveColor == o.emissiveColor &&
                metallic == o.metallic && roughness == o.roughness && ao == o.ao &&
@@ -134,7 +147,8 @@ struct hash<saida::MaterialDesc> {
         combine(d.albedoId); combine(d.normalId); combine(d.metallicRoughnessId); combine(d.emissiveId);
         combine(d.heightId); combine(std::hash<float>()(d.parallaxDepth));
         combine(d.specularColorId); combine(d.specularStrengthId);
-        combine(d.billboardColumns); combine(d.billboardRows);
+        combine(d.billboardColumns); combine(d.billboardRows); combine(d.billboardFrames);
+        combine(std::hash<float>()(d.billboardLoopSeconds)); combine(std::hash<float>()(d.billboardStride));
         combine(std::hash<float>()(d.dielectricF0.r)); combine(std::hash<float>()(d.dielectricF0.g));
         combine(std::hash<float>()(d.dielectricF0.b)); combine(std::hash<float>()(d.specularStrength));
         combine(std::hash<float>()(d.environmentReflection));

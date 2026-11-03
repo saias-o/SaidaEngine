@@ -72,6 +72,34 @@ and create a new tag under `RELEASE.md`.
   other by arena code on the real DHT in 0.5-4 s. Every simulated test passes
   on 400 seeds, each run replayable from its seed.
 
+### Hot spots: the DHT as a door, far sightings, skinned LODs, walking impostors
+
+- `Rendezvous`: a crowd's topic is split over `dhtShards` DHT keys; an
+  arrival asks one, a player still alone after `seekSeconds` becomes findable
+  on all, and once linked a member is silent in the DHT unless elected among
+  the `announcers` by a min-sketch gossiped through the crowd (which also
+  estimates its size, `RendezvousStatus::population`). 400 players arriving in
+  10 s: 8 announce, 392 silent, 0.1 query/s at the busiest DHT node settled
+  (29 with one key and everyone announcing), 17-24 during the wave (about 60).
+  A topic joined before the first poll now starts its seeking time at that
+  poll, not at a clock still at zero.
+- Sightings (`RendezvousConfig::sightings`, `setLook`, `sightings()`): beyond
+  the links, positions passed on with every other position message, the
+  farthest from the receiver first, kept balanced over rings of distance. In
+  that crowd each player sees 90-220 others beyond its 12 links, 25 or more of
+  them over 100 m away, within a metre. `keepRatio` sets how many links are
+  kept beyond the nearest. `DhtCounters::peersAnswered`.
+- AutoLOD decimates skinned meshes: joints and weights ride with each kept
+  vertex and every level keeps the skin (the R1World player scan: 7,364 to
+  4,504, 2,363 and 912 triangles). It also writes `MSFT_lod` again: tinygltf
+  2.9 serializes it from `Node::lods` and dropped the extension AutoLOD set,
+  so no generated level was ever loaded.
+- Animated billboard atlases: `SAIDA_billboard` takes `frames`, and
+  `loopSeconds` or `stride`. With a stride the pose follows the ground the
+  instance covers along its forward axis, so a walker's feet never slide and
+  nothing drives it but its position. `MaterialData` and the classic/Web
+  `MaterialUBO` gain a `billboard` vec4 (176 and 144 bytes).
+
 ### Peer-to-peer crowds: proximity, relay, IPv6 DHT, network thread
 
 - Proximity in `Rendezvous` (`RendezvousConfig::neighbours`): a crowd is no

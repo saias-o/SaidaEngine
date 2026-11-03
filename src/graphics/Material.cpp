@@ -26,6 +26,7 @@ struct MaterialParams {
     glm::vec4 specular;  // rgb dielectric F0, a dielectric lobe strength
     glm::vec4 rain;      // reception, puddle amount, ripple slope, darkening
     glm::vec4 foliage;
+    glm::vec4 billboard; // frames, loop seconds, stride metres (MaterialDesc::billboardMotion)
 };
 
 MaterialParams paramsOf(const MaterialDesc& d) {
@@ -34,9 +35,9 @@ MaterialParams paramsOf(const MaterialDesc& d) {
             glm::vec4(d.billboardColumns ? d.billboardNormalStrength() : d.normalStrength, d.receiveGlobalIllumination ? d.environmentReflection : -1.f-d.environmentReflection,
                       d.specularColorId != kAssetInvalid ? 1.f : 0.f,
                       d.specularStrengthId != kAssetInvalid ? 1.f : 0.f),
-            glm::vec4(d.dielectricF0, d.specularStrength), d.rain.parameters(), d.foliage};
+            glm::vec4(d.dielectricF0, d.specularStrength), d.rain.parameters(), d.foliage, d.billboardMotion()};
 }
-static_assert(sizeof(MaterialParams) == 128, "MaterialParams must match classic/Web MaterialUBO");
+static_assert(sizeof(MaterialParams) == 144, "MaterialParams must match classic/Web MaterialUBO");
 }
 
 Material::Material(rhi::Device& device, ResourceManager& manager, const MaterialDesc& desc)

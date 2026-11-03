@@ -232,8 +232,9 @@ static void buildLodChain(MeshNode* mNode, size_t nodeIndex, size_t primIndex,
     }
 
     if (levels.size() > 1) {
+        const size_t count = levels.size();  // read before the move empties it
         mNode->setLods(std::move(levels));
-        Log::info("GLTFLoader: ", levels.size(), " LOD levels on node ", node->name ? node->name : "?");
+        Log::info("GLTFLoader: ", count, " LOD levels on node ", node->name ? node->name : "?");
     }
 }
 
@@ -728,6 +729,17 @@ static bool instantiateGltf(PreparedGltf& prepared, Node& rootNode, ResourceMana
                         throw std::runtime_error("atlas requires 1..32 columns and 1..17 rows");
                     desc.billboardColumns = uint32_t(columns);
                     desc.billboardRows = uint32_t(rows);
+                    // An animated atlas (a crowd's walkers): frames of a loop,
+                    // timed in seconds or by the ground covered.
+                    const int frames = atlas.value("frames", 1);
+                    const float loop = atlas.value("loopSeconds", 1.0f);
+                    const float stride = atlas.value("stride", 0.0f);
+                    if (frames < 1 || frames > 64 || rows * frames > 128 || !std::isfinite(loop) || loop <= 0.f ||
+                        !std::isfinite(stride) || stride < 0.f || stride > 20.f)
+                        throw std::runtime_error("an animated atlas requires 1..64 frames (128 rows in all), loopSeconds > 0 and stride 0..20 m");
+                    desc.billboardFrames = uint32_t(frames);
+                    desc.billboardLoopSeconds = loop;
+                    desc.billboardStride = stride;
                     if (desc.foliage.w > 0.f)
                         throw std::runtime_error("SAIDA_foliage keeps authored geometry and cannot combine with SAIDA_billboard");
                 }

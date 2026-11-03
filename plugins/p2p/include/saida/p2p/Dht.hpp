@@ -49,6 +49,7 @@ struct DhtConfig {
 struct DhtCounters {
     uint64_t queriesSent = 0, responses = 0, errors = 0, timeouts = 0, queriesAnswered = 0;
     uint64_t malformed = 0, announcesStored = 0, announcesRefused = 0, throttled = 0;
+    uint64_t peersAnswered = 0;  // get_peers served: what watching keys (not routing) costs a node
 };
 
 struct DhtFound {

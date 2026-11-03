@@ -25,6 +25,7 @@ struct MaterialData {
     vec4 specular; // rgb dielectric F0, a dielectric lobe strength
     vec4 rain;     // reception, puddle amount, ripple slope, darkening
     vec4 foliage;  // wrap, transmission, sway, normal mode
+    vec4 billboard; // animated atlas: frames, loop seconds, stride metres
 };
 
 layout(set = MATERIAL_SET, binding = 0) uniform sampler2D globalTextures[8192];

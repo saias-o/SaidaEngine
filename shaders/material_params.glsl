@@ -11,4 +11,5 @@ layout(set = 1, binding = 3) uniform MaterialUBO {
     vec4 specular;
     vec4 rain;
     vec4 foliage;
+    vec4 billboard;  // frames, loop seconds, stride metres
 } material;

@@ -364,6 +364,7 @@ struct Dht::Impl {
             return reply(from, tid, std::move(r));
         }
         if (*q == "get_peers") {
+            ++counters.peersAnswered;
             NodeId key;
             if (!idFrom(a->str("info_hash"), key)) return error(from, tid, 203, "Protocol Error");
             r.set("token", BValue::string(token(from, secret)));
@@ -586,7 +587,9 @@ struct Dht::Impl {
         }
         for (auto& wp : watches) {
             Watch& w = *wp;
-            const bool stale = w.closest.size() < (cfg.k + 1) / 2 || now - w.lastLookup > cfg.relookupSeconds;
+            // A watch that only announces walks the network again as often as it announces.
+            const double relookup = w.refresh >= 1e8 ? std::max(cfg.relookupSeconds, cfg.announceSeconds) : cfg.relookupSeconds;
+            const bool stale = w.closest.size() < (cfg.k + 1) / 2 || now - w.lastLookup > relookup;
             if (!w.lookup && stale && !table.empty() && now - w.lastLookup > 1.0) {
                 w.lookup = startLookup(w.key, true);
                 w.lastLookup = now;
@@ -723,7 +726,7 @@ const DhtCounters& Dht::counters() const {
     total_.queriesSent += b.queriesSent, total_.responses += b.responses, total_.errors += b.errors;
     total_.timeouts += b.timeouts, total_.queriesAnswered += b.queriesAnswered, total_.malformed += b.malformed;
     total_.announcesStored += b.announcesStored, total_.announcesRefused += b.announcesRefused;
-    total_.throttled += b.throttled;
+    total_.throttled += b.throttled, total_.peersAnswered += b.peersAnswered;
     return total_;
 }
 

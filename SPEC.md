@@ -859,6 +859,14 @@ disabled or new takes its level at once, and so does every group in the frame
 after `Scene::cutLodFades()` (a teleport, a camera cut). The profiler counter
 `Scene/LodCrossFades` counts the groups drawing two levels in a frame.
 
+An animated atlas adds `frames` (1-64, at most 128 rows in all) stacked as
+blocks of `rows`, and either `loopSeconds` (time, phased per instance by its
+position) or `stride` metres (the pose follows the instance origin's
+displacement along its -Z axis: one loop per stride). `MaterialDesc`
+`billboardFrames`, `billboardLoopSeconds` and `billboardStride` reach the
+shader as `billboard` in `MaterialData` (176 bytes) and the classic/Web
+`MaterialUBO` (144 bytes).
+
 Camera-facing atlas materials use runtime `MaterialDesc::billboardColumns`
 (0 disables) and `billboardRows` (default 1). glTF reads
 `material.extras.SAIDA_billboard: {"columns": 8, "rows": 5}`; accepted bounds
@@ -1417,7 +1425,9 @@ materials, textures and hierarchy, welds the vertices, uses QEM with attributes
 then the sloppy fallback, optimizes the vertex cache and writes `MSFT_lod` with
 `MSFT_screencoverage`. LOD0 stays intact.
 
-Limits: skinned meshes ignored, 32-bit indices, single-thread bake, source UVs
+Skinned meshes are decimated with their joints and weights (the weld keys on
+them, the levels keep the skin); a proxy level is never made for one.
+Limits: 32-bit indices, single-thread bake, source UVs
 expected as `[0,1]` islands outside proxy, overhead of one welded vertex buffer
 per LOD. AO/curvature, multi-material atlas, impostors and virtualized clusters
 remain extensions. Aggressive settings must be validated visually.
@@ -3471,7 +3481,19 @@ wants; a newcomer is introduced only through this, and an admission is no
 longer bounded by `maxPeersPerTopic`. A topic with members asks the DHT every
 `populatedRefreshSeconds`, announces only while among the `announcers`
 members nearest the topic key (by a hash of key and id), and tries an address
-the DHT gives and no member has at most every `healSeconds`. An introduced
+the DHT gives and no member has at most every `healSeconds`. A proximity
+topic is split over `dhtShards` keys (`Topic::dhtKey(shard)`): an arrival
+asks and announces on its own (id modulo shards) for `seekSeconds`, then, if
+still alone, announces on all and slows its refresh towards
+`populatedRefreshSeconds`; a linked member is silent (no watch) unless it is
+among the `announcers` lowest ranks (hash of topic tag and id) of the
+min-sketch every gossip carries, entries expiring after `announcerSeconds`;
+an announcer announces on every shard and refreshes its own. With
+`sightings` > 0, every other near message carries `sightingsPerGossip`
+positions (32-bit id, metres around the sender, 16-bit look, age): a third
+from links, the rest from the sample, farthest from the receiver first; the
+sample keeps up to `sightings` entries for `sightingSeconds`, the fullest
+ring of distance (doubling from 32 m) giving way when full. An introduced
 pair not linked after `relayAfterSeconds` (the higher id twice as late) links
 through the introducer. Multicast beacons on an IPv4 group (a
 separate socket from `openLanSocket`) do the same on the local network. Arena

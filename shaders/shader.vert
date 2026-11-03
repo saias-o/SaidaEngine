@@ -116,8 +116,28 @@ void main() {
     fragBillboardView = vec3(0.0, 0.0, -1.0);
     fragBillboardUp = vec3(0.0);
     if (billboardAtlas.x > 0.0) {
+#ifdef BINDLESS
+        vec4 motion = materials[fragMaterialIndex].billboard;
+#else
+        vec4 motion = material.billboard;
+#endif
+        // The pose of an animated atlas: a walk follows the ground its
+        // instance covers along its forward (-Z) axis, so its feet never
+        // slide; anything else loops in time, each instance at its own phase.
+        vec2 animation = vec2(1.0, 0.0);
+        if (motion.x > 1.0) {
+            float cycle;
+            if (motion.z > 0.0) {
+                vec3 forward = -normalize(modelMat[2].xyz);
+                cycle = dot(modelMat[3].xyz, forward) / motion.z;
+            } else {
+                float phase = fract(sin(dot(modelMat[3].xyz, vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+                cycle = lights.rainParams.z / max(motion.y, 0.05) + phase;
+            }
+            animation = vec2(motion.x, min(floor(fract(cycle) * motion.x), motion.x - 1.0));
+        }
         fragBillboardUp = normalize(modelMat[1].xyz);
-        faceBillboard(modelMat, inverse(cam.view[0])[3].xyz, billboardAtlas,
+        faceBillboard(modelMat, inverse(cam.view[0])[3].xyz, billboardAtlas, animation,
                       localPos, localNormal, localTangent, localUV, fragBillboardView);
     }
     vec4 worldPos = modelMat * vec4(localPos, 1.0);

@@ -83,12 +83,20 @@ def main():
         'normal-sky-occluded':([0,-1,0],0,[1,1,1],'0,1,5',False),
         'normal-coverage':([0,-1,0],2,[1,1,1],'5,1,0',False),
         'normal-local-x':([-1,0,0],2,[1,1,1],'0,1,5',False),
-        'normal-yawed-x':([-1,0,0],2,[1,1,1],'0,1,5',False)}
+        'normal-yawed-x':([-1,0,0],2,[1,1,1],'0,1,5',False),
+        # An animated atlas: frame 0 red, frame 1 blue, one loop per 2 m along
+        # the instance's forward (-Z). Stepped 1.5 m forward, it shows frame 1.
+        'walk-start':([0,-1,0],2,[1,1,1],'0,1,5',False),
+        'walk-stepped':([0,-1,0],2,[1,1,1],'0,1,5',False)}
     for name,(direction,intensity,color,camera,colored) in cases.items():
         model['materials'][0]['extras'] = {'SAIDA_billboard':{'columns':2,'rows':1}}
         if name == 'mesh-ambient':
             model['materials'][0].pop('extras')
         atlas = Image.new('RGBA',(32,16),(160,160,160,255))
+        if name.startswith('walk-'):
+            model['materials'][0]['extras'] = {'SAIDA_billboard':{'columns':2,'rows':1,'frames':2,'stride':2}}
+            atlas = Image.new('RGBA',(32,32),(160,0,0,255))
+            atlas.paste((0,0,160,255),(0,16,32,32))
         if colored:
             atlas.paste((160,0,0,255),(0,0,16,16))
             atlas.paste((0,160,0,255),(16,0,32,16))
@@ -121,6 +129,8 @@ def main():
             if name == 'normal-yawed-x':
                 # The atlas frame follows the instance, never the camera-facing quad.
                 panel['transform'] = {'rotation':[0,2**-.5,0,2**-.5]}
+        if name == 'walk-stepped':
+            panel['transform'] = {'position':[0,0,-1.5]}
         model['buffers'] = [{'byteLength':len(data),
                              'uri':'data:application/octet-stream;base64,'+base64.b64encode(data).decode()}]
         sun.update(direction=direction,intensity=intensity,color=color)
@@ -177,6 +187,8 @@ def main():
     assert max(values['normal-sky-occluded']) <= 1, values
     assert max(abs(a-b) for a,b in zip(values['normal-up'],values['normal-coverage'])) <= 1, values
     assert min(values['normal-local-x']) > max(values['normal-yawed-x']) + 60, values
+    assert values['walk-start'][0] > values['walk-start'][2] + 60, values
+    assert values['walk-stepped'][2] > values['walk-stepped'][0] + 60, values
     print('PASS billboard orientation, atlas blend, authored normals/visibility and live directional lighting:',json.dumps(values))
     print('Captures:',root)
 

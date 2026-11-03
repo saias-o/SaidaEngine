@@ -28,14 +28,29 @@
 //                 Whoever arrives near you is found through the peers you
 //                 already have (a Voronoi-style overlay), so there is no edge
 //                 between cells: the DHT is only the door.
+//   sightings     beyond the links, a sampled picture of the crowd: with every
+//                 other position message each peer passes on a few positions it
+//                 knows (its links' first-hand, others' aged, the farthest
+//                 from the receiver first), and keeps up to `sightings` of
+//                 them balanced over rings of distance, so a
+//                 player sees a crowd's shape out to kilometres for a few
+//                 hundred bytes a second, however many it holds.
 //   relay         two peers introduced to each other that have not linked
 //                 within `relayAfterSeconds` link through the peer that
 //                 introduced them (Host::relayAddress); the lower id asks
 //                 first, the higher one twice as late.
-//   the DHT       a topic with members needs the DHT only to heal a split:
-//                 it is asked every `populatedRefreshSeconds`, and only the
-//                 `announcers` members nearest the topic's key announce, so
-//                 a crowded cell costs the public DHT what a quiet one does.
+//   the DHT       the door, and nothing else. A crowd's topic is split over
+//                 `dhtShards` keys: an arrival asks and announces on one, and
+//                 only one still alone after `seekSeconds` (or an elected
+//                 announcer) is findable on all, so arrivals spread over many
+//                 DHT nodes. Once linked, a peer is silent in the DHT unless
+//                 elected one of the topic's `announcers`: the members pass
+//                 on the ids of the `announcers` lowest (by a hash of topic
+//                 and id) they have heard of, a min-sketch that converges
+//                 over the whole crowd however large and also estimates its
+//                 size. An announcer that leaves is forgotten after
+//                 `announcerSeconds`, and the next lowest takes its place.
+//                 150 000 players in one cell cost the DHT what 8 do.
 //
 // The Rendezvous owns the DHT and the bootstrap resolution (on its own
 // thread: name lookups block). It installs the Host's foreign handler,
@@ -58,6 +73,7 @@ struct Topic {
     // SHA-256 of the application and the name: the same topic everywhere.
     static Topic named(std::string_view application, std::string_view name);
     NodeId dhtKey() const;
+    NodeId dhtKey(uint32_t shard) const;  // a crowd's topic is split over several keys
     std::array<uint8_t, 8> tag() const;
     bool operator==(const Topic& o) const { return key == o.key; }
     bool operator!=(const Topic& o) const { return key != o.key; }
@@ -91,11 +107,19 @@ struct RendezvousConfig {
     double gossipSeconds = 5.0;       // who stands near them, told this often (a newcomer: at once)
     size_t gossipEntries = 8;         // peers named per gossip
     double pruneSeconds = 3.0;        // a link neither side wants lasts this long
+    double keepRatio = 1.25;          // links kept: this many times `neighbours` (a dense, moving crowd wants more)
     double introductionsPerSecond = 4;// asked of our peers
-    // The DHT once a topic has members: asked this often, announced by so many.
+    // The DHT once a topic has members: announced by so many, elected across
+    // the whole crowd, who alone ask it again (to heal splits) this often.
     double populatedRefreshSeconds = 60.0;
     size_t announcers = 8;
+    double announcerSeconds = 120.0;  // an announcer not heard of again for this long is replaced
+    size_t dhtShards = 16;            // proximity: the keys a topic is split over
+    double seekSeconds = 6.0;         // an arrival asks one shard this long before announcing on all
     double healSeconds = 20.0;        // a DHT address unknown to the crowd is tried this often
+    size_t sightings = 0;             // far crowd kept (0: none), balanced over rings of distance
+    size_t sightingsPerGossip = 6;    // passed on with every other position message
+    double sightingSeconds = 60.0;    // a position not heard of again for this long is dropped (its age says how stale)
     bool relay = true;                // link through the introducer when punching fails
     double relayAfterSeconds = 3.0;
     // LAN discovery: beacons on an IPv4 multicast group (a separate socket).
@@ -123,8 +147,19 @@ struct RendezvousStatus {
     size_t candidates = 0;
     uint64_t introductionsAsked = 0, introductionsMade = 0, pruned = 0;
     size_t announcing = 0;  // topics we announce in the DHT
+    size_t silent = 0;      // topics we are linked in and say nothing to the DHT about
+    double population = 0;  // the largest topic's size, as its announcer sketch estimates it
     uint64_t relayed = 0;   // links asked through a relay
     std::string problem;  // empty, or why nobody can be found (show it to the player)
+};
+
+// A peer seen from afar (RendezvousConfig::sightings): where it was, what it
+// looked like (the application's 16 bits: setLook), how long ago.
+struct Sighting {
+    uint32_t id;  // the low 32 bits of the peer's identity
+    double x, y, z;
+    uint16_t look;
+    double age;
 };
 
 class Rendezvous {
@@ -145,6 +180,10 @@ public:
     std::vector<PeerHandle> peers(const Topic& topic) const;
     // Where we stand, in the application's metric frame (proximity only).
     void setPosition(double x, double y, double z);
+    // What others see of us from afar: 16 bits the application defines.
+    void setLook(uint16_t look);
+    // The crowd beyond our links, as sampled (oldest first is not promised).
+    std::vector<Sighting> sightings() const;
 
     // Call after Host::poll.
     void poll(double now);

@@ -839,7 +839,8 @@ static void cells() {
 
 // A crowd: each player links to its nearest, not to everyone; a newcomer is
 // found through the peers already there; a walker's links follow him.
-static Endpoint& crowdPlayer(World& w, int router, const std::vector<Address>& seeds, size_t neighbours) {
+static Endpoint& crowdPlayer(World& w, int router, const std::vector<Address>& seeds, size_t neighbours,
+                             size_t sightings = 0) {
     HostConfig hc;
     hc.application = "open-world";
     hc.maxPeers = std::max<size_t>(24, 3 * neighbours);
@@ -849,6 +850,7 @@ static Endpoint& crowdPlayer(World& w, int router, const std::vector<Address>& s
     rc.bootstrap.clear();
     rc.knownNodes = seeds;
     rc.neighbours = neighbours;
+    rc.sightings = sightings;
     e.meet = std::make_unique<Rendezvous>(*e.host, rc);
     return e;
 }
@@ -1019,7 +1021,7 @@ static void crowd() {
     const auto started = std::chrono::steady_clock::now();
     for (size_t i = 0; i < n; ++i) {
         const Nat kind = kinds[i % 10];
-        ps.push_back(&crowdPlayer(w, kind == Nat::None ? -1 : w.net.addRouter(kind), w.seeds(3), k));
+        ps.push_back(&crowdPlayer(w, kind == Nat::None ? -1 : w.net.addRouter(kind), w.seeds(3), k, 256));
         at.push_back({15.0 * double(i % 15) + jitter(), 15.0 * double(i / 15) + jitter(), 0});
         ps.back()->meet->setPosition(at.back()[0], at.back()[1], at.back()[2]);
         ps.back()->meet->join(cell);
@@ -1063,6 +1065,114 @@ static void crowd() {
     CHECK(relayed > 0);
     CHECK(busiest < 5);  // every player together: libtorrent blocks one source past 5 a second
     CHECK(up[n / 2] < 8000);
+}
+
+// A hot spot: 400 players pour into one cell in ten seconds. The arrivals
+// spread over the topic's shard keys, the crowd elects a handful of
+// announcers and everyone else falls silent in the DHT, and the sketch that
+// elects them also says how many they are.
+static void hotspot() {
+    std::printf("hotspot\n");
+    World w(131);
+    w.dhtNetwork(160);
+    w.run(20);
+    const size_t n = 400, k = 12;
+    const Nat kinds[] = {Nat::PortRestricted, Nat::FullCone, Nat::None, Nat::AddressRestricted};
+    const Topic cell = Topic::named("open-world", "cell/4422/8853");
+    std::vector<Endpoint*> ps;
+    std::vector<Spot> at;
+    uint64_t r = 99;
+    auto uniform = [&] { return double((r = r * 6364136223846793005ULL + 1442695040888963407ULL) >> 40) / double(1 << 24); };
+    auto served = [&] {
+        uint64_t q = 0;
+        for (auto& node : w.nodes) q += node->counters().queriesAnswered;
+        return q;
+    };
+    // What the crowd's keys cost a node: get_peers served and announces stored
+    // (a newcomer's routing-table walk is the DHT's own cost, spread thin over
+    // millions of nodes on the real one, over 160 here).
+    auto keyed = [&](size_t i) { return w.nodes[i]->counters().peersAnswered + w.nodes[i]->counters().announcesStored; };
+    std::vector<uint64_t> before(w.nodes.size());
+    for (size_t i = 0; i < w.nodes.size(); ++i) before[i] = keyed(i);
+    const auto started = std::chrono::steady_clock::now();
+    const double waveStart = w.now;
+    for (size_t i = 0; i < n; ++i) {
+        const Nat kind = kinds[i % 4];
+        ps.push_back(&crowdPlayer(w, kind == Nat::None ? -1 : w.net.addRouter(kind), w.seeds(3), k, 256));
+        at.push_back({200 * uniform(), 200 * uniform(), 0});  // a square of 200 m: one player per 100 m2
+        ps.back()->meet->setLook(uint16_t(i));
+        ps.back()->meet->setPosition(at.back()[0], at.back()[1], at.back()[2]);
+        ps.back()->meet->join(cell);
+        if (i % 4 == 3) w.run(0.1);  // forty a second
+    }
+    w.run(10);
+    // The bootstrap seeds every player starts from (w.seeds) stand for the
+    // public routers, sized for the whole Internet's arrivals: measured apart.
+    auto seed = [&](size_t i) {
+        for (const Address& a : w.seeds(3))
+            if (a == w.nodeSockets[i]->local()) return true;
+        return false;
+    };
+    double waveBusiest = 0, seedBusiest = 0;
+    for (size_t i = 0; i < w.nodes.size(); ++i) {
+        const double q = double(keyed(i) - before[i]) / (w.now - waveStart);
+        (seed(i) ? seedBusiest : waveBusiest) = std::max(seed(i) ? seedBusiest : waveBusiest, q);
+    }
+    const bool formed = w.runUntil(60, [&] { return coverage(ps, at, k) >= 0.95; });
+    w.run(30);  // the sketch spreads; announcers settle
+    for (size_t i = 0; i < w.nodes.size(); ++i) before[i] = keyed(i);
+    const uint64_t servedBefore = served();
+    std::vector<uint64_t> asked(n);
+    for (size_t i = 0; i < n; ++i) asked[i] = ps[i]->meet->dht()->counters().queriesSent;
+    w.run(30);
+    double busiest = 0;
+    for (size_t i = 0; i < w.nodes.size(); ++i)
+        busiest = std::max(busiest, double(keyed(i) - before[i]) / 30);
+    size_t announcing = 0, silent = 0, talking = 0;
+    double low = 1e18, high = 0;
+    for (size_t i = 0; i < n; ++i) {
+        const RendezvousStatus s = ps[i]->meet->status();
+        announcing += s.announcing > 0, silent += s.silent > 0;
+        talking += ps[i]->meet->dht()->counters().queriesSent - asked[i] > 0;
+        low = std::min(low, s.population), high = std::max(high, s.population);
+    }
+    const double wall = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    std::printf("  %zu players in 10 s: %.1f%% of the %zu nearest linked; the busiest DHT node answered %.1f queries/s "
+                "during the wave (a bootstrap seed %.1f)\n",
+                n, 100 * coverage(ps, at, k), k, waveBusiest, seedBusiest);
+    std::printf("  settled: %zu announce, %zu silent, %zu asked the DHT in 30 s; %.0f queries/s in all, %.2f at the "
+                "busiest node; each estimates the crowd at %.0f-%.0f (%.0f s in %.0f s)\n",
+                announcing, silent, talking, double(served() - servedBefore) / 30, busiest, low, high, w.now, wall);
+    // Beyond its 12 links, each sees the crowd sampled: how much, how true.
+    // A sample, not a census: what gossip carries at a few hundred bytes a
+    // second, spread over near and far alike.
+    size_t seenMost = 0, seenLeast = n, beyond100 = n;
+    double error = 0, errors = 0;
+    for (size_t i = 0; i < n; ++i) {
+        const auto far = ps[i]->meet->sightings();
+        seenMost = std::max(seenMost, far.size()), seenLeast = std::min(seenLeast, far.size());
+        size_t distant = 0;
+        for (const Sighting& s : far) {
+            const size_t j = s.look;  // the test's look is the player's index
+            if (j >= n || uint32_t(ps[j]->host->identity().id()) != s.id) continue;
+            error += std::hypot(s.x - at[j][0], s.y - at[j][1], s.z - at[j][2]), ++errors;
+            distant += apart(at[i], at[j]) > 100;
+        }
+        // Only players with somebody 100 m away count (not those in the middle).
+        size_t possible = 0;
+        for (size_t j = 0; j < n; ++j) possible += apart(at[i], at[j]) > 100;
+        if (possible > 50) beyond100 = std::min(beyond100, distant);
+    }
+    std::printf("  sightings: each sees %zu-%zu of the crowd beyond its links, within %.2f m on average\n", seenLeast,
+                seenMost, error / std::max(1.0, errors));
+    std::printf("  at least %zu of them more than 100 m away\n", beyond100);
+    CHECK(seenLeast >= 80 && beyond100 >= 15 && errors > 0 && error / errors < 1.5);
+    CHECK(formed);
+    CHECK(announcing <= 16 && silent + announcing == n);
+    // One key with every member announcing and asking (before 4 November)
+    // measured about 60 during this wave and 29 settled, with 400 announcing.
+    CHECK(busiest < 2 && waveBusiest < 35);
+    CHECK(low > n / 3.0 && high < n * 3.0);
 }
 
 // --- This machine's network ---------------------------------------------------------------------
@@ -1208,7 +1318,7 @@ int main(int argc, char** argv) {
     const std::pair<const char*, void (*)()> tests[] = {
         {"crypto", crypto}, {"noise", noise}, {"formats", formats}, {"link", link},
         {"hostile", hostile}, {"reliability", reliability}, {"nat", natMatrix}, {"introductions", introductions},
-        {"dht", dht}, {"dht6", dht6}, {"arena", arena}, {"cells", cells}, {"neighbourhood", neighbourhood}, {"crowd", crowd}, {"relay", relay}, {"relayed-topic", relayedTopic},
+        {"dht", dht}, {"dht6", dht6}, {"arena", arena}, {"cells", cells}, {"neighbourhood", neighbourhood}, {"crowd", crowd}, {"hotspot", hotspot}, {"relay", relay}, {"relayed-topic", relayedTopic},
         {"sockets", sockets}, {"thread", networkThread}};
     for (size_t i = 0; i < sizeof tests / sizeof *tests; ++i) {
         bool chosen = argc <= 2;

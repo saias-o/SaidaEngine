@@ -36,8 +36,9 @@ struct MaterialData {
     glm::vec4 specular; // rgb dielectric F0, a dielectric lobe strength
     glm::vec4 rain;     // reception, puddle amount, ripple slope, darkening
     glm::vec4 foliage;
+    glm::vec4 billboard; // animated atlas: frames, loop seconds, stride metres
 };
-static_assert(sizeof(MaterialData) == 160, "MaterialData must match shader.frag std430 layout");
+static_assert(sizeof(MaterialData) == 176, "MaterialData must match shader.frag std430 layout");
 } // namespace
 
 BindlessTables::BindlessTables(rhi::Device& device, uint32_t maxTextures,
@@ -290,6 +291,7 @@ void BindlessTables::writeMaterialSlot(uint32_t index, const MaterialDesc& desc,
     data.specular = glm::vec4(desc.dielectricF0, desc.specularStrength);
     data.rain = desc.rain.parameters();
     data.foliage = desc.foliage;
+    data.billboard = desc.billboardMotion();
     data.variation = glm::vec4(desc.variation.warp, desc.variation.macroScale,
                                desc.variation.macroAlbedo, desc.variation.macroNormal);
 

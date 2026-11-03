@@ -85,6 +85,14 @@ Topic Topic::named(std::string_view application, std::string_view name) {
     return t;
 }
 
+NodeId Topic::dhtKey(uint32_t shard) const {
+    const uint8_t tag[7] = {'d', 'h', 't', '/', uint8_t(shard), uint8_t(shard >> 8), uint8_t(shard >> 16)};
+    const Digest d = sha256(key.data(), key.size(), tag, sizeof tag);
+    NodeId id;
+    std::memcpy(id.data(), d.data(), 20);
+    return id;
+}
+
 NodeId Topic::dhtKey() const {
     static const char tag[] = "dht";
     const Digest d = sha256(key.data(), key.size(), tag, 3);
@@ -160,6 +168,19 @@ struct Rendezvous::Impl {
         bool announcing = true;   // as last told to the DHT
         double refresh = 0;
         double lastHeal = -1e18;  // proximity: the last DHT address tried in a crowded topic
+        // Proximity: the shard keys, ours among them, and what we do in the DHT.
+        std::vector<NodeId> keys;
+        uint32_t shard = 0;
+        enum Role : uint8_t { None, Seeker, Finder, Announcer, Silent } role = None;
+        double linkedSince = -1, aloneSince = -1;
+        // The announcer sketch: the lowest-ranked ids heard of, and until when.
+        struct Low {
+            uint64_t id;
+            uint64_t rank;
+            double expires;
+        };
+        std::vector<Low> low;
+        bool sketchHeard = false;
     };
     std::vector<Joined> topics;
     struct Remote {
@@ -175,6 +196,8 @@ struct Rendezvous::Impl {
         bool placed = false;      // its position arrived
         Point at{};
         bool wantsUs = false;     // it keeps us among its nearest
+        uint16_t look = 0;        // its setLook, passed on as a sighting
+        bool sightTurn = false;   // sightings go with every other position message
         bool nearDue = false;     // tell it where we stand and who is near it, at the next poll
         double unwanted = -1;     // since when neither side wants the link
         double introTokens = 8, introAt = 0;
@@ -214,6 +237,49 @@ struct Rendezvous::Impl {
     std::vector<Asked> asked;
     std::vector<uint64_t> wanted;  // sorted: the ids we keep links to
     double askTokens = 8, askAt = 0;
+    // Sightings: the far crowd, kept by ring of distance (rings doubling from 32 m).
+    struct Seen {
+        uint32_t id;
+        Point at;
+        uint16_t look;
+        double born;  // when it was true, our clock
+    };
+    std::vector<Seen> seen;
+    uint16_t look = 0;
+    static constexpr int kRings = 8;
+    int ringOf(const Point& at) const {
+        const double d = std::sqrt(distance2(at, position));
+        int r = 0;
+        while (r + 1 < kRings && d >= double(32 << r)) ++r;
+        return r;
+    }
+    bool linked32(uint32_t id) const {
+        for (const Remote& r : remotes)
+            if (uint32_t(r.id) == id) return true;
+        return false;
+    }
+    void sighted(uint32_t id, const Point& at, uint16_t how, double born) {
+        if (cfg.sightings == 0 || id == uint32_t(selfId) || linked32(id) || born < now - cfg.sightingSeconds) return;
+        for (Seen& s : seen)
+            if (s.id == id) {
+                if (born > s.born) s.at = at, s.look = how, s.born = born;
+                return;
+            }
+        if (seen.size() < cfg.sightings) return seen.push_back({id, at, how, born});
+        // Full: the most crowded ring gives way to a sparser one, so near and
+        // far are drawn alike; within one ring, the stalest gives way.
+        size_t count[kRings] = {};
+        for (const Seen& s : seen) ++count[ringOf(s.at)];
+        const int ring = ringOf(at);
+        int fullest = 0;
+        for (int r = 1; r < kRings; ++r)
+            if (count[r] > count[fullest]) fullest = r;
+        const int from = count[fullest] > count[ring] + 1 ? fullest : ring;
+        Seen* stalest = nullptr;
+        for (Seen& s : seen)
+            if (ringOf(s.at) == from && (!stalest || s.born < stalest->born)) stalest = &s;
+        if (stalest && (from != ring || stalest->born < born)) *stalest = {id, at, how, born};
+    }
     // Introductions under way: punched for relayAfterSeconds, then relayed.
     struct Introduction {
         Address address;
@@ -470,6 +536,7 @@ struct Rendezvous::Impl {
         Writer w(m);
         for (double v : position) w.f64(v);
         w.u8(std::binary_search(wanted.begin(), wanted.end(), r.id) ? 1 : 0);
+        w.u16(look);
         std::vector<std::pair<double, const Remote*>> near;
         if (gossip) {
             // The peers nearest to it, as far as we know: where it should look.
@@ -486,6 +553,64 @@ struct Rendezvous::Impl {
             w.u64(o->id);
             for (int i = 0; i < 3; ++i) w.f32(float(o->at[size_t(i)] - position[size_t(i)]));
         }
+        // The announcer sketch of every topic we share with it, with the
+        // gossip (a newcomer hears it at once and falls silent in the DHT).
+        std::vector<Joined*> shared;
+        for (Joined& j : topics)
+            if (gossip && std::find(r.member.begin(), r.member.end(), j.tag) != r.member.end() && shared.size() < 8)
+                shared.push_back(&j);
+        w.u8(uint8_t(shared.size()));
+        for (Joined* j : shared) {
+            elected(*j);
+            w.bytes(j->tag.data(), 8);
+            w.u8(uint8_t(j->low.size()));
+            for (const Joined::Low& l : j->low) w.u64(l.id), w.u16(uint16_t(std::clamp(l.expires - now, 0.0, 65535.0)));
+        }
+        // Sightings, with every other position: a third first-hand (our links), the
+        // rest what we were told, the farthest from the receiver first, one
+        // per ring in turn, so what is far travels out hop after hop instead
+        // of drowning in what is near; positions to the metre around us.
+        std::vector<std::pair<uint32_t, Seen>> out;
+        r.sightTurn = !r.sightTurn;
+        if (cfg.sightings > 0 && r.sightTurn) {
+            const size_t mine = std::max<size_t>(1, cfg.sightingsPerGossip / 3);
+            std::vector<const Remote*> firsthand;
+            for (const Remote& o : remotes)
+                if (&o != &r && o.placed && !o.member.empty()) firsthand.push_back(&o);
+            for (size_t i = 0; i < mine && !firsthand.empty(); ++i) {
+                const size_t k = size_t(randomU64() % firsthand.size());
+                out.push_back({uint32_t(firsthand[k]->id), {uint32_t(firsthand[k]->id), firsthand[k]->at, firsthand[k]->look, now}});
+                firsthand.erase(firsthand.begin() + long(k));
+            }
+            const Point& to = r.placed ? r.at : position;
+            std::vector<const Seen*> byRing[kRings];
+            for (const Seen& s : seen) {
+                if (s.id == uint32_t(r.id)) continue;
+                const double d = std::sqrt(distance2(s.at, to));
+                int ring = 0;
+                while (ring + 1 < kRings && d >= double(32 << ring)) ++ring;
+                byRing[ring].push_back(&s);
+            }
+            for (bool any = true; any && out.size() < cfg.sightingsPerGossip;) {
+                any = false;
+                for (int ring = kRings - 1; ring >= 0 && out.size() < cfg.sightingsPerGossip; --ring) {
+                    auto& v = byRing[ring];
+                    if (v.empty()) continue;
+                    const size_t k = size_t(randomU64() % v.size());
+                    out.push_back({v[k]->id, *v[k]});
+                    v.erase(v.begin() + long(k));
+                    any = true;
+                }
+            }
+        }
+        w.u8(uint8_t(out.size()));
+        for (const auto& [id, s] : out) {
+            w.u32(id);
+            for (int i = 0; i < 3; ++i)
+                w.u16(uint16_t(int16_t(std::clamp(std::round(s.at[size_t(i)] - position[size_t(i)]), -32767.0, 32767.0))));
+            w.u16(s.look);
+            w.u8(uint8_t(std::clamp(now - s.born, 0.0, 255.0)));
+        }
         host.sendService(r.peer, kService, m.data(), m.size());
     }
 
@@ -493,10 +618,12 @@ struct Rendezvous::Impl {
         Reader rd(p, n);
         Point at;
         for (double& v : at) v = rd.f64();
-        const uint8_t flags = rd.u8(), count = rd.u8();
+        const uint8_t flags = rd.u8();
+        const uint16_t how = rd.u16();
+        const uint8_t count = rd.u8();
         if (!rd.ok() || !std::isfinite(at[0] + at[1] + at[2]) || count > kMaxGossip) return;
         const bool first = !r.placed;
-        r.placed = true, r.at = at, r.wantsUs = flags & 1;
+        r.placed = true, r.at = at, r.wantsUs = flags & 1, r.look = how;
         for (uint8_t i = 0; i < count; ++i) {
             const uint64_t id = rd.u64();
             Point there;
@@ -514,6 +641,37 @@ struct Rendezvous::Impl {
                 continue;
             }
             c->at = there, c->via = r.peer, c->heard = now;
+        }
+        // Its announcer sketches: the lowest ranks of the crowd, merged into ours.
+        if (rd.done()) return;
+        const uint8_t sketches = rd.u8();
+        for (uint8_t s = 0; s < sketches && rd.ok(); ++s) {
+            Tag tag;
+            if (const uint8_t* t = rd.bytes(8)) std::memcpy(tag.data(), t, 8);
+            const uint8_t n = rd.u8();
+            if (!rd.ok() || n > 64) return;
+            Joined* j = nullptr;
+            for (Joined& x : topics)
+                if (x.tag == tag) j = &x;
+            for (uint8_t i = 0; i < n; ++i) {
+                const uint64_t id = rd.u64();
+                const double left = rd.u16();
+                if (!rd.ok()) return;
+                if (j) mergeLow(*j, id, now + left);
+            }
+            if (j) j->sketchHeard = true;
+        }
+        // Its sightings: the crowd beyond, relative to where it stands.
+        if (rd.done()) return;
+        const uint8_t sights = rd.u8();
+        for (uint8_t i = 0; i < sights; ++i) {
+            const uint32_t id = rd.u32();
+            Point there;
+            for (int k = 0; k < 3; ++k) there[size_t(k)] = at[size_t(k)] + double(int16_t(rd.u16()));
+            const uint16_t seenLook = rd.u16();
+            const double age = rd.u8();
+            if (!rd.ok()) return;
+            sighted(id, there, seenLook, now - age);
         }
         // A newcomer: it learns at once who stands near it.
         if (first && positioned && cfg.neighbours > 0) r.nearDue = true;
@@ -569,9 +727,10 @@ struct Rendezvous::Impl {
         ++st.introductionsAsked;
     }
 
-    // The `neighbours` nearest are linked (asked for when they are not); a
-    // quarter more are kept, so the edge of the set does not churn; a link
-    // beyond that which the other side does not want either is dropped.
+    // The `neighbours` nearest are linked (asked for when they are not);
+    // `keepRatio` times as many are kept, so the edge of the set does not
+    // churn; a link beyond that which the other side does not want either is
+    // dropped.
     void select() {
         const double stale = 3 * cfg.gossipSeconds;
         candidates.erase(std::remove_if(candidates.begin(), candidates.end(), [&](const Candidate& c) {
@@ -588,7 +747,7 @@ struct Rendezvous::Impl {
             if (r.placed && !r.member.empty()) all.push_back({distance2(r.at, position), r.id, &r, nullptr});
         for (const Candidate& c : candidates) all.push_back({distance2(c.at, position), c.id, nullptr, &c});
         std::sort(all.begin(), all.end(), [](const Option& a, const Option& b) { return a.d < b.d; });
-        const size_t keep = cfg.neighbours + (cfg.neighbours + 3) / 4;
+        const size_t keep = std::max(cfg.neighbours, size_t(std::ceil(double(cfg.neighbours) * cfg.keepRatio)));
         wanted.clear();
         for (size_t i = 0; i < all.size() && i < keep; ++i) wanted.push_back(all[i].id);
         std::sort(wanted.begin(), wanted.end());
@@ -608,6 +767,9 @@ struct Rendezvous::Impl {
             }
         }
         st.candidates = candidates.size();
+        seen.erase(std::remove_if(seen.begin(), seen.end(), [&](const Seen& s) {
+            return now - s.born > cfg.sightingSeconds || linked32(s.id);
+        }), seen.end());
     }
 
     void proximity() {
@@ -626,10 +788,100 @@ struct Rendezvous::Impl {
 
     // The DHT is the door: a topic with members asks it rarely, and only the
     // `announcers` members whose ids hash nearest the topic's key announce.
+    // --- The announcer sketch (proximity) -------------------------------------------
+
+    uint64_t rankOf(const Tag& tag, uint64_t id) const {
+        uint8_t b[16];
+        std::memcpy(b, tag.data(), 8);
+        for (int i = 0; i < 8; ++i) b[8 + i] = uint8_t(id >> (8 * i));
+        return netcode::hash64(b, sizeof b);
+    }
+    // Keeps the `announcers` lowest ranks heard of and not expired.
+    void mergeLow(Joined& j, uint64_t id, double expires) {
+        expires = std::min(expires, now + cfg.announcerSeconds);
+        bool known = false;
+        for (Joined::Low& l : j.low)
+            if (l.id == id) known = true, l.expires = std::max(l.expires, expires);
+        if (!known) j.low.push_back({id, rankOf(j.tag, id), expires});
+        j.low.erase(std::remove_if(j.low.begin(), j.low.end(), [&](const Joined::Low& l) { return l.expires < now; }),
+                    j.low.end());
+        std::sort(j.low.begin(), j.low.end(), [](const Joined::Low& a, const Joined::Low& b) { return a.rank < b.rank; });
+        if (j.low.size() > cfg.announcers) j.low.resize(cfg.announcers);
+    }
+    bool elected(Joined& j) {
+        mergeLow(j, selfId, now + cfg.announcerSeconds);  // we stand for it as long as we are here
+        for (const Joined::Low& l : j.low)
+            if (l.id == selfId) return true;
+        return false;
+    }
+    // k lowest of n uniform ranks: the k-th sits near k/n of the range.
+    double population(const Joined& j) const {
+        if (j.low.size() < cfg.announcers || cfg.announcers < 2) return double(j.low.size());
+        return double(cfg.announcers - 1) / (double(j.low.back().rank) / 18446744073709551616.0);
+    }
+
+    // What we do in the DHT for a crowd's topic. Seeker: just arrived,
+    // asking and announcing on our own shard only (a crowd's announcers are
+    // on every shard: an arrival into a crowd costs one shard's nodes).
+    // Finder: still alone after seekSeconds, findable on every shard, asking
+    // our own. Announcer: findable, asking rarely (heal). Silent: linked and
+    // not elected, nothing at all.
+    void play(Joined& j, Joined::Role role) {
+        if (role == j.role || !dht) return;
+        j.role = role;
+        if (role == Joined::Silent) {
+            for (const NodeId& k : j.keys) dht->unwatch(k);
+            return;
+        }
+        if (role == Joined::Seeker) {
+            for (uint32_t s = 0; s < j.keys.size(); ++s)
+                if (s != j.shard) dht->unwatch(j.keys[s]);
+            j.refresh = cfg.refreshSeconds * (0.75 + 0.5 * double(randomU64() >> 11) / 9007199254740992.0);
+            dht->watch(j.keys[j.shard], true, j.refresh);
+            return;
+        }
+        // Arrivals are spread in time as in space: each finder refreshes on
+        // its own rhythm, never in step with the others.
+        const double jitter = 0.75 + 0.5 * double(randomU64() >> 11) / 9007199254740992.0;
+        const double refresh = role == Joined::Finder ? cfg.refreshSeconds * jitter : cfg.populatedRefreshSeconds * jitter;
+        j.refresh = refresh;
+        for (uint32_t s = 0; s < j.keys.size(); ++s) dht->watch(j.keys[s], true, s == j.shard ? refresh : 1e9);
+    }
+
     void tendDht() {
-        st.announcing = 0;
+        st.announcing = 0, st.silent = 0, st.population = 0;
         if (!dht) return;
         for (Joined& j : topics) {
+            if (cfg.neighbours > 0) {
+                const size_t members = membersOf(j.tag);
+                if (members == 0) {
+                    j.linkedSince = -1;
+                    if (j.aloneSince < 0) j.aloneSince = now;  // also the first tending after join()
+                } else if (j.linkedSince < 0) {
+                    j.linkedSince = now, j.aloneSince = -1;
+                }
+                const bool chosen = elected(j);
+                Joined::Role role = members > 0 ? (chosen ? Joined::Announcer : Joined::Silent)
+                                    : now - j.aloneSince < cfg.seekSeconds ? Joined::Seeker : Joined::Finder;
+                // Just linked: stay as we were until the crowd's sketch says
+                // who announces (a newcomer hears it within a gossip).
+                if (members > 0 && !j.sketchHeard && now - j.linkedSince < 10) role = j.role;
+                play(j, role);
+                if (j.role == Joined::Finder && !j.keys.empty()) {
+                    // Alone, findable: asking again matters only for whoever
+                    // arrives at the same moment, so it slows down from every
+                    // refreshSeconds to every populatedRefreshSeconds.
+                    const double want = std::clamp((now - j.aloneSince) / 4, cfg.refreshSeconds, cfg.populatedRefreshSeconds);
+                    if (want > j.refresh * 1.25 || want < j.refresh * .8) {
+                        j.refresh = want;
+                        dht->watch(j.keys[j.shard], true, want);
+                    }
+                }
+                st.announcing += j.role != Joined::Silent && j.role != Joined::None;
+                st.silent += j.role == Joined::Silent;
+                st.population = std::max(st.population, population(j));
+                continue;
+            }
             const NodeId key = j.topic.dhtKey();
             auto rank = [&](uint64_t id) {
                 uint8_t b[28];
@@ -692,7 +944,7 @@ struct Rendezvous::Impl {
             for (const DhtFound& f : dht->takeFound()) {
                 ++st.found;
                 for (Joined& j : topics) {
-                    if (j.topic.dhtKey() != f.key) continue;
+                    if (j.topic.dhtKey() != f.key && std::find(j.keys.begin(), j.keys.end(), f.key) == j.keys.end()) continue;
                     // A crowd meets newcomers through its own peers: an address
                     // from the DHT is only tried now and then, to heal a split.
                     if (cfg.neighbours > 0 && membersOf(j.tag) >= 2 && !host.peerAt(f.peer)) {
@@ -729,8 +981,21 @@ void Rendezvous::setLanSocket(DatagramSocket* socket) { impl_->lan = socket; }
 
 void Rendezvous::join(const Topic& topic) {
     if (joined(topic)) return;
-    impl_->topics.push_back({topic, topic.tag(), true, impl_->cfg.refreshSeconds, -1e18});
-    if (impl_->dht) impl_->dht->watch(topic.dhtKey(), true, impl_->cfg.refreshSeconds);
+    impl_->topics.emplace_back();
+    Impl::Joined& j = impl_->topics.back();
+    j.topic = topic, j.tag = topic.tag(), j.refresh = impl_->cfg.refreshSeconds;
+    if (impl_->cfg.neighbours > 0) {
+        // A crowd's topic: its shard keys, ours chosen by our id; findable at once.
+        const size_t shards = std::max<size_t>(1, impl_->cfg.dhtShards);
+        for (uint32_t s = 0; s < shards; ++s) j.keys.push_back(topic.dhtKey(s));
+        j.shard = uint32_t(impl_->selfId % shards);
+        // Before the first poll our clock is not known yet: the first tending
+        // starts the seeking time, not a clock still at zero.
+        j.aloneSince = impl_->started < 0 ? -1 : impl_->now;
+        impl_->play(j, Impl::Joined::Seeker);
+    } else if (impl_->dht) {
+        impl_->dht->watch(topic.dhtKey(), true, impl_->cfg.refreshSeconds);
+    }
     impl_->lastBeacon = -1e18;
     for (auto& r : impl_->remotes) {
         impl_->sendTopics(r.peer);
@@ -741,6 +1006,9 @@ void Rendezvous::join(const Topic& topic) {
 void Rendezvous::leave(const Topic& topic) {
     auto& ts = impl_->topics;
     const size_t before = ts.size();
+    for (const Impl::Joined& j : ts)
+        if (j.topic == topic && impl_->dht)
+            for (const NodeId& k : j.keys) impl_->dht->unwatch(k);
     ts.erase(std::remove_if(ts.begin(), ts.end(), [&](const Impl::Joined& j) { return j.topic == topic; }), ts.end());
     if (ts.size() == before) return;
     if (impl_->dht) impl_->dht->unwatch(topic.dhtKey());
@@ -763,6 +1031,16 @@ std::vector<PeerHandle> Rendezvous::peers(const Topic& topic) const {
 }
 
 void Rendezvous::poll(double now) { impl_->poll(now); }
+void Rendezvous::setLook(uint16_t look) { impl_->look = look; }
+
+std::vector<Sighting> Rendezvous::sightings() const {
+    std::vector<Sighting> out;
+    for (const auto& s : impl_->seen)
+        if (impl_->now - s.born <= impl_->cfg.sightingSeconds && !impl_->linked32(s.id))
+            out.push_back({s.id, s.at[0], s.at[1], s.at[2], s.look, impl_->now - s.born});
+    return out;
+}
+
 void Rendezvous::setPosition(double x, double y, double z) {
     if (!std::isfinite(x + y + z)) return;
     impl_->positioned = true;

@@ -1015,6 +1015,22 @@ void gpuAsyncGltf(VulkanDevice& device) {
         });
         require(meshes==1&&armatures==1,"tiny skin and matrix armature both checked");
     }
+    // The same skin through AutoLOD (autolod tiny_armature.gltf): every level
+    // is a skinned mesh bound by the same rig, so a distant body still moves.
+    {
+        Node lod;
+        require(GLTFLoader::load((root/"animation/tiny_armature_lod.glb").string(),lod,resources),"skinned LOD import");
+        int chains=0;
+        lod.traverse([&](Node& node,const glm::mat4&){
+            auto* mesh=dynamic_cast<MeshNode*>(&node);
+            if(!mesh||!mesh->hasLods())return;
+            ++chains;
+            require(mesh->lods().size()==4,"a skinned LOD chain keeps every AutoLOD level");
+            for(int l=0;l<4;++l)
+                require(mesh->meshForLod(l)&&mesh->meshForLod(l)->skinned(),"every skinned LOD level keeps its joints and weights");
+        });
+        require(chains==1,"the skinned primitive carries its LOD chain");
+    }
     handle=GLTFLoader::request("streaming/triangle.gltf",resources);
     while(!handle.ready()&&!handle.failed()&&std::chrono::steady_clock::now()<deadline)std::this_thread::yield();
     require(handle.ready(),"worker decodes textured triangle glTF fixture");
@@ -1081,6 +1097,8 @@ void gpuAsyncGltf(VulkanDevice& device) {
     billboardRoot.traverse([&](Node& node,const glm::mat4&){if(auto* mesh=dynamic_cast<MeshNode*>(&node)) {
         const auto& desc=mesh->material()->desc();
         require(desc.billboardColumns==8&&desc.billboardRows==5,"atlas dimensions survive glTF import");
+        require(desc.billboardFrames==4&&desc.billboardStride==1.4f&&desc.billboardLoopSeconds==1.f,
+                "an animated atlas keeps its frames and its stride");
         require(!mesh->castShadows(),"billboard quad is not a solid shadow caster");
         auto single=desc;single.billboardColumns=1;single.billboardRows=1;
         require(resources.getMaterial(single)!=mesh->material(),"different billboard atlases have distinct cached materials");

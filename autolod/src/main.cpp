@@ -323,11 +323,25 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
         std::vector<float> uv  = (uvAcc  >= 0) ? readFloats(model, uvAcc, 2)  : std::vector<float>();
         std::vector<uint32_t> idx = readIndices(model, prim, vcount);
         if (idx.size() < 3) continue;
+        // A skinned primitive keeps its joints and weights: decimation only
+        // drops vertices, so every vertex kept is still bound as it was.
+        auto itJ = prim.attributes.find("JOINTS_0");
+        auto itW = prim.attributes.find("WEIGHTS_0");
+        const bool skinned = itJ != prim.attributes.end() && itW != prim.attributes.end();
+        std::vector<float> joints = skinned ? readFloats(model, itJ->second, 4) : std::vector<float>();
+        std::vector<float> weights = skinned ? readFloats(model, itW->second, 4) : std::vector<float>();
+        if (skinned && (joints.size() != vcount * 4 || weights.size() != vcount * 4)) {
+            std::cout << "    skinned primitive with mismatched joints/weights, skipped\n";
+            continue;
+        }
 
-        // Interleave : [pos(3)][nrm(3)?][uv(2)?]
+        // Interleave : [pos(3)][nrm(3)?][uv(2)?][joints(4) weights(4)?]
+        // The skin rides last: simplification weighs only normals and UVs,
+        // and the weld keys on it, so two bindings are never merged.
         const bool hasN = nrmAcc >= 0;
         const bool hasUV = uvAcc >= 0;
-        const int comps = 3 + (hasN ? 3 : 0) + (hasUV ? 2 : 0);
+        const int skinAt = 3 + (hasN ? 3 : 0) + (hasUV ? 2 : 0);
+        const int comps = skinAt + (skinned ? 8 : 0);
         std::vector<float> vtx(vcount * comps);
         for (size_t i = 0; i < vcount; ++i) {
             int o = 0;
@@ -336,6 +350,8 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
             vtx[i * comps + o++] = pos[i * 3 + 2];
             if (hasN)  { vtx[i * comps + o++] = nrm[i * 3 + 0]; vtx[i * comps + o++] = nrm[i * 3 + 1]; vtx[i * comps + o++] = nrm[i * 3 + 2]; }
             if (hasUV) { vtx[i * comps + o++] = uv[i * 2 + 0];  vtx[i * comps + o++] = uv[i * 2 + 1]; }
+            if (skinned)
+                for (int c = 0; c < 4; ++c) vtx[i * comps + skinAt + c] = joints[i * 4 + c], vtx[i * comps + skinAt + 4 + c] = weights[i * 4 + c];
         }
 
         // Weld : indispensable, les exports dupliquent souvent les sommets par triangle.
@@ -399,7 +415,8 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
             // For very aggressive levels (ratio < proxyBelow). Decouples the
             // triangle count from UV integrity: cleanly re-unwraps and
             // bakes albedo + normal + MR + AO + emissive into a new atlas.
-            if (cfg.proxy && canBake && lvl.ratio < cfg.proxyBelow) {
+            // A proxy re-unwraps and welds by position: no skin survives it.
+            if (cfg.proxy && canBake && !skinned && lvl.ratio < cfg.proxyBelow) {
                 std::vector<float> dpos;
                 std::vector<unsigned int> didx;
                 if (!cfg.shapeIdx.empty()) {
@@ -633,6 +650,19 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
                                         TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC3, newVCount) : -1;
             const int uvOut  = hasUV ? makeAccessor(model, vView, (hasN?6:3)*sizeof(float),
                                         TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC2, newVCount) : -1;
+            // Skin: weights from the interleaved buffer, joints as glTF wants
+            // them (unsigned shorts, a buffer of their own).
+            int jointsOut = -1, weightsOut = -1;
+            if (skinned) {
+                weightsOut = makeAccessor(model, vView, size_t(skinAt + 4) * sizeof(float),
+                                          TINYGLTF_COMPONENT_TYPE_FLOAT, TINYGLTF_TYPE_VEC4, newVCount);
+                std::vector<uint16_t> j(size_t(newVCount) * 4);
+                for (size_t i = 0; i < newVCount; ++i)
+                    for (int c = 0; c < 4; ++c) j[i * 4 + c] = uint16_t(std::lround(cvtx[i * comps + skinAt + c]));
+                const size_t jOff = appendData(model, j.data(), j.size() * sizeof(uint16_t), 4);
+                const int jView = makeBufferView(model, jOff, j.size() * sizeof(uint16_t), 0, TINYGLTF_TARGET_ARRAY_BUFFER);
+                jointsOut = makeAccessor(model, jView, 0, TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT, TINYGLTF_TYPE_VEC4, newVCount);
+            }
 
             // 5. Index buffer
             const size_t iOff = appendData(model, cidx.data(), n * sizeof(unsigned int), 4);
@@ -648,6 +678,7 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
             lp.attributes["POSITION"] = posOut;
             if (nrmOut >= 0) lp.attributes["NORMAL"]     = nrmOut;
             if (uvOut  >= 0) lp.attributes["TEXCOORD_0"] = uvOut;
+            if (jointsOut >= 0) lp.attributes["JOINTS_0"] = jointsOut, lp.attributes["WEIGHTS_0"] = weightsOut;
 
             // 6. Normal map bake (re-projection of high-poly detail).
             std::string bakeInfo;
@@ -712,11 +743,6 @@ static std::vector<int> generateLodMeshes(Model& model, int meshIndex, const Con
     return out;
 }
 
-static bool meshIsSkinned(const Model& m, int meshIndex) {
-    for (const auto& p : m.meshes[meshIndex].primitives)
-        if (p.attributes.count("JOINTS_0")) return true;
-    return false;
-}
 
 // ---------------------------------------------------------------------------
 // Traitement complet d'un modele
@@ -732,13 +758,10 @@ static int processModel(Model& model, const Config& cfg) {
     for (size_t i = 0; i < nodeCount; ++i) {
         const int meshIndex = model.nodes[i].mesh;
         if (meshIndex < 0) continue;
-        if (model.nodes[i].skin >= 0 || meshIsSkinned(model, meshIndex)) {
-            std::cout << "  node " << i << " : mesh skinne, ignore.\n";
-            continue;
-        }
-
+        const int skin = model.nodes[i].skin;
         std::cout << "  node " << i << " -> mesh " << meshIndex
-                  << " (" << model.meshes[meshIndex].name << ")\n";
+                  << " (" << model.meshes[meshIndex].name << ")"
+                  << (skin >= 0 ? " skinned: joints and weights carried" : "") << "\n";
 
         if (!cached[meshIndex]) {
             meshLodCache[meshIndex] = generateLodMeshes(model, meshIndex, cfg);
@@ -753,15 +776,20 @@ static int processModel(Model& model, const Config& cfg) {
             Node n;
             n.name = model.meshes[lm].name;
             n.mesh = lm;
+            n.skin = skin;  // a skinned level is bound by the same skin
             model.nodes.push_back(n);
             ids.push_back(tinygltf::Value(int(model.nodes.size() - 1)));
         }
         if (ids.empty()) continue;
 
-        // MSFT_lod sur le node LOD0 (qui garde son mesh d'origine intact)
+        // MSFT_lod sur le node LOD0 (qui garde son mesh d'origine intact).
+        // tinygltf (2.9) writes MSFT_lod from Node::lods and erases an
+        // extension of that name when lods is empty: set both.
         tinygltf::Value::Object lodExt;
         lodExt["ids"] = tinygltf::Value(ids);
         model.nodes[i].extensions["MSFT_lod"] = tinygltf::Value(lodExt);
+        model.nodes[i].lods.clear();
+        for (const auto& id : ids) model.nodes[i].lods.push_back(id.Get<int>());
 
         // CRITICAL: makes LOD nodes accessible from the scene.
         // MSFT_lod spec: nodes referenced in "ids" must be siblings of the LOD0

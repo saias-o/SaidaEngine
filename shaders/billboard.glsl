@@ -1,7 +1,9 @@
 // Spherical XY billboard. Atlas views are relative to the authored model's
 // frame, so randomized instance yaw and rebased worlds retain their silhouette.
 // Adjacent azimuth views blend; elevation takes the nearest baked row.
-void faceBillboard(mat4 model, vec3 eye, vec2 atlas, inout vec3 position,
+// `animation` is (frames, frame): an animated atlas stacks one block of
+// `atlas.y` elevation rows per frame of its clip.
+void faceBillboard(mat4 model, vec3 eye, vec2 atlas, vec2 animation, inout vec3 position,
                    inout vec3 normal, inout vec3 tangent, inout vec2 uv,
                    out vec3 nextView) {
     nextView = vec3(0.0, 0.0, -1.0);
@@ -19,6 +21,8 @@ void faceBillboard(mat4 model, vec3 eye, vec2 atlas, inout vec3 position,
     float azimuth = mod(atan(facing.x, facing.z) / 6.28318530718 + 1.0, 1.0) * atlas.x;
     float column = floor(azimuth);
     float row = atlas.y > 1.0 ? round((asin(clamp(facing.y, -1.0, 1.0)) / 3.14159265359 + 0.5) * (atlas.y - 1.0)) : 0.0;
-    nextView = vec3((uv + vec2(mod(column + 1.0, atlas.x), row)) / atlas, fract(azimuth));
-    uv = (uv + vec2(column, row)) / atlas;
+    vec2 cells = vec2(atlas.x, atlas.y * max(animation.x, 1.0));
+    row += animation.y * atlas.y;
+    nextView = vec3((uv + vec2(mod(column + 1.0, atlas.x), row)) / cells, fract(azimuth));
+    uv = (uv + vec2(column, row)) / cells;
 }
