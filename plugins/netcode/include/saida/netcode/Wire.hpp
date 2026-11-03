@@ -58,6 +58,14 @@ public:
     explicit Writer(std::vector<uint8_t>& out) : out_(out) {}
     void u8(uint8_t v) { out_.push_back(v); }
     void u16(uint16_t v) { u8(uint8_t(v)), u8(uint8_t(v >> 8)); }
+    void u32(uint32_t v) {
+        for (int i = 0; i < 4; ++i) u8(uint8_t(v >> (8 * i)));
+    }
+    void f32(float v) {
+        uint32_t bits;
+        std::memcpy(&bits, &v, 4);
+        u32(bits);
+    }
     void u64(uint64_t v) {
         for (int i = 0; i < 8; ++i) u8(uint8_t(v >> (8 * i)));
     }
@@ -95,6 +103,17 @@ public:
     uint16_t u16() {
         const uint16_t lo = u8();
         return uint16_t(lo | uint16_t(u8()) << 8);
+    }
+    uint32_t u32() {
+        uint32_t v = 0;
+        for (int i = 0; i < 4; ++i) v |= uint32_t(u8()) << (8 * i);
+        return v;
+    }
+    float f32() {
+        const uint32_t bits = u32();
+        float v;
+        std::memcpy(&v, &bits, 4);
+        return v;
     }
     uint64_t u64() {
         uint64_t v = 0;

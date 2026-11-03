@@ -21,6 +21,7 @@ its own.
 | `Simulation.hpp` | The game's side: `FrameContext`, `Simulation` (save, load, advance, predict, commit, retract) and the `Ledger` of effects and commits. |
 | `Clock.hpp` | `TickClock`: frame time to whole fixed ticks, with the session's time scale and bounded catch-up. `Smoother<N>`: hides a rollback correction on screen. |
 | `Session.hpp` | `Session`: synchronized start, adaptive input delay, prediction, rollback, time sync, membership, loss, desync detection and resync, connection quality. `Transport` is what the host implements underneath. |
+| `Replica.hpp` | State replication, the other model: `RemoteClock` (a sender's clock from arrivals alone), `Replica<State>` (an object another machine owns, drawn smoothly a little in the past, with an adaptive delay and bounded extrapolation), `History<State>` (the owner's own recent states, to judge what a remote machine says it saw). |
 | `Replay.hpp` | `Replay` records confirmed frames; `ReplayPlayer` plays them back and checks every recorded state hash. |
 | `SyncTest.hpp` | Qualifies a `Simulation` for rollback: replays the last frames every frame and names the first one whose state differs. |
 | `SimNetwork.hpp` | An in-process network with latency, jitter, loss, duplication and reordering, implementing `Transport`. |
@@ -165,6 +166,48 @@ any network; it fails on the first frame that breaks this, and says which.
   only if asked, and stops at the first frame whose state hash differs (a
   changed simulation, a desync to reproduce). A resync restarts the recording.
 
+## Replication
+
+Rollback needs every machine to compute the same thing. A game whose shared
+objects each have one obvious owner, and whose physics differs per machine (an
+open world streaming its own collision), replicates instead: the owner sends
+its state, every other machine draws it.
+
+```cpp
+Replica<Avatar> them;                         // per remote object
+them.push(message.sent, now, message.avatar); // the owner's clock, ours
+Avatar drawn;
+them.sample(now, drawn, lerp);                // lerp(a, b, t); t > 1 extrapolates
+claim.seen = them.playback();                 // the owner's instant we drew
+
+History<Avatar> mine(1.0);                    // on the owner
+mine.record(now, myAvatar);
+Avatar then;
+if (mine.at(claim.seen, then, lerp)) judge(claim, then);
+```
+
+The sender's clock is never exchanged: the least arrival-minus-send over a
+few seconds is the clock offset plus the fastest path, and how far arrivals lie
+above it is the jitter. The drawing runs behind the fastest path like a
+jitter buffer: `minDelay`, plus the gap between snapshots that 80 % of the
+recent ones do not exceed, plus the latest recent arrival (at most
+`maxDelay`). An owner whose frames stutter is covered by his recent stutters;
+a snapshot lost now and then is bridged by a short extrapolation instead of a
+longer delay for everyone. Its clock
+slews by at most 8 % towards that target, so a change of delay is never a
+jerk; a silent owner is extrapolated for `maxExtrapolation`, then held. A
+remote machine acting on what it drew names `playback()`, an instant of the
+owner's clock, and the owner judges against its own history: lag compensation
+with the owner as the judge. Measured in `tests/test_netcode.cpp`: an owner
+walking at 5 m/s, 20 snapshots a second, 60-90 ms one way, 10 % loss and
+reordering, a clock 1234.5 s off drifting 50 ppm (40 seeds): drawn between
+real snapshots on 93-98 % of frames, the rest bridged, never frozen; no
+frame's step a quarter off the walking speed; about 150 ms behind the owner
+(the 60-90 ms path plus a 100 ms delay); the history at the instant drawn
+equal to what was drawn. An owner sending once per 130-240 ms frame, drawn at
+7 frames a second (two loaded machines): still between real snapshots on more
+than 95 % of frames.
+
 ## Refusals are said
 
 Every refused packet is counted in `Counters::rejected` under a `Reason` and
@@ -248,5 +291,7 @@ hostile packets, impersonation, a full session, a mismatched build, a
 synchronized start on unequal lines, the delay rising on a long line and
 falling on a short one, a fixed delay, a 300 ms hitch, a game predictor, the
 quality bars, and a recorded match with a join and a leave played back with
-every hash and commit, a changed simulation caught, and damaged replays
-refused.
+every hash and commit, a changed simulation caught, damaged replays
+refused, and a replicated object drawn over a lossy, reordering, drifting
+line: smooth, a little behind, held when its owner goes silent, and equal to
+the owner's history at the instant drawn.

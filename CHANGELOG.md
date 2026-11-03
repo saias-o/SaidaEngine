@@ -37,6 +37,20 @@ and create a new tag under `RELEASE.md`.
   players cost 0.013 ms per machine per frame on a Ryzen 7 5700U and 42.8 KB/s
   of upload each.
 
+### State replication in the netcode add-on
+
+- `plugins/netcode/Replica.hpp`: objects one machine owns, drawn by every
+  other. `RemoteClock` derives a sender's clock offset and jitter from
+  arrivals alone; `Replica<State>` draws an object a little in the past
+  between two snapshots it really had, its delay a jitter buffer's (the
+  usual recent gap between snapshots plus the latest recent arrival, so a
+  stuttering owner stays smooth), its playback clock slewing instead of jumping, extrapolating
+  a silent owner for a bounded time and then holding it; `History<State>`
+  keeps the owner's own states so it can judge what another machine says it
+  drew (`playback()`, an instant of the owner's clock). For games that cannot
+  be one deterministic simulation, such as an open world whose collision each
+  machine streams itself. `Wire.hpp` gains 32-bit integers and floats.
+
 ### Peer-to-peer transport add-on
 
 - `plugins/p2p`, a C++17 static library (`Saida::P2P`) on the engine's

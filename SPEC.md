@@ -3361,6 +3361,27 @@ simulation by replaying its last frames every frame and naming the first
 divergent one; `SimNetwork` is an in-process transport with latency, jitter,
 loss, duplication and reordering.
 
+`Replica.hpp` is the other model, for objects one machine owns and every
+other machine draws (an open world whose physics differs per machine cannot be
+one deterministic simulation). `RemoteClock` maps a sender's clock to the local
+one from arrivals alone: the least arrival-minus-send over a window of four
+slices is the offset plus the fastest path, the smoothed excess above it the
+jitter. `Replica<State>` keeps up to `capacity` snapshots in send order
+(duplicates and snapshots older than the drawing refused) and draws the state
+at a playback time `targetDelay()` behind the fastest path, like a jitter
+buffer: `minDelay`, plus the gap between snapshots that 80 % of those of the
+window do not exceed (gaps longer than `maxDelay` are outages and not
+counted), plus the latest arrival behind the fastest path over the window
+(`RemoteClock::spread`), within `maxDelay`. The
+playback clock slews towards its target by at most `slew` and jumps only past
+`snap`. Between two snapshots the caller's `lerp(a, b, t)` blends
+(`Interpolated`); past the newest it extrapolates with t > 1 for at most
+`maxExtrapolation` (`Extrapolated`), then holds (`Held`). `playback()` is the
+owner's instant drawn, in the owner's clock: a remote machine names it in a
+claim, and the owner judges the claim against its own `History<State>`, the
+states it recorded by its own clock over the last `seconds` (lag compensation
+with no clock synchronization).
+
 Verification is one translation unit with no engine build:
 `g++ -std=c++17 -O2 -Wall -Wextra -I../include test_netcode.cpp -o test_netcode`
 in `plugins/netcode/tests`, which prints `PASS saida::netcode`; an integer

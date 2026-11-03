@@ -764,6 +764,12 @@ Post-V1 unless the scope changes explicitly.
     kinds; real loopback IPv4/IPv6 and LAN beacons) and live on the real
     Mainline DHT (`examples/p2p_probe.cpp`: discovery by arena code between
     two processes in 0.5-4 s).
+  - [x] State replication for owned objects: `plugins/netcode/Replica.hpp`
+    (SPEC 11.6, 2026-11-03). Sender clock from arrivals alone, adaptive
+    interpolation delay with a slewing playback clock, bounded extrapolation,
+    and the owner's history to judge claims made against what another machine
+    drew (lag compensation with the owner as the judge). Proven in
+    `test_netcode.cpp`; used by R1World's online play.
   - [ ] Relay for the pairs no punching opens (symmetric NAT against
     port-restricted or symmetric NAT), through a peer both reach.
   - [ ] DHT over IPv6 (BEP 32), and private addresses for players behind one

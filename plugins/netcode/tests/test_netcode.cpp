@@ -774,6 +774,111 @@ static void quality() {
     b.run(2);
 }
 
+// --- Replication ------------------------------------------------------------------
+
+// An owner walking at 5 m/s sends its position at 20 Hz over a 60 ms line with
+// jitter, loss and reordering, on a clock 1234.5 s off and drifting 50 ppm.
+// The remote draws it at 60 Hz: smooth, a little behind, and what it draws is
+// what the owner's history says it was at the instant named.
+static void replicas() {
+    uint64_t rng = 0x2545f4914f6cdd1dULL ^ (seedOffset * 0x9e3779b97f4a7c15ULL);
+    auto uniform = [&] {
+        rng ^= rng << 13, rng ^= rng >> 7, rng ^= rng << 17;
+        return double(rng >> 11) / double(1ULL << 53);
+    };
+    auto lerp = [](double a, double b, double t) { return a + (b - a) * t; };
+    Replica<double> remote;
+    History<double> owned(1.0);
+    struct Flight { double arrive, sent, x; };
+    std::vector<Flight> air;
+    const double speed = 5.0, offset = 1234.5;
+    auto ownerTime = [&](double t) { return t * (1 + 50e-6) + offset; };
+    double nextSend = 0, lastDrawn = 0, worstStep = 0, worstLag = 0, bestLag = 1e9, worstHistory = 0;
+    int interpolated = 0, sampled = 0, held = 0;
+    bool first = true;
+    for (int frame = 0; frame < 60 * 20; ++frame) {
+        const double now = frame / 60.0;
+        owned.record(ownerTime(now), speed * now);
+        if (now >= nextSend) {
+            nextSend += 0.05;
+            if (uniform() >= 0.1) air.push_back({now + 0.06 + 0.03 * uniform(), ownerTime(now), speed * now});
+        }
+        std::sort(air.begin(), air.end(), [](const Flight& a, const Flight& b) { return a.arrive < b.arrive; });
+        while (!air.empty() && air.front().arrive <= now) {
+            remote.push(air.front().sent, now, air.front().x);
+            air.erase(air.begin());
+        }
+        double drawn = 0;
+        const ReplicaSample kind = remote.sample(now, drawn, lerp);
+        if (kind == ReplicaSample::Empty || now < 2.0) {
+            lastDrawn = drawn;
+            continue;
+        }
+        ++sampled;
+        interpolated += kind == ReplicaSample::Interpolated;
+        held += kind == ReplicaSample::Held;
+        if (!first) worstStep = std::max(worstStep, std::fabs((drawn - lastDrawn) - speed / 60.0));
+        first = false;
+        lastDrawn = drawn;
+        const double lag = (speed * now - drawn) / speed;
+        worstLag = std::max(worstLag, lag), bestLag = std::min(bestLag, lag);
+        double was = 0;
+        if (owned.at(remote.playback(), was, lerp)) worstHistory = std::max(worstHistory, std::fabs(was - drawn));
+        else worstHistory = 1e9;
+    }
+    std::printf("  replica: %.1f%% between snapshots, drawn %.0f-%.0f ms behind the owner, delay %.0f ms\n",
+                100.0 * interpolated / sampled, bestLag * 1000, worstLag * 1000, remote.targetDelay() * 1000);
+    check(interpolated > sampled * 90 / 100 && held == 0,
+          "a remote object is drawn between real snapshots, a lost one bridged, never frozen");
+    check(worstStep < speed / 60.0 * 0.25, "it moves smoothly: no frame's step is a quarter off its speed");
+    check(bestLag > 0.06 && worstLag < 0.3, "it is drawn a little behind, never more than the line asks");
+    check(worstHistory < 1e-3, "the owner's history at the instant drawn is what was drawn");
+
+    // The owner goes silent: extrapolated a moment, then held; back, it snaps on.
+    double now = 20.0, drawn = 0, before = 0;
+    remote.sample(now, before, lerp);
+    ReplicaSample kind = ReplicaSample::Empty;
+    for (int i = 0; i < 60; ++i) now += 1.0 / 60, kind = remote.sample(now, drawn, lerp);
+    check(kind == ReplicaSample::Held && drawn - before < speed * 0.6, "a silent owner is held, not run off into the distance");
+    remote.push(ownerTime(now), now + 0.06, speed * now);
+    remote.push(ownerTime(now + 0.05), now + 0.11, speed * (now + 0.05));
+    now += 0.2;
+    remote.sample(now, drawn, lerp);
+    check(std::fabs(drawn - speed * (now - 0.1)) < speed * 0.15, "and drawn on its new path as soon as it speaks again");
+
+    // Two loaded machines: the owner sends once per frame of 130-240 ms, the
+    // remote draws at 7 frames a second. The delay covers the worst recent
+    // gap, so the drawing still runs between real snapshots.
+    {
+        Replica<double> slow;
+        double sendAt = 0, lastFrame = 0;
+        int between = 0, frames = 0;
+        std::vector<Flight> queue;
+        for (double t = 0; t < 30; t += 0.001) {
+            if (t >= sendAt) {
+                queue.push_back({t + 0.02 + 0.01 * uniform(), t, speed * t});
+                sendAt = t + 0.13 + 0.11 * uniform();
+            }
+            if (t - lastFrame < 0.14) continue;
+            lastFrame = t;
+            for (auto it = queue.begin(); it != queue.end();)
+                if (it->arrive <= t) slow.push(it->sent, t, it->x), it = queue.erase(it);
+                else ++it;
+            double x = 0;
+            const ReplicaSample kind = slow.sample(t, x, lerp);
+            if (t < 5) continue;
+            ++frames;
+            between += kind == ReplicaSample::Interpolated;
+        }
+        check(between > frames * 95 / 100, "a stuttering owner on a slow machine is still drawn between real snapshots");
+    }
+
+    check(!remote.push(std::nan(""), now, 0) && !remote.push(ownerTime(now), std::nan(""), 0), "a snapshot without a time is refused");
+    check(!remote.push(ownerTime(now - 0.15), now, 0), "a duplicate snapshot is refused");
+    double old = 0;
+    check(!owned.at(ownerTime(0.5), old, lerp), "a claim older than the history is not judged");
+}
+
 static void replays() {
     Bench b(91);
     b.net.setDefault({0.05, 0.02, 0.08, 0.02});
@@ -846,6 +951,7 @@ int main(int argc, char** argv) {
     prediction();
     quality();
     replays();
+    replicas();
     if (failures) {
         std::printf("%d FAILED\n", failures);
         return 1;
