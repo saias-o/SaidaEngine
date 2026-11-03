@@ -23,6 +23,7 @@ add_library(saida_p2p STATIC
     src/Crypto.cpp
     src/Dht.cpp
     src/Host.cpp
+    src/NetworkThread.cpp
     src/Rendezvous.cpp
     src/Socket.cpp)
 add_library(Saida::P2P ALIAS saida_p2p)
@@ -34,7 +35,7 @@ target_link_libraries(saida_p2p PRIVATE ${_saida_p2p_crypto})
 find_package(Threads REQUIRED)
 target_link_libraries(saida_p2p PUBLIC Threads::Threads)
 if(WIN32)
-    target_link_libraries(saida_p2p PUBLIC ws2_32 bcrypt)
+    target_link_libraries(saida_p2p PUBLIC ws2_32 bcrypt winmm)
 endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(saida_p2p PRIVATE -Wall -Wextra)

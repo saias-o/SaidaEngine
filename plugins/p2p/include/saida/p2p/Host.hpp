@@ -22,6 +22,12 @@
 //   liveness    acknowledgements give the round trip, its variance and the
 //               loss rate; keepalives hold NAT mappings open; a silent peer
 //               times out; a peer that restarted is a new peer.
+//   relay       two peers no punching opens (a symmetric NAT against a
+//               port-restricted or symmetric one) still link through a peer
+//               both reach: their datagrams, sealed end to end, ride inside
+//               each one's own link to it, under a virtual address
+//               (relayAddress). The relay reads nothing and can forge
+//               nothing; it relays within a byte budget, never a relayed link.
 //
 // Single-threaded and poll-driven: poll(now) receives and runs timers,
 // send() queues, flush() sends. Nothing blocks.
@@ -72,6 +78,8 @@ struct HostConfig {
     size_t maxPacketsPerFlush = 64;     // per peer
     size_t receiveBudget = 4096;        // datagrams read per poll
     double introductionsPerSecond = 4;  // accepted from one peer
+    bool relay = true;                  // carry datagrams between two of our peers that cannot reach each other
+    double relayBytesPerSecond = 128 * 1024;  // all relayed traffic together
 };
 
 enum class Reason : uint8_t {
@@ -81,6 +89,7 @@ enum class Reason : uint8_t {
     // Why a datagram or a send was refused.
     Malformed, BadVersion, UnknownIndex, AuthFailed, Replayed, RateLimited, TooManyPeers,
     TooManyHandshakes, NotAdmitted, HandshakeFailed, TooLarge, QueueFull, UnknownPeer, Foreign,
+    NoRoute,  // a datagram to relay to a peer we do not have, or relaying is off
     Count
 };
 const char* reasonName(Reason r);
@@ -98,11 +107,13 @@ struct HostEvent {
     Address address;
     Reason reason = Reason::None;
     Bytes intent;  // Connected: what the initiator asked for
+    Key key{};     // Introduced: the key the introduced peer must prove
 };
 
 struct PeerInfo {
     PeerHandle handle = kNoPeer;
     Address address;            // where it is reached now (follows NAT rebinding)
+    PeerHandle via = kNoPeer;   // the peer relaying this link, when it is relayed
     Key key{};                  // its static public key
     uint64_t id = 0;            // Identity::idOf(key)
     Bytes hello;                // its HostConfig::hello
@@ -179,6 +190,12 @@ public:
     Address publicAddress() const;
     void notePublicAddress(const Address& seen);  // other sources (the DHT's "ip")
     Address localAddress() const;
+
+    // The virtual address of the peer `id` reached through our peer `via`:
+    // connect() to it and the handshake and every packet travel inside the
+    // link to `via`, which hands them on.
+    static Address relayAddress(PeerHandle via, uint64_t id);
+    static bool isRelayAddress(const Address& a);
 
     const Identity& identity() const;
     const HostConfig& config() const;

@@ -1,8 +1,10 @@
 #include "saida/p2p/Rendezvous.hpp"
 
 #include "saida/p2p/Socket.hpp"
+#include "saida/netcode/Wire.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <mutex>
 #include <thread>
@@ -11,8 +13,16 @@
 namespace saida::p2p {
 namespace {
 
+using netcode::Reader;
+using netcode::Writer;
+
 constexpr uint8_t kService = 1;
 constexpr uint8_t kTopicsMessage = 1;
+// Proximity: where the sender stands, whether it wants the link, and who
+// stands near the receiver; "introduce me to this peer of yours".
+constexpr uint8_t kNearMessage = 2, kIntroduceMessage = 3;
+constexpr size_t kMaxGossip = 40;     // entries in one near message (one datagram)
+constexpr size_t kMaxCandidates = 512;
 constexpr uint8_t kIntent = 'R';
 constexpr uint8_t kDirect = 0, kIntroduced = 1;
 const char kAlphabet[] = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
@@ -20,12 +30,17 @@ const uint8_t kBeaconMagic[4] = {'S', 'P', '2', 'L'};
 
 using Tag = std::array<uint8_t, 8>;
 
-Bytes intentFor(const Topic& t, uint8_t how) {
-    const Tag tag = t.tag();
+Bytes intentFor(const Tag& tag, uint8_t how) {
     Bytes b{kIntent};
     b.insert(b.end(), tag.begin(), tag.end());
     b.push_back(how);
     return b;
+}
+Bytes intentFor(const Topic& t, uint8_t how) { return intentFor(t.tag(), how); }
+
+using Point = std::array<double, 3>;
+double distance2(const Point& a, const Point& b) {
+    return (a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]) + (a[2] - b[2]) * (a[2] - b[2]);
 }
 
 bool readIntent(const Bytes& intent, Tag& tag, uint8_t& how) {
@@ -142,6 +157,9 @@ struct Rendezvous::Impl {
     struct Joined {
         Topic topic;
         Tag tag;
+        bool announcing = true;   // as last told to the DHT
+        double refresh = 0;
+        double lastHeal = -1e18;  // proximity: the last DHT address tried in a crowded topic
     };
     std::vector<Joined> topics;
     struct Remote {
@@ -152,6 +170,14 @@ struct Rendezvous::Impl {
         std::vector<Tag> tags;
         std::vector<Tag> member;  // topics we reported it in
         double alone = -1;
+        // Proximity.
+        uint64_t id = 0;
+        bool placed = false;      // its position arrived
+        Point at{};
+        bool wantsUs = false;     // it keeps us among its nearest
+        bool nearDue = false;     // tell it where we stand and who is near it, at the next poll
+        double unwanted = -1;     // since when neither side wants the link
+        double introTokens = 8, introAt = 0;
     };
     std::vector<Remote> remotes;
     struct Attempt {
@@ -168,8 +194,39 @@ struct Rendezvous::Impl {
     uint32_t appHash = 0;
     RendezvousStatus st;
     Address lastExternal;
+    // Proximity.
+    uint64_t selfId = 0;
+    bool positioned = false;
+    Point position{}, told{};
+    double lastPosition = -1e18, lastGossip = -1e18, lastSelect = -1e18, lastTend = -1e18;
+    struct Candidate {
+        uint64_t id;
+        Point at;
+        PeerHandle via;  // the peer that named it, who can introduce us
+        double heard;
+    };
+    std::vector<Candidate> candidates;
+    struct Asked {
+        uint64_t id;
+        double at;
+        int times;
+    };
+    std::vector<Asked> asked;
+    std::vector<uint64_t> wanted;  // sorted: the ids we keep links to
+    double askTokens = 8, askAt = 0;
+    // Introductions under way: punched for relayAfterSeconds, then relayed.
+    struct Introduction {
+        Address address;
+        PeerHandle via;
+        Key key;
+        Bytes intent;
+        double at;
+        bool relayed;
+    };
+    std::vector<Introduction> introductions;
 
     Impl(Host& h, const RendezvousConfig& c) : host(h), cfg(c) {
+        selfId = host.identity().id();
         const Digest d = sha256(host.config().application.data(), host.config().application.size());
         std::memcpy(&appHash, d.data(), 4);
         if (cfg.useDht) {
@@ -187,8 +244,8 @@ struct Rendezvous::Impl {
                         if (colon == std::string::npos) continue;
                         const int port = std::atoi(name.c_str() + colon + 1);
                         if (port <= 0 || port > 65535) continue;
-                        for (const Address& a : resolve(name.substr(0, colon), uint16_t(port)))
-                            if (!a.v6) out.push_back(a);
+                        // Both families: the IPv6 DHT (BEP 32) is bootstrapped too.
+                        for (const Address& a : resolve(name.substr(0, colon), uint16_t(port))) out.push_back(a);
                     }
                     std::lock_guard<std::mutex> lock(r->mutex);
                     r->addresses = std::move(out);
@@ -222,6 +279,7 @@ struct Rendezvous::Impl {
         if (!info) return nullptr;
         Remote r;
         r.peer = p;
+        r.id = info->id;
         Tag tag;
         uint8_t how;
         if (readIntent(info->intent, tag, how)) r.viaUs = true, r.introduced = how == kIntroduced;
@@ -237,7 +295,8 @@ struct Rendezvous::Impl {
     bool admit(const Address& from, const Bytes& intent) {
         Tag tag;
         uint8_t how;
-        if (readIntent(intent, tag, how)) return topicByTag(tag) && membersOf(tag) < cfg.maxPeersPerTopic;
+        if (readIntent(intent, tag, how))
+            return topicByTag(tag) && (cfg.neighbours > 0 || membersOf(tag) < cfg.maxPeersPerTopic);
         return fallback && fallback(from, intent);
     }
 
@@ -249,7 +308,10 @@ struct Rendezvous::Impl {
 
     void onService(PeerHandle peer, const uint8_t* p, size_t n) {
         Remote* r = ensure(peer);
-        if (!r || n < 2 || p[0] != kTopicsMessage || n != 2 + size_t(p[1]) * 8) return;
+        if (!r || n < 2) return;
+        if (p[0] == kNearMessage) return onNear(*r, p + 1, n - 1);
+        if (p[0] == kIntroduceMessage) return onIntroduce(*r, p + 1, n - 1);
+        if (p[0] != kTopicsMessage || n != 2 + size_t(p[1]) * 8) return;
         r->tags.resize(p[1]);
         for (size_t i = 0; i < r->tags.size(); ++i) std::memcpy(r->tags[i].data(), p + 2 + 8 * i, 8);
         r->heard = true;
@@ -261,11 +323,13 @@ struct Rendezvous::Impl {
             const bool both = std::find(r.tags.begin(), r.tags.end(), j.tag) != r.tags.end();
             const bool was = std::find(r.member.begin(), r.member.end(), j.tag) != r.member.end();
             if (both && !was) {
+                r.nearDue = r.nearDue || r.member.empty();
                 r.member.push_back(j.tag);
                 events.push_back({RendezvousEventType::PeerJoined, j.topic, r.peer});
                 // It reached us on its own: tell it about everyone else here, and
                 // them about it, so the whole topic connects in one round trip.
-                if (cfg.introduce && r.viaUs && !r.introduced)
+                // A crowd (proximity) introduces it only to whoever is near it.
+                if (cfg.introduce && cfg.neighbours == 0 && r.viaUs && !r.introduced)
                     for (const Remote& o : remotes)
                         if (o.peer != r.peer && std::find(o.member.begin(), o.member.end(), j.tag) != o.member.end())
                             host.introduce(r.peer, o.peer, intentFor(j.topic, kIntroduced));
@@ -299,7 +363,12 @@ struct Rendezvous::Impl {
 
     void onHostEvent(const HostEvent& e) {
         if (e.type == HostEventType::Connected) {
-            if (ensure(e.peer)) sendTopics(e.peer);
+            if (Remote* r = ensure(e.peer)) {
+                sendTopics(e.peer);
+                const uint64_t id = r->id;
+                asked.erase(std::remove_if(asked.begin(), asked.end(), [&](const Asked& a) { return a.id == id; }),
+                            asked.end());
+            }
             for (Attempt& a : attempts)
                 if (a.address == e.address) a.failures = 0;  // reachable: no backoff next time
         } else if (e.type == HostEventType::Disconnected) {
@@ -313,11 +382,16 @@ struct Rendezvous::Impl {
         } else if (e.type == HostEventType::ConnectFailed) {
             for (Attempt& a : attempts)
                 if (a.address == e.address) ++a.failures;
+        } else if (e.type == HostEventType::Introduced && cfg.relay) {
+            for (Introduction& i : introductions)
+                if (i.key == e.key) return void((i.via = e.peer, i.address = e.address));
+            if (introductions.size() >= 128) introductions.erase(introductions.begin());
+            introductions.push_back({e.address, e.peer, e.key, e.intent, now, false});
         }
     }
 
     void tryConnect(const Joined& j, const Address& a) {
-        if (!a.valid() || a == host.publicAddress() || (dht && a == dht->externalAddress())) return;
+        if (!a.valid() || a == host.publicAddress() || (dht && dht->isExternal(a))) return;
         if (host.peerAt(a) || host.connecting(a)) return;
         Attempt* at = nullptr;
         for (Attempt& x : attempts)
@@ -389,6 +463,219 @@ struct Rendezvous::Impl {
         }
     }
 
+    // --- Proximity ------------------------------------------------------------------
+
+    void sendNear(Remote& r, bool gossip) {
+        Bytes m{kNearMessage};
+        Writer w(m);
+        for (double v : position) w.f64(v);
+        w.u8(std::binary_search(wanted.begin(), wanted.end(), r.id) ? 1 : 0);
+        std::vector<std::pair<double, const Remote*>> near;
+        if (gossip) {
+            // The peers nearest to it, as far as we know: where it should look.
+            const Point& to = r.placed ? r.at : position;
+            for (const Remote& o : remotes)
+                if (&o != &r && o.placed && !o.member.empty()) near.push_back({distance2(o.at, to), &o});
+            const size_t n = std::min({cfg.gossipEntries, kMaxGossip, near.size()});
+            std::partial_sort(near.begin(), near.begin() + long(n), near.end(),
+                              [](const auto& a, const auto& b) { return a.first < b.first; });
+            near.resize(n);
+        }
+        w.u8(uint8_t(near.size()));
+        for (const auto& [d, o] : near) {
+            w.u64(o->id);
+            for (int i = 0; i < 3; ++i) w.f32(float(o->at[size_t(i)] - position[size_t(i)]));
+        }
+        host.sendService(r.peer, kService, m.data(), m.size());
+    }
+
+    void onNear(Remote& r, const uint8_t* p, size_t n) {
+        Reader rd(p, n);
+        Point at;
+        for (double& v : at) v = rd.f64();
+        const uint8_t flags = rd.u8(), count = rd.u8();
+        if (!rd.ok() || !std::isfinite(at[0] + at[1] + at[2]) || count > kMaxGossip) return;
+        const bool first = !r.placed;
+        r.placed = true, r.at = at, r.wantsUs = flags & 1;
+        for (uint8_t i = 0; i < count; ++i) {
+            const uint64_t id = rd.u64();
+            Point there;
+            for (int k = 0; k < 3; ++k) there[size_t(k)] = at[size_t(k)] + rd.f32();
+            if (!rd.ok() || !std::isfinite(there[0] + there[1] + there[2])) return;
+            if (id == selfId || linked(id)) continue;
+            Candidate* c = nullptr;
+            for (Candidate& x : candidates)
+                if (x.id == id) c = &x;
+            if (!c) {
+                if (candidates.size() >= kMaxCandidates)
+                    candidates.erase(std::min_element(candidates.begin(), candidates.end(),
+                                                      [](const Candidate& a, const Candidate& b) { return a.heard < b.heard; }));
+                candidates.push_back({id, there, r.peer, now});
+                continue;
+            }
+            c->at = there, c->via = r.peer, c->heard = now;
+        }
+        // A newcomer: it learns at once who stands near it.
+        if (first && positioned && cfg.neighbours > 0) r.nearDue = true;
+    }
+
+    void onIntroduce(Remote& r, const uint8_t* p, size_t n) {
+        Reader rd(p, n);
+        const uint64_t id = rd.u64();
+        if (!rd.ok() || !rd.done() || cfg.neighbours == 0) return;
+        r.introTokens = std::min(8.0, r.introTokens + (now - r.introAt) * cfg.introductionsPerSecond);
+        r.introAt = now;
+        if (r.introTokens < 1) return;
+        r.introTokens -= 1;
+        for (const Remote& t : remotes) {
+            if (t.id != id || t.peer == r.peer) continue;
+            // A topic both are in, which each side's admission will recognize.
+            for (const Tag& tag : r.tags)
+                if (std::find(t.tags.begin(), t.tags.end(), tag) != t.tags.end()) {
+                    host.introduce(r.peer, t.peer, intentFor(tag, kIntroduced));
+                    ++st.introductionsMade;
+                    return;
+                }
+        }
+    }
+
+    bool linked(uint64_t id) const {
+        for (const Remote& r : remotes)
+            if (r.id == id) return true;
+        return false;
+    }
+
+    void ask(const Candidate& c) {
+        Remote* via = remote(c.via);
+        if (!via) return;
+        Asked* a = nullptr;
+        for (Asked& x : asked)
+            if (x.id == c.id) a = &x;
+        if (a && now - a->at < double(1 << std::min(a->times, 4))) return;
+        askTokens = std::min(8.0, askTokens + (now - askAt) * cfg.introductionsPerSecond);
+        askAt = now;
+        if (askTokens < 1) return;
+        askTokens -= 1;
+        if (!a) {
+            if (asked.size() >= 256) asked.erase(asked.begin());
+            asked.push_back({c.id, now, 0});
+        } else {
+            a->at = now, ++a->times;
+        }
+        Bytes m{kIntroduceMessage};
+        Writer w(m);
+        w.u64(c.id);
+        host.sendService(via->peer, kService, m.data(), m.size());
+        ++st.introductionsAsked;
+    }
+
+    // The `neighbours` nearest are linked (asked for when they are not); a
+    // quarter more are kept, so the edge of the set does not churn; a link
+    // beyond that which the other side does not want either is dropped.
+    void select() {
+        const double stale = 3 * cfg.gossipSeconds;
+        candidates.erase(std::remove_if(candidates.begin(), candidates.end(), [&](const Candidate& c) {
+            return now - c.heard > stale || !remote(c.via) || linked(c.id);
+        }), candidates.end());
+        struct Option {
+            double d;
+            uint64_t id;
+            Remote* linked;
+            const Candidate* candidate;
+        };
+        std::vector<Option> all;
+        for (Remote& r : remotes)
+            if (r.placed && !r.member.empty()) all.push_back({distance2(r.at, position), r.id, &r, nullptr});
+        for (const Candidate& c : candidates) all.push_back({distance2(c.at, position), c.id, nullptr, &c});
+        std::sort(all.begin(), all.end(), [](const Option& a, const Option& b) { return a.d < b.d; });
+        const size_t keep = cfg.neighbours + (cfg.neighbours + 3) / 4;
+        wanted.clear();
+        for (size_t i = 0; i < all.size() && i < keep; ++i) wanted.push_back(all[i].id);
+        std::sort(wanted.begin(), wanted.end());
+        for (size_t i = 0; i < all.size() && i < cfg.neighbours; ++i)
+            if (!all[i].linked) ask(*all[i].candidate);
+        for (size_t i = 0; i < all.size(); ++i) {
+            Remote* r = all[i].linked;
+            if (!r) continue;
+            if (i < keep || r->wantsUs) {
+                r->unwanted = -1;
+            } else if (r->unwanted < 0) {
+                r->unwanted = now;
+            } else if (now - r->unwanted > cfg.pruneSeconds) {
+                r->unwanted = -1;
+                ++st.pruned;
+                host.disconnect(r->peer);
+            }
+        }
+        st.candidates = candidates.size();
+    }
+
+    void proximity() {
+        if (cfg.neighbours == 0 || !positioned) return;
+        if (now - lastSelect >= 0.25) lastSelect = now, select();
+        const bool gossip = now - lastGossip >= cfg.gossipSeconds;
+        const bool tell = gossip || now - lastPosition >= cfg.positionSeconds || distance2(position, told) > 25.0 * 25.0;
+        for (Remote& r : remotes) {
+            if (r.member.empty() || !(tell || r.nearDue)) continue;
+            sendNear(r, gossip || r.nearDue);
+            r.nearDue = false;
+        }
+        if (tell) lastPosition = now, told = position;
+        if (gossip) lastGossip = now;
+    }
+
+    // The DHT is the door: a topic with members asks it rarely, and only the
+    // `announcers` members whose ids hash nearest the topic's key announce.
+    void tendDht() {
+        st.announcing = 0;
+        if (!dht) return;
+        for (Joined& j : topics) {
+            const NodeId key = j.topic.dhtKey();
+            auto rank = [&](uint64_t id) {
+                uint8_t b[28];
+                std::memcpy(b, key.data(), 20);
+                for (int i = 0; i < 8; ++i) b[20 + i] = uint8_t(id >> (8 * i));
+                return netcode::hash64(b, sizeof b);
+            };
+            size_t members = 0, nearer = 0;
+            const uint64_t mine = rank(selfId);
+            for (const Remote& r : remotes)
+                if (std::find(r.member.begin(), r.member.end(), j.tag) != r.member.end()) ++members, nearer += rank(r.id) < mine;
+            const bool announce = members == 0 || nearer < cfg.announcers;
+            const double refresh = members == 0 ? cfg.refreshSeconds : cfg.populatedRefreshSeconds;
+            if (announce != j.announcing || refresh != j.refresh) {
+                dht->watch(key, announce, refresh);
+                j.announcing = announce, j.refresh = refresh;
+            }
+            st.announcing += announce;
+        }
+    }
+
+    // Introduced, not linked after relayAfterSeconds: no punching opens this
+    // pair (symmetric NAT). The lower id links through the introducer, who
+    // reaches both; the higher id too, twice as late, in case the lower never
+    // heard the introduction (it travels unreliably); crossing attempts make
+    // one link. The direct attempt goes on, and wins if it ever lands.
+    void relays() {
+        for (size_t i = 0; i < introductions.size();) {
+            Introduction& in = introductions[i];
+            const bool linkedNow = host.peerWithKey(in.key) != kNoPeer;
+            if (linkedNow || now - in.at > 30 || !host.peer(in.via)) {
+                introductions.erase(introductions.begin() + long(i));
+                continue;
+            }
+            const uint64_t theirs = Identity::idOf(in.key);
+            const double after = cfg.relayAfterSeconds * (selfId < theirs ? 1 : 2);
+            if (!in.relayed && now - in.at >= after &&
+                !Host::isRelayAddress(host.peer(in.via)->address)) {
+                in.relayed = true;
+                ++st.relayed;
+                host.connect(Host::relayAddress(in.via, theirs), in.intent, &in.key);
+            }
+            ++i;
+        }
+    }
+
     void poll(double t) {
         now = t;
         if (started < 0) started = now;
@@ -404,13 +691,24 @@ struct Rendezvous::Impl {
             dht->poll(now);
             for (const DhtFound& f : dht->takeFound()) {
                 ++st.found;
-                for (const Joined& j : topics)
-                    if (j.topic.dhtKey() == f.key) tryConnect(j, f.peer);
+                for (Joined& j : topics) {
+                    if (j.topic.dhtKey() != f.key) continue;
+                    // A crowd meets newcomers through its own peers: an address
+                    // from the DHT is only tried now and then, to heal a split.
+                    if (cfg.neighbours > 0 && membersOf(j.tag) >= 2 && !host.peerAt(f.peer)) {
+                        if (now - j.lastHeal < cfg.healSeconds) continue;
+                        j.lastHeal = now;
+                    }
+                    tryConnect(j, f.peer);
+                }
             }
             const Address ext = dht->externalAddress();
             if (ext.valid() && ext != lastExternal) host.notePublicAddress(lastExternal = ext);
         }
         beacons();
+        if (now - lastTend >= 1.0) lastTend = now, tendDht();
+        proximity();
+        relays();
         if (cfg.lingerSeconds >= 0)
             for (Remote& r : remotes)
                 if (r.viaUs && r.alone >= 0 && now - r.alone > cfg.lingerSeconds) {
@@ -431,7 +729,7 @@ void Rendezvous::setLanSocket(DatagramSocket* socket) { impl_->lan = socket; }
 
 void Rendezvous::join(const Topic& topic) {
     if (joined(topic)) return;
-    impl_->topics.push_back({topic, topic.tag()});
+    impl_->topics.push_back({topic, topic.tag(), true, impl_->cfg.refreshSeconds, -1e18});
     if (impl_->dht) impl_->dht->watch(topic.dhtKey(), true, impl_->cfg.refreshSeconds);
     impl_->lastBeacon = -1e18;
     for (auto& r : impl_->remotes) {
@@ -465,6 +763,11 @@ std::vector<PeerHandle> Rendezvous::peers(const Topic& topic) const {
 }
 
 void Rendezvous::poll(double now) { impl_->poll(now); }
+void Rendezvous::setPosition(double x, double y, double z) {
+    if (!std::isfinite(x + y + z)) return;
+    impl_->positioned = true;
+    impl_->position = {x, y, z};
+}
 std::vector<RendezvousEvent> Rendezvous::takeEvents() { return std::exchange(impl_->events, {}); }
 void Rendezvous::setAdmission(Host::Admission fallback) { impl_->fallback = std::move(fallback); }
 Dht* Rendezvous::dht() { return impl_->dht.get(); }

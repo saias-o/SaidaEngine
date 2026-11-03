@@ -37,6 +37,7 @@ public:
     bool send(const Address& to, const uint8_t* data, size_t size) override;
     int receive(Address& from, uint8_t* buf, size_t capacity) override;
     Address local() const override { return local_; }
+    void wait(double seconds) override;  // select(): woken by the first datagram
 
     // IPv4 multicast for LAN discovery: membership on every interface, loop
     // back to this machine, never routed past the link (TTL 1).

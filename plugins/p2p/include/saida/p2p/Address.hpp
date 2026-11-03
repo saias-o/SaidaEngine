@@ -3,13 +3,16 @@
 // or a simulated Internet with NATs (SimInternet.hpp).
 #pragma once
 
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace saida::p2p {
@@ -174,6 +177,11 @@ public:
     virtual bool send(const Address& to, const uint8_t* data, size_t size) = 0;
     virtual int receive(Address& from, uint8_t* buf, size_t capacity) = 0;
     virtual Address local() const = 0;
+    // Blocks until a datagram is waiting or `seconds` have passed (a socket
+    // that cannot be waited on just sleeps). For a network thread.
+    virtual void wait(double seconds) {
+        std::this_thread::sleep_for(std::chrono::duration<double>(std::max(0.0, seconds)));
+    }
 };
 
 } // namespace saida::p2p

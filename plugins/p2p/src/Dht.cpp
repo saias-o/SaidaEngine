@@ -78,7 +78,7 @@ std::string compactNode(const Node& n) {
     std::string s(reinterpret_cast<const char*>(n.id.data()), 20);
     uint8_t a[18];
     n.address.writeCompact(a);
-    s.append(reinterpret_cast<const char*>(a), 6);
+    s.append(reinterpret_cast<const char*>(a), n.address.compactSize());
     return s;
 }
 
@@ -100,6 +100,8 @@ NodeId Dht::keyOf(const void* data, size_t size) {
 struct Dht::Impl {
     Send send;
     DhtConfig cfg;
+    bool v6 = false;      // which network: every node, peer and vote is of this family
+    size_t compact = 6;   // its compact address size
     NodeId self;
     double now = 0;
     std::vector<Node> table;
@@ -130,7 +132,7 @@ struct Dht::Impl {
     double lastCleanup = 0;
     DhtCounters counters;
 
-    Impl(Send s, const DhtConfig& c, const NodeId* id) : send(std::move(s)), cfg(c) {
+    Impl(Send s, const DhtConfig& c, const NodeId* id, bool six) : send(std::move(s)), cfg(c), v6(six), compact(six ? 18 : 6) {
         if (id) self = *id;
         else randomBytes(self.data(), self.size());
         cfg.k = std::max<size_t>(cfg.k, 1);
@@ -152,7 +154,7 @@ struct Dht::Impl {
 
     // `verified`: it answered us. Unverified nodes (heard of) fill free room only.
     void learn(const NodeId& id, const Address& a, bool verified) {
-        if (!a.valid() || a.v6 || id == self) return;
+        if (!a.valid() || a.v6 != v6 || id == self) return;
         for (Node& n : table) {
             if (n.id == id || n.address == a) {
                 if (verified) n.id = id, n.address = a, n.lastResponse = now, n.fails = 0;
@@ -209,6 +211,11 @@ struct Dht::Impl {
         uint16_t tid = nextTid++;
         while (txns.count(tid)) tid = nextTid++;
         args.set("id", BValue::bytes(self.data(), 20));
+        if (v6) {  // BEP 32: answer with the IPv6 network's nodes
+            BValue want = BValue::makeList();
+            want.list.push_back(BValue::string("n6"));
+            args.set("want", std::move(want));
+        }
         BValue m = BValue::makeDict();
         const uint8_t tb[2] = {uint8_t(tid >> 8), uint8_t(tid)};
         m.set("t", BValue::bytes(tb, 2));
@@ -232,11 +239,9 @@ struct Dht::Impl {
         m.set("t", BValue::string(tid));
         m.set("y", BValue::string("r"));
         m.set("r", std::move(r));
-        if (!to.v6) {
-            uint8_t a[18];
-            to.writeCompact(a);
-            m.set("ip", BValue::bytes(a, 6));
-        }
+        uint8_t a[18];
+        to.writeCompact(a);
+        m.set("ip", BValue::bytes(a, to.compactSize()));
         const std::string bytes = m.encode();
         send(to, reinterpret_cast<const uint8_t*>(bytes.data()), bytes.size());
     }
@@ -254,13 +259,13 @@ struct Dht::Impl {
     }
 
     std::string token(const Address& a, const uint8_t* s) const {
-        const Digest d = sha256(s, 8, a.ip.data(), 4);
+        const Digest d = sha256(s, 8, a.ip.data(), a.v6 ? 16 : 4);
         return std::string(reinterpret_cast<const char*>(d.data()), 8);
     }
 
     void receive(const Address& from, const uint8_t* data, size_t size) {
         BValue m;
-        if (from.v6 || !BValue::decode(data, size, m) || m.type != BValue::Dict) return void(++counters.malformed);
+        if (from.v6 != v6 || !BValue::decode(data, size, m) || m.type != BValue::Dict) return void(++counters.malformed);
         const std::string* t = m.str("t");
         const std::string* y = m.str("y");
         if (!t || !y || t->size() > 16) return void(++counters.malformed);
@@ -282,24 +287,25 @@ struct Dht::Impl {
             return onFailure(txn);
         }
         ++counters.responses;
-        if (const std::string* ip = m.str("ip"); ip && ip->size() == 6)
-            vote(Address::readCompact(reinterpret_cast<const uint8_t*>(ip->data()), 6));
+        if (const std::string* ip = m.str("ip"); ip && ip->size() == compact)
+            vote(Address::readCompact(reinterpret_cast<const uint8_t*>(ip->data()), compact));
         learn(id, from, true);
         std::vector<Candidate> heard;
-        if (const std::string* nodes = r->str("nodes"))
-            for (size_t i = 0; i + 26 <= nodes->size(); i += 26) {
+        const size_t entry = 20 + compact;
+        if (const std::string* nodes = r->str(v6 ? "nodes6" : "nodes"))
+            for (size_t i = 0; i + entry <= nodes->size(); i += entry) {
                 Candidate c;
                 std::memcpy(c.id.data(), nodes->data() + i, 20);
-                c.address = Address::readCompact(reinterpret_cast<const uint8_t*>(nodes->data() + i + 20), 6);
-                if (c.address.valid() && c.id != self) heard.push_back(c), learn(c.id, c.address, false);
+                c.address = Address::readCompact(reinterpret_cast<const uint8_t*>(nodes->data() + i + 20), compact);
+                if (c.address.valid() && c.address.v6 == v6 && c.id != self) heard.push_back(c), learn(c.id, c.address, false);
             }
         const std::string* tok = r->str("token");
         if (const BValue* values = r->get("values"); values && values->type == BValue::List &&
                                                        (txn.kind == Kind::Step || txn.kind == Kind::Refresh)) {
             const NodeId key = txn.key;
             for (const BValue& v : values->list)
-                if (v.type == BValue::Str && v.s.size() == 6) {
-                    const Address peer = Address::readCompact(reinterpret_cast<const uint8_t*>(v.s.data()), 6);
+                if (v.type == BValue::Str && (v.s.size() == 6 || v.s.size() == 18)) {
+                    const Address peer = Address::readCompact(reinterpret_cast<const uint8_t*>(v.s.data()), v.s.size());
                     if (peer.valid()) found.push_back({key, peer});
                 }
         }
@@ -350,10 +356,11 @@ struct Dht::Impl {
             return s;
         };
         if (*q == "ping") return reply(from, tid, std::move(r));
+        const char* nodesKey = v6 ? "nodes6" : "nodes";  // BEP 32: the network asked
         if (*q == "find_node") {
             NodeId target;
             if (!idFrom(a->str("target"), target)) return error(from, tid, 203, "Protocol Error");
-            r.set("nodes", BValue::string(nodesNear(target)));
+            r.set(nodesKey, BValue::string(nodesNear(target)));
             return reply(from, tid, std::move(r));
         }
         if (*q == "get_peers") {
@@ -367,11 +374,11 @@ struct Dht::Impl {
                     if (s.until < now || values.list.size() >= 50) continue;
                     uint8_t c[18];
                     s.peer.writeCompact(c);
-                    values.list.push_back(BValue::bytes(c, 6));
+                    values.list.push_back(BValue::bytes(c, s.peer.compactSize()));
                 }
                 r.set("values", std::move(values));
             }
-            r.set("nodes", BValue::string(nodesNear(key)));
+            r.set(nodesKey, BValue::string(nodesNear(key)));
             return reply(from, tid, std::move(r));
         }
         if (*q == "announce_peer") {
@@ -620,24 +627,44 @@ struct Dht::Impl {
         for (const Node& x : table) n += good(x);
         return n;
     }
+    void watch(const NodeId& key, bool announce, double refreshSeconds);
+    Address external() const;
 };
 
-Dht::Dht(Send send, const DhtConfig& config, const NodeId* id) : impl_(std::make_unique<Impl>(std::move(send), config, id)) {}
+Dht::Dht(Send send, const DhtConfig& config, const NodeId* id) {
+    impl_ = std::make_unique<Impl>(send, config, id, false);
+    impl6_ = std::make_unique<Impl>(std::move(send), config, &impl_->self, true);
+}
 Dht::~Dht() = default;
 
 void Dht::addNode(const Address& node) {
-    if (!node.valid() || node.v6 || impl_->seeds.size() >= 256) return;
-    if (std::find(impl_->seeds.begin(), impl_->seeds.end(), node) == impl_->seeds.end()) impl_->seeds.push_back(node);
-    impl_->bootstrap.push_back(node);
+    Impl& n = node.v6 ? *impl6_ : *impl_;
+    if (!node.valid() || n.seeds.size() >= 256) return;
+    if (std::find(n.seeds.begin(), n.seeds.end(), node) == n.seeds.end()) n.seeds.push_back(node);
+    n.bootstrap.push_back(node);
 }
-void Dht::receive(const Address& from, const uint8_t* data, size_t size) { impl_->receive(from, data, size); }
-void Dht::poll(double now) { impl_->poll(now); }
+void Dht::receive(const Address& from, const uint8_t* data, size_t size) {
+    (from.v6 ? impl6_ : impl_)->receive(from, data, size);
+}
+void Dht::poll(double now) {
+    impl_->poll(now);
+    impl6_->poll(now);
+}
 
 void Dht::watch(const NodeId& key, bool announce, double refreshSeconds) {
+    impl_->watch(key, announce, refreshSeconds);
+    impl6_->watch(key, announce, refreshSeconds);
+}
+void Dht::Impl::watch(const NodeId& key, bool announce, double refreshSeconds) {
+    Impl* impl_ = this;
     for (auto& w : impl_->watches)
         if (w->key == key) {
-            if (announce && !w->announce) w->announce = true, w->lastAnnounce = -1e18, w->nextRefresh = impl_->now;
-            w->refresh = std::max(refreshSeconds, 1.0);
+            // Announcing again announces at once; refreshing sooner asks sooner.
+            if (announce && !w->announce) w->lastAnnounce = -1e18, w->nextRefresh = impl_->now;
+            w->announce = announce;
+            const double refresh = std::max(refreshSeconds, 1.0);
+            if (refresh < w->refresh) w->nextRefresh = std::min(w->nextRefresh, impl_->now + refresh);
+            w->refresh = refresh;
             return;
         }
     auto w = std::make_unique<Watch>();
@@ -647,29 +674,57 @@ void Dht::watch(const NodeId& key, bool announce, double refreshSeconds) {
     impl_->watches.push_back(std::move(w));
 }
 void Dht::unwatch(const NodeId& key) {
-    auto& ws = impl_->watches;
-    ws.erase(std::remove_if(ws.begin(), ws.end(), [&](auto& w) { return w->key == key; }), ws.end());
+    for (Impl* n : {impl_.get(), impl6_.get()}) {
+        auto& ws = n->watches;
+        ws.erase(std::remove_if(ws.begin(), ws.end(), [&](auto& w) { return w->key == key; }), ws.end());
+    }
 }
-std::vector<DhtFound> Dht::takeFound() { return std::exchange(impl_->found, {}); }
+std::vector<DhtFound> Dht::takeFound() {
+    std::vector<DhtFound> out = std::exchange(impl_->found, {});
+    for (DhtFound& f : impl6_->found) out.push_back(f);
+    impl6_->found.clear();
+    return out;
+}
 const NodeId& Dht::id() const { return impl_->self; }
-size_t Dht::nodeCount() const { return impl_->table.size(); }
-size_t Dht::goodNodes() const { return impl_->goodCount(); }
-bool Dht::ready() const { return impl_->goodCount() >= impl_->cfg.k; }
-Address Dht::externalAddress() const {
-    const Impl::Vote* best = nullptr;
-    for (const auto& v : impl_->votes)
+size_t Dht::nodeCount() const { return impl_->table.size() + impl6_->table.size(); }
+size_t Dht::goodNodes() const { return impl_->goodCount() + impl6_->goodCount(); }
+size_t Dht::nodeCount6() const { return impl6_->table.size(); }
+size_t Dht::goodNodes6() const { return impl6_->goodCount(); }
+bool Dht::ready() const { return impl_->goodCount() >= impl_->cfg.k || impl6_->goodCount() >= impl6_->cfg.k; }
+Address Dht::Impl::external() const {
+    const Vote* best = nullptr;
+    for (const auto& v : votes)
         if (!best || v.count > best->count) best = &v;
     return best ? best->address : Address{};
 }
+Address Dht::externalAddress() const {
+    const Address a = impl_->external();
+    return a.valid() ? a : impl6_->external();
+}
+bool Dht::isExternal(const Address& a) const {
+    return a.valid() && (a == impl_->external() || a == impl6_->external());
+}
 std::vector<Address> Dht::nodes(size_t max) const {
-    std::vector<const Node*> all;
-    for (const Node& n : impl_->table)
-        if (impl_->good(n)) all.push_back(&n);
-    std::sort(all.begin(), all.end(), [](const Node* a, const Node* b) { return a->lastResponse > b->lastResponse; });
+    // The best of each network, IPv4 first: both are worth remembering.
     std::vector<Address> out;
-    for (size_t i = 0; i < all.size() && i < max; ++i) out.push_back(all[i]->address);
+    for (const Impl* n : {impl_.get(), impl6_.get()}) {
+        std::vector<const Node*> all;
+        for (const Node& x : n->table)
+            if (n->good(x)) all.push_back(&x);
+        std::sort(all.begin(), all.end(), [](const Node* a, const Node* b) { return a->lastResponse > b->lastResponse; });
+        const size_t share = n == impl_.get() ? max - std::min(max, std::min(max / 4, impl6_->goodCount())) : max - out.size();
+        for (size_t i = 0; i < all.size() && i < share; ++i) out.push_back(all[i]->address);
+    }
     return out;
 }
-const DhtCounters& Dht::counters() const { return impl_->counters; }
+const DhtCounters& Dht::counters() const {
+    total_ = impl_->counters;
+    const DhtCounters& b = impl6_->counters;
+    total_.queriesSent += b.queriesSent, total_.responses += b.responses, total_.errors += b.errors;
+    total_.timeouts += b.timeouts, total_.queriesAnswered += b.queriesAnswered, total_.malformed += b.malformed;
+    total_.announcesStored += b.announcesStored, total_.announcesRefused += b.announcesRefused;
+    total_.throttled += b.throttled;
+    return total_;
+}
 
 } // namespace saida::p2p

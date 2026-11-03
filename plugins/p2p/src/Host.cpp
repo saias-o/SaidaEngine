@@ -33,7 +33,14 @@ constexpr uint64_t kReliableWindow = 4096;  // messages in flight
 constexpr size_t kMaxGroups = 8;            // unreliable messages being reassembled
 constexpr uint8_t kObservedService = 255;   // the host's own: "this is the address I see for you"
 
-enum FrameType : uint8_t { fAck = 1, fMsg, fRel, fRelFrag, fMsgFrag, fPing, fClose, fIntro, fService };
+enum FrameType : uint8_t { fAck = 1, fMsg, fRel, fRelFrag, fMsgFrag, fPing, fClose, fIntro, fService, fRelayOut, fRelayIn };
+// A relayed datagram rides in a frame (type, the other end's id, length) of
+// the link to the relay: a relayed link's packets are this much smaller, and
+// every fragment is cut to fit one (fragmentBytes).
+constexpr size_t kRelayFrame = 1 + 8 + 2;
+constexpr size_t kRelayCut = kRelayFrame + kAckReserve;
+// Virtual addresses of relayed peers: fd52:4c59 ("RLY"), the relay's handle, the peer's id.
+constexpr uint8_t kRelayPrefix[4] = {0xfd, 0x52, 0x4c, 0x59};
 
 void put32(uint8_t* p, uint32_t v) {
     for (int i = 0; i < 4; ++i) p[i] = uint8_t(v >> (8 * i));
@@ -191,7 +198,7 @@ const char* reasonName(Reason r) {
                                   "refused", "malformed", "bad version", "unknown index", "authentication failed",
                                   "replayed", "rate limited", "too many peers", "too many handshakes",
                                   "not admitted", "handshake failed", "too large", "queue full", "unknown peer",
-                                  "foreign"};
+                                  "foreign", "no route"};
     static_assert(sizeof names / sizeof *names == size_t(Reason::Count), "one name per reason");
     return size_t(r) < size_t(Reason::Count) ? names[size_t(r)] : "?";
 }
@@ -226,6 +233,10 @@ struct Host::Impl {
     size_t capacity, fragmentBytes;
     uint8_t rx[65536];
     Bytes plain, opened, fragment, wire, scratch;  // opened: what poll() decrypted
+    // Relayed datagrams that arrived inside a packet: handled once that
+    // packet is (they are datagrams of their own, decrypted with other keys).
+    std::vector<std::pair<Address, Bytes>> relayed;
+    double relayTokens = 0, relayAt = 0;
 
     Impl(DatagramSocket& s, const Identity& id, const HostConfig& c) : socket(s), identity(id), cfg(c) {
         cfg.mtu = std::clamp<size_t>(cfg.mtu, 576, 65000);
@@ -234,7 +245,8 @@ struct Host::Impl {
         cfg.maxPacketsPerFlush = std::max<size_t>(cfg.maxPacketsPerFlush, 1);
         cfg.retrySeconds = std::max(cfg.retrySeconds, 0.01);
         capacity = cfg.mtu - kDataHeader - Aead::kTag;
-        fragmentBytes = capacity - kAckReserve - kFragmentHeader;
+        fragmentBytes = capacity - kAckReserve - kFragmentHeader - kRelayCut;
+        relayTokens = cfg.relayBytesPerSecond;
         cfg.maxMessage = std::min(cfg.maxMessage, 65535 * fragmentBytes);  // fragment indices are 16-bit
         cfg.maxUnreliable = std::min(cfg.maxUnreliable, 64 * fragmentBytes);
         tokens = cfg.handshakeRate;
@@ -244,14 +256,72 @@ struct Host::Impl {
     }
 
     void refuse(Reason r) { ++counters.refused[size_t(r)]; }
-    void event(HostEventType t, PeerHandle p, const Address& a, Reason r, Bytes intent = {}) {
-        events.push_back({t, p, a, r, std::move(intent)});
+    void event(HostEventType t, PeerHandle p, const Address& a, Reason r, Bytes intent = {}, const Key* key = nullptr) {
+        events.push_back({t, p, a, r, std::move(intent), key ? *key : Key{}});
         if (!listeners.empty()) unheard.push_back(events.back());
     }
     bool sendDatagram(const Address& to, const uint8_t* data, size_t size) {
+        if (Host::isRelayAddress(to)) return relayOut(to, data, size);
         ++counters.datagramsSent;
         counters.bytesSent += size;
         return socket.send(to, data, size);
+    }
+
+    // --- Relaying -----------------------------------------------------------------
+
+    static PeerHandle relayVia(const Address& a) { return get32(a.ip.data() + 4); }
+    static uint64_t relayId(const Address& a) {
+        uint64_t id = 0;
+        for (int i = 0; i < 8; ++i) id |= uint64_t(a.ip[size_t(8 + i)]) << (8 * i);
+        return id;
+    }
+    Peer* findId(uint64_t id) {
+        for (auto& p : peers)
+            if (!p->dead && p->info.id == id) return p.get();
+        return nullptr;
+    }
+    static Bytes relayFrame(uint8_t type, uint64_t id, const uint8_t* data, size_t size) {
+        Bytes f{type};
+        Writer w(f);
+        w.u64(id);
+        w.var(size);
+        w.bytes(data, size);
+        return f;
+    }
+    // A datagram of a relayed link: into the link to its relay.
+    bool relayOut(const Address& to, const uint8_t* data, size_t size) {
+        Peer* via = find(relayVia(to));
+        if (!via || Host::isRelayAddress(via->info.address) || size > cfg.mtu - kRelayCut) return refuse(Reason::NoRoute), false;
+        via->frames.push_back(relayFrame(fRelayOut, relayId(to), data, size));
+        return true;
+    }
+    // At the relay: from one of our peers to another, within the budget.
+    void onRelayOut(Peer& from, uint64_t id, const uint8_t* data, size_t size) {
+        Peer* to = findId(id);
+        if (!cfg.relay || !to || to == &from || Host::isRelayAddress(to->info.address) ||
+            Host::isRelayAddress(from.info.address))
+            return refuse(Reason::NoRoute);
+        relayTokens = std::min(cfg.relayBytesPerSecond, relayTokens + (now - relayAt) * cfg.relayBytesPerSecond);
+        relayAt = now;
+        if (relayTokens < double(size)) return refuse(Reason::RateLimited);
+        relayTokens -= double(size);
+        to->frames.push_back(relayFrame(fRelayIn, from.info.id, data, size));
+    }
+    // At the far end: a datagram from `id`, by way of our peer `via`.
+    void drainRelayed() {
+        for (size_t i = 0; i < relayed.size(); ++i) {
+            const Address from = relayed[i].first;
+            const Bytes d = relayed[i].second;
+            if (d.empty()) continue;
+            switch (d[0]) {
+            case kInit: onInit(from, d.data(), d.size()); break;
+            case kResponse: onResponse(from, d.data(), d.size()); break;
+            case kFinish: onFinish(from, d.data(), d.size()); break;
+            case kData: onData(from, d.data(), d.size()); break;
+            default: refuse(Reason::Malformed);
+            }
+        }
+        relayed.clear();
     }
 
     Peer* find(PeerHandle h) {
@@ -502,7 +572,8 @@ struct Host::Impl {
         peer->sessions.push_back(std::move(s));
         sessions[local] = {peer, raw};
         ++counters.handshakesCompleted;
-        queueObserved(*peer, from);
+        if (!Host::isRelayAddress(from)) queueObserved(*peer, from);  // a virtual address tells it nothing
+        else if (peer->info.address == from) peer->info.via = relayVia(from);
         return raw;
     }
 
@@ -539,7 +610,10 @@ struct Host::Impl {
         s.confirmed = true;
         s.finish.clear();
         if (s.address != from) s.address = from;  // the NAT rebound: follow it
-        if (peer.sender() == &s) peer.info.address = s.address;
+        if (peer.sender() == &s) {
+            peer.info.address = s.address;
+            peer.info.via = Host::isRelayAddress(s.address) ? relayVia(s.address) : kNoPeer;
+        }
         ++peer.info.packetsReceived;
         peer.info.bytesReceived += n;
         Reader r(opened.data(), opened.size());
@@ -589,6 +663,15 @@ struct Host::Impl {
                 index >= count)
                 return false;
             onGroup(peer, id, uint16_t(index), uint16_t(count), data, size_t(size));
+            return true;
+        }
+        case fRelayOut:
+        case fRelayIn: {
+            const uint64_t id = r.u64(), size = r.var();
+            const uint8_t* data = size <= cfg.mtu ? r.bytes(size_t(size)) : nullptr;
+            if (!data || !size) return false;
+            if (type == fRelayOut) onRelayOut(peer, id, data, size_t(size));
+            else if (relayed.size() < 256) relayed.push_back({Host::relayAddress(peer.info.handle, id), Bytes(data, data + size)});
             return true;
         }
         case fPing:
@@ -772,12 +855,12 @@ struct Host::Impl {
         from.introTokens -= 1;
         if (!at.valid() || key == identity.keys.pub || findKey(key)) return;
         if (admission && !admission(at, intent)) return refuse(Reason::NotAdmitted);
-        event(HostEventType::Introduced, from.info.handle, at, Reason::None, intent);
+        event(HostEventType::Introduced, from.info.handle, at, Reason::None, intent, &key);
         connect(at, intent, &key);
     }
 
     void notePublic(const Address& a) {
-        if (!a.valid()) return;
+        if (!a.valid() || Host::isRelayAddress(a)) return;
         for (Vote& v : votes)
             if (v.address == a) return void((++v.count, v.at = now));
         if (votes.size() >= 16) votes.erase(std::min_element(votes.begin(), votes.end(), [](auto& x, auto& y) {
@@ -858,6 +941,8 @@ struct Host::Impl {
         if (peer.frames.empty() && peer.resend.empty() && now - peer.lastSend >= cfg.keepaliveSeconds)
             peer.frames.push_back({fPing});
         size_t nextMessage = 0;
+        // A relayed link's packets ride inside a frame of the link to its relay.
+        const size_t room = Host::isRelayAddress(s->address) ? capacity - kRelayCut : capacity;
         for (size_t packets = 0; packets < cfg.maxPacketsPerFlush; ++packets) {
             plain.clear();
             Sent sent{peer.nextPn, now, 0, false, {}};
@@ -869,7 +954,7 @@ struct Host::Impl {
                 w.u64(peer.ackMask());
             }
             const size_t ackOnly = plain.size();
-            auto fits = [&](size_t n) { return plain.size() + n <= capacity; };
+            auto fits = [&](size_t n) { return plain.size() + n <= room; };
             while (!peer.frames.empty() && fits(peer.frames.front().size())) {
                 const Bytes& f = peer.frames.front();
                 plain.insert(plain.end(), f.begin(), f.end());
@@ -1005,6 +1090,14 @@ struct Host::Impl {
         }
     }
 
+    // Twice: a relayed link's packets, sealed in the first pass, leave in the
+    // relay's link in the second rather than a frame later.
+    void flushAll() {
+        for (auto& p : peers) flushPeer(*p, false);
+        for (auto& p : peers)
+            if (!p->frames.empty()) flushPeer(*p, false);
+    }
+
     void sweep() {
         for (size_t i = 0; i < peers.size();) {
             if (!peers[i]->dead) {
@@ -1038,9 +1131,10 @@ struct Host::Impl {
                 if (foreign) foreign(from, rx, size_t(n));
                 else refuse(Reason::Foreign);
             }
+            drainRelayed();
         }
         timers();
-        for (auto& p : peers) flushPeer(*p, false);
+        flushAll();
         sweep();
         for (size_t i = 0; i < unheard.size(); ++i) {  // listeners may cause more
             const HostEvent e = unheard[i];
@@ -1068,6 +1162,8 @@ void Host::introduce(PeerHandle a, PeerHandle b, const Bytes& intent) {
     Peer* pa = impl_->find(a);
     Peer* pb = impl_->find(b);
     if (!pa || !pb || a == b || intent.size() > kMaxIntent) return;
+    // A relayed peer's address is ours alone: nobody else can punch towards it.
+    if (isRelayAddress(pa->info.address) || isRelayAddress(pb->info.address)) return;
     auto frame = [&](const Peer& about) {
         Bytes f{fIntro, uint8_t(about.info.address.compactSize())};
         f.resize(2 + about.info.address.compactSize());
@@ -1082,9 +1178,7 @@ void Host::introduce(PeerHandle a, PeerHandle b, const Bytes& intent) {
     pb->frames.push_back(frame(*pa));
 }
 void Host::poll(double now) { impl_->poll(now); }
-void Host::flush() {
-    for (auto& p : impl_->peers) impl_->flushPeer(*p, false);
-}
+void Host::flush() { impl_->flushAll(); }
 void Host::setReceiver(Receiver r) { impl_->receiver = std::move(r); }
 void Host::addListener(std::function<void(const HostEvent&)> l) { impl_->listeners.push_back(std::move(l)); }
 void Host::setService(uint8_t service, Service handler) {
@@ -1133,6 +1227,16 @@ Address Host::publicAddress() const {
 }
 void Host::notePublicAddress(const Address& seen) { impl_->notePublic(seen); }
 Address Host::localAddress() const { return impl_->socket.local(); }
+Address Host::relayAddress(PeerHandle via, uint64_t id) {
+    Address a;
+    a.v6 = true;
+    a.port = 1;
+    std::memcpy(a.ip.data(), kRelayPrefix, 4);
+    put32(a.ip.data() + 4, via);
+    for (int i = 0; i < 8; ++i) a.ip[size_t(8 + i)] = uint8_t(id >> (8 * i));
+    return a;
+}
+bool Host::isRelayAddress(const Address& a) { return a.v6 && std::memcmp(a.ip.data(), kRelayPrefix, 4) == 0; }
 const Identity& Host::identity() const { return impl_->identity; }
 const HostConfig& Host::config() const { return impl_->cfg; }
 const HostCounters& Host::counters() const { return impl_->counters; }

@@ -70,7 +70,44 @@ and create a new tag under `RELEASE.md`.
   meet 1-3 s after typing a code; a rollback session over a lossy punched
   link agrees on every checksum at 6 KB/s. Live: two processes found each
   other by arena code on the real DHT in 0.5-4 s. Every simulated test passes
-  on 400 seeds, each run replayable from its seed. No relay yet (ROADMAP 5).
+  on 400 seeds, each run replayable from its seed.
+
+### Peer-to-peer crowds: proximity, relay, IPv6 DHT, network thread
+
+- Proximity in `Rendezvous` (`RendezvousConfig::neighbours`): a crowd is no
+  longer a full mesh. Each peer says where it stands (`setPosition`, in the
+  application's own metric frame), tells its peers who stands near them, asks
+  them for introductions to the nearer ones and keeps links to its
+  `neighbours` nearest; a link either side still wants is kept, the others are
+  dropped after `pruneSeconds`. Newcomers are found through the peers already
+  there, so a crowd has no edge at a cell's border. Simulated: 150 players in
+  one cell, 32 nearest each, one in ten behind a symmetric NAT: 98 % of every
+  player's 32 nearest linked 6-9 s after the last arrived, 42 links each
+  instead of 149, 6 KB/s of overlay traffic a player.
+- The DHT is the door: a topic with members asks it every
+  `populatedRefreshSeconds` (60 s) instead of every 3 s, only the `announcers`
+  (8) members whose ids hash nearest the topic's key announce, and an address
+  the crowd does not know is tried every `healSeconds` to heal a split. The
+  same 150 players cost the busiest DHT node 1.9 queries a second instead of
+  48. `Dht::watch` can now stop announcing and slow down.
+- Relay (`HostConfig::relay`, `Host::relayAddress`): two peers no punching
+  opens link through a peer both reach. Their datagrams, sealed end to end,
+  ride in a frame of each one's link to the relay, under a virtual address;
+  the relay reads and forges nothing, relays within `relayBytesPerSecond` and
+  never relays a relayed link. `PeerInfo::via` names the relay. `Rendezvous`
+  falls back to it by itself for an introduced pair not linked after
+  `relayAfterSeconds`. Fragments are cut 40 bytes shorter so any message fits
+  a relayed link.
+- BEP 32: the IPv6 Mainline DHT runs beside the IPv4 one on the same
+  dual-stack socket (its own routing table, `nodes6`, 18-byte peers), and
+  bootstrap names resolve to both families: a player whose IPv4 sits behind a
+  carrier-grade NAT is found over IPv6.
+- `NetworkThread`: a Host and its Rendezvous on a thread of their own, woken by
+  the first datagram (`DatagramSocket::wait`, `select()` on `UdpSocket`), with
+  a fixed-step callback for the game's sends and a recursive `lock()` for
+  everything else. A 600 ms stall of the game's frame no longer stalls the
+  network (36 snapshots, widest gap 18 ms). Asks Windows for a 1 ms timer
+  while it runs, as the engine does for frame pacing (links `winmm`).
 
 ### Ambient occlusion at half resolution
 

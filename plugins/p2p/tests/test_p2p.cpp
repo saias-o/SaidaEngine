@@ -5,19 +5,22 @@
 //
 //   g++ -std=c++17 -O2 -Wall -Wextra -I../include -I../../netcode/include
 //       -I../../../third_party/mbedtls/include test_p2p.cpp ../src/*.cpp
-//       -L../../../build-rel/media-mbedtls/library -lmbedcrypto -lws2_32 -lbcrypt
+//       -L../../../build-rel/media-mbedtls/library -lmbedcrypto -lws2_32 -lbcrypt -lwinmm
 //
 // Prints PASS saida::p2p, or each failed check and FAIL.
 #include "saida/p2p/Bencode.hpp"
 #include "saida/p2p/Dht.hpp"
 #include "saida/p2p/Host.hpp"
 #include "saida/p2p/NetcodeTransport.hpp"
+#include "saida/p2p/NetworkThread.hpp"
 #include "saida/p2p/Rendezvous.hpp"
 #include "saida/p2p/SimInternet.hpp"
 #include "saida/p2p/Socket.hpp"
 #include "saida/netcode/Clock.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -621,6 +624,69 @@ static void dht() {
     CHECK(firstA > 0 && firstA < 8 && firstB > 0 && firstB < 8);
 }
 
+// BEP 32: the IPv6 network, on an in-memory line (SimInternet is IPv4 only).
+static void dht6() {
+    std::printf("dht6\n");
+    struct Packet {
+        double at;
+        Address from, to;
+        Bytes data;
+    };
+    std::vector<Packet> air;
+    double now = 0;
+    std::vector<std::unique_ptr<Dht>> nodes;
+    std::map<uint64_t, size_t> where;
+    auto v6 = [](int i) {
+        const uint8_t ip[16] = {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, uint8_t(i >> 8), uint8_t(i)};
+        return Address::fromIpv6(ip, 6881);
+    };
+    auto make = [&](int i, bool serve) {
+        const Address me = v6(i);
+        DhtConfig c;
+        c.readOnly = !serve;
+        nodes.push_back(std::make_unique<Dht>([&air, &now, me](const Address& to, const uint8_t* d, size_t n) {
+            air.push_back({now + 0.02, me, to, Bytes(d, d + n)});
+            return true;
+        }, c));
+        where[me.hash()] = nodes.size() - 1;
+        return nodes.back().get();
+    };
+    for (int i = 1; i <= 60; ++i) {
+        Dht* n = make(i, true);
+        for (int k = 1; k <= 3 && k < i; ++k) n->addNode(v6(i - k));
+        if (i > 3) n->addNode(v6(1));
+    }
+    auto step = [&] {
+        now += 0.05;
+        std::vector<Packet> due;
+        for (size_t i = 0; i < air.size();)
+            if (air[i].at <= now) due.push_back(std::move(air[i])), air.erase(air.begin() + long(i));
+            else ++i;
+        for (Packet& p : due)
+            if (auto it = where.find(p.to.hash()); it != where.end()) nodes[it->second]->receive(p.from, p.data.data(), p.data.size());
+        for (auto& n : nodes) n->poll(now);
+    };
+    for (int i = 0; i < 400; ++i) step();
+    Dht* a = make(1001, false);
+    Dht* b = make(1002, false);
+    a->addNode(v6(5)), b->addNode(v6(30));
+    const NodeId key = Dht::keyOf("arena6", 6);
+    a->watch(key, true, 2.0), b->watch(key, true, 2.0);
+    bool aFound = false, bFound = false;
+    double at = -1;
+    for (int i = 0; i < 400 && !(aFound && bFound); ++i) {
+        step();
+        for (auto& f : a->takeFound()) aFound = aFound || (f.key == key && f.peer == v6(1002));
+        for (auto& f : b->takeFound()) bFound = bFound || (f.key == key && f.peer == v6(1001));
+        if (aFound && bFound) at = i * 0.05;
+    }
+    std::printf("  60 IPv6 nodes: two clients found each other after %.1f s, %zu IPv6 nodes known (%zu good), IPv4 %zu\n", at,
+                a->nodeCount6(), a->goodNodes6(), a->nodeCount() - a->nodeCount6());
+    CHECK(aFound && bFound && at < 8);
+    CHECK(a->nodeCount6() > 8 && a->nodeCount() == a->nodeCount6() && a->ready());
+    CHECK(a->isExternal(v6(1001)));  // the "ip" the network saw, 18 bytes
+}
+
 // --- Rendezvous: an arena code, then a rollback session over it --------------------------------
 
 struct Sum final : nc::Simulation {
@@ -771,6 +837,234 @@ static void cells() {
     }));
 }
 
+// A crowd: each player links to its nearest, not to everyone; a newcomer is
+// found through the peers already there; a walker's links follow him.
+static Endpoint& crowdPlayer(World& w, int router, const std::vector<Address>& seeds, size_t neighbours) {
+    HostConfig hc;
+    hc.application = "open-world";
+    hc.maxPeers = std::max<size_t>(24, 3 * neighbours);
+    Endpoint& e = w.add(router, Line{0.02, 0.004, 0.01, 0}, hc);
+    e.record = false;
+    RendezvousConfig rc;
+    rc.bootstrap.clear();
+    rc.knownNodes = seeds;
+    rc.neighbours = neighbours;
+    e.meet = std::make_unique<Rendezvous>(*e.host, rc);
+    return e;
+}
+
+using Spot = std::array<double, 3>;
+static double apart(const Spot& a, const Spot& b) { return std::hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
+
+// The share of every player's `k` true nearest it is linked to.
+static double coverage(const std::vector<Endpoint*>& ps, const std::vector<Spot>& at, size_t k) {
+    size_t want = 0, have = 0;
+    for (size_t i = 0; i < ps.size(); ++i) {
+        std::vector<std::pair<double, size_t>> d;
+        for (size_t j = 0; j < ps.size(); ++j)
+            if (j != i) d.push_back({apart(at[i], at[j]), j});
+        std::sort(d.begin(), d.end());
+        for (size_t n = 0; n < k && n < d.size(); ++n, ++want)
+            have += ps[i]->host->peerWithKey(ps[d[n].second]->host->identity().keys.pub) != kNoPeer;
+    }
+    return want ? double(have) / double(want) : 1;
+}
+
+static void neighbourhood() {
+    std::printf("neighbourhood\n");
+    World w(81);
+    w.dhtNetwork(120);
+    w.run(20);
+    const Nat kinds[] = {Nat::PortRestricted, Nat::FullCone, Nat::AddressRestricted, Nat::None};
+    const size_t k = 6;
+    const Topic cell = Topic::named("open-world", "cell/4422/8851");
+    std::vector<Endpoint*> ps;
+    std::vector<Spot> at;
+    uint64_t r = 12345;
+    auto jitter = [&] { return double((r = r * 6364136223846793005ULL + 1442695040888963407ULL) >> 40) / double(1 << 24) * 3; };
+    for (int i = 0; i < 36; ++i) {
+        const int router = kinds[i % 4] == Nat::None ? -1 : w.net.addRouter(kinds[i % 4]);
+        ps.push_back(&crowdPlayer(w, router, w.seeds(3), k));
+        at.push_back({10.0 * (i % 6) + jitter(), 10.0 * (i / 6) + jitter(), 0});
+        ps.back()->meet->setPosition(at.back()[0], at.back()[1], at.back()[2]);
+        ps.back()->meet->join(cell);
+        w.run(0.2);  // they arrive one after the other
+    }
+    const double arrived = w.now;
+    CHECK(w.runUntil(40, [&] { return coverage(ps, at, k) >= 0.97; }));
+    w.run(8);  // the overlay settles: links nobody wants are dropped
+    size_t most = 0, links = 0;
+    for (Endpoint* p : ps) most = std::max(most, p->host->peers().size()), links += p->host->peers().size();
+    uint64_t asked = 0, pruned = 0;
+    for (Endpoint* p : ps) asked += p->meet->status().introductionsAsked, pruned += p->meet->status().pruned;
+    std::printf("  36 players, %zu nearest each: %.0f%% linked %.1f s after the last arrived, %.1f links each (most %zu, "
+                "a full mesh is 35), %llu introductions asked, %llu links dropped\n",
+                k, 100 * coverage(ps, at, k), w.now - arrived - 8, double(links) / 36, most,
+                (unsigned long long)asked, (unsigned long long)pruned);
+    CHECK(coverage(ps, at, k) >= 0.97);
+    CHECK(most <= 3 * k && double(links) / 36 <= 2.0 * k);
+    // Player 0 walks from one corner to the far one: its links follow it.
+    const Spot from = at[0], to = {58, 57, 0};
+    for (int s = 0; s <= 600; ++s) {
+        const double t = s / 600.0;
+        at[0] = {from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t, 0};
+        ps[0]->meet->setPosition(at[0][0], at[0][1], at[0][2]);
+        w.step();
+    }
+    auto walkerNear = [&] {
+        std::vector<std::pair<double, size_t>> d;
+        for (size_t j = 1; j < ps.size(); ++j) d.push_back({apart(at[0], at[j]), j});
+        std::sort(d.begin(), d.end());
+        size_t n = 0;
+        for (size_t i = 0; i < k; ++i) n += ps[0]->host->peerWithKey(ps[d[i].second]->host->identity().keys.pub) != kNoPeer;
+        return n;
+    };
+    CHECK(w.runUntil(15, [&] { return walkerNear() == k; }));
+    const size_t near = walkerNear();
+    std::printf("  the walker crossed 80 m: %zu of its %zu new nearest linked, %zu links\n", near, k, ps[0]->host->peers().size());
+    CHECK(near == k && ps[0]->host->peers().size() <= 3 * k);
+}
+
+// The pairs no punching opens link through a peer both reach: sealed end to
+// end, carried inside each one's link to the relay.
+static void relay() {
+    std::printf("relay\n");
+    World w(91);
+    const int ra = w.net.addRouter(Nat::Symmetric), rb = w.net.addRouter(Nat::PortRestricted);
+    Endpoint& r = w.add(-1, Line{0.02, 0.003, 0.01, 0});
+    Endpoint& a = w.add(ra, Line{0.03, 0.005, 0.02, 0});
+    Endpoint& b = w.add(rb, Line{0.03, 0.005, 0.02, 0});
+    a.host->connect(r.socket->local());
+    b.host->connect(r.socket->local());
+    CHECK(w.runUntil(3, [&] { return r.host->peers().size() == 2; }));
+    const PeerHandle viaA = connectedTo(a), viaB = connectedTo(b);
+    // Punching first: it fails, as the NAT matrix says.
+    const auto rp = r.host->peers();
+    r.host->introduce(rp[0], rp[1], {'g'});
+    w.run(4);
+    CHECK(a.host->peers().size() == 1 && b.host->peers().size() == 1);
+    // Then through the relay, proving b's key end to end.
+    const Key bKey = b.host->identity().keys.pub;
+    const Address virtualB = Host::relayAddress(viaA, b.host->identity().id());
+    CHECK(Host::isRelayAddress(virtualB) && !Host::isRelayAddress(r.socket->local()));
+    a.host->connect(virtualB, {'g'}, &bKey);
+    const double asked = w.now;
+    CHECK(w.runUntil(3, [&] { return a.host->peerWithKey(bKey) && b.host->peerWithKey(a.host->identity().keys.pub); }));
+    const PeerHandle ab = a.host->peerWithKey(bKey), ba = b.host->peerWithKey(a.host->identity().keys.pub);
+    CHECK(a.host->peer(ab)->via == viaA && b.host->peer(ba)->via == viaB);
+    std::printf("  symmetric and port-restricted linked through the relay %.0f ms after asking\n", (w.now - asked) * 1000);
+    // A large reliable message and a stream of small unreliable ones survive the detour.
+    Bytes big(120000);
+    for (size_t i = 0; i < big.size(); ++i) big[i] = uint8_t(i * 7 + i / 251);
+    b.reliable.clear(), b.unreliable.clear();
+    CHECK(a.host->send(ab, big, Channel::Reliable));
+    for (int i = 0; i < 100; ++i) {
+        const uint8_t m[3] = {uint8_t(i), 1, 2};
+        a.host->send(ab, m, 3, Channel::Unreliable);
+        w.step();
+    }
+    CHECK(w.runUntil(10, [&] { return !b.reliable.empty(); }));
+    CHECK(!b.reliable.empty() && b.reliable[0].second == big);
+    std::printf("  120 KB reliable intact, %zu of 100 unreliable arrived, rtt %.0f ms (a to relay %.0f ms)\n",
+                b.unreliable.size(), a.host->peer(ab)->rtt * 1000, a.host->peer(viaA)->rtt * 1000);
+    CHECK(b.unreliable.size() >= 85);
+    // The relay saw only sealed bytes: nothing reached its game.
+    CHECK(r.reliable.empty() && r.unreliable.empty());
+    // A peer the relay does not have is no route; a relayed link is never relayed again.
+    const uint64_t refusedBefore = r.host->counters().refused[size_t(Reason::NoRoute)];
+    a.host->connect(Host::relayAddress(viaA, 0x1234), {'g'});
+    w.run(1);
+    CHECK(r.host->counters().refused[size_t(Reason::NoRoute)] > refusedBefore);
+    // The relay goes: the relayed link goes with it.
+    w.net.setOffline(*r.socket, true);
+    CHECK(w.runUntil(15, [&] { return !a.host->peerWithKey(bKey); }));
+}
+
+// The same, found by the rendezvous alone: two players behind symmetric NATs
+// in one topic with a third reachable one are all linked.
+static void relayedTopic() {
+    std::printf("relayed topic\n");
+    World w(93);
+    w.dhtNetwork(120);
+    w.run(20);
+    Endpoint& open = player(w, -1, w.seeds(3));
+    Endpoint& s1 = player(w, w.net.addRouter(Nat::Symmetric), w.seeds(3));
+    Endpoint& s2 = player(w, w.net.addRouter(Nat::Symmetric), w.seeds(3));
+    const Topic t = arenaTopic("arena-fighter", "RLAY-0000");
+    for (Endpoint* e : {&open, &s1, &s2}) e->meet->join(t), w.run(0.5);
+    CHECK(w.runUntil(30, [&] { return s1.meet->peers(t).size() == 2 && s2.meet->peers(t).size() == 2; }));
+    const PeerHandle p = s1.host->peerWithKey(s2.host->identity().keys.pub);
+    CHECK(p && s1.host->peer(p) && s1.host->peer(p)->via != kNoPeer);
+    std::printf("  three players, two behind symmetric NATs: all linked %.1f s after the last joined, %llu relayed\n",
+                w.now - 21, (unsigned long long)(s1.meet->status().relayed + s2.meet->status().relayed));
+}
+
+// A hundred and fifty players in one cell, 32 nearest each, one in ten
+// behind a symmetric NAT: the overlay links each to its nearest (relayed
+// where no punching opens), with links bounded per player, and the public DHT
+// barely asked once the crowd has formed.
+static void crowd() {
+    std::printf("crowd\n");
+    World w(97);
+    w.dhtNetwork(120);
+    w.run(20);
+    const size_t n = 150, k = 32;
+    const Nat kinds[] = {Nat::PortRestricted, Nat::FullCone, Nat::None, Nat::AddressRestricted, Nat::PortRestricted,
+                         Nat::FullCone, Nat::None, Nat::AddressRestricted, Nat::PortRestricted, Nat::Symmetric};
+    const Topic cell = Topic::named("open-world", "cell/4422/8852");
+    std::vector<Endpoint*> ps;
+    std::vector<Spot> at;
+    uint64_t r = 777;
+    auto jitter = [&] { return double((r = r * 6364136223846793005ULL + 1442695040888963407ULL) >> 40) / double(1 << 24) * 6; };
+    const auto started = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < n; ++i) {
+        const Nat kind = kinds[i % 10];
+        ps.push_back(&crowdPlayer(w, kind == Nat::None ? -1 : w.net.addRouter(kind), w.seeds(3), k));
+        at.push_back({15.0 * double(i % 15) + jitter(), 15.0 * double(i / 15) + jitter(), 0});
+        ps.back()->meet->setPosition(at.back()[0], at.back()[1], at.back()[2]);
+        ps.back()->meet->join(cell);
+        w.run(0.1);
+    }
+    const double arrived = w.now;
+    const bool formed = w.runUntil(60, [&] { return coverage(ps, at, k) >= 0.95; });
+    const double formedIn = w.now - arrived;
+    // Settled: what a crowd costs each player and the public DHT, over 30 s.
+    w.run(10);
+    std::vector<uint64_t> asked(w.nodes.size());
+    for (size_t i = 0; i < w.nodes.size(); ++i) asked[i] = w.nodes[i]->counters().queriesAnswered;
+    std::vector<uint64_t> sent(n);
+    for (size_t i = 0; i < n; ++i) sent[i] = ps[i]->host->counters().bytesSent;
+    w.run(30);
+    double busiest = 0, total = 0;
+    std::vector<double> up(n);
+    for (size_t i = 0; i < w.nodes.size(); ++i) {
+        const double q = double(w.nodes[i]->counters().queriesAnswered - asked[i]) / 30;
+        busiest = std::max(busiest, q), total += q;
+    }
+    size_t most = 0, links = 0, relayed = 0;
+    double upMost = 0;
+    for (size_t i = 0; i < n; ++i) {
+        const auto peers = ps[i]->host->peers();
+        most = std::max(most, peers.size()), links += peers.size();
+        for (PeerHandle p : peers) relayed += ps[i]->host->peer(p)->via != kNoPeer;
+        up[i] = double(ps[i]->host->counters().bytesSent - sent[i]) / 30;
+        upMost = std::max(upMost, up[i]);
+    }
+    std::sort(up.begin(), up.end());
+    const double wall = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    std::printf("  %zu players, %zu nearest each: %.1f%% linked %.1f s after the last arrived; %.1f links each (most %zu, "
+                "a full mesh is %zu), %zu links relayed\n",
+                n, k, 100 * coverage(ps, at, k), formedIn, double(links) / double(n), most, n - 1, relayed / 2);
+    std::printf("  settled: the overlay costs a player %.1f KB/s up (median; %.1f at most, a relay); the DHT answers "
+                "%.1f queries/s in all, %.2f at the busiest node (%.1f s of simulation in %.1f s)\n",
+                up[n / 2] / 1000, upMost / 1000, total, busiest, w.now, wall);
+    CHECK(formed && coverage(ps, at, k) >= 0.95);
+    CHECK(most <= 3 * k && double(links) / double(n) <= 1.8 * double(k));
+    CHECK(relayed > 0);
+    CHECK(busiest < 5);  // every player together: libtorrent blocks one source past 5 a second
+    CHECK(up[n / 2] < 8000);
+}
+
 // --- This machine's network ---------------------------------------------------------------------
 
 static double clockNow() {
@@ -860,6 +1154,53 @@ static void sockets() {
                      (unsigned long long)ma.status().lanBeaconsSent, (unsigned long long)ma.status().lanBeaconsHeard);
 }
 
+// The network on its own thread: a steady stream while the game's frame
+// stalls, and a game that holds the lock only delays it.
+static void networkThread() {
+    std::printf("network thread\n");
+    UdpSocket sa, sb;
+    CHECK(sa.open() && sb.open());
+    if (!sa.isOpen() || !sb.isOpen()) return;
+    Host a(sa, Identity::generate()), b(sb, Identity::generate());
+    NetworkThread ta(a, nullptr, sa), tb(b, nullptr, sb);
+    std::vector<double> arrivals;  // on b's thread, lock held
+    b.setReceiver([&](PeerHandle, const uint8_t*, size_t n, Channel) {
+        if (n == 4) arrivals.push_back(tb.now());
+    });
+    {
+        auto held = ta.lock();
+        CHECK(a.connect(Address::v4(127, 0, 0, 1, sb.local().port)));
+    }
+    // a sends four bytes every step (60 a second) once linked.
+    ta.start([&](double) {
+        for (PeerHandle p : a.peers()) a.send(p, Bytes{1, 2, 3, 4}, Channel::Unreliable);
+    });
+    tb.start();
+    // The game's frame stalls for 600 ms: the network does not.
+    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    size_t during = 0;
+    double gap = 0;
+    {
+        auto held = tb.lock();
+        during = arrivals.size();
+        for (size_t i = 1; i < arrivals.size(); ++i) gap = std::max(gap, arrivals[i] - arrivals[i - 1]);
+    }
+    // The game holds a's lock for 200 ms: a's sends wait, the link holds.
+    {
+        auto held = ta.lock();
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    ta.stop(), tb.stop();
+    const NetworkThreadStats s = ta.stats();
+    std::printf("  %zu snapshots in a 600 ms stall of the game's frame (widest gap %.0f ms); %llu steps, %llu polls, "
+                "slowest poll %.2f ms\n",
+                during, gap * 1000, (unsigned long long)s.steps, (unsigned long long)s.polls, s.worstStep * 1000);
+    CHECK(during >= 25 && gap < 0.1);
+    CHECK(a.peers().size() == 1 && b.peers().size() == 1);
+    CHECK(arrivals.size() > during + 20);  // the stream resumed after the held lock
+}
+
 // test_p2p [seed [test ...]]: every simulated test is a function of the seed
 // (network draws and keys alike), so a failure replays with the same arguments.
 int main(int argc, char** argv) {
@@ -867,7 +1208,8 @@ int main(int argc, char** argv) {
     const std::pair<const char*, void (*)()> tests[] = {
         {"crypto", crypto}, {"noise", noise}, {"formats", formats}, {"link", link},
         {"hostile", hostile}, {"reliability", reliability}, {"nat", natMatrix}, {"introductions", introductions},
-        {"dht", dht}, {"arena", arena}, {"cells", cells}, {"sockets", sockets}};
+        {"dht", dht}, {"dht6", dht6}, {"arena", arena}, {"cells", cells}, {"neighbourhood", neighbourhood}, {"crowd", crowd}, {"relay", relay}, {"relayed-topic", relayedTopic},
+        {"sockets", sockets}, {"thread", networkThread}};
     for (size_t i = 0; i < sizeof tests / sizeof *tests; ++i) {
         bool chosen = argc <= 2;
         for (int a = 2; a < argc; ++a) chosen = chosen || std::strcmp(argv[a], tests[i].first) == 0;

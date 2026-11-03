@@ -770,11 +770,18 @@ Post-V1 unless the scope changes explicitly.
     and the owner's history to judge claims made against what another machine
     drew (lag compensation with the owner as the judge). Proven in
     `test_netcode.cpp`; used by R1World's online play.
-  - [ ] Relay for the pairs no punching opens (symmetric NAT against
-    port-restricted or symmetric NAT), through a peer both reach.
-  - [ ] DHT over IPv6 (BEP 32), and private addresses for players behind one
-    router whose LAN does not carry multicast and whose router does not
-    hairpin.
+  - [x] Relay for the pairs no punching opens (symmetric NAT against
+    port-restricted or symmetric NAT), through a peer both reach
+    (`Host::relayAddress`, `Rendezvous` falls back to the introducer; SPEC
+    11.7, 2026-11-03).
+  - [x] DHT over IPv6 (BEP 32), beside the IPv4 one (2026-11-03).
+  - [x] Crowds without a full mesh: proximity overlay in `Rendezvous`
+    (`neighbours`), the DHT asked rarely and announced by a few once a topic
+    has members, and `NetworkThread` (fixed-step network thread). Proven by
+    the `neighbourhood`, `crowd` (150 players), `relay`, `relayed-topic`,
+    `dht6` and `thread` tests (2026-11-03).
+  - [ ] Private addresses for players behind one router whose LAN does not
+    carry multicast and whose router does not hairpin.
   - [ ] Qualify a session between two machines on different home networks,
     and on a mobile carrier (CGNAT). Any future JS exposure needs an explicit
     capability and permission-policy tests (SPEC 6.2); the Web runtime has no

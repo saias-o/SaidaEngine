@@ -20,6 +20,22 @@
 //                 and PeerLeft follow from both sides' lists. A peer that
 //                 shares no topic any more is disconnected after
 //                 `lingerSeconds`.
+//   proximity     a crowd is not a full mesh. With `neighbours` > 0 each peer
+//                 says where it stands (setPosition), tells its peers who
+//                 stands near them, asks for introductions to the nearer
+//                 ones and keeps links to its `neighbours` nearest; a link
+//                 either side still wants is kept, the others are dropped.
+//                 Whoever arrives near you is found through the peers you
+//                 already have (a Voronoi-style overlay), so there is no edge
+//                 between cells: the DHT is only the door.
+//   relay         two peers introduced to each other that have not linked
+//                 within `relayAfterSeconds` link through the peer that
+//                 introduced them (Host::relayAddress); the lower id asks
+//                 first, the higher one twice as late.
+//   the DHT       a topic with members needs the DHT only to heal a split:
+//                 it is asked every `populatedRefreshSeconds`, and only the
+//                 `announcers` members nearest the topic's key announce, so
+//                 a crowded cell costs the public DHT what a quiet one does.
 //
 // The Rendezvous owns the DHT and the bootstrap resolution (on its own
 // thread: name lookups block). It installs the Host's foreign handler,
@@ -67,7 +83,21 @@ struct RendezvousConfig {
     double retrySeconds = 4.0;     // a found address not reached is tried again after this
     double lingerSeconds = 10.0;   // < 0: never disconnect a peer that left our topics
     bool introduce = true;
-    size_t maxPeersPerTopic = 32;
+    size_t maxPeersPerTopic = 32;  // a full mesh's bound (neighbours == 0)
+    // Proximity (see the header): links kept to the `neighbours` nearest, in
+    // whatever metric frame the application positions its peers (metres).
+    size_t neighbours = 0;            // 0: every member links to every other
+    double positionSeconds = 2.0;     // where we stand, told to our peers this often (and every 25 m)
+    double gossipSeconds = 5.0;       // who stands near them, told this often (a newcomer: at once)
+    size_t gossipEntries = 8;         // peers named per gossip
+    double pruneSeconds = 3.0;        // a link neither side wants lasts this long
+    double introductionsPerSecond = 4;// asked of our peers
+    // The DHT once a topic has members: asked this often, announced by so many.
+    double populatedRefreshSeconds = 60.0;
+    size_t announcers = 8;
+    double healSeconds = 20.0;        // a DHT address unknown to the crowd is tried this often
+    bool relay = true;                // link through the introducer when punching fails
+    double relayAfterSeconds = 3.0;
     // LAN discovery: beacons on an IPv4 multicast group (a separate socket).
     Address lanGroup = Address::v4(239, 255, 83, 80, 47474);
     double lanSeconds = 1.0;
@@ -89,6 +119,11 @@ struct RendezvousStatus {
     bool dhtReady = false;
     Address publicAddress;
     uint64_t found = 0, attempts = 0, lanBeaconsSent = 0, lanBeaconsHeard = 0;
+    // Proximity: peers heard of and not linked, introductions asked, links dropped.
+    size_t candidates = 0;
+    uint64_t introductionsAsked = 0, introductionsMade = 0, pruned = 0;
+    size_t announcing = 0;  // topics we announce in the DHT
+    uint64_t relayed = 0;   // links asked through a relay
     std::string problem;  // empty, or why nobody can be found (show it to the player)
 };
 
@@ -108,6 +143,8 @@ public:
     bool joined(const Topic& topic) const;
     // Peers in a topic with us.
     std::vector<PeerHandle> peers(const Topic& topic) const;
+    // Where we stand, in the application's metric frame (proximity only).
+    void setPosition(double x, double y, double z);
 
     // Call after Host::poll.
     void poll(double now);

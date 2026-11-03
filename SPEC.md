@@ -3426,15 +3426,33 @@ reliably, the address it sees (`publicAddress()`); `introduce()` makes two
 peers connect to each other at once. Refused datagrams and sends are counted
 under a named `Reason`.
 
+`HostConfig::relay` lets a host carry datagrams between two of its peers that
+cannot reach each other: `Host::relayAddress(via, id)` is a virtual address
+(`fd52:4c59::/32`, the relay's handle and the peer's id) whose handshake and
+packets, sealed end to end, ride in `fRelayOut`/`fRelayIn` frames of each
+side's link to the relay; the relay forwards within `relayBytesPerSecond`,
+never between relayed links, and refuses an unknown target as `NoRoute`.
+`PeerInfo::via` names the relay of a relayed link. Fragments are cut so that
+any message fits a relayed packet (`singleDatagramMessage()` is 40 bytes
+smaller than an unrelayed packet would allow), and relayed packets are 40
+bytes smaller. `NetworkThread` runs a Host and an optional Rendezvous on a
+thread of their own: it waits on `DatagramSocket::wait` (`select()` for
+`UdpSocket`, a sleep otherwise) until the next step or the first datagram,
+polls, runs the caller's step callback every `stepSeconds`, flushes, and
+catches a late step up at once (afresh past 0.25 s); everything else touches
+the Host only under its recursive `lock()`. On Windows it holds a 1 ms timer
+resolution while it runs.
+
 `Dht` is a Mainline DHT node (BEP 5 queries, BEP 42 `ip`, BEP 43 read-only
-flag; IPv4 only) sharing the host's socket through `Host::setForeign` and
+flag, BEP 32: an IPv6 network with its own routing table, `nodes6` and
+18-byte peers beside the IPv4 one) sharing the host's socket through `Host::setForeign` and
 `sendRaw`, so the port it announces with `implied_port` is the one peers must
 reach. `watch(key)` looks a key up, announces under it, asks the closest
 nodes again every `refreshSeconds` (moving to nearer nodes they name, so all
 watchers of a key converge on the same nodes) and walks the network again
 every `relookupSeconds`; lookups stop waiting for a node after `slowSeconds`;
 a node with no good node asks its bootstrap nodes again with backoff.
-`Rendezvous` owns a `Dht`, resolves bootstrap names on a detached thread and
+`Rendezvous` owns a `Dht`, resolves bootstrap names (both families) on a detached thread and
 installs the host's foreign handler, admission and service 1. A `Topic` is a
 SHA-256 of the application and a name; its DHT key and its 8-byte handshake
 tag are derived from it. Peers that join a topic announce and look it up,
@@ -3442,22 +3460,41 @@ connect to the addresses found (retrying with backoff), are admitted only with
 the tag of a topic the receiver is in, exchange their topic lists, and get
 `PeerJoined`/`PeerLeft`; a peer that reached a member through discovery is
 introduced to the other members; one that shares no topic for
-`lingerSeconds` is disconnected. Multicast beacons on an IPv4 group (a
+`lingerSeconds` is disconnected. With `neighbours` > 0 (proximity) a topic is
+no full mesh: each peer sends its position (`setPosition`) every
+`positionSeconds` or 25 m, and every `gossipSeconds` (a newcomer at once) the
+`gossipEntries` peers nearest the receiver; it asks the peer that named a
+nearer one for an introduction (`introductionsPerSecond`, backoff per id),
+keeps its `neighbours` nearest plus a quarter, tells each peer whether it
+wants the link, and disconnects after `pruneSeconds` a link neither side
+wants; a newcomer is introduced only through this, and an admission is no
+longer bounded by `maxPeersPerTopic`. A topic with members asks the DHT every
+`populatedRefreshSeconds`, announces only while among the `announcers`
+members nearest the topic key (by a hash of key and id), and tries an address
+the DHT gives and no member has at most every `healSeconds`. An introduced
+pair not linked after `relayAfterSeconds` (the higher id twice as late) links
+through the introducer. Multicast beacons on an IPv4 group (a
 separate socket from `openLanSocket`) do the same on the local network. Arena
 codes are 35 random bits and an odd-weighted check character in eight
 Crockford base-32 characters; `normalizeArenaCode` refuses every single
 mistyped character. `RendezvousStatus::problem` names an unreachable DHT.
 Symmetric NAT against port-restricted or symmetric NAT cannot be punched and
-has no relay; two players behind one router meet over the LAN beacons, the
-DHT path needing router hairpinning.
+is relayed; a pair with no common peer to relay through stays apart. Two
+players behind one router meet over the LAN beacons, the DHT path needing
+router hairpinning.
 
 Verification: `plugins/p2p/tests/test_p2p.cpp` (built by the add-on's CMake,
 or by one `g++` line in its header) prints `PASS saida::p2p`; `test_p2p seed
 [test ...]` redraws every simulated network and, through
 `seedRandomForTesting`, every key and index, so a run replays exactly. `SimInternet` provides public hosts,
 full-cone, address-restricted, port-restricted and symmetric NATs and lossy
-lines. `examples/p2p_probe.cpp` joins the real DHT and meets another process
-by arena code.
+lines. Among its tests: `neighbourhood` (36 players, a walker's links follow
+him), `crowd` (150 players in one cell, 32 nearest each, one in ten behind a
+symmetric NAT: 95 % or more of the nearest linked, links and overlay traffic
+bounded, under 5 DHT queries a second at the busiest node), `relay` and
+`relayed-topic`, `dht6` (an in-memory IPv6 DHT) and `thread` (real sockets: a
+stalled caller does not stall the stream). `examples/p2p_probe.cpp` joins the
+real DHT and meets another process by arena code.
 
 ## 12. Export and packaging
 

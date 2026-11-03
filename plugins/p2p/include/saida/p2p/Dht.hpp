@@ -4,7 +4,10 @@
 // find_node, get_peers, announce_peer with implied_port (the NAT's public
 // port is what gets stored), BEP 42's "ip" (the address the network sees for
 // us) and BEP 43's read-only flag (a node behind a NAT asks without being
-// asked). IPv4 only (BEP 32 is not implemented).
+// asked). BEP 32: the IPv6 DHT is a second network (its own routing table,
+// nodes6, 18-byte peers) run beside the IPv4 one on the same dual-stack
+// socket; a watch is asked of both, so a player with IPv6 -- most mobile
+// carriers, whose IPv4 is behind a carrier-grade NAT -- is found there.
 //
 // It shares the game's UDP socket (Host::setForeign / sendRaw): the port the
 // DHT stores for us is then the very port our peers must punch towards.
@@ -62,7 +65,8 @@ public:
     Dht(const Dht&) = delete;
     Dht& operator=(const Dht&) = delete;
 
-    // A node to start from (a bootstrap router, a node remembered from last time).
+    // A node to start from (a bootstrap router, a node remembered from last
+    // time), in the network of its family.
     void addNode(const Address& node);
     void receive(const Address& from, const uint8_t* data, size_t size);
     void poll(double now);
@@ -79,8 +83,13 @@ public:
     size_t goodNodes() const;
     // Enough of the network known to look anything up.
     bool ready() const;
-    // The address most responders saw us at (BEP 42); invalid until then.
+    // The address most responders saw us at (BEP 42): the IPv4 one, else the
+    // IPv6 one; invalid until then. isExternal: either of them.
     Address externalAddress() const;
+    bool isExternal(const Address& a) const;
+    // Nodes and good nodes of the IPv6 network alone (included in the totals).
+    size_t nodeCount6() const;
+    size_t goodNodes6() const;
     // Nodes worth remembering for the next start, best first.
     std::vector<Address> nodes(size_t max) const;
     const DhtCounters& counters() const;
@@ -90,7 +99,8 @@ public:
 
 private:
     struct Impl;
-    std::unique_ptr<Impl> impl_;
+    std::unique_ptr<Impl> impl_, impl6_;  // the IPv4 and the IPv6 networks
+    mutable DhtCounters total_;
 };
 
 } // namespace saida::p2p

@@ -25,6 +25,7 @@ using SockLen = int;
 using SockLen = socklen_t;
 #endif
 
+#include <algorithm>
 #include <cstdio>
 #include <mutex>
 
@@ -184,6 +185,19 @@ bool UdpSocket::send(const Address& to, const uint8_t* data, size_t size) {
                              reinterpret_cast<const sockaddr*>(&sa), len);
     if (sent < 0 || size_t(sent) != size) return ++sendFailures_, false;
     return true;
+}
+
+void UdpSocket::wait(double seconds) {
+    if (handle_ == kInvalid) return DatagramSocket::wait(seconds);
+    fd_set readable;
+    FD_ZERO(&readable);
+    FD_SET(native(handle_), &readable);
+    seconds = std::max(0.0, seconds);
+    timeval tv;
+    tv.tv_sec = long(seconds);
+    tv.tv_usec = long((seconds - double(tv.tv_sec)) * 1e6);
+    // A socket select() cannot wait on still waits: never a busy loop.
+    if (select(int(native(handle_) + 1), &readable, nullptr, nullptr, &tv) < 0) DatagramSocket::wait(seconds);
 }
 
 int UdpSocket::receive(Address& from, uint8_t* buf, size_t capacity) {
