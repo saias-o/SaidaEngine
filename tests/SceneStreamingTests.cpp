@@ -1144,6 +1144,34 @@ void gpuStreamedGroupContract(ResourceManager& resources, Mesh* loaded) {
     Time::advance(0.f);
 }
 
+// A duplicate draws what its original draws: the same mesh, material and
+// LOD chain (and the LOD group that switches it), shadow, outline and
+// transform, and nothing of its children or runtime meshes.
+void meshDuplicateContract() {
+    alignas(16) unsigned char storage[3][64]{};
+    auto* full = reinterpret_cast<Mesh*>(storage[0]);  // never dereferenced: identity only
+    auto* half = reinterpret_cast<Mesh*>(storage[1]);
+    auto* least = reinterpret_cast<Mesh*>(storage[2]);
+    MeshNode original("Body", full, nullptr);
+    original.setLods({{full, nullptr, .5f}, {half, nullptr, .2f}, {least, nullptr, 0.f}});
+    original.castShadows() = false;
+    original.setOutlineEnabled(true);
+    original.outlineWidth() = 5.f;
+    original.transform().position = glm::vec3(1, 2, 3);
+    original.createChild<Node>("child");
+    const auto copy = original.duplicate();
+    require(copy->name() == "Body" && copy->mesh() == full, "a duplicate keeps the name and the mesh");
+    require(copy->lods().size() == 3 && copy->lods()[1].mesh == half && copy->lods()[2].mesh == least &&
+                copy->lods()[1].minScreenCoverage == .2f,
+            "a duplicate keeps the LOD chain and its thresholds");
+    require(copy->getBehaviour<LODGroupBehaviour>() != nullptr, "a duplicate switches its levels as the original does");
+    require(!copy->castShadows() && copy->outlineEnabled() && copy->outlineWidth() == 5.f, "a duplicate keeps shadow and outline");
+    require(copy->transform().position == glm::vec3(1, 2, 3), "a duplicate keeps the transform");
+    require(copy->children().empty(), "a duplicate is the node alone, not its children");
+    const MeshNode single("Prop", full, nullptr);
+    require(!single.duplicate()->hasLods(), "a single-level mesh stays single-level");
+}
+
 void gpuDeformation(VulkanDevice& device) {
     ResourceManager resources(device,nullptr,{512,1024});
     auto prepared=prepareMesh({cubeVertices(),cubeIndices()});
@@ -1392,7 +1420,7 @@ void gpuUploadContracts() {
 }
 int main(int argc, char** argv) {
     std::setvbuf(stdout, nullptr, _IONBF, 0);
-    indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); transformPropagationContract(); shadowClipContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract();
+    indexChanges(); ownershipAndReparenting(); transformAndCameraContract(); transformPropagationContract(); shadowClipContract(); fixedStepsAndRebase(); rebaseDestinationPrecision(); rebaseCharacterAndJoint(); groupContract(); streamedGroupContract(); meshDuplicateContract();
     if (argc > 1 && std::string(argv[1]) == "--gpu") gpuLodGroups();
     if (argc > 1 && std::string(argv[1]) == "--uploads") gpuUploadContracts();
     if (argc > 1 && std::string(argv[1]) == "--gltf") {

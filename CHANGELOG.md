@@ -72,6 +72,24 @@ and create a new tag under `RELEASE.md`.
   other by arena code on the real DHT in 0.5-4 s. Every simulated test passes
   on 400 seeds, each run replayable from its seed.
 
+### Copies that keep their levels of detail; AutoLOD's thresholds
+
+- `MeshNode::duplicate()`: a copy of a mesh node's own drawing state -- mesh,
+  material, LOD chain (with the LOD group `setLods` adds), shadow, outline,
+  transform -- without its children, behaviours or runtime meshes. A game
+  that draws one model many times copied mesh and material alone, which
+  dropped the chain: every copy of an AutoLOD model was drawn at full detail
+  (R1World's other players, a 7,364-triangle scan each at any distance).
+  `SceneStreamingTests`: the chain, its thresholds and its LOD group, shadow,
+  outline and transform kept, the children not.
+- AutoLOD `--coverages a,b,c`: the screen coverage under which each level
+  takes over from the one before (`MSFT_screencoverage`), for what the
+  defaults (0.5, 0.25, 0.08, a rock's) do not fit. Refused, and said, when
+  the count differs from the levels' or the values do not decrease within
+  (0,1]. The `build-rel/autolod` binary had been built on 16 October, before
+  skinned meshes were decimated, and skipped them ("mesh skinne, ignore"):
+  rebuild it with `cmake --build build-rel/autolod`.
+
 ### Hot spots: the DHT as a door, far sightings, skinned LODs, walking impostors
 
 - `Rendezvous`: a crowd's topic is split over `dhtShards` DHT keys; an

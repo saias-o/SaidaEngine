@@ -31,6 +31,19 @@ void MeshNode::setRuntimeMesh(Mesh* mesh,int index) {
     markResourcesChanged();
 }
 
+std::unique_ptr<MeshNode> MeshNode::duplicate() const {
+    auto out = std::make_unique<MeshNode>(name(), mesh_, material_);
+    out->transform() = transform();
+    if (!lods_.empty()) out->setLods(lods_);
+    out->castShadows_ = castShadows_;
+    out->outlineEnabled_ = outlineEnabled_;
+    out->outlineColor_ = outlineColor_;
+    out->outlineWidth_ = outlineWidth_;
+    out->meshEnabled_ = meshEnabled_;
+    out->durableResourceRefs_ = durableResourceRefs_;
+    return out;
+}
+
 void MeshNode::setLods(std::vector<MeshLodLevel> levels) {
     lods_ = std::move(levels);
     runtimeLods_.clear();

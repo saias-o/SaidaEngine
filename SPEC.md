@@ -949,6 +949,11 @@ turns. With the depth, the levels at the sides of the frame swapped on every
 turn of the head; measured in R1World's Paris smoke, a camera change made about
 nine hundred of twelve hundred tree groups change level in one frame.
 
+`MeshNode::duplicate()` copies a mesh node's own drawing state -- mesh,
+material, LOD chain and the LOD group that switches it, shadow, outline,
+transform -- without its children, behaviours or runtime meshes. A copy made
+from mesh and material alone draws the chain's first level at every distance.
+
 A lit material can also vary across its surface, all runtime-only fields of
 `MaterialDesc` (no durable format carries them), off by default and costing a
 branch when off; a material that sets none draws exactly as before:
@@ -1406,9 +1411,13 @@ far-distance proxy with a new unwrap/atlas.
 ./build/autolod.exe --dump-images out.glb prefix_
 ```
 
-Options: `--ratios`, `--errors`, `--lock-border`, `--uv-weight(s)`,
+Options: `--ratios`, `--errors`, `--coverages`, `--lock-border`, `--uv-weight(s)`,
 `--normal-weight`, `--bake`, `--bake-res`, `--bake-cage`, `--split`, `--proxy`,
-`--proxy-below`, `--proxy-shape`. `--proxy-shape low.glb` bakes a one-mesh
+`--proxy-below`, `--proxy-shape`. `--coverages a,b,c` sets the screen coverage
+under which each level takes over from the one before (`MSFT_screencoverage`,
+default 0.5, 0.25, 0.08); a count that differs from the levels' or values that
+do not decrease within (0,1] are refused. Skinned meshes are decimated with
+their joints and weights, and every level keeps the skin. `--proxy-shape low.glb` bakes a one-mesh
 input onto the first mesh of `low.glb` instead of decimating it (the classic
 high-to-low bake for a shape built by hand or by a tool); it implies `--proxy`.
 Without bake, high UV weights can prevent reaching the requested ratio; with

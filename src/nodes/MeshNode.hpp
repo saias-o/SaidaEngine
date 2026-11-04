@@ -3,6 +3,7 @@
 #include "scene/Node.hpp"
 #include "scene/MeshLod.hpp"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -22,6 +23,14 @@ public:
         : Node(std::move(name)), mesh_(mesh), material_(material) {}
 
     const char* typeName() const override { return "MeshNode"; }
+
+    // A copy of this node's own drawing state -- mesh, material, LOD chain,
+    // shadow, outline, transform -- without its children, behaviours (but
+    // the LOD group setLods adds) or runtime meshes: what a game that draws
+    // one model many times instantiates. Copying the mesh and material
+    // alone loses the LOD chain, which is how every copy of an AutoLOD
+    // model was drawn at full detail.
+    std::unique_ptr<MeshNode> duplicate() const;
     void serialize(nlohmann::json& j, ResourceManager& resources) const override;
     void deserialize(const nlohmann::json& j, ResourceManager& resources) override;
 

@@ -1094,6 +1094,9 @@ static void usage() {
         "  --lock-border      locks borders (modular assets)\n"
         "  --sloppy           allows sloppy decimation (BREAKS UVs/textures,\n"
         "                     reserved for distant LODs without texture dependency)\n"
+        "  --coverages a,b,c  screen coverage under which each LOD takes over\n"
+        "                     from the one before (MSFT_screencoverage; default\n"
+        "                     0.5,0.25,0.08); decreasing, in (0,1]\n"
         "  --uv-weight f      same UV weight for all LODs (e.g. 4.0)\n"
         "  --uv-weights a,b,c UV weights per level        (default 1.0,3.0,10.0)\n"
         "                     higher value = less texture distortion\n"
@@ -1159,7 +1162,7 @@ int main(int argc, char** argv) {
     const std::string input = a1;
     std::string output;
     Config cfg;
-    std::vector<float> ratios, errors, uvWeights;
+    std::vector<float> ratios, errors, uvWeights, coverages;
     float singleUv = -1.0f; // --uv-weight (applique a tous), -1 = non fourni
     bool splitMode = false;
 
@@ -1171,6 +1174,7 @@ int main(int argc, char** argv) {
         else if (a == "--ratios"        && i+1 < argc)   ratios    = parseFloats(argv[++i]);
         else if (a == "--errors"        && i+1 < argc)   errors    = parseFloats(argv[++i]);
         else if (a == "--uv-weights"    && i+1 < argc)   uvWeights = parseFloats(argv[++i]);
+        else if (a == "--coverages"     && i+1 < argc)   coverages = parseFloats(argv[++i]);
         else if (a == "--uv-weight"     && i+1 < argc)   singleUv  = std::stof(argv[++i]);
         else if (a == "--normal-weight" && i+1 < argc)   cfg.normalWeight = std::stof(argv[++i]);
         else if (a == "--bake")                           cfg.bake = true;
@@ -1194,6 +1198,22 @@ int main(int argc, char** argv) {
             l.coverage    = std::max(0.02f, 0.5f / float(i + 1));
             l.uvWeight    = 1.0f * std::pow(3.0f, float(i)); // 1, 3, 9, ... (surcharge plus bas)
             cfg.levels.push_back(l);
+        }
+    }
+
+    // When each level takes over: a person is not a rock, whose defaults
+    // these are. Refused rather than written when it could not be meant.
+    if (!coverages.empty()) {
+        if (coverages.size() != cfg.levels.size()) {
+            std::cerr << "--coverages gives " << coverages.size() << " values for " << cfg.levels.size() << " levels\n";
+            return 1;
+        }
+        for (size_t i = 0; i < coverages.size(); ++i) {
+            if (!(coverages[i] > 0.0f && coverages[i] <= 1.0f) || (i > 0 && !(coverages[i] < coverages[i - 1]))) {
+                std::cerr << "--coverages must decrease within (0,1]: value " << i + 1 << " is " << coverages[i] << "\n";
+                return 1;
+            }
+            cfg.levels[i].coverage = coverages[i];
         }
     }
 
