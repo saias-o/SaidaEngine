@@ -1,6 +1,6 @@
 # SaidaEngine - Canonical specification
 
-Updated: 2026-10-29. This document is the engine's technical truth. It describes
+This document is the engine's technical reference. It describes
 what actually exists, the V1 candidate contracts and the limits. Work to be done
 lives only in [ROADMAP.md](ROADMAP.md).
 
@@ -3714,10 +3714,8 @@ its diagnostics, its licenses and its fixtures.
 `compliance/components.json` and `compliance/assets.json`. The check is
 fail-closed: each `third_party` root must be declared exactly once, each tracked
 asset must have a license, provenance and distribution decision, and no
-`NOASSERTION` asset can be distributed. Since the open-source purge of 2026-07-21,
-the repository no longer contains any non-distributable asset: the old projects
-without provenance (`GTAClone/`, `MyGame/`) and the CC-BY-NC DamagedHelmet are
-removed — 18 tracked assets, 18 distributable, 0 excluded.
+`NOASSERTION` asset can be distributed. An asset without reviewed provenance and a distributable license cannot enter
+the generated package; current inventories come from these reviewed manifests.
 
 The GPU/OS/browser matrix, the exclusions and the retirement procedure are
 published in [§17](#17-support-promotion-and-retirement-of-a-release). Promotion is
@@ -3799,38 +3797,14 @@ not product guarantees.
 
 ## 16. Reference verification
 
-```sh
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-./build/bin/saida_tool.exe describe-engine
-./tools/witness_e2e.sh
-./tools/witness_editor_play.sh
-./tools/witness_editor_build.sh
-./tools/witness_web_stage.sh
-.\tools\witness_release_candidate.ps1
-```
+[CONTRIBUTING.md](CONTRIBUTING.md#required-verification) defines build, runtime,
+visual and cross-platform checks. [RELEASE.md](RELEASE.md) defines the clean-commit
+publication procedure. A local development result does not qualify a release.
 
-`witness_e2e.sh` launches the artifact twice: the second launch must produce
-`[E2E] RESTART PASS` (progression restored from `saves/`). On the Web side,
-reloading the page after an `[E2E] PASS` must produce the same verdict from IDBFS.
-
-After a change to snapshot, SaidaOp, manifest, registry, scripting or shared
-input: also rebuild `build-authoring-wasm` and `build-web-player`. A release proof
-is obtained from a clean commit, with versioned artifacts; a local result stays a
-development proof.
-
-The historical probes under `web/spike` stay useful to isolate the toolchain:
-`hello.cpp` proves emcc+Node, `webgpu_probe.cpp` the emdawnwebgpu link and
-`spike.cpp` GLFW+canvas+WebGPU+rAF. Example:
-
-```sh
-emcc hello.cpp -O2 -o hello.js && node hello.js
-emcc spike.cpp -O2 --use-port=emdawnwebgpu -sUSE_GLFW=3 -o index.html
-python -m http.server 8080
-```
-
-The spike's expected result is an animated clear and the device/surface ready log;
-it deliberately validates neither the engine's geometry nor its shaders.
+Witness must run in editor, desktop and Web; persisted progression must survive
+a second desktop launch or a Web reload through IDBFS. Changes to snapshots,
+SaidaOps, manifests, registries, scripting or shared input require verification
+on all affected runtimes.
 
 ## 17. Support, promotion and retirement of a release
 

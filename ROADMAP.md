@@ -1,6 +1,6 @@
 # SaidaEngine — Roadmap
 
-Updated: 2026-11-02. This file is the engine's **single backlog**: everything
+This file is the engine's **single backlog**: everything
 that remains to be done, deferred or decided for later. It does not describe
 what exists — the technical truth is in [SPEC.md](SPEC.md), and getting started
 is in [README.md](README.md).
@@ -9,97 +9,15 @@ Rule: nothing is checked off here without the run, commit or exact corpus that
 proves it. Closed work (V1 gates, V1 refactor) lives in the Git history and in
 the corresponding contracts of `SPEC.md`.
 
-## Mesh upload results — 2026-10-29
-
-- [x] Expose Pending/Ready/Failed and a reason on each mesh proxy, including
-  decoder, allocation and batch-submission failure. Keep drawable geometry
-  distinct from the last in-place upload result. Proof:
-  `saida_scene_streaming_tests --uploads` passes 21,370 checks, including a
-  real arena refusal; console streaming and six physics/ragdoll suites pass.
-- [x] Qualify the general `--gpu` suite: 21,608 checks pass on RTX 4070.
-  The deformation fixture now advances scene updates and upload pumping until
-  all LODs publish (five-second deadline), including saved-state restoration.
-  A single scene update cannot create every private LOD: each new allocation
-  waits for earlier uploads to settle. All original assertions are retained.
-## Interactive frame capture — 2026-10-29
-
-- [x] Expose a reusable native PNG capture with main-thread completion, without
-  closing the application or changing its clock. Share the command-line
-  scheduler/readback path and report canceled/resized or failed writes without
-  stranding the caller. Proof: `saida_interactive_capture_tests` passes on the
-  MX450 with repeated captures, overlap rejection, write failure, resize and
-  continued rendering; capture scheduler, argument and PNG writer tests also
-  pass (4/4, `build-rel`, workspace-local TEMP). This does not establish Web or
-  XR capture support; the Vulkan swapchain remains required.
-
-## Optional wildlife flight — 2026-10-27
-
-- [x] Add species-configurable flight, continuous takeoff/approach, host-owned
-  ground/clearance and perch support, roost activity, group steering and wind.
-  Proof: standalone `plugins/wildlife/tests/test_flight.cpp` passes the complete
-  flight cycle, exact perch attachment, night roost, fright, absent support,
-  seeded replay and permanent resident retirement; base wildlife tests pass.
-  This is a CPU behavior contract, not a visual or whole-game performance claim.
-
-## Small glTF skin frames — 2026-10-27
-
-- [x] Preserve small armature scales and rotations when importing matrix nodes
-  and placing skinned primitives. A 0.001469 unit conversion was mistaken for
-  a singular matrix, leaving a skin about 681 times too large and sideways.
-  Proof: `tiny_armature.gltf` fails the real import before the fix and passes
-  both synchronous and streamed instantiation afterwards through
-  `saida_scene_streaming_tests --gltf` (21,446 checks on the MX450).
-
-## Contact shadows and camera coverage — 2026-10-23
-
-- [x] Replace the angular depth bias and raster slope bias with per-texel
-  receiver-plane PCF, and follow the camera with a texel-snapped directional
-  volume. Proof: `tools/verify_shadows.py` passes ten GPU cases with GI/AO/IBL
-  disabled (grazing and steep Sun, reversed direction, spot, 25/60/120 m
-  extents, +/-150 m camera travel, softness 0/1/1.5), checking contact and an
-  unchanged unoccluded floor that also casts shadows. Four of the original
-  five cases failed before the correction. Native build and CTest 110/110;
-  final sampler also checked by the terrain GPU, SSAO and streaming tests;
-  AO pixel verifier passes; Web shaders transpile and Chrome accepts the
-  scene pipeline. R1World rebuilt, two Paris views captured, and its actual
-  skinned player captured on a self-shadowing floor with GI/AO/IBL off.
-
 ## Ambient occlusion on indirect light only — 2026-10-22
 
-- [x] Occlude indirect light only, after a depth pre-pass, with a kernel turned
-  per pixel and an edge-aware average (SPEC 4.1). Proof: `saida_ssao_tests`
-  (both stages compiled from the shader files, within 0.001 of a 32-times
-  denser kernel where a fixed one strays three times as far, and every earlier
-  defect reinjected fails it), `tools/verify_ambient_occlusion.py` (direct
-  light bit-identical with AO on and off on the GPU, GPU-driven path, MSAA),
-  the other five pixel verifiers, `saida_terrain_rings_render_tests`, Vulkan
-  validation with synchronization checks (nothing new with AO on, and the MSAA
-  depth-resolve hazard it showed fixed), the Web player built and its new WGSL
-  compiled and pipelined by Chrome WebGPU, and R1World's rue de Rivoli captured
-  with AO on and off.
-- [x] Bring the AO map's cost down: 2.3 ms instead of 4.3 in that view on the
-  MX450 at 1600 x 900, the kernel and its denoise at half resolution with a
-  depth-aware upsample (SPEC 4.1). Proof: `saida_ssao_tests` over all three
-  stages, its bounds tightened (0.0005 mean, 0.02 worst, from 0.001 and 0.03)
-  and still failed by every earlier defect reinjected, by a kernel the same for
-  every texel, by the raw kernel undenoised and by an average off centre;
-  `tools/verify_ambient_occlusion.py` and the five other pixel verifiers; Vulkan
-  validation with synchronization checks, nothing new with AO on; the Web
-  player built and the upsample's WGSL compiled and pipelined by Chrome
-  WebGPU; R1World's rue de Rivoli profiled with AO on and off, the same draws
-  as before.
-- [ ] AO on still adds 3.5 ms to that view's GPU frame (19.1 to 22.5 ms), and
+- [ ] The 2026-10-22 MX450 AO fixture added 3.5 ms (19.1 to 22.5 ms);
   the depth pre-pass is most of it: it costs 3.0 to 3.6 ms and saves 2.5 to
   3.8 ms of the opaque pass from one run to the next, so it does not always
   pay for itself. Measure where its time goes before changing it.
 - [ ] XR: the AO path (multiview pre-pass, one AO layer per eye) is built and
   shares the desktop code, but no headset has run it yet.
-- [x] Give bloom its own fullscreen vertex stage instead of `tonemap.vert`'s
-  depth binding and 208-byte push block. Proof (GI phase-0 prerequisite,
-  2026-10-22): native CTest 109/109; Chrome accepts both bloom pipelines with
-  their real 32-byte layout and rejects the old vertex/layout combination
-  (`tools/verify_postprocess_web.mjs`); Web player rebuilt. This removes the
-  Lavapipe pipeline-creation crash reproduced with the original runtime.
+
 - [ ] Fix what `SAIDA_VULKAN_VALIDATION=1` still reports outside AO/GI:
   the world-space WebCanvas pipeline binds the texture array at set 0 where its
   vertex shader expects `cam` (isolated by logging each shader pair during
@@ -113,154 +31,22 @@ the corresponding contracts of `SPEC.md`.
   reference. Its measurements are lost on failure: `printf` is not flushed
   before `abort`.
 
-## Terrain-hole raster cost — 2026-10-20
-
-- [x] Reject whole cells inside convex terrain holes before rasterization,
-  without changing visible shading. A compute invocation per cell produces
-  per-frame-in-flight flags; the vertex shader emits degenerate covered cells.
-  The perspective edge guard retains MSAA boundary samples in both views.
-  Computing the guard six times per cell in the vertex shader was measured
-  slower at eye height and was rejected. Terrains without holes skip the pass.
-  Native CTest passes 105/105; thirteen image pairs compare exact pixels
-  against fragment-only clipping, including water/rain, morphing, relief,
-  grazing/subpixel cells and hole removal. On the MX450 at 1600x900, the fixed
-  benchmark's total GPU time changes from 30.05 to 1.38 ms at 500 m and from
-  23.01 to 16.53 ms at 1.8 m, including the culling pre-pass (0.10/0.28 ms).
-  These fixture timings are not whole-game or all-world 30 fps qualification.
-
-## Photographic sky / fog horizon — 2026-10-19
-
-- [x] Match the lower HDR sky to the scene's fog colour after clouds and before
-  the independent Sun, with a smooth 1–6 degree band around the local vertical.
-  Preserve authored upper-sky pixels and fog-disabled scenes; hide a finite
-  terrain's far clip in the last 10% of its range. This is a photographic
-  horizon correction, not a new physical sky model.
-  Proof: 148 GPU weather/horizon checks on the MX450, native CTest 100/100,
-  mono/multiview SPIR-V and Web WGSL builds, both postprocess pipelines accepted
-  by Chrome WebGPU, and fixed-camera/lighting before/after captures in R1World.
-
 ## Independent native projects — 2026-10-18
 
-- [x] Export a source/build-tree CMake SDK, project-owned C++ registration,
-  native player, optional project editor and matching native export. Proven by
-  `saida_native_sdk_consumer`, a separate project outside the engine/game tree,
-  MCP-generated C++ compilation, editor Play/Build and a packaged player with
-  a Windows-only PATH. Development/export captures match exactly. R1World now
-  consumes the same SDK and passes its complete offline Paris smoke.
-  Native CTest: 100/100 after configuring with access to the submodule Git
-  metadata; the former unknown-build-identity failure is resolved.
 - [ ] Provide a relocatable installed native SDK with compiler/ABI identity.
 - [ ] Qualify project-native C++ on Web; stock Web export currently rejects it.
 - [ ] Support native-code reload without closing/rebuilding the project editor.
 
-## Host memory admission — 2026-10-18
-
-- [x] Expose renderer-independent Windows physical/commit headroom through
-  `MemoryProfiler::availableHostBytes()`, with explicit unavailable results.
-  R1World's producer admission/cache tests pass (3/3); an offline Paris walking
-  smoke completes 24 standard/toaster switches without allocation errors,
-  reporting roughly 3.0–3.2 GiB of private memory during the switches.
-
-## Surface drive banking and HTTP audio — 2026-10-17
-
-- [x] Add optional speed-dependent steering lock and supported-turn banking to
-  `SurfaceDrive`, with zero preserving upright handling. Native vehicle impact
-  regression passes; R1World's actual two-wheel colliders pass acceleration,
-  both turn directions, braking, low-speed reverse and solver-child attachment
-  at 30/60/120 Hz. The Web player and authoring WASM rebuild successfully.
-- [x] Add asynchronous Windows HTTP audio through the OS MediaEngine, with
-  explicit lifecycle/error states, bounded volume and safe callback ownership.
-  Source/lifecycle tests pass; real Radio France MP3 playback reaches Playing.
-- [x] Replace the Windows-only stream with the shared native libcurl/Mbed TLS
-  and miniaudio backend, plus a WebAudio/HTML media backend. The portable media
-  harness verifies native playback, real browser audio and an Android ARM64
-  shared-library link. Full mobile/Quest exports and device qualification remain
-  open; they are not implied by a successful media-library link.
-
-## UI mouse gestures — regression, 2026-10-13
-
-- [x] Preserve sampled mouse button history through UI consumption and stop
-  synthesizing a second click after RmlUi's release. Verified on 2026-10-13 by
-  `saida_input_consumption_tests` (left/right/middle holds and releases),
-  `saida_ui_interaction_tests`, and R1World's real-menu zoom smoke (single and
-  rapid clicks, long hold, zoom-out, bounds and reset). Native CTest is 96/97;
-  the remaining failure is the previously documented unknown Git build identity
-  in `saida_crash_reporter_tests`.
-
-## Optional traffic add-on — control and spawn regressions, 2026-10-13
-
-- [x] Anticipate host stop setbacks across short shape segments, complete
-  committed signal crossings, and retire completed offscreen physical trips.
-  Supply actual vehicle dimensions before spawn clearance. The standalone
-  `plugins/traffic/tests/test_traffic.cpp` run passes on 2026-10-13, including
-  a one-metre signal segment, red/green restart, phase-change clearance,
-  physical terminal retirement, dense 12 m bus spawning, queue anticipation
-  around bends, junction birth exclusion and stable model/size seeds. R1World's
-  offline Paris 60-second check reports mean steady moving traffic rising from
-  11.29 to 15.86, with zero junction/blocked-exit stops in the final sample.
-  The final build passes a daytime check on 2026-10-14: mean 11.71 moving,
-  zero incidents throughout and zero junction/blocked-exit stops at the end.
-
-## Optional traffic add-on - region seam regression, 2026-10-14
-
-- [x] Rank finite entry segments at adoption, resolve the continuation before
-  the next physical command and preserve negative entry progress until a body
-  crosses the seam. The standalone traffic suite passes, including early
-  physical entry, consecutive short spans and two-region footprint following.
-  Streaming hosts must retain forward ownership and expose transferred vehicle
-  footprints to the old region's queue; the Paris integration is tracked in
-  R1World's README: the final 120-second run at 48.857268, 2.352571 passes
-  with no persistent physical stop within 60 m. A separate disabling incident
-  remains beyond the next junction; this is not a claim of collision-free AI.
-
 ## Large streamed-scene frame cost — MX450 audit, 2026-10-12
 
-- [x] Index enabled camera membership instead of scanning every scene node at
-  selection time. Preserve hidden cameras, direct priority edits and hierarchy
-  tie order after reparenting. Verified by the native scene/streaming CPU and
-  GPU suite (301 checks) and optimized R1World Paris/Vannes traces: selection
-  falls from roughly 15–16 ms to 0.01 ms. CTest is 94/95 in this sandbox; the
-  remaining failure is an unknown configured Git build identity. Full local
-  measurement conditions and limitations are in R1World's `game/README.md`.
-- [x] Make transform propagation incremental while preserving retained mutable
-  `Transform&` writes, parent changes, hidden nodes and physics results. Flat
-  traversal records compare every local TRS but propagate only changed poses;
-  topology changes reuse unchanged branches. The 2026-10-18 native streaming
-  GPU suite passes 21,531 checks, including retained writes during unrelated
-  topology edits, removals and sibling reordering. Before the final branch-reuse
-  refinement, R1World's stationary Paris comparison reduced the two transform
-  passes from roughly 32 ms to 6–8 ms. Sustained movement/streaming frame budgets
-  remain to qualify in the game.
-- [x] Reject rigid shadow casters outside each light's clip volume, including
-  Vulkan near/far planes and conservative bounds under shear/negative scale.
-  Skinned casters bypass this test. The same native suite covers clipping and
-  offscreen camera casters that still intersect the light; Paris submits about
-  900 shadow draws instead of 9,000 candidates without changing shadow settings.
 - [ ] Isolate and reduce procedural terrain submission/sampling work without
-  changing relief, surveyed tile holes or morphing/seam rules. The full grids
-  still shade vertices for cells later discarded over resident tiles. Feature
-  timestamp spans are about 18–19 ms in the local traces; confirm exclusive
-  savings with A/B measurements because pipeline timestamp intervals overlap.
+  changing relief, surveyed tile holes or morphing/seam rules. Repeat A/B
+  measurements after the implemented whole-cell hole rejection (SPEC 4.1);
+  the 18–19 ms spans from the original audit are not a current baseline.
+  Confirm exclusive savings because pipeline timestamp intervals overlap.
 
 ## Ragdolls, reach and attachment — 2026-10-13
 
-- [x] Join disconnected skin roots with an explicit earlier ragdoll part,
-  drive their physical positions back into the pose, and preserve authored
-  millimetre-scale primitives. Headless `saida_ragdoll_tests` verifies the
-  disconnected-root pose, invalid/forward parent rejection and small shapes;
-  106 checks pass, alongside all five physics/ragdoll CTest cases. R1World's
-  separate CPU GLB integration test exercises its 119 resident animal models.
-- [x] Share player/crowd knockdown recovery, suspend animated colliders through
-  ragdoll recovery and use the root physics world for mounted scenes. Verified
-  2026-10-23: 93 ragdoll checks, native CTest 110/110, Web player build, offline
-  Paris/Vannes nonlethal player hit and recovery; Vannes crowd fall and pistol.
-- [x] Generic `Ragdoll`/`RagdollBehaviour`, `TwoBoneIKModifier`,
-  `BoneAttachmentBehaviour`, `Animator::poseUpdated`, collision groups,
-  `Behaviour::onRebase`/`onHierarchyInactive`, `Scene::ensurePhysics`,
-  `AudioManager::preload`, and rigid meshes under an Animator no longer skinned.
-  Verified: `saida_ragdoll_tests` (91 checks), native CTest 96/96 before the
-  last renderer/audio edits (rerun pending), R1World offline smoke with a
-  knock-down and a pistol round in Vannes.
 - [ ] Build and verify the Web player and authoring WASM with these sources
   (no Emscripten SDK on the machine that made them).
 - [ ] Getting up from a ragdoll is a pose blend; recorded get-up clips or an
@@ -273,10 +59,8 @@ the corresponding contracts of `SPEC.md`.
 
 The implemented `SurfaceDrive`, impact events, private geometry updates and
 plastic cages are documented in SPEC section 5.1; R1World integration and its
-evidence belong in the game's README.
+contracts belong in the game's technical documentation.
 
-- [x] Defer first-damage private mesh copies while assets are uploading or the
-  geometry arena is full; retain source geometry and retry when capacity returns.
 - [ ] Qualify a real headset, both eyes, sustained CPU/GPU frame times and
   memory under multi-vehicle collisions. Shared mono/multiview geometry and an
   OpenXR native build do not prove headset performance.
@@ -292,128 +76,7 @@ evidence belong in the game's README.
 - [ ] Qualify constraints attached to bodies whose convex hull is rebuilt;
   vehicle validation covers preserved velocities, not arbitrary joint chains.
 
-## Streaming and rendering integration — verified through 2026-10-09
-
-- [x] Match mesh ambient fill in atlas impostors, keep hemisphere occlusion
-  on diffuse environment SH only, and restore SH without texture fetches. Verified
-  2026-10-12: 23 native billboard pixel cases (including sun-only versus
-  occluded sun, ambient parity with meshes, blocked sky and red/blue crossfade), native
-  classic/bindless shader builds, translated WGSL and Chrome WebGPU pipeline
-  validation. Native CTest remains 94/95 with the same unknown configured Git
-  build identity failure. Identical-light Near/Mid/Far captures and a local
-  MX450 forest comparison are in R1World's
-  `game/generated/tree-far-lighting-fix`. No authored assets changed.
-
-- [x] Preserve per-pixel normals and static visibility on multi-view billboard
-  atlases, with coverage-weighted blending and the authored instance frame.
-  Verified 2026-10-11: 95/95 native CTest, 15 native billboard pixel cases
-  (including no-tangent import, occlusion, instance yaw and transparent-view
-  blending), mono/multiview SPIR-V and translated WGSL generation, and Chrome
-  WebGPU scene pipeline validation without errors. R1World's Far keeps its
-  unchanged albedo and four vertices; its bake and comparison evidence are in
-  `game/generated/tree-contrast-validation`. Headset performance was not measured.
-
-- [x] Add generic runtime rainfall and wet-surface shading, filtered world-space
-  impact rings, opt-in material responses and procedural storm sky clouds.
-  Share the equations across mono, multiview and translated Web shaders. Keep
-  per-particle emitter forces and support exact runtime launch velocities for
-  wind-driven rain. Verified 2026-10-09: optimized native build, 94/94 CTest,
-  99 hidden Vulkan weather pixel checks with 18 captures and visual inspection,
-  53 GPU
-  particle state checks, and complete native/Web SPIR-V and WGSL generation.
-  R1World's weather interpreter passes six CPU cases and the game compiles
-  without launch. Evidence: `game/generated/rain-validation` in R1World.
-  Headset output and reference-laptop performance were not measured; procedural
-  storm clouds do not replace the HDR images used for environment reflections.
-
-- [x] Stream child LOD representations using explicit local bounds and runtime
-  readiness, preserving a loaded fallback and the outgoing fade when the
-  finest-level limit changes. Accept immutable CPU triangle collision data
-  independently of rendered geometry. Verified 2026-10-09: 92/92 native CTest,
-  226 GPU streaming checks, CPU collision doorway/scale/replacement/rebase
-  regressions, and R1World's offline Paris/Grenoble captures, Tunis interior
-  traversal and Paris-to-Tunis walk/drive/teleport in
-  `game/generated/building-lod-validation`. These are implementation checks
-  on the current desktop, not a reference-laptop performance qualification.
-
-- [x] Generic camera-facing multi-view glTF atlas materials with coarse live
-  ambient/directional lighting. Verified 2026-10-09: native orientation, atlas
-  blend and light intensity/color/elevation pixel contract, 92/92 native CTest
-  (`tools/verify_billboard_materials.py`), 187 GPU streaming checks and translated
-  WebGPU scene pipeline validation. R1World's 861-tree MX450 forest at 1280×720
-  measures median GPU frame 22.98 → 5.52 ms with earlier Far selection; corpus
-  `game/generated/streaming-validation/mx450/tree-far-study`. Complete Web player
-  content execution was not repeated for this change.
-
-- [x] Honor authored glTF dielectric specular/IOR factors and textures in
-  streamed materials. Verified 2026-10-09: 92/92 native CTest; 182 GPU streaming
-  checks including factor defaults, zero IOR/strength, distinct sRGB/linear
-  texture publication and hidden ownership; native semantic pixel checks
-  (`tools/verify_specular_materials.py`), environment/HDR and material-sidedness
-  regressions pass. The translated Web scene pipeline compiles in Chrome
-  WebGPU without validation errors (AMD RDNA 2); complete Web player content
-  execution was not repeated for this change. R1World Near/Mid captures are in
-  `game/generated/streaming-validation/mx450/tree-material-study`.
-
-- [x] Decode streamed glTF models and embedded images on the AssetLoader worker,
-  prepare procedural bounds/collision data off the main thread, and incrementally
-  upload stable mesh proxies through a shared 512 KiB/frame transfer batch.
-  Native transfers and complete mip chains now use polled fences; arena
-  relocation retains its old buffers through an ordered copy without draining
-  the device. Resource pumps yield at the pending-upload limit.
-  Verified 2026-10-08: 92/92 native CTest, 119 GPU streaming checks (partial
-  readiness, compaction, cancellation, staging ownership, mip readback,
-  glTF hierarchy and shared consumers),
-  native runtime contract and Web player build. R1World's local corpus is
-  `game/generated/streaming-validation`: Paris/Grenoble captures and the
-  Paris-to-Tunis walk/drive/teleport smoke pass. Environment-lighting/HDR and
-  material-sidedness pixel checks pass. In the local Paris arrival capture,
-  peak main-thread mesh upload time falls from 10.25 to 0.46 ms and texture
-  finalization from 12.06 to 2.39 ms. The final Paris trace contains no CPU
-  upload/queue waits during its frames; Grenoble retains one 0.40 ms legacy
-  queue wait. Legacy synchronous registration and startup pipelines can still hitch;
-  these captures do not demonstrate R1World's whole-world performance target.
-
-- [x] Move native texture image/staging preparation, immutable RmlUi CPU raster
-  snapshots and environment diffuse SH projection off the main thread. Bound
-  texture preparations and row transfers; retain UI staging per fenced frame
-  slot and retire canvases through ordered fences. Keep worker profiler scopes
-  attached to their originating frame, even after history-slot reuse.
-  Verified 2026-10-08: native and Web builds, 92 native CTest cases, 128 GPU
-  streaming checks including partial texture readback and rejected allocation,
-  118 UI corpus checks including byte-identical asynchronous snapshots, native
-  exported UI pixels, and HDR/environment pixels in
-  `build-rel/ibl-environment-run/run-mztyuow7`. R1World's local
-  `game/generated/streaming-validation/fluidity-final-*` corpus verifies
-  Paris/Grenoble arrivals and Paris-to-Tunis walking/driving/takeover/teleport.
-  These local RTX 4070 captures do not qualify R1World's reference Ryzen 7
-  5700U / MX450 target: sustained 30 fps at 1920x1080 everywhere in the world.
-
-- [x] Encode display RGB once, load the neutral normal as linear data, and make
-  diffuse/specular IBL and DDGI misses follow the visible sky pair, exposure and
-  rotations. Verified 2026-10-07: 91/91 native CTest, HDR numerical levels and
-  environment binding/crossfade/rotation/fallback pixels in
-  `build-rel/ibl-environment-run/run-oios0s4m`, and sidedness pixels with explicit illumination
-  in `build-rel/material-sidedness-run/run-a7m82mgg`. Native and WGSL shader
-  variants compile. XR headset output and the Lavapipe golden gate were not
-  exercised (no Lavapipe ICD installed on this host).
-
-- [x] Restore Web player boot against the declared runtime matrix by omitting
-  desktop-only Grass/TerrainRings registrations, and make single-mip GI atlas
-  reads valid under non-uniform WGSL control flow. Verified 2026-10-07: Web player
-  build and Chrome headless pixel capture in `build-rel/ibl-web-verified-run`.
-  The player reports ready, with no browser or shader validation errors; its
-  grey environment produces RGB 142 versus ACES/sRGB's expected 141.60.
-  This is a rendering check, not a fresh Witness gameplay/release qualification.
-
-- [x] Grass on the Web player: `GrassNode` registered and `Required` for
-  PlayerWeb, `GrassFeature` built for WebGPU (read-only storage buffers in the
-  vertex stage, push block emulated at group 3), `grass.vert/frag` in the WGSL
-  set. The WebGPU push ring grows to 4 MiB (16384 pushes a frame) and reports an
-  overflow once a frame. Verified 2026-10-28: `saida_grass_tests` and
-  `saida_runtime_type_matrix_tests` pass; a FirstMinutes3D Web export (587 meshes,
-  grass fields, beach water) loads and renders in Chrome without WebGPU
-  validation errors. TerrainRings stays desktop-only.
+## Rendering compatibility and environment lighting
 
 - [ ] Firefox WebGPU: the same FirstMinutes3D Web export stays black in Firefox
   after `[WebCanvas] 'UI' CPU raster 1920x1080` (Chrome renders it). Capture the
@@ -426,141 +89,36 @@ evidence belong in the game's README.
   bounded memory, and prove constant-radiance conservation, localized bright
   source response and native/Web parity before replacing the current path.
 
-- [x] Bind the selected sky texture when rebuilding the global IBL descriptor,
-  instead of resetting it to the white fallback. Verified 2026-10-06: 91/91
-  native CTest cases, `verify_ibl_environment.py` red/blue metallic pixel checks,
-  material sidedness captures, and R1World's metallic car capture. Native GPU
-  output was inspected; Web and headset output were not exercised by this fix.
-
-- [x] Add physical-scale triplanar PBR layers to native terrain rings, filtered
-  macro albedo/normals, and resource ownership for hidden terrain materials.
-  Keep indirect probe lighting inside its measured volume. Verified 2026-10-05:
-  90/90 CTest cases, terrain layer validation, 71 GPU streaming checks, and
-  R1World's offline Grenoble/Cape Town/Rio captures. The layer API remains
-  runtime-only; terrain rings still have no Web backend (SPEC section 2).
-
-- [x] Construct mesh, hull and Auto geometry in the body's local frame without
-  cancellation of large world translations. The GPU streaming regression builds
-  a wall millions of metres away, rebases it, and checks front/back rays and
-  thin sphere overlaps against its drawn surface (69 streaming checks).
-
-- [x] Detect thin triangle walls from either side in scene rays and sphere
-  overlaps. Covered by a mesh-wall front/back query regression, including the
-  ignored-body filter, and R1World's character facade traversal checks.
-
-- [x] Configure physics body, body-pair and contact capacity at startup
-  (`PhysicsCapacity`, like `GeometryCapacity`). A body refused for capacity is
-  logged once, counted, and no longer rebuilt and refused again every frame;
-  step overflows are logged once per kind. Covered by
-  `saida_physics_capacity_tests` and R1World's offline Paris runs, which logged
-  about 2.2 million refusals before the change and none after it.
-
-- [x] Resolve explicitly dimensioned boxes, spheres and capsules without
-  traversing their body's meshes. The compound regression measures 0.049 ms
-  for 1,024 boxes and 0.183 ms for 4,096 boxes; all 90 native CTest cases pass
-  on 2026-10-05. Mesh-derived shapes retain their loading and bounds checks.
-
-- [x] Release `CharacterVirtual` and its inner body when a character or its
-  ancestor is disabled. Reconnect on reactivation; covered by the character
-  disable/query/reactivate/move-and-slide regression and the R1World teleport
-  between Paris and Tunis after driving and traffic takeover.
-
-- [x] Replace global scene/resource rebuilds with per-scene branch revisions and
-  incremental membership/resource ownership. Reuse the same ownership snapshot
-  for trimming and the GPU budget; hidden and disabled branches retain assets.
-- [x] Provide runtime subtree visibility, configurable geometry capacity, and
-  child-group LOD selection using the existing projected coverage/hysteresis.
-- [x] Add explicit world-frame rebasing for live bodies, characters and joint
-  anchors. Run vehicle forces on actual fixed physics substeps.
-- [x] Verify with 86 native CTest cases, `saida_scene_streaming_tests --gpu`
-  (55 checks including real geometry capacity and multi-primitive LOD),
-  `saida_vehicle_tests` (75 checks including 30/60/120/240 Hz equivalence),
-  the native runtime contract, Witness export/run/restart and R1World's offline
-  Paris-to-Tunis walk/drive/traffic-takeover/teleport test.
-
-These changes do not replace mutable-transform traversal or add a script-level
-reparenting/seat API. The vehicle seating item below remains open.
-
 ## 0. Status
 
-The **V1** effort is complete on the engine side: gates P0.1 through P0.6 are
-closed, the V1 refactor derived from the quality audit is closed
-(ResourceManager 1102 → 414 lines, EditorUI 1933 → 384 lines, McpBridge
-1401 → 77 lines, split of `src/scene/`, named Input/Renderer constants), and
-the original V1 qualification passed: clean native build, 84/84 CTest, three Web builds
-(player, runtime, authoring WASM), Witness E2E, `witness_editor_play`,
-`witness_editor_build`, Web staging and a real MCP TCP smoke test (45 tools).
-
-The public beta cycle is open. The remaining Windows distribution work before a
-qualified stable publication is tracked in §1.
-
-The latest native integration verification on 2026-10-07 passed 91/91 CTest
-cases and the IBL/environment and material-sidedness pixel checks. This extends
-the native record only; it is not a fresh Web, XR or release qualification.
-`main` includes work after the immutable Beta 4 tag; the product version string
-still reads Beta 4 and must be advanced as part of the next release procedure.
-
-Reminder of the release criteria: the same WitnessGame must run in the editor,
-standalone desktop and Web; old projects must migrate or be rejected without
-corruption; memory must stay bounded; the published limitations must match the
-observed behavior; the artifacts must come from a clean commit.
+The public beta cycle is open. `main` includes work after the immutable Beta 4
+tag; advance the product version as part of the next release procedure.
+Release qualification follows [RELEASE.md](RELEASE.md). Implemented contracts
+belong in [SPEC.md](SPEC.md); completed changes remain in Git and CHANGELOG.
 
 ## 1. Before stable publication — Windows distribution and signing
-
-- [x] Produce a portable Windows editor package. Beta 4 switches resource
-  resolution through the adjacent `saida-install.json`, includes the complete
-  runtime/resource/dependency closure and generates a deterministic ZIP plus a
-  per-user installer from one staging tree. The development proof on 2026-08-25
-  executed both formats outside the checkout: Hub/editor/CLI boot, WitnessGame
-  export, run + persisted restart, exact install/uninstall all passed. Public
-  qualification still requires the same script from a clean release commit.
-- [x] Give the editor and Hub project paths that survive distribution. Both use
-  the per-user application state, while creation and project discovery default
-  to `%USERPROFILE%/Documents/SaidaEngine/Projects`; CI can isolate both through
-  `SAIDA_STATE_DIR` and `SAIDA_PROJECTS_DIR`.
-
-- [x] Add and verify Windows version resources on the four engine executables.
-  `ProductName`, `FileVersion` and `ProductVersion` are generated by CMake from
-  `EngineVersion.hpp`; the Beta 4 development proof read all four back as
-  `SaidaEngine` / `1.0.0-beta.4`.
 
 - [ ] Produce the Windows installer **Authenticode-signed** with the publishing
   key, then inventory the SHA-256 of the signed bytes.
 
-The rest of the release chain is closed: mandatory CI (native build, 84 tests,
-V1 corpus, deterministic fold, desktop and Web Witness); `saida_tool`, Web
-player and authoring WASM published as pinned artifacts; byte-identical
-Windows/Linux proof on the fold fixtures; byte-reproducible archives and NSIS
-Witness installer **before signing**, recursive validation of DLL imports,
-inventoried uninstall, documented immutable rollback; crash logs and symbols
-tied to the version; SPDX SBOM + GPL/third-party notices + license/asset
-inventory. Only trusted Authenticode signing and the clean-commit Beta 4
-publication confirmation remain Windows distribution work.
+- Confirm publication from a clean release commit with the checks in RELEASE.md.
 
 ## 2. Structural code debt
 
-Finding of the quality audit: the codebase is healthy and disciplined (near-zero
-TODO/FIXME debt, systematic fail-closed policy, frozen format corpus,
-capabilities verified at startup). The points below break nothing; they will
-cost more and more as the engine grows — the GPU-driven flag, XR and advanced
-rendering are precisely blocked behind the first line of the table.
+Split mixed responsibilities only when work requires it, with explicit state
+boundaries and unchanged contracts. Measure current sizes with tools/code_metrics.sh.
 
 ### 2.1 Remaining god classes
 
-| File | Lines | Mixed domains |
-|---|---|---|
-| `src/render/Renderer.cpp` | 1894 | pipelines, descriptors, GI, tonemap, GPU-culling, shadows, XR, frame — see §3 |
-| `src/scripting/JsEngineBindings.cpp` | 1853 | all JS globals (`node`/`time`/`input`/`tree`/`assets`/`audio`/`physics`/`storage`) → one module per namespace |
-| `src/editor/panels/InspectorPanel.cpp` | 1336 | inspector for all node types → one section per node family |
-| `src/scene/WebCanvasNode.cpp` | 1280 | a single node: RmlUi + world panel + scripts + hot-reload + placeholder |
-| `src/core/Input.cpp` | 1050 | keyboard + mouse + gamepad + touch + web backend + profiles → one backend per device |
+| File | Responsibilities to separate |
+|---|---|
+| `src/render/Renderer.cpp` | Frame orchestration, descriptors, pipelines, GI, shadows and XR; see section 3 |
+| `src/scripting/JsEngineBindings.cpp` | Bindings by JS namespace |
+| `src/editor/panels/InspectorPanel.cpp` | Inspector sections by node family |
+| `src/scene/WebCanvasNode.cpp` | UI runtime, world panel, scripts and reload |
+| `src/core/Input.cpp` | Input backends and profiles |
 
-These splits violate a rule the repository already imposes on itself (README,
-"Contribution rules"): *split omniscient classes and files that mix several
-domains*. They remain out of scope as long as no work opens these files.
-
-**Constraints to respect for any extraction** (derived from the V1 refactor,
-they have proven themselves):
+**Extraction constraints:**
 
 - **No gratuitous class.** A new class exists only if it has real **state + an
   invariant**. Splitting a file without a state boundary is forbidden.
@@ -572,49 +130,30 @@ they have proven themselves):
   or the registry is touched. The web targets have separate CMake source lists
   (`web/*/CMakeLists.txt`): any `git mv` must update **both**, otherwise the web
   build breaks without the native one noticing.
-- `tools/code_metrics.sh` prints the numbers (files, LOC, files > 600 lines,
-  long-function heuristic) to objectify before/after. Last measurement:
-  **529 files / 74,864 LOC**.
+- Use `tools/code_metrics.sh` for current file and function sizes.
 
-### 2.2 Overly long functions
+### 2.2 Long functions and source hygiene
 
-Beyond ~80 lines a function becomes hard to test and reason about. The longest
-known ones are in `Renderer.cpp` and are handled with §3: `gatherScene`
-(`src/render/Renderer.cpp:720`), `recordCommandBuffer` (`:1232`),
-`drawFrame` (`:1403`), `rebuildGlobalSet` (`:499`).
-`InspectorPanel` holds the maximum measured by the heuristic (483 lines).
-
-### 2.3 Hygiene
-
-- **Line endings**: several working-tree files are materialized as CRLF
-  (`src/graphics/Mesh.{cpp,hpp}`, `VulkanDevice.hpp`, `hub/Hub.cpp`,
-  `editor/BuildExporter.hpp`, …). `.gitattributes` (`* text=auto eol=lf`)
-  normalizes them at commit time, but the inconsistency lingers on disk and
-  pollutes diffs.
-- **Near-zero TODO/FIXME debt** (2 `XXX`, 1 `BUG` across the whole tree): an
-  achievement to preserve.
+Review long orchestration/binding functions when modifying their domain.
+Keep LF line endings according to `.gitattributes`; avoid unrelated churn.
 
 ## 3. Renderer — deferred decomposition (blocking prerequisite)
 
-`src/render/Renderer.cpp` (1894 lines) is the largest god class and the
-highest-value decomposition: it unblocks XR, the GPU-driven flag and lightmaps
-by making them testable in isolation. It is **deliberately deferred** — it was
-taken out of the V1 refactor because it is not safe to do mechanically.
+Renderer extraction remains deferred until the affected paths have visual coverage.
 
-### Target decomposition (to execute *when the visual safety net exists*)
+### Target decomposition
 
 | Unit (state/invariant) | Methods taken over |
 |---|---|
 | **PipelineCache** — pipelines & layouts; rebuilt on format/swapchain change | `createGlobalSetLayout`, `createPipeline`, `createWebCanvasWorldPipeline`, `createCullingPipeline`, `createTonemapPipeline`, `createXrPipelines` |
 | **FrameDescriptors** — global descriptor sets + per-frame-in-flight UBO | `createUniformBuffers`, `createGlobalDescriptorSets`, `rebuildGlobalSet`, `updateGlobalShadowDescriptor`, `updateUniformBuffer` |
 | **GIRenderer** — GI descriptors, preparation and update cadence | `prepareGI`, `shouldUpdateRealtimeGI`, `updateGIDescriptors`, `updateEnvironmentDescriptor` |
-| **TonemapPass** — ✅ *extracted* — tonemap pipeline/layout/samplers/set | `createTonemapPipeline`, `updateTonemapDescriptorSet`, `tonemapPushConstants` (now `TonemapPass::record`/`setInputs`/`pushConstants`) |
 | **GpuDrivenCuller** — indirect draw buffers + culling pipeline (behind the flag) | `createGpuDrivenBuffers`, `uploadGpuDrivenDraws`, `featureDraws`, `buildFeatures`, `recordFeatures` |
 | **XrRenderer** — XR targets/pipelines + multiview UBO | `createXrTargets`, `cleanupXrTargets`, `updateXrTonemapDescriptorSets`, `updateUniformBufferXr`, `recordXrScenePass`, `recordXrWorldWebCanvases` |
 | **SceneGatherer** — draw-list + lighting UBO from the scene | `gatherScene` (split), `recordMeshDraws`, `recordWorldWebCanvases`, `recordShadowPasses` |
 | **Renderer** (thin remainder) — frame orchestration | `setViewportRect`, `clearViewportRect`, `activeRenderRect`, `drawFrame`, `recordCommandBuffer` |
 
-### Why it is risky (do not do it blindly)
+### Coverage constraints
 
 1. **The rendering check is narrow.** The golden-image gate (§3.1) now catches
    a wrong descriptor, an inverted pass order, a changed shadow bias or a wrong
@@ -627,14 +166,12 @@ taken out of the V1 refactor because it is not safe to do mechanically.
 2. **Per-platform/feature `#ifdef` branches** (`SAIDA_RHI_WEBGPU`,
    `SAIDA_ENABLE_XR`). The native build exercises only one branch; the web build
    compiles the other but does not run it on this machine.
-3. **Deeply intertwined state.** GI, shadows, tonemap, GPU-culling and XR share
-   the global descriptor sets and the frame orchestration
-   (`drawFrame`/`recordCommandBuffer`). Cutting in the wrong place creates
-   cross-dependencies between passes: **exactly the spaghetti we want to
-   avoid.**
+3. **Shared state.** Preserve GI, shadows, tonemap, culling and XR descriptor
+   ownership and pass order during extraction.
+
 4. **Very long functions** to split at the same time (§2.2).
 
-### What must be done FIRST
+### Extraction prerequisites
 
 1. **Establish a visual verification net. Absolute prerequisite.** The harness
    exists and works — **as a local check.** `tools/witness_golden_image.sh`
@@ -679,36 +216,16 @@ taken out of the V1 refactor because it is not safe to do mechanically.
    flag) → `XrRenderer` (guarded) → `GIRenderer` →
    `PipelineCache`/`FrameDescriptors` → thin `Renderer` last.
 
-   `TonemapPass` (`src/render/TonemapPass.{hpp,cpp}`) owns the tonemap
-   pipeline, its bind-group layout, its two samplers and its descriptor set,
-   and exposes `setInputs` / `record` / a static `pushConstants`. Renderer went
-   from 2 020 to 1 894 lines.
+   `TonemapPass` is already extracted. HDR targets and pass orchestration stay
+   in Renderer; the unit receives input views and records into an active pass.
+   XR owns separate layouts/samplers. Preserve that ownership boundary.
 
-   Two deliberate deviations from the table above, both to keep the boundary
-   clean rather than to save work:
-
-   - **The HDR targets stay in Renderer.** `createHdrResources` allocates what
-     the *scene pass* draws into, and `PostProcessor` samples it too. Moving it
-     into the tonemap unit would make the scene pass ask the tonemap for its
-     render target — a worse coupling than the one being removed. TonemapPass
-     receives views through `setInputs` instead.
-   - **`recordTonemapPass` stays in Renderer.** It also records bloom, the UI
-     and the editor overlay into the same render pass, and rule #1 below says
-     only `Renderer::drawFrame` sequences passes. The unit draws its fullscreen
-     triangle into a pass the caller has already begun; it never opens one.
-
-   It also removed shared mutable state that was not in the plan: the XR path
-   was overwriting the desktop tonemap's layout and samplers. XR now owns
-   `xrTonemapSetLayout_`/`xrTonemapSampler_`/`xrTonemapDepthSampler_`, and both
-   paths build their constants through the same static `TonemapPass::
-   pushConstants`, so one shader keeps one interpretation. Folding the XR
-   tonemap into the unit is `XrRenderer`'s job.
-3. **Anti-spaghetti rule #1: passes never call each other.** Only
+3. **Pass ownership: passes never call each other.** Only
    `Renderer::drawFrame` sequences the passes. Each unit owns its GPU objects
    (pipelines, descriptors, targets) with a create/destroy cycle tied to
    swapchain/format changes, and exposes only `record*`/`update*`. No unit reads
    another's descriptors.
-4. **Anti-spaghetti rule #2: `#ifdef` variations stay INSIDE each unit.**
+4. **Platform boundaries: `#ifdef` variations stay INSIDE each unit.**
    `TonemapPass` handles Vulkan vs WebGPU internally; the frame orchestrator
    stays agnostic.
 5. **Verify each unit**: native **+ web** build + Witness E2E + **visual diff**
@@ -720,8 +237,7 @@ The automatic net covers: compilation (native + web), headless logic, gameplay,
 HUD rendering, and — for the hub scene on Lavapipe only — that the rendered
 frame has not changed. It **does not cover**: whether that frame is *correct*,
 any rendering path the hub scene does not draw, real-GPU output, the editor GUI,
-XR, or the semantics of MCP mutations. Any session touching these areas must be
-supervised, not autonomous.
+XR, or the semantics of MCP mutations. Changes to these areas need the corresponding manual or device verification.
 
 - **Editor** — `witness_editor_play` and `witness_editor_build` cover the
   Play/build paths, but not the ImGui clicks in edit mode. Manually verify
@@ -736,50 +252,8 @@ supervised, not autonomous.
 
 Post-V1 unless the scope changes explicitly.
 
-- [ ] Network: build a generic UDP networking module (requested 2026-10-23).
-  - [x] Rollback session layer, transport-independent: `plugins/netcode`
-    (SPEC 11.6, 2026-11-02). Synchronized start, adaptive lossless input
-    delay, game-defined prediction, bounded rollback, time scale and tick
-    skipping, deterministic membership (join by confirmed snapshot, leave,
-    drop of a lost member, input relay), desync detection and resync,
-    effect/commit ledger, connection quality, verified replays, `SyncTest`
-    and an in-process lossy network. Proven by
-    `plugins/netcode/tests/test_netcode.cpp` (`PASS saida::netcode`, seeds
-    0-199; 0-39 also under `_GLIBCXX_ASSERTIONS` and UBSan).
-  - [x] UDP peer-to-peer transport, discovery and NAT traversal:
-    `plugins/p2p` (SPEC 11.7, 2026-11-02). Dual-stack non-blocking sockets;
-    Noise XX authenticated, ChaCha20-Poly1305 encrypted links on the engine's
-    mbedTLS, replay window, no amplification, admission before key agreement
-    under a rate budget; unreliable and reliable ordered channels coalesced to
-    a 1200-byte MTU and fragmented by the link; RTT, variance and loss;
-    keepalive, timeout, close, restart detection; every bound and refusal
-    named. Hole punching with crossing first packets merged into one peer,
-    introductions, public address learned from peers. Discovery with no
-    server: a Mainline DHT node (BEP 5/42/43) on the same socket, topics
-    (`Rendezvous`) with admission by topic tag, membership and introductions
-    of newcomers, arena codes with a check character, LAN multicast beacons.
-    `NetcodeTransport` runs a netcode session on it. Proven by
-    `plugins/p2p/tests/test_p2p.cpp` (`PASS saida::p2p` on seeds 0-399,
-    each run replayable from its seed; simulated Internet with the four NAT
-    kinds; real loopback IPv4/IPv6 and LAN beacons) and live on the real
-    Mainline DHT (`examples/p2p_probe.cpp`: discovery by arena code between
-    two processes in 0.5-4 s).
-  - [x] State replication for owned objects: `plugins/netcode/Replica.hpp`
-    (SPEC 11.6, 2026-11-03). Sender clock from arrivals alone, adaptive
-    interpolation delay with a slewing playback clock, bounded extrapolation,
-    and the owner's history to judge claims made against what another machine
-    drew (lag compensation with the owner as the judge). Proven in
-    `test_netcode.cpp`; used by R1World's online play.
-  - [x] Relay for the pairs no punching opens (symmetric NAT against
-    port-restricted or symmetric NAT), through a peer both reach
-    (`Host::relayAddress`, `Rendezvous` falls back to the introducer; SPEC
-    11.7, 2026-11-03).
-  - [x] DHT over IPv6 (BEP 32), beside the IPv4 one (2026-11-03).
-  - [x] Crowds without a full mesh: proximity overlay in `Rendezvous`
-    (`neighbours`), the DHT asked rarely and announced by a few once a topic
-    has members, and `NetworkThread` (fixed-step network thread). Proven by
-    the `neighbourhood`, `crowd` (150 players), `relay`, `relayed-topic`,
-    `dht6` and `thread` tests (2026-11-03).
+- [ ] Network: complete P2P connectivity and qualify real-network sessions (SPEC 11.7).
+
   - [ ] Private addresses for players behind one router whose LAN does not
     carry multicast and whose router does not hairpin.
   - [ ] Qualify a session between two machines on different home networks,
@@ -787,87 +261,13 @@ Post-V1 unless the scope changes explicitly.
     capability and permission-policy tests (SPEC 6.2); the Web runtime has no
     raw UDP.
 
-- [ ] Rendering: optimize and refine the dynamic outdoor GI now implemented in
-  SPEC §4.1. On 2026-10-22 the user explicitly prioritized working, optimized GI
-  over the original brief's mandatory proofs, phase order and extraction gates.
-  The Lavapipe presentation failure is a backend issue, not a prerequisite for
-  this work. Frozen native references and strict checks remain diagnostics.
-  - [x] Fair CPU clipmap scheduler, toroidal retention, scrolling, bounded probe
-    and voxel work, stable double-precision origin frame and transient warmup.
-  - [x] Persistent atlases with partial blend/scatter, compact incremental voxel
-    grids, cached mesh invalidation, cascaded tracing and continuous updates.
-  - [x] Diffuse sky replacement, metallic/Fresnel response, material opt-out,
-    voxel-traced hit lighting/solar visibility, emission and previous-probe bounce.
-  - [x] Procedural voxel hook and desktop heightfield injection, vertex GI for
-    cheap plants, water shading, quality controls and Follow integration in the
-    outdoor client (including Toaster budgets and caller-managed origin rebases).
-  - [x] Rays and solar visibility continue into coarser cascades instead of
-    reaching the sky at a fine cascade's 16 m ceiling; voxel bricks come from
-    one cascade per frame (one draw of the overlapping meshes, culled per
-    brick); probes wait only for a cascade's first fill, not for an empty
-    brick queue. Before, streaming kept the queues busy and Paris never
-    passed 39 % warm-up; on 2026-10-22 the MX450 offline Paris smoke passes,
-    warm-up reaches 100 %, `GPU/DDGI` 1.3 ms/frame mean, 3.0 ms p95
-    (`--profile`, 600 frames, vsync off). `SAIDA_GI_DEBUG=irradiance|voxels`
-    shows what surfaces receive.
-  - [x] Back-face probe classification (> 25 % of rays) and full filtered
-    sampling at every distance, replacing the nearest-probe path past 32 m
-    that leaked sun onto shaded Paris facades and blackened others. One
-    cascade per point plus the next across a half-cell band, tetrahedral
-    taps without dynamic indexing. Fixed 1080p MX450 Paris view, 2026-10-22:
-    `Scene/Opaque` 9.1 ms GI off, 15.1 ms before, 13.5 ms after; `GPU/DDGI`
-    1.2 ms. The complete GI therefore costs about 5.5 ms there, above the
-    brief's 2.5 ms; per-pixel sampling, not the probe update, is what remains
-    (a constant-irradiance probe measured 9.4 ms).
-  - [x] Half-resolution irradiance: a GI stage on the AO grid writes what the
-    pre-pass surfaces receive, the AO upsample carries it into the map's
-    colour (now RGBA16F, alpha the occlusion), and `shader.frag` /
-    `terrain_rings.frag` read it instead of sampling probes per fragment.
-    Same 1080p MX450 view: `Scene/Opaque` 9.6 ms (9.1 GI off), the stage
-    0.5 ms, the whole GI 2.0 ms of `GPU/Frame` against GI off -- within the
-    brief's 2.5 ms. Not yet run under Vulkan validation (layers absent on the
-    reference machine) nor in Chrome WebGPU.
+- [ ] Rendering: optimize and refine the dynamic outdoor GI in SPEC 4.1.
+  The Lavapipe presentation failure does not block this work; retain frozen
+  references and strict diagnostic thresholds.
+
   - [ ] Reduce subvoxel leaks and temporal noise; improve probe placement and
     classification, transparency, adaptive hysteresis and firefly rejection.
-  - [x] Stabilize stationary probe sampling with a fixed spatial scramble per
-    persistent atlas slot, retaining realtime light/geometry updates and the
-    existing budgets. On 2026-10-23 the MX450 same-session stationary corpus
-    changes from peak display deltas of 10 (Anchored) / 6 (Follow) to 0 / 1;
-    switching the Sun off still darkens the indirect receiver. The new
-    `stability` case fails on the original renderer in both volume modes.
-    The motion diagnostic now also captures one running world: the original
-    fails at 6 m/s (33% adjacent jump), the fixed quadrature passes walking
-    but still fails at 24 m/s (17% jump). The pre-existing open-sky energy
-    diagnostic also remains outside its 2% bound; no thresholds were relaxed.
-  - [x] Anticipate Follow coverage along the camera's smoothed velocity,
-    prioritize entering voxel slabs and untraced probes ahead of maintenance,
-    and blend cascades across two cells without increasing grid resolution or
-    work budgets. Proof, 2026-10-23: CPU tests at 30/60/120 Hz, stops, reversals,
-    teleports and continuously invalidated queues (the old scheduler fails the
-    entering-brick priority check); `verify_global_illumination.py --cases motion`
-    moves only the camera through static geometry at 6/24 m/s. At 24 m/s the
-    worst sampled difference from settled lighting falls from 34% to 11%; the
-    final walking case stays within 15%. Native CTest 110/110, WebShaders and
-    Web player built, Chrome accepts the scene pipeline, and R1World's offline
-    Paris warm-walking smoke passes. The strict `off`, `open` and `scroll`
-    diagnostics fail both before and after; their references/thresholds were
-    retained. Temporal noise and sustained all-tier movement remain open.
-  - [x] Expose quality-first High/Ultra policies independently of Auto's
-    hardware budgets (2026-10-27). High/Ultra use per-fragment, eight-probe
-    interpolation; Ultra doubles voxel resolution and refreshes all probes and
-    all queued bricks every frame. The client can compare them live and retain
-    its selection through Toaster mode. RTX 4070 verification: CPU initial-fill,
-    scrolling, reversal and teleport tests pass; GPU `canyon`, `room`, `optout`,
-    `motion` and `stability` pass at quality 4. In the 24 m/s fixture, maximum
-    moving-versus-settled drift is 0.17% (Auto: 6.84%); stationary captures have
-    zero display delta and still respond to a light switch. Native/Web player
-    builds and WGSL translation pass. Native CTest: 109/111 initially; the SDK
-    consumer passes after clearing its stale package output, while terrain-ring
-    reference setup still fails copying shaders with `File exists`, before
-    rendering. R1World's three fixed-camera offline Paris captures complete,
-    including the quality-button/Toaster restoration checks. Probe density,
-    placement and the remaining voxel approximation are not solved by these
-    profiles; sustained all-tier movement remains open below.
+
   - [ ] Add a water voxel injector, textured terrain contribution, and optional
     per-node contribution controls. Profile spatial queries during heavy editing
     and streaming, and add adaptive budgets only where measurements justify them.
@@ -891,18 +291,7 @@ Post-V1 unless the scope changes explicitly.
   `saida_ssao_tests`). Binocular agreement and the instability with AO enabled
   still need a headset comparison against that NoAO baseline; CPU tests and
   desktop captures do not establish it.
-- [x] Add a generic pre-instance XR input-provider seam and optional XRGesture
-  add-on: typed actions, merged profile suggestions, dependency negotiation,
-  focus/reset semantics and native resource ownership; no Meta semantics in
-  core input types. Synthetic gesture/sequence/locomotion tests and the real
-  instance/action bridge against a fake OpenXR dispatch cover both native
-  completion paths and extension rejection/fallback without opening a window.
-- [x] Align native completions with Meta's OpenXR sample (changed-and-true,
-  no local cooldown/neutral latch) and add explicit locomotion gating with
-  tracking suspension/recovery, handoff and stop reasons. Quest 3/Oculus Link
-  logs on 2026-10-26 showed native swipes continuing after the old gate closed;
-  four-minute synthetic replay and regression tests cover the corrected path.
-  Rechecking the changed behavior on the headset remains open below.
+
 - [ ] Qualify XRGesture on actual headset/runtime combinations: native extension
   availability (including PC Link), thumb contact/swipe accuracy and false
   activations, tracking/focus loss, left/right mapping, latency and R1World
@@ -912,10 +301,6 @@ Post-V1 unless the scope changes explicitly.
 
 - [ ] Physics: complete queries, constraints (slider, cone, motors) and
   diagnostics.
-- A scene's `skyboxTexture` is no longer exposed to a registry rescan: both
-  scene readers accept a project-relative path, which the registry re-resolves
-  afterwards (SPEC 3.1).
-
 - [ ] Physics: prove the whole-subtree collider on real multi-mesh content.
   `CollisionShapeNode` now merges every mesh under a body (Mesh and ConvexHull
   alike, and Auto unions their bounds), replacing the single-mesh `findMesh`.
@@ -977,32 +362,10 @@ Post-V1 unless the scope changes explicitly.
   constrains traffic is triangles and bodies, not the vehicle solver.
 
 - [ ] Animation: extended API (scrub, JS root motion) and BVH retargeting.
-- [x] Honor material sidedness in classic, bindless and XR scene draws; reverse
-  back-face shading normals. The instance ABI retains its existing size.
+
 - [ ] Stabilize the GPU-driven flag and benchmark the classic path, bindless,
   indirect draw and compute culling on a reproducible corpus.
-- [x] R1World streaming: queue lettering, interiors and distant ice, publish
-  interiors/colliders only when ready, build native graphics pipelines in
-  joined two-lane batches and reuse bloom pipelines on resize. The optimized
-  Paris, Grenoble and Paris–Tunis traces have no legacy upload waits or pipeline
-  creation inside frames; GPU scene streaming passes 153 checks.
-- [x] Avoid general 4x4 multiplication when constructing affine TRS and compose
-  camera transforms only along the selected camera's ancestor chain. Preserve
-  hierarchy-order priority ties, hidden cameras, disabled branches and direct
-  transform/priority edits. Verified 2026-10-08 on MX450: 92/92 native CTest and
-  166 scene streaming GPU checks, including the added camera/TRS regressions.
-  An isolated R1World Paris arrival pair at 1080p measures normal frame mean
-  45.83 -> 39.05 ms and camera selection 13.18 -> 9.89 ms; it does not qualify
-  sustained 30 fps worldwide on the reference Ryzen 7 5700U / MX450.
-- [x] Grass fields accept shared north/south boundary knots; blade height and
-  slope follow the refined triangle fans. Validate regular vertices, ordering,
-  finite heights and bounded sample count; upload on field revision only.
-  The 78 grass checks and native suite passed during this pass.
-- [x] Add explicit-destination subtree rebasing to avoid cancellation when a
-  distant frame moves nearby. Static and kinematic bodies synchronize to the
-  recomposed tree; body identities survive. The final native scene streaming
-  test passes 78 checks, including a distant-frame collision regression and
-  direct parent edits. The GPU rerun is still pending.
+
 - [ ] Rendering: add a separate clearcoat lobe and evaluate bounded local
   reflections for smooth materials. The current PBR path reflects the HDR sky
   only (SPEC 4.1); automotive paint and nearby street reflections remain a
@@ -1199,98 +562,6 @@ What is missing:
   `saida_tool describe-engine`, and extend `describe-engine` to cover the core
   nodes that are serialized by hand.
 
-- [x] Scripting: reach a reflected property from a script. `node.getProperty`/
-  `node.setProperty`, and the same pair on `NodeRef`, bind the reflection the
-  Inspector, SaidaOps, the MCP node tools and `.sseq` property tracks already
-  write through (SPEC 6.3). Scripts were the fifth consumer of that reflection
-  and the only one with a hand-written list of what it may touch, so a light's
-  colour or intensity, a camera's field of view, a water's wave height or a
-  particle's spawn rate were authorable and animatable but could not be changed
-  by gameplay — SPEC 7 documents a `.sseq` animating "Sun intensity", which the
-  engine could do on a timeline and a game could not do on a switch.
-
-  Three things the implementation is deliberate about. Resolution is the node's
-  own type then its behaviours, the order the sequence binder already uses.
-  The value is kind-checked before it is applied, through `valueMatchesKind`
-  promoted out of `SaidaOpApplier.cpp` into `reflect::` rather than copied — the
-  reflected setters silently ignore a value of the wrong shape, so an unchecked
-  write reports success on a property it never changed. And a failed write is
-  logged while an absent property reads `null` in silence: probing is legitimate,
-  losing a write is not.
-
-  It also fixed a defect in the bridge it needed: `jsToJson` turned every JS
-  number into a double, while the array/object branch went through
-  `JSON.stringify` and produced integers. The two halves disagreed, so `[1,2,3]`
-  reached a `vec3` and a bare `2` could not reach an `int` or an `enum` at all.
-  Integral numbers now cross as integers, which is what `JSON.stringify` decides
-  and what the object branch already inherited.
-
-  Proof: `saida_js_property_tests` (headless, no device) covers both resolution
-  halves, every kind a registered type carries through the live binding, all
-  eight through the validator — no registered type declares a `quat` today —
-  refusal of a wrong shape *with the value left unchanged*, an out-of-range
-  enum, an unknown name and missing arguments. CTest 85/85, native build,
-  `describe-engine`, `[CONTRACT] PASS native nodes=29 behaviours=21
-  properties=217`, Web player and authoring WASM rebuilt, `witness_e2e.sh` and
-  `witness_editor_play.sh` PASS. `NodeRef` parity cannot be proven headlessly —
-  `SceneTree` needs a `ResourceManager`, hence a device — and was proven in a
-  real scene through `--test-autoload`: read, write, wrong-kind refusal, unknown
-  name and an enum write, all through a `NodeRef`.
-
-- [x] Scripting: reach the scene's environment from a script. `scene.getSetting`/
-  `scene.setSetting` read and write ambient, clear colour, fog, sky exposure, the
-  IBL intensities, AO and bloom (SPEC 6.3). Reflected node properties had just
-  made a light's colour and intensity scriptable, which left a day/night cycle
-  half-connected: a game could redden and dim the Sun while the ambient it sits
-  in, and the fog the distance fades to, stayed frozen at whatever the scene was
-  authored with. Those are `SceneSettings` fields rather than node properties,
-  and no binding reached them.
-
-  The environment was also the last authored surface in the engine still
-  described by hand at every consumer — the Inspector, the `set_scene_setting`
-  op, the MCP tool and the serializer each with its own list of keys, its own
-  idea of which ones existed, and for two of them its own spelling. Adding a
-  fifth list for scripts is the mistake the reflected-property binding had just
-  removed for nodes, so the environment is now described once, in
-  `SceneSettings::describe`, and the two writers that resolve a field by name —
-  the op applier and the script binding — go through it and nothing else. The op
-  applier lost its hand-written key table in the process and gained the settings
-  it never covered (`lightingMode`, `giMode`, `changeRenderingAtLoad`).
-
-  Two consumers deliberately still do not. The Inspector's list is a *layout* —
-  sliders, colour wheels, sections greyed out by bake state — and generating it
-  from the reflection's range/tooltip/group metadata is its own change. The
-  serializer's is a durable format: it resolves a skybox by path because ids are
-  regenerated on rescan, and two of its keys have been written into every scene
-  ever saved under names the ops spell differently. So the two descriptions are
-  held to each other instead of merged: `saida_scene_settings_tests` requires
-  every reflected setting to survive a save/load round trip and every saved key
-  to stay reachable, with the exceptions — the skybox reference, the GI bake
-  handshake, the editor's debug toggles — named in one place and justified
-  there. A field added to one and forgotten in the other now fails the suite
-  instead of becoming a setting that cannot be saved, or one no tool can edit.
-
-  Two smaller things came with it. `TypeBuilder::colorProperty` describes a
-  colour held as a `vec4` but authored as three channels with the alpha
-  preserved, which is what the scene format, the ops and the inspector all
-  already do and what a plain `property()` would have exposed to exactly one of
-  them. Realtime GI samples current light directions on its update cadence,
-  including directions written by scripts.
-
-  Proof: `saida_scene_settings_tests` extended with the reflection/format
-  equivalence in both directions, colour alpha, enum range checking and the
-  absence of internal state; `saida_js_permission_policy_tests` updated for the
-  new capability — it caught the addition on its own, which is what it is for.
-  CTest 85/85, native build, `describe-engine` (the vocabulary is published
-  under `sceneSettings`), `[CONTRACT] PASS native nodes=29 behaviours=21
-  properties=217`, the three Web builds, `witness_e2e.sh` (3/3),
-  `witness_editor_play.sh` and `witness_editor_build.sh` PASS. The binding
-  itself cannot be proven headlessly — it needs a mounted `SceneTree`, hence a
-  device — and was proven in a real scene through `--test-autoload`: a driver
-  wrote a sentinel colour into the ambient and required the running cycle to
-  take it back, then followed a computed dusk down and checked that the ambient
-  darkened, the horizon warmed and the sky exposure fell together with the beam.
-
 - [ ] Scripting: settle the `NodeId` convention on the JS side. `node.id` and
   `NodeRef.id` return a **BigInt** (`JS_NewBigUint64`), so an id throws under
   `JSON.stringify` and under arithmetic: it can be passed back to
@@ -1322,58 +593,6 @@ Ordering: **6.3.1 before everything else** (nothing below can be verified
 without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
 
 #### 6.3.1 The feedback loop — an agent cannot see what it builds
-
-- [x] Tooling: render a UI document headlessly. `saida_tool render-ui
-  <document> --project <dir> [--size WxH] --out <png>` drives the same CPU
-  RmlUi backend `saida_ui_corpus_tests` exercises (`src/cli/RenderUiCommand.cpp`,
-  SPEC 8.3). PNGs come from `core/PngWriter`, an in-tree fixed-Huffman deflate
-  encoder with no third-party dependency, proven by decoding its output back
-  with `stb_image` (`saida_png_writer_tests`, 38 checks: noise, alpha gradient,
-  degenerate shapes, determinism, refusals). Proof: the VerticalSlice main menu
-  renders at 1280x720 with zero diagnostics; `saida_tool_render_ui_valid`,
-  `saida_tool_render_ui_rejects_malformed` and
-  `saida_tool_render_ui_refuses_traversal` in CTest (76/76).
-
-- [x] Tooling: dump the computed layout, not just pixels. `--layout-json
-  <file|->` emits per element the tag, id, classes, computed `display` and
-  border box, plus every diagnostic RmlUi raised. Engine log output is routed
-  to stderr for the duration of the render so stdout stays parseable. It found
-  the §6.3.2 trap on first use: a `<div>` declaring `width`/`height`/
-  `text-align` reports `display=inline` with a `0x0` box — and `body` itself
-  computes to `inline`, which is what the `engine.rcss` item below fixes.
-  RCSS's silent property drops (`rgba()` with a 0-1 alpha) produce no
-  diagnostic at all, confirming that item stays open for `validate-ui`.
-
-- [x] Tooling: capture a frame, reproducibly, and give it a verdict.
-  `--screenshot <png>` on the editor and the exported player writes the
-  presented composite; `saida_tool compare-png` says whether two such images
-  differ, by how much and where. Contract in SPEC §6.3.
-
-  What made it usable as a golden image rather than a photograph: the capture
-  waits for assets to settle before it counts frames, pins the frame clock, and
-  is taken from the player (no live FPS/camera overlay). `CaptureScheduler`
-  holds that policy away from Vulkan, so `saida_capture_scheduler_tests` proves
-  it without a device.
-
-  Proof: two independent runs of the exported WitnessGame at `--after-frames 30`
-  are byte-identical (`MATCH 0/230400 pixels, max channel delta 0`); frame 1 vs
-  frame 10 reports 131 277 pixels in a 640x231 box and writes its diff image; a
-  size mismatch exits 1 before any pixel is examined. Native build clean,
-  `ctest` 82/82.
-
-  Capture resolution follows the window, so a committed reference is taken
-  headless (`SAIDA_WINDOW_HIDDEN=1`).
-
-- [x] Tooling: aim the capture. `--camera-pos x,y,z --camera-look x,y,z` parks
-  the camera anywhere for the run, overriding the scene's cameras. Agents read
-  images directly, so the useful thing to build was not a measurement layer over
-  what looking already gives — it was the ability to choose where to look from.
-  The defects that pass a structural check (geometry not meeting the ground,
-  wrong scale, a floating surface) are invisible from the gameplay camera and
-  obvious from a grazing angle; until now reaching such a viewpoint meant
-  writing a JS harness. Refusals are covered by `saida_capture_args_tests`, and
-  a rejected viewpoint exits non-zero before the loop rather than leaving a
-  plausible PNG behind.
 
 - [ ] MCP: no UI tools at all. The catalog is 45 tools over animation, assets,
   nodes, scenes and scenarios; an agent driving a live editor can move a node
@@ -1482,123 +701,12 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   transition. Do not change CSS transition semantics globally: diagnose the
   delay and provide a correct default.
 
-- [x] UI: ship an engine user-agent stylesheet. The baseline is embedded in
-  `RmlUiRuntime` (`userAgentStyleSheet()`) rather than shipped as a file, so it
-  cannot go missing from a package, and is merged *under* every document loaded
-  through `RmlUiRuntime::loadDocument`/`loadDocumentFromMemory` — the three
-  engine load sites (`WebCanvasNode`, `HudRasterizer`, `render-ui`) go through
-  it. Specified in SPEC 8.2. Proof: `saida_ui_corpus_tests` (105 checks) pins
-  both halves — the baseline paints the declared box, the same markup loaded
-  bare still computes to `inline`, and a document's own `display` still wins.
-  Measured on the trap document: `div` declaring `width`/`height`/`text-align`
-  went from `display=inline` box `0x0` to `display=block` box `200x80`, with
-  the text correctly centred.
-
-  Extended on 2026-10-20 to semantic HTML containers, form controls and
-  `[hidden]`, with a rendered authoring test. Tags outside the published list
-  keep RCSS's `inline` default.
-
-- [x] UI box-model parity (2026-10-27): support `box-sizing`'s `inherit`,
-  `initial` and `unset`, including live parent/class/variable changes and
-  reparenting; expose JS `style.boxSizing`; match HTML control sizing defaults.
-  Author styles, including universal resets, now outrank the user-agent sheet.
-  The shared build-local RmlUi patch preserves `third_party`. Covered by
-  `saida_ui_box_sizing_tests`, the JS/GPU corpus and an optional Chromium
-  comparison of 24 boxes from identical HTML/CSS sources.
-
-- [x] UI HTML-root parity (2026-10-27): preserve a real `html` root and a
-  separate body child, including independent attributes, child selectors,
-  `:root` variables and `document.documentElement`/`document.body`. File and
-  in-memory loading share the adapter; RML keeps its original model and the
-  per-load document instancer is restored. The browser comparison includes
-  the common `html { box-sizing: border-box; } * { box-sizing: inherit; }`
-  reset. Generated `::before`/`::after` content remains outside this change.
-
 - [ ] UI CSS-wide keywords: generalize computed `inherit`/`initial`/`unset`
   beyond the tested box-sizing contract, with shorthand expansion and dynamic
   invalidation; implement cascade-origin `revert`/`revert-layer` only with the
   corresponding real origin/layer semantics and browser comparisons.
 
-- [x] UI: give a screen-space canvas a reference resolution.
-  `WebCanvasNode` carries `referenceWidth`/`referenceHeight` and a `scaleMode`
-  (`Stretch` = the historic resize-to-window and still the default, `Fit` =
-  the reference letterboxed inside the window, `Expand` = the reference kept on
-  the constrained axis and the other one gaining logical room). The policy lives
-  on the node (`applyViewportLayout`), not in the renderer, because rendering
-  and pointer input both read the placement through `screenPosition`/
-  `screenSize` — a rig that drew letterboxed while hit-testing full-screen would
-  put every click in the wrong place. Whether a canvas wants the viewport at all
-  is asked of its authored transform (`fillsViewport`), so a letterboxed canvas
-  keeps being told about the window instead of freezing at its first size.
-  Proved by `saida_webcanvas_scale_tests` (33 checks, no device): the three
-  modes, a missing reference falling back to Stretch, and a click on a
-  letterbox bar missing the canvas while the image's top-left maps to the
-  document origin.
-
-- [x] UI: wrap texture coordinates in the CPU RmlUi backend. The sampler wraps
-  when the geometry asks for it, so `decorator: image(x.png repeat)` tiles and
-  `tiled-box`/`ninepatch` rest on a mechanism that works. Whether to wrap is
-  decided once per compiled geometry, from whether any of its texture
-  coordinates leaves [0,1]: the same test applied per sample cannot tell a
-  glyph's right edge at exactly 1.0 from the start of a second tile, and
-  wrapping that edge to 0 tears every piece of text on screen. Clamped
-  geometry keeps addressing texel centres exactly as before; wrapped geometry
-  addresses whole texels and takes its neighbour round the edge, so the seam
-  between two tiles filters like the inside of one. Proved by
-  `testRepeatDecoratorTiles` in `saida_ui_corpus_tests`, which fails without
-  the change with the row it renders in the diagnostic — one tile, then its
-  last texel smeared to the far edge.
-
-- [x] Tooling: lint a UI document. `saida_tool validate-ui <document> --project
-  <dir>` reports four kinds, each of them silent today: `rejected-declaration`,
-  `unresolved-asset`, `inline-box-properties` and `fractional-rgba-alpha`
-  (specified in SPEC 8.3). The `rgba()` trap needed a text pass over the
-  document and its stylesheets — confirmed during this work that RCSS drops the
-  declaration with **no diagnostic whatsoever**, so there is nothing in the live
-  document left to inspect; it is reported with `file:line` and the 0-255 value
-  that was meant.
-
-  Two deliberate precautions against false positives, because a lint nobody
-  trusts is a lint nobody runs: `text-align` is reported only when it differs
-  from the parent's computed value (an inherited alignment is doing its job),
-  and RmlUi's anonymous `#text` elements are skipped (always inline, never
-  authored). The `lint-clean` fixture exists to pin this: it contains a valid
-  0-255 `rgba()` and an inline element with no box property, and must stay
-  clean.
-
-  Proof: `saida_tool_validate_ui_clean` and
-  `saida_tool_validate_ui_reports_silent_traps` in CTest (78/78), the latter
-  asserted on its output rather than only its exit code. The shipped
-  VerticalSlice main menu lints clean. Engine-side, missing-asset warnings now
-  travel the same diagnostic channel as RmlUi's own
-  (`RmlUiRuntime::reportDiagnostic`) instead of going straight to the log, so a
-  caller capturing diagnostics sees all of them.
-
 #### 6.3.3 Content pipeline and authoring surface
-
-- [x] Animated UI authoring baseline (2026-10-20): unscaled animation clock,
-  requested-update deadlines, hover invalidation without clicks, top-left CPU
-  alpha coverage, HTML-root/stylesheet/void-tag adaptation, Web alpha and
-  millisecond/ease aliases, attribute/value/hidden DOM methods, textContent
-  semantics and common style accessors. `render-ui --time` samples the CSS
-  timeline at 60 Hz; unsupported shader decorators/filters are diagnostics.
-- [x] Native document GPU baseline: immutable draw-list capture, cached source
-  textures, premultiplied triangle blending and sRGB resolve, per-frame owned
-  uploads/descriptors, fence-safe resize/retirement. CPU tooling and the
-  `SAIDA_UI_RENDERER=cpu` comparison path remain available. GPU tests cover
-  pixels, clipping, transforms, JS controls, idle animation, hover and resize;
-  full WebGPU document parity and advanced layers/filters remain open.
-
-  Verification on 2026-10-20: the RelWithDebInfo native build and 102/102 CTest
-  cases pass, as do `describe-engine`, the native runtime contract, the Web
-  player build and the authoring-WASM build/Node smoke. R1World builds against
-  the SDK and its real-menu zoom E2E passes with the GPU canvas. All UI examples
-  validate without diagnostics; captures at 0.5 s and 1.25 s differ as expected.
-  The 1280x800 menu microbenchmark on the local RTX 4070 (16 warm samples)
-  measured CPU raster median 21.01 ms and GPU submit-plus-fence median 0.141 ms
-  (p95 1.23 ms). This excludes layout and is not MX450/whole-game qualification.
-  The Lavapipe golden-image gate was not run: its ICD is unavailable in the
-  configured UCRT64 environment. No frozen reference was regenerated.
 
 - [ ] Make repeated native SDK packaging checks independent of an earlier
   staged package. A second full-suite run reached 101/102, with
@@ -1620,19 +728,6 @@ without it), then 6.3.2 (removes the trap classes at the root), then 6.3.3.
   proving the same document on both — or state in SPEC that documents are a
   desktop-only surface and that the portable UI is the node path. Do not leave
   it implicit.
-
-- [x] UI: templates for the surfaces every game needs. Authoring the menu meant
-  rediscovering, by reading engine and RmlUi sources, how a panel, a button, a
-  focus state and a keyboard-driven selection are expressed here. None of it is
-  hard once known and none of it is written down. Fix: `templates/ui/` with a
-  panel, a button, a list and a menu, each a document that runs as-is against
-  the current engine, referenced from CONTRIBUTING. A working example is worth
-  more than a description, to a person and to a model alike.
-
-  Delivered in `templates/ui/`: shared component styles, standalone button,
-  list and panel examples, a native RmlUi panel template, and an animated menu
-  with a separate JS controller. Authoring and validation commands are in
-  CONTRIBUTING. This does not close the gamepad verification item below.
 
 - [ ] UI: demonstrate keyboard and gamepad navigation. RmlUi's `nav-*`
   properties exist and key events already reach the context

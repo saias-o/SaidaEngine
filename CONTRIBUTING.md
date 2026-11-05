@@ -99,6 +99,18 @@ cmake --build build --parallel
 The same error does not indicate a source defect when the build succeeds from a
 native UCRT64 shell.
 
+### UCRT64 runtime mismatch and cold E2E startup
+
+A bare `ld returned 116` combined with CTest failures `0xC0000139` usually
+means a different MinGW runtime is ahead of UCRT64. Check with
+`ldd build/bin/<exe> | grep libstdc`: it must resolve under
+`/c/msys64/ucrt64/bin`, then rerun with that directory first in PATH.
+
+`witness_e2e.sh` and `witness_editor_play.sh` give their driver 25 seconds.
+A first launch after export/rebuild can spend that time compiling cold shader
+pipelines. If it fails with `no relic collected within 25s`, repeat on a warm
+cache before diagnosing a regression, and report both runs.
+
 ## Required verification
 
 Native games must consume the build-tree CMake SDK (`<engine-build>/sdk`) through
@@ -147,6 +159,9 @@ The native semantic contract can also be checked without a project:
 ```sh
 ./build/bin/SaidaEngine.exe --verify-runtime-contract
 ```
+
+Witness must restore progression on its second desktop launch
+(`[E2E] RESTART PASS`) and after a Web page reload through IDBFS.
 
 Use the dedicated Witness harnesses for end-to-end work:
 
@@ -307,6 +322,21 @@ cmake --build build-authoring-wasm
 ```
 
 Serve Web output through HTTP(S). Do not test it through `file://`.
+
+### Isolating the Web toolchain
+
+The probes in `web/spike` isolate Emscripten/Node (`hello.cpp`), the WebGPU link
+(`webgpu_probe.cpp`) and GLFW/canvas/WebGPU/rAF (`spike.cpp`). From that directory:
+
+```sh
+emcc hello.cpp -O2 -o hello.js
+node hello.js
+emcc spike.cpp -O2 --use-port=emdawnwebgpu -sUSE_GLFW=3 -o index.html
+python -m http.server 8080
+```
+
+The spike should show an animated clear and report device/surface readiness.
+It does not exercise the engine's geometry or shaders.
 
 ## Release qualification
 
