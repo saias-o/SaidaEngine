@@ -45,6 +45,7 @@
 #include <thread>
 #include <cstring>
 #include <limits>
+#include <fstream>
 
 using namespace saida;
 namespace {
@@ -978,6 +979,77 @@ void gpuPreparedTextures(VulkanDevice& device) {
     require(sh->coefficients[0].z>0.f&&std::isfinite(sh->coefficients[0].z),"worker environment projection retains nonzero finite irradiance");
 }
 
+void gpuVertexColors(VulkanDevice& device) {
+    const auto root=std::filesystem::temp_directory_path()/
+        ("saida-vertex-colors-"+std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(root);
+    nlohmann::json doc={{"asset",{{"version","2.0"}}},{"scene",0},
+        {"scenes",{{{"nodes",{0}}}}},{"nodes",{{{"mesh",0}}}},
+        {"bufferViews",nlohmann::json::array()},{"accessors",nlohmann::json::array()}};
+    std::vector<uint8_t> bytes;
+    auto append=[&](const void* data,size_t size) {
+        while(bytes.size()%4)bytes.push_back(0);
+        const size_t offset=bytes.size();const auto* begin=static_cast<const uint8_t*>(data);
+        bytes.insert(bytes.end(),begin,begin+size);
+        doc["bufferViews"].push_back({{"buffer",0},{"byteOffset",offset},{"byteLength",size}});
+        return doc["bufferViews"].size()-1;
+    };
+    const float positions[]={0,0,0,1,0,0,0,1,0};
+    doc["accessors"].push_back({{"bufferView",append(positions,sizeof positions)},{"componentType",5126},
+        {"count",3},{"type","VEC3"},{"min",{0,0,0}},{"max",{1,1,0}}});
+    const glm::vec3 expected[]={{.2f,.4f,.6f},{.6f,.4f,.2f},{1.f,0.f,.8f}};
+    auto primitives=nlohmann::json::array();
+    for(int component:{5126,5121,5123})for(int channels:{3,4}) {
+        std::vector<uint8_t> colors;
+        for(const auto rgb:expected) {
+        for(int c=0;c<channels;++c) {
+            const float value=c==3?.5f:rgb[c];
+            if(component==5126) {const auto* p=reinterpret_cast<const uint8_t*>(&value);colors.insert(colors.end(),p,p+4);}
+            else if(component==5121)colors.push_back(uint8_t(std::lround(value*255.f)));
+            else {const uint16_t v=uint16_t(std::lround(value*65535.f));const auto* p=reinterpret_cast<const uint8_t*>(&v);colors.insert(colors.end(),p,p+2);}
+        }
+        while(colors.size()%4)colors.push_back(0);
+        }
+        const auto view=append(colors.data(),colors.size());
+        doc["bufferViews"][view]["byteStride"]=((channels*(component==5126?4:component==5121?1:2)+3)/4)*4;
+        auto accessor=nlohmann::json{{"bufferView",view},
+            {"componentType",component},{"count",3},{"type",channels==3?"VEC3":"VEC4"}};
+        if(component!=5126)accessor["normalized"]=true;
+        doc["accessors"].push_back(accessor);
+        primitives.push_back({{"attributes",{{"POSITION",0},{"COLOR_0",doc["accessors"].size()-1}}}});
+    }
+    primitives.push_back({{"attributes",{{"POSITION",0}}}});
+    doc["meshes"]={{{"primitives",primitives}}};
+    doc["buffers"]={{{"uri","colors.bin"},{"byteLength",bytes.size()}}};
+    {std::ofstream file(root/"colors.bin",std::ios::binary);file.write(reinterpret_cast<const char*>(bytes.data()),bytes.size());}
+    {std::ofstream file(root/"colors.gltf");file<<doc.dump();}
+    AssetRegistry registry;require(registry.load(root.string()),"vertex-colour fixture registry");
+    ResourceManager resources(device,&registry,{128,512});
+    GLTFLoadOptions options;options.retainDeformationSource=true;
+    for(bool async:{false,true}) {
+        Node imported;
+        if(async) {
+            auto handle=GLTFLoader::request("colors.gltf",resources);
+            const auto until=std::chrono::steady_clock::now()+std::chrono::seconds(10);
+            while(!handle.ready()&&!handle.failed()&&std::chrono::steady_clock::now()<until)std::this_thread::yield();
+            require(handle.ready()&&GLTFLoader::instantiate(handle,imported,resources,options),"async coloured import");
+        } else require(GLTFLoader::load((root/"colors.gltf").string(),imported,resources,options),"sync coloured import");
+        int meshes=0;
+        imported.traverse([&](Node& node,const glm::mat4&) {
+            if(!node.mesh())return;
+            const auto& source=node.mesh()->deformationSource();
+            require(source&&source->vertices.size()==3,"colour fixture retains decoded triangle");
+            for(size_t v=0;v<3;++v)near(source->vertices[v].color,meshes==6?glm::vec3(1.f):expected[v],
+                "float/normalized VEC3/VEC4 RGB preserved without sRGB conversion; absent colour is white");
+            ++meshes;
+        });
+        require(meshes==7,"six colour encodings and the default are checked");
+    }
+    device.waitIdle();
+    std::filesystem::remove(root/"colors.gltf");std::filesystem::remove(root/"colors.bin");
+    std::filesystem::remove(root/"asset_registry.json");std::filesystem::remove(root);
+}
+
 void gpuAsyncGltf(VulkanDevice& device) {
     AssetRegistry registry;
     const auto root=std::filesystem::path(__FILE__).parent_path()/"fixtures";
@@ -1428,6 +1500,10 @@ int main(int argc, char** argv) {
         VulkanDevice device(window);
         gpuAsyncGltf(device);
         device.waitIdle();
+    }
+    if(argc>1&&std::string(argv[1])=="--vertex-colors") {
+        Window window(64,64,"glTF vertex colours",false);VulkanDevice device(window);
+        gpuVertexColors(device);device.waitIdle();
     }
     if (argc > 2 && std::string(argv[1]) == "--deformation-fleet") gpuFleetDeformation(argv[2]);
     std::printf("[streaming] PASS (%d checks)\n", checks);

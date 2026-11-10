@@ -521,6 +521,7 @@ static std::shared_ptr<PreparedMesh> decodePrimitive(cgltf_primitive& prim) {
 
     for (size_t k = 0; k < prim.attributes_count; ++k) {
         cgltf_attribute& attr = prim.attributes[k];
+        bool colorAlphaUnsupported=false;
         for (size_t v = 0; v < vertexCount; ++v) {
             if (attr.type == cgltf_attribute_type_position) {
                 cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].pos), 3);
@@ -532,6 +533,12 @@ static std::shared_ptr<PreparedMesh> decodePrimitive(cgltf_primitive& prim) {
                 cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].lightmapUV), 2);
             } else if (attr.type == cgltf_attribute_type_tangent) {
                 cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].tangent), 4);
+            } else if (attr.type == cgltf_attribute_type_color && attr.index == 0) {
+                float rgba[4]={1.f,1.f,1.f,1.f};
+                if(cgltf_accessor_read_float(attr.data,v,rgba,4)) {
+                    vertices[v].color=toVec3(rgba);
+                    if(attr.data->type==cgltf_type_vec4&&std::abs(rgba[3]-1.f)>1e-6f)colorAlphaUnsupported=true;
+                }
             } else if (attr.type == cgltf_attribute_type_joints && attr.index == 0) {
                 uint32_t tmp[4] = {0,0,0,0};
                 cgltf_accessor_read_uint(attr.data, v, tmp, 4);
@@ -540,6 +547,7 @@ static std::shared_ptr<PreparedMesh> decodePrimitive(cgltf_primitive& prim) {
                 cgltf_accessor_read_float(attr.data, v, glm::value_ptr(vertices[v].boneWeights), 4);
             }
         }
+        if(colorAlphaUnsupported)Log::warn("GLTFLoader: COLOR_0 RGB imported; vertex alpha is unsupported by the RGB vertex format");
     }
 
     // Indices

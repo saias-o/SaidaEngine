@@ -11,6 +11,10 @@ the corresponding contracts of `SPEC.md`.
 
 ## Ambient occlusion on indirect light only — 2026-10-22
 
+- [ ] Preserve glTF `COLOR_0` vertex alpha across the vertex format and render
+  paths. RGB import supports float/normalized integer VEC3/VEC4; non-opaque
+  vertex alpha currently emits an explicit warning (SPEC, Media formats).
+
 - [ ] The 2026-10-22 MX450 AO fixture added 3.5 ms (19.1 to 22.5 ms);
   the depth pre-pass is most of it: it costs 3.0 to 3.6 ms and saves 2.5 to
   3.8 ms of the opaque pass from one run to the next, so it does not always

@@ -64,6 +64,21 @@ before the first update. Corpse rendering and physics belong to the host.
 
 ## Use
 
+`Herds::hold(slot, identity, seconds)` temporarily stops a standing ground
+animal for a host interaction. It rejects stale identities, dead slots,
+nonpositive/nonfinite durations, air kinds and flight. Refresh it while an
+interaction lasts; after expiry normal behaviour resumes. It does not disable
+the resident or alter its visibility/persistence policy.
+
+`Companion.hpp` supplies a separate bounded ground follower. `Companion::update`
+takes a host-owned target, pace, hold state, optional clearance callback and
+target velocity. Pursuit limits acceleration, braking and angular speed;
+turns slow forward motion and stationary targets receive arrival braking.
+`angularSpeed` supports host-side presentation. Holds and blocked steps stop
+immediately; blocked steps remain in place and report `blocked`. The host routes
+and pauses the leader, chooses tether anchors, and owns presentation. Neither
+API assumes a species, actor system, skeleton or coordinate origin.
+
 ```cpp
 #include "saida/wildlife/Wildlife.hpp"
 

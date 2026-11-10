@@ -108,6 +108,7 @@ struct Animal {
     float targetElevation = 0.f;
     uint64_t perch = 0;
     bool flightInitialized = false;
+    float holdSeconds = 0.f;   // host interaction, only for standing ground kinds
 };
 
 // What can scare an animal: a walker, a car. `scale` multiplies every flee
@@ -185,6 +186,16 @@ public:
     const std::vector<Kind>& kinds() const { return kinds_; }
     const std::vector<Group>& groups() const { return groups_; }
     const std::vector<Animal>& animals() const { return animals_; }
+    // A temporary host interaction. Identity guards against a recycled slot;
+    // refresh while interacting and let it expire on interruption/unload.
+    bool hold(size_t slot, uint64_t identity, float seconds) {
+        if (slot >= animals_.size() || !std::isfinite(seconds) || seconds <= 0.f) return false;
+        auto& a = animals_[slot];
+        if (!a.alive || a.identity != identity || !kindOf(a).canStand ||
+            kindOf(a).surface != Surface::Ground || kindOf(a).flight.enabled) return false;
+        a.holdSeconds = std::max(a.holdSeconds, seconds);
+        return true;
+    }
     size_t live() const {
         size_t n = 0;
         for (const auto& a : animals_) n += a.alive;
@@ -356,6 +367,11 @@ private:
     void step(size_t index, float dt) {
         Animal& a = animals_[index];
         const Kind& k = kindOf(a);
+        if (a.holdSeconds > 0.f) {
+            a.holdSeconds = std::max(0.f, a.holdSeconds - dt);
+            a.state = State::Idle; a.speed = 0.f; a.timer = 0.f;
+            return;
+        }
         auto& g = state_[a.group];
         // Frights: the nearest threat inside the flee distance scares the group.
         if (k.fleeDistance > 0.f && k.flee != FleeStyle::None)

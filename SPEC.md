@@ -1262,6 +1262,10 @@ synchronously.
 - Audio: `.ogg` Vorbis recommended; `.wav` accepted. MP3 and FLAC not compiled.
 - Meshes: glTF/GLB and OBJ. Meshopt is decoded at import and exported from the
   import UI ("Export meshopt GLB", quantized + EXT_meshopt_compression).
+- glTF `COLOR_0` RGB is imported as linear vertex colour, for float and
+  normalized unsigned-byte/unsigned-short VEC3/VEC4 accessors, on both sync and
+  worker imports. Missing colour stays white. The vertex format stores RGB:
+  a VEC4 alpha other than one is ignored with an explicit import warning.
 - Textures: PNG/JPG (stbi) on all platforms — V1 decision: no KTX2/Basis (no
   heavy textured content that justifies the transcoder; P2).
 - Texture wrapping follows the glTF sampler: `CLAMP_TO_EDGE` on either axis
@@ -3220,6 +3224,18 @@ before updating a reset population.
 Verification is one translation unit with no engine build:
 `g++ -std=c++17 -O2 -Wall -I../include test_wildlife.cpp -o test_wildlife` in
 `plugins/wildlife/tests`, which prints `PASS saida::wildlife`.
+
+`Herds::hold(slot, identity, seconds)` holds a standing ground resident idle
+until expiry; stale identities, dead slots, invalid durations and air/flight
+kinds are rejected. Refreshing the hold extends it; retirement, membership and
+persistence keep their existing ownership. `Companion.hpp` adds a bounded
+ground follower with a host-supplied target, pace, hold flag, clearance callback
+and optional target velocity. Acceleration, braking and angular speed are
+bounded, tight turns reduce forward motion, and arrival braking applies to
+stationary targets. `angularSpeed` is available to presentation. Holds stop
+immediately. A blocked step stays in place; routing, leader waiting, tether
+geometry and actor selection belong to the host. R1World exercises both in
+its `world_dog_rules` headless contract test.
 
 Kinds may additionally enable `Kind::flight`. `Flight` configures cruise
 speed, bounded acceleration, climb and turn rates, altitude band, flight/rest
